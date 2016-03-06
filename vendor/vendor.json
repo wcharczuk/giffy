@@ -3,6 +3,16 @@
 	"ignore": "",
 	"package": [
 		{
+			"path": "github.com/blendlabs/go-assert",
+			"revision": "192dc078cd1c144e8fec85530e7d49325888c28c",
+			"revisionTime": "2016-01-29T09:15:17-08:00"
+		},
+		{
+			"path": "github.com/blendlabs/go-exception",
+			"revision": "4c5fb3b838fd613ec4fc4a78d60b972ff7a88ada",
+			"revisionTime": "2015-12-07T18:39:50-08:00"
+		},
+		{
 			"path": "github.com/blendlabs/spiffy",
 			"revision": "3777266315e0ad78ff4a3bd6643c86b0909be3f3",
 			"revisionTime": "2016-01-28T18:33:17-08:00"

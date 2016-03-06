@@ -21,7 +21,7 @@ test-bot:
 
 test-server:
 	@echo "$(OK_COLOR)==> Running Server Tests$(NO_COLOR)"
-	@sh ./_util/test.bash --root="./server" --package=$(package) --short --filter=${filter}
+	@bash ./_util/test.bash --root="./server" --package=$(package) --short --filter=${filter}
 	@echo "$(OK_COLOR)==> Running Server Tests Done!$(NO_COLOR)"
 
 cover-bot:
@@ -36,7 +36,7 @@ cover-server:
 
 db:
 	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
-	@genv -f="./_config/_config.json" sh ./server/_db/init.sh
+	@genv -f="./_config/config.json" sh ./server/_db/init.sh
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
 
 migrate:
