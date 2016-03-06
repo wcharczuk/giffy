@@ -1,0 +1,21 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"path": "github.com/blendlabs/spiffy",
+			"revision": "3777266315e0ad78ff4a3bd6643c86b0909be3f3",
+			"revisionTime": "2016-01-28T18:33:17-08:00"
+		},
+		{
+			"path": "github.com/lib/pq",
+			"revision": "69552e54d2a9d4c6a2438926a774930f7bc398ec",
+			"revisionTime": "2016-02-09T23:37:49+09:00"
+		},
+		{
+			"path": "github.com/wcharczuk/go-slack",
+			"revision": "0ae4b3fd82373845fbce3bf967b12eacf1236c24",
+			"revisionTime": "2016-02-03T16:47:18-08:00"
+		}
+	]
+}
