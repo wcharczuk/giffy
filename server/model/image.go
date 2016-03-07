@@ -11,7 +11,7 @@ import (
 )
 
 type Image struct {
-	ID          int64     `json:"-" db:"id"`
+	ID          int64     `json:"-" db:"id,pk,serial"`
 	UUID        string    `json:"uuid" db:"uuid"`
 	CreatedUTC  time.Time `json:"created_utc" db:"created_utc"`
 	CreatedBy   int64     `json:"created_by" db:"created_by"`
@@ -68,7 +68,7 @@ func GetAllImages(tx *sql.Tx) ([]Image, error) {
 
 func GetImageByID(id int64, tx *sql.Tx) (*Image, error) {
 	var image Image
-	err := spiffy.DefaultDb().GetByIdInTransaction(&image, tx, id)
+	err := spiffy.DefaultDb().GetByIDInTransaction(&image, tx, id)
 	return &image, err
 }
 
@@ -99,13 +99,13 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	query = `
 select 
 	t.* 
-	itv.image_id
+	, itv.image_id
 	, itv.votes_for
 	, itv.votes_against
 	, itv.votes_total
 from 
 	tag t
-	image_tag_votes itv on itv.tag_id = t.id
+	join image_tag_votes itv on itv.tag_id = t.id
 where 
 	itv.image_id = ANY($1::bigint[])`
 	err = spiffy.DefaultDb().QueryInTransaction(query, tx, idsCSV).OutMany(&tags)
@@ -127,17 +127,19 @@ where
 func QueryImages(query string, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 
+	queryFormat := fmt.Sprintf("%%%s%%", query)
+
 	imageQuery := `
 select 
 	i.id
 from 
-	images i
+	image i
 	join image_tag_votes itv on i.id = itv.image_id
-	join tag t on  = t.id = itv.tag_id
+	join tag t on t.id = itv.tag_id
 where
-	it.tag_value ilike "%$1%";
+	t.tag_value ilike $1;
 `
-	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query).OutMany(imageIDs)
+	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, queryFormat).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err

@@ -888,7 +888,7 @@ func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.
 	if len(serials.Columns) == 0 {
 		_, execErr := stmt.Exec(colValues...)
 		if execErr != nil {
-			return execErr
+			return exception.Wrap(execErr)
 		}
 	} else {
 		serial := serials.Columns[0]
@@ -919,6 +919,9 @@ func (dbAlias *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.
 	cols := NewColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
 	pks := cols.PrimaryKeys()
+	if len(pks) == nil {
+		return exception.New("Cannot update object; no primary keys marked.")
+	}
 	allCols := writeCols.ConcatWith(pks)
 
 	totalValues := allCols.ColumnValues(object)

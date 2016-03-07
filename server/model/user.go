@@ -9,7 +9,7 @@ import (
 )
 
 type User struct {
-	ID         int64     `json:"-" db:"id"`
+	ID         int64     `json:"-" db:"id,pk,serial"`
 	UUID       string    `json:"uuid" db:"uuid"`
 	CreatedUTC time.Time `json:"created_utc" db:"created_utc"`
 	Username   string    `json:"username" db:"username"`
@@ -36,7 +36,7 @@ func GetAllUsers(tx *sql.Tx) ([]User, error) {
 
 func GetUserByID(id int, tx *sql.Tx) (*User, error) {
 	var user User
-	err := spiffy.DefaultDb().GetByIdInTransaction(&user, tx, id)
+	err := spiffy.DefaultDb().GetByIDInTransaction(&user, tx, id)
 	return &user, err
 }
 

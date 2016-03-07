@@ -9,8 +9,8 @@ import (
 )
 
 type ImageTagVotes struct {
-	ImageID      int64     `json:"image_id" db:"image_id"`
-	TagID        int64     `json:"tag_id" db:"tag_id"`
+	ImageID      int64     `json:"image_id" db:"image_id,pk"`
+	TagID        int64     `json:"tag_id" db:"tag_id,pk"`
 	LastVoteUTC  time.Time `json:"last_vote_utc" db:"last_vote_utc"`
 	LastVoteBy   int64     `json:"last_vote_by" db:"last_vote_by"`
 	VotesFor     int       `json:"votes_for" db:"votes_for"`
@@ -38,19 +38,13 @@ func NewImageTagVote(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time, vo
 	}
 }
 
-func Vote(userID, imageID, tagID int64, isUpvote bool) error {
-	tx, txErr := spiffy.DefaultDb().Begin()
-	if txErr != nil {
-		return txErr
-	}
-
+func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 	existing, existingErr := GetImageTagVote(imageID, tagID, tx)
 	if existingErr != nil {
-		rollbackErr := spiffy.DefaultDb().Rollback(tx)
-		return exception.WrapMany(existingErr, rollbackErr)
+		return existingErr
 	}
 
-	if existing != nil && !exiting.IsZero() {
+	if existing != nil && !existing.IsZero() {
 		if isUpvote {
 			existing.VotesFor = existing.VotesFor + 1
 		} else {
@@ -60,24 +54,16 @@ func Vote(userID, imageID, tagID int64, isUpvote bool) error {
 		existing.LastVoteUTC = time.Now().UTC()
 		existing.VotesTotal = existing.VotesFor - existing.VotesAgainst
 
-		updateErr := spiffy.DefaultDb().UpdateInTransaction(object, tx)
+		updateErr := spiffy.DefaultDb().UpdateInTransaction(existing, tx)
 		if updateErr != nil {
-			rollbackErr := spiffy.DefaultDb().Rollback(tx)
-			return exception.WrapMany(updateErr, rollbackErr)
+			return updateErr
 		}
 
 		logEntry := NewVoteLog(userID, imageID, tagID, isUpvote)
-		entryErr := spiffy.DefaultDb().CreateInTransaction(&logEntry, tx)
-		if entryErr != nil {
-			rollbackErr := spiffy.DefaultDb().Rollback(tx)
-			return exception.WrapMany(entryErr, rollbackErr)
-		}
-	} else {
-		rollbackErr := spiffy.DefaultDb().Rollback(tx)
-		return exception.WrapMany(exception.New("Invalid schema state; no `image_tag_votes` for image."), rollbackErr)
+		return spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
 	}
 
-	return spiffy.DefaultDb().Commit(tx)
+	return exception.New("Invalid schema state; no `image_tag_votes` for image.")
 }
 
 func GetImageTagVote(imageID, tagID int64, tx *sql.Tx) (*ImageTagVotes, error) {

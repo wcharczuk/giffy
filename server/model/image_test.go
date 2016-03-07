@@ -36,6 +36,8 @@ func createTestTag(userID, imageID int64, tagValue string, tx *sql.Tx) (*Tag, er
 func createTestImage(userID int64, tx *sql.Tx) (*Image, error) {
 	i := NewImage()
 	i.CreatedBy = userID
+	i.UpdatedBy = userID
+	i.UpdatedUTC = time.Now().UTC()
 	i.Extension = "gif"
 	i.Width = 720
 	i.Height = 480
@@ -50,7 +52,7 @@ func createTestImage(userID int64, tx *sql.Tx) (*Image, error) {
 
 func createTestUser(tx *sql.Tx) (*User, error) {
 	u := NewUser()
-	u.Username = "__test_user__"
+	u.Username = fmt.Sprintf("__test_user_%s__", core.UUIDv4().ToShortString())
 	u.FirstName = "Test"
 	u.LastName = "User"
 	err := spiffy.DefaultDb().CreateInTransaction(u, tx)
@@ -62,6 +64,8 @@ func TestQueryImages(t *testing.T) {
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
+	spiffy.DefaultDb().IsolateToTransaction(tx)
+	defer spiffy.DefaultDb().ReleaseIsolation()
 
 	u, err := createTestUser(tx)
 	assert.Nil(err)
