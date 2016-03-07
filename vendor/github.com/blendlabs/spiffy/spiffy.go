@@ -13,16 +13,18 @@ import (
 	"sync"
 
 	"github.com/blendlabs/go-exception"
+
+	// PQ is the postgres driver
 	_ "github.com/lib/pq"
 )
 
-var metaCacheLock sync.Mutex = sync.Mutex{}
-var metaCache map[reflect.Type]columnCollection
+var metaCacheLock = sync.Mutex{}
+var metaCache map[reflect.Type]ColumnCollection
 
 var defaultAlias string
-var defaultAliasLock sync.Mutex = sync.Mutex{}
-var dbAliasesLock sync.Mutex = sync.Mutex{}
-var dbAliases map[string]*DbConnection = make(map[string]*DbConnection)
+var defaultAliasLock = sync.Mutex{}
+var dbAliasesLock = sync.Mutex{}
+var dbAliases = make(map[string]*DbConnection)
 
 // DatabaseMapped is the interface that any objects passed into database mapped methods like Create, Update, Delete, Get, GetAll etc.
 // The only required method is TableName() string that returns the name of the table in the database this type is mapped to.
@@ -38,7 +40,7 @@ type DatabaseMapped interface {
 	TableName() string
 }
 
-/// Populatable is an interface that you can implement if your object is read often and is performance critical
+// Populatable is an interface that you can implement if your object is read often and is performance critical.
 type Populatable interface {
 	Populate(rows *sql.Rows) error
 }
@@ -54,7 +56,7 @@ func CreateDbAlias(alias string, prototype *DbConnection) {
 	dbAliases[alias] = prototype
 }
 
-// Fetch a connection by its alias.
+// Alias fetches a connection by its alias.
 //
 //	spiffy.Alias("logging").Create(&object)
 //
@@ -63,7 +65,7 @@ func Alias(alias string) *DbConnection {
 	return dbAliases[alias]
 }
 
-// Sets an alias created with `CreateDbAlias` as default. This lets you refer to it later via. `DefaultDb()`
+// SetDefaultAlias sets an alias created with `CreateDbAlias` as default. This lets you refer to it later via. `DefaultDb()`
 //
 //	spiffy.CreateDbAlias("main", spiffy.NewDbConnection("localhost", "test_db", "", ""))
 //	spiffy.SetDefaultAlias("main")
@@ -76,7 +78,7 @@ func SetDefaultAlias(alias string) {
 	defaultAlias = alias
 }
 
-// Returns a reference to the DbConnection set as default.
+// DefaultDb returns a reference to the DbConnection set as default.
 //
 //	spiffy.DefaultDb().Exec("select 'ok!")
 //
@@ -88,7 +90,7 @@ func DefaultDb() *DbConnection {
 	return nil
 }
 
-// Creates a new DbConnection without Username or Password or SSLMode
+// NewUnauthenticatedDbConnection creates a new DbConnection without Username or Password or SSLMode
 func NewUnauthenticatedDbConnection(host, schema string) *DbConnection {
 	conn := &DbConnection{}
 	conn.Host = host
@@ -99,7 +101,7 @@ func NewUnauthenticatedDbConnection(host, schema string) *DbConnection {
 	return conn
 }
 
-// Creates a new connection with SSLMode set to "disable"
+// NewDbConnection creates a new connection with SSLMode set to "disable"
 func NewDbConnection(host, schema, username, password string) *DbConnection {
 	conn := &DbConnection{}
 	conn.Host = host
@@ -110,14 +112,14 @@ func NewDbConnection(host, schema, username, password string) *DbConnection {
 	return conn
 }
 
-// Creates a new connection with SSLMode set to "disable"
+// NewDbConnectionFromDSN creates a new connection with SSLMode set to "disable"
 func NewDbConnectionFromDSN(dsn string) *DbConnection {
 	conn := &DbConnection{}
 	conn.DSN = dsn
 	return conn
 }
 
-// Creates a new connection with all available options (including SSLMode)
+// NewSSLDbConnection creates a new connection with all available options (including SSLMode)
 func NewSSLDbConnection(host, schema, username, password, sslMode string) *DbConnection {
 	conn := &DbConnection{}
 	conn.Host = host
@@ -144,7 +146,38 @@ type DbConnection struct {
 // Column
 // --------------------------------------------------------------------------------
 
-type column struct {
+// NewColumnFromFieldTag reads the contents of a field tag, ex: `json:"foo" db:"bar,isprimarykey,isserial"
+func NewColumnFromFieldTag(field reflect.StructField) *Column {
+	db := field.Tag.Get("db")
+	if db != "-" {
+		col := Column{}
+		col.FieldName = field.Name
+		col.ColumnName = strings.ToLower(field.Name)
+		col.FieldType = field.Type
+		if db != "" {
+			pieces := strings.Split(db, ",")
+
+			if !strings.HasPrefix(db, ",") {
+				col.ColumnName = pieces[0]
+			}
+
+			if len(pieces) >= 1 {
+				args := strings.Join(pieces[1:], ",")
+				col.IsPrimaryKey = strings.Contains(strings.ToLower(args), "pk")
+				col.IsSerial = strings.Contains(strings.ToLower(args), "serial")
+				col.IsNullable = strings.Contains(strings.ToLower(args), "nullable")
+				col.IsReadOnly = strings.Contains(strings.ToLower(args), "readonly")
+				col.IsJSON = strings.Contains(strings.ToLower(args), "json")
+			}
+		}
+		return &col
+	}
+
+	return nil
+}
+
+// Column represents a single field on a struct that is mapped to the database.
+type Column struct {
 	TableName    string
 	FieldName    string
 	FieldType    reflect.Type
@@ -154,17 +187,18 @@ type column struct {
 	IsSerial     bool
 	IsNullable   bool
 	IsReadOnly   bool
-	IsJson       bool
+	IsJSON       bool
 }
 
-func (c column) SetValue(object DatabaseMapped, value interface{}) error {
+// SetValue sets the field on a database mapped object to the instance of `value`.
+func (c Column) SetValue(object DatabaseMapped, value interface{}) error {
 	objValue := reflectValue(object)
 	field := objValue.FieldByName(c.FieldName)
 	fieldType := field.Type()
 	if field.CanSet() {
 		valueReflected := reflectValue(value)
 		if valueReflected.IsValid() {
-			if c.IsJson {
+			if c.IsJSON {
 				valueAsString, ok := valueReflected.Interface().(string)
 				if ok && len(valueAsString) != 0 {
 					fieldAddr := field.Addr().Interface()
@@ -206,7 +240,8 @@ func (c column) SetValue(object DatabaseMapped, value interface{}) error {
 	return nil
 }
 
-func (c column) GetValue(object DatabaseMapped) interface{} {
+// GetValue returns the value for a column on a given database mapped object.
+func (c Column) GetValue(object DatabaseMapped) interface{} {
 	value := reflectValue(object)
 	valueField := value.Field(c.Index)
 	return valueField.Interface()
@@ -216,14 +251,10 @@ func (c column) GetValue(object DatabaseMapped) interface{} {
 // Column Collection
 // --------------------------------------------------------------------------------
 
-type columnCollection struct {
-	Columns []column
-	Lookup  map[string]*column
-}
-
-func newColumnCollection(columns []column) columnCollection {
-	cc := columnCollection{Columns: columns}
-	lookup := make(map[string]*column)
+// NewColumnCollection creates a column lookup for a slice of columns.
+func NewColumnCollection(columns []Column) ColumnCollection {
+	cc := ColumnCollection{Columns: columns}
+	lookup := make(map[string]*Column)
 	for i := 0; i < len(columns); i++ {
 		col := &columns[i]
 		lookup[col.ColumnName] = col
@@ -232,72 +263,126 @@ func newColumnCollection(columns []column) columnCollection {
 	return cc
 }
 
-//things we use as where predicates and can't update
-func (cc columnCollection) PrimaryKeys() columnCollection {
-	var cols []column
+// NewColumnCollectionFromInstance reflects an object instance into a new column collection.
+func NewColumnCollectionFromInstance(object DatabaseMapped) ColumnCollection {
+	return NewColumnCollectionFromType(reflect.TypeOf(object))
+}
+
+// NewColumnCollectionFromType reflects a reflect.Type into a column collection.
+// The results of this are cached for speed.
+func NewColumnCollectionFromType(t reflect.Type) ColumnCollection {
+	metaCacheLock.Lock()
+	defer metaCacheLock.Unlock()
+
+	if metaCache == nil {
+		metaCache = map[reflect.Type]ColumnCollection{}
+	}
+
+	if _, ok := metaCache[t]; !ok {
+		metaCache[t] = CreateColumnsByType(t)
+	}
+	return metaCache[t]
+}
+
+// CreateColumnsByType reflects a new column collection from a reflect.Type.
+func CreateColumnsByType(t reflect.Type) ColumnCollection {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	tableName, _ := TableName(t)
+	numFields := t.NumField()
+
+	var cols []Column
+	for index := 0; index < numFields; index++ {
+		field := t.Field(index)
+		if !field.Anonymous {
+			col := NewColumnFromFieldTag(field)
+			if col != nil {
+				col.Index = index
+				col.TableName = tableName
+				cols = append(cols, *col)
+			}
+		}
+	}
+
+	return NewColumnCollection(cols)
+}
+
+// ColumnCollection represents the column metadata for a given struct.
+type ColumnCollection struct {
+	Columns []Column
+	Lookup  map[string]*Column
+}
+
+// PrimaryKeys are columns we use as where predicates and can't update.
+func (cc ColumnCollection) PrimaryKeys() ColumnCollection {
+	var cols []Column
 	for _, c := range cc.Columns {
 		if c.IsPrimaryKey {
 			cols = append(cols, c)
 		}
 	}
-	return newColumnCollection(cols)
+	return NewColumnCollection(cols)
 }
 
-//things we can update
-func (cc columnCollection) NotPrimaryKeys() columnCollection {
-	var cols []column
+// NotPrimaryKeys are columns we can update.
+func (cc ColumnCollection) NotPrimaryKeys() ColumnCollection {
+	var cols []Column
 	for _, c := range cc.Columns {
 		if !c.IsPrimaryKey {
 			cols = append(cols, c)
 		}
 	}
-	return newColumnCollection(cols)
+	return NewColumnCollection(cols)
 }
 
-//things we have to return the id of ...
-func (cc columnCollection) Serials() columnCollection {
-	var cols []column
+// Serials are columns we have to return the id of.
+func (cc ColumnCollection) Serials() ColumnCollection {
+	var cols []Column
 	for _, c := range cc.Columns {
 		if c.IsSerial {
 			cols = append(cols, c)
 		}
 	}
-	return newColumnCollection(cols)
+	return NewColumnCollection(cols)
 }
 
-//things we don't have to return the id of ...
-func (cc columnCollection) NotSerials() columnCollection {
-	var cols []column
+// NotSerials are columns we don't have to return the id of.
+func (cc ColumnCollection) NotSerials() ColumnCollection {
+	var cols []Column
 	for _, c := range cc.Columns {
 		if !c.IsSerial {
 			cols = append(cols, c)
 		}
 	}
-	return newColumnCollection(cols)
+	return NewColumnCollection(cols)
 }
 
-//a.k.a. not things we insert
-func (cc columnCollection) ReadOnly() columnCollection {
-	var cols []column
+// ReadOnly are columns that we don't have to insert upon Create().
+func (cc ColumnCollection) ReadOnly() ColumnCollection {
+	var cols []Column
 	for _, c := range cc.Columns {
 		if c.IsReadOnly {
 			cols = append(cols, c)
 		}
 	}
-	return newColumnCollection(cols)
+	return NewColumnCollection(cols)
 }
 
-func (cc columnCollection) NotReadonly() columnCollection {
-	var cols []column
+// NotReadOnly are columns that we have to insert upon Create().
+func (cc ColumnCollection) NotReadOnly() ColumnCollection {
+	var cols []Column
 	for _, c := range cc.Columns {
 		if !c.IsReadOnly {
 			cols = append(cols, c)
 		}
 	}
-	return newColumnCollection(cols)
+	return NewColumnCollection(cols)
 }
 
-func (cc columnCollection) ColumnNames() []string {
+// ColumnNames returns the string names for all the columns in the collection.
+func (cc ColumnCollection) ColumnNames() []string {
 	var names []string
 	for _, c := range cc.Columns {
 		names = append(names, c.ColumnName)
@@ -305,13 +390,14 @@ func (cc columnCollection) ColumnNames() []string {
 	return names
 }
 
-func (cc columnCollection) ColumnValues(instance interface{}) []interface{} {
+// ColumnValues returns the reflected value for all the columns on a given instance.
+func (cc ColumnCollection) ColumnValues(instance interface{}) []interface{} {
 	value := reflectValue(instance)
 
 	var values []interface{}
 	for _, c := range cc.Columns {
 		valueField := value.FieldByName(c.FieldName)
-		if c.IsJson {
+		if c.IsJSON {
 			toSerialize := valueField.Interface()
 			jsonBytes, _ := json.Marshal(toSerialize)
 			values = append(values, string(jsonBytes))
@@ -323,7 +409,8 @@ func (cc columnCollection) ColumnValues(instance interface{}) []interface{} {
 	return values
 }
 
-func (cc columnCollection) FirstOrDefault() *column {
+// FirstOrDefault returns the first column in the collection or `nil` if the collection is empty.
+func (cc ColumnCollection) FirstOrDefault() *Column {
 	if len(cc.Columns) > 0 {
 		col := cc.Columns[0]
 		return &col
@@ -331,24 +418,27 @@ func (cc columnCollection) FirstOrDefault() *column {
 	return nil
 }
 
-func (cc columnCollection) ConcatWith(other columnCollection) columnCollection {
-	var total []column
+// ConcatWith merges a collection with another collection.
+func (cc ColumnCollection) ConcatWith(other ColumnCollection) ColumnCollection {
+	var total []Column
 	total = append(total, cc.Columns...)
 	total = append(total, other.Columns...)
-	return newColumnCollection(total)
+	return NewColumnCollection(total)
 }
 
 // --------------------------------------------------------------------------------
 // Query Result
 // --------------------------------------------------------------------------------
 
-type queryResult struct {
+// QueryResult is the intermediate result of a query.
+type QueryResult struct {
 	Rows  *sql.Rows
 	Stmt  *sql.Stmt
 	Error error
 }
 
-func (q *queryResult) cleanup() error {
+// Close closes and releases any resources retained by the QueryResult.
+func (q *QueryResult) Close() error {
 	if q.Rows != nil {
 		if closeErr := q.Rows.Close(); closeErr != nil {
 			return exception.WrapMany(q.Error, closeErr)
@@ -363,59 +453,89 @@ func (q *queryResult) cleanup() error {
 	return exception.Wrap(q.Error)
 }
 
-func (q *queryResult) Scan(args ...interface{}) error {
+// Any returns if there are any results for the query.
+func (q *QueryResult) Any() (bool, error) {
 	if q.Error != nil {
-		return q.cleanup()
+		return false, q.Close()
+	}
+	hasRows := q.Rows.Next()
+	q.Error = q.Rows.Err()
+
+	return hasRows, q.Close()
+}
+
+// None returns if there are no results for the query.
+func (q *QueryResult) None() (bool, error) {
+	if q.Error != nil {
+		return false, q.Close()
+	}
+	hasNoRows := !q.Rows.Next()
+	q.Error = q.Rows.Err()
+
+	return hasNoRows, q.Close()
+}
+
+// Scan writes the results to a given set of local variables.
+func (q *QueryResult) Scan(args ...interface{}) error {
+	if q.Error != nil {
+		return q.Close()
 	}
 
 	if q.Rows.Next() {
 		err := q.Rows.Scan(args...)
 		if err != nil {
 			q.Error = err
-			return q.cleanup()
+			return q.Close()
 		}
 	}
 
 	q.Error = q.Rows.Err()
-	return q.cleanup()
+	return q.Close()
 }
 
-func (q *queryResult) Out(object DatabaseMapped) error {
+// Out writes the query result to a single object via. reflection mapping.
+func (q *QueryResult) Out(object DatabaseMapped) error {
 	if q.Error != nil {
-		return q.cleanup()
+		return q.Close()
 	}
 
-	meta := getColumns(object)
+	meta := NewColumnCollectionFromInstance(object)
 
 	if q.Rows.Next() {
-		popErr := populateByName(object, q.Rows, meta)
+		popErr := PopulateByName(object, q.Rows, meta)
 		if popErr != nil {
 			q.Error = popErr
-			return q.cleanup()
+			return q.Close()
 		}
 	}
 
 	q.Error = q.Rows.Err()
-	return q.cleanup()
+	return q.Close()
 }
 
-func (q *queryResult) OutMany(collection interface{}) error {
+// OutMany writes the query results to a slice of objects.
+func (q *QueryResult) OutMany(collection interface{}) error {
 	if q.Error != nil {
-		return q.cleanup()
+		return q.Close()
 	}
 
-	collectionValue := reflectValue(collection)
-	t := reflectSliceType(collection)
 	sliceType := reflectType(collection)
-	meta := getColumnsByType(t)
+	if sliceType.Kind() != reflect.Slice {
+		return exception.New("Destination collection is not a slice.")
+	}
+
+	sliceInnerType := reflectSliceType(collection)
+	collectionValue := reflectValue(collection)
+
+	meta := NewColumnCollectionFromType(sliceInnerType)
 
 	didSetRows := false
 	for q.Rows.Next() {
-		newObj := makeNew(t)
-		popErr := populateByName(newObj, q.Rows, meta)
+		newObj, _ := MakeNew(sliceInnerType)
+		popErr := PopulateByName(newObj, q.Rows, meta)
 		if popErr != nil {
 			q.Error = popErr
-			return q.cleanup()
+			return q.Close()
 		}
 		newObjValue := reflectValue(newObj)
 		collectionValue.Set(reflect.Append(collectionValue, newObjValue))
@@ -426,14 +546,14 @@ func (q *queryResult) OutMany(collection interface{}) error {
 		collectionValue.Set(reflect.MakeSlice(sliceType, 0, 0))
 	}
 	q.Error = q.Rows.Err()
-	return q.cleanup()
+	return q.Close()
 }
 
 // --------------------------------------------------------------------------------
 // DbConnection
 // --------------------------------------------------------------------------------
 
-// Returns a sql connection string from a given set of DbConnection parameters
+// CreatePostgresConnectionString returns a sql connection string from a given set of DbConnection parameters.
 func (dbAlias *DbConnection) CreatePostgresConnectionString() string {
 	if len(dbAlias.DSN) != 0 {
 		return dbAlias.DSN
@@ -446,30 +566,28 @@ func (dbAlias *DbConnection) CreatePostgresConnectionString() string {
 	if dbAlias.Username != "" {
 		if dbAlias.Password != "" {
 			return fmt.Sprintf("postgres://%s:%s@%s/%s%s", dbAlias.Username, dbAlias.Password, dbAlias.Host, dbAlias.Schema, sslMode)
-		} else {
-			return fmt.Sprintf("postgres://%s@%s/%s%s", dbAlias.Username, dbAlias.Host, dbAlias.Schema, sslMode)
 		}
-	} else {
-		return fmt.Sprintf("postgres://%s/%s%s", dbAlias.Host, dbAlias.Schema, sslMode)
+		return fmt.Sprintf("postgres://%s@%s/%s%s", dbAlias.Username, dbAlias.Host, dbAlias.Schema, sslMode)
 	}
+	return fmt.Sprintf("postgres://%s/%s%s", dbAlias.Host, dbAlias.Schema, sslMode)
 }
 
-// Isolates a DbConnection, globally, to a transaction. This means that any operations called after this method will use the same transaction.
+// IsolateToTransaction isolates a DbConnection, globally, to a transaction. This means that any operations called after this method will use the same transaction.
 func (dbAlias *DbConnection) IsolateToTransaction(tx *sql.Tx) {
 	dbAlias.Tx = tx
 }
 
-// Releases an isolation, does not commit or rollback.
+// ReleaseIsolation releases an isolation, does not commit or rollback.
 func (dbAlias *DbConnection) ReleaseIsolation() {
 	dbAlias.Tx = nil
 }
 
-// Indicates if a connection is isolated to a transaction.
+// IsIsolatedToTransaction indicates if a connection is isolated to a transaction.
 func (dbAlias *DbConnection) IsIsolatedToTransaction() bool {
 	return dbAlias.Tx != nil
 }
 
-// Starts a new transaction.
+// Begin starts a new transaction.
 func (dbAlias *DbConnection) Begin() (*sql.Tx, error) {
 	if dbAlias == nil {
 		return nil, exception.New("`dbAlias` is uninitialized, cannot continue.")
@@ -491,7 +609,31 @@ func (dbAlias *DbConnection) Begin() (*sql.Tx, error) {
 	}
 }
 
-// Performs the given action wrapped in a transaction. Will Commit() on success and Rollback() on a non-nil error returned.
+// Rollback rolls a given transaction back handling cases where the connection is already isolated.
+func (dbAlias *DbConnection) Rollback(tx *sql.Tx) error {
+	if dbAlias == nil {
+		return exception.New("`dbAlias` is uninitialized, cannot rollback.")
+	}
+
+	if dbAlias.Tx != nil {
+		return nil
+	}
+	return tx.Rollback()
+}
+
+// Commit commits a given transaction handling cases where the connection is already isolated.'
+func (dbAlias *DbConnection) Commit(tx *sql.Tx) error {
+	if dbAlias == nil {
+		return exception.New("`dbAlias` is uninitialized, cannot commit.")
+	}
+
+	if dbAlias.Tx != nil {
+		return nil
+	}
+	return tx.Commit()
+}
+
+// WrapInTransaction performs the given action wrapped in a transaction. Will Commit() on success and Rollback() on a non-nil error returned.
 func (dbAlias *DbConnection) WrapInTransaction(action func(*sql.Tx) error) error {
 	tx, err := dbAlias.Begin()
 	if err != nil {
@@ -504,16 +646,15 @@ func (dbAlias *DbConnection) WrapInTransaction(action func(*sql.Tx) error) error
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return exception.WrapMany(rollbackErr, err)
-		} else {
-			return exception.Wrap(err)
 		}
+		return exception.Wrap(err)
 	} else if commitErr := tx.Commit(); commitErr != nil {
 		return exception.Wrap(commitErr)
 	}
 	return nil
 }
 
-// Prepares a new statement for the connection.
+// Prepare prepares a new statement for the connection.
 func (dbAlias *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error) {
 	if tx == nil {
 		if dbAlias == nil {
@@ -521,55 +662,58 @@ func (dbAlias *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, e
 		}
 
 		if dbAlias.Tx != nil {
-			if stmt, stmtErr := dbAlias.Tx.Prepare(statement); stmtErr != nil {
+			stmt, stmtErr := dbAlias.Tx.Prepare(statement)
+			if stmtErr != nil {
 				return nil, exception.Newf("Postgres Error: %v", stmtErr)
-			} else {
-				return stmt, nil
 			}
-		} else {
-			if dbConn, dbErr := dbAlias.Open(); dbErr != nil {
-				return nil, exception.Newf("Postgres Error: %v", dbErr)
-			} else {
-				if stmt, stmtErr := dbConn.Prepare(statement); stmtErr != nil {
-					return nil, exception.Newf("Postgres Error: %v", stmtErr)
-				} else {
-					return stmt, nil
-				}
-			}
-		}
-	} else {
-		if stmt, stmtErr := tx.Prepare(statement); stmtErr != nil {
-			return nil, exception.Newf("Postgres Error: %v", stmtErr)
-		} else {
 			return stmt, nil
 		}
 
+		dbConn, dbErr := dbAlias.Open()
+		if dbErr != nil {
+			return nil, exception.Newf("Postgres Error: %v", dbErr)
+		}
+		stmt, stmtErr := dbConn.Prepare(statement)
+		if stmtErr != nil {
+			return nil, exception.Newf("Postgres Error: %v", stmtErr)
+		}
+		return stmt, nil
 	}
+
+	stmt, stmtErr := tx.Prepare(statement)
+	if stmtErr != nil {
+		return nil, exception.Newf("Postgres Error: %v", stmtErr)
+	}
+	return stmt, nil
 }
 
+// OpenNew returns a new connection object.
 func (dbAlias *DbConnection) OpenNew() (*sql.DB, error) {
-	if dbConn, err := sql.Open("postgres", dbAlias.CreatePostgresConnectionString()); err != nil {
+	dbConn, err := sql.Open("postgres", dbAlias.CreatePostgresConnectionString())
+	if err != nil {
 		return nil, exception.Wrap(err)
-	} else {
-		return dbConn, nil
 	}
+	return dbConn, nil
 }
 
+// Open returns a connection object, either a cached connection object or creating a new one in the process.
 func (dbAlias *DbConnection) Open() (*sql.DB, error) {
 	if dbAlias.Connection == nil {
-		if newConn, err := dbAlias.OpenNew(); err != nil {
+		newConn, err := dbAlias.OpenNew()
+		if err != nil {
 			return nil, exception.Wrap(err)
-		} else {
-			dbAlias.Connection = newConn
 		}
+		dbAlias.Connection = newConn
 	}
 	return dbAlias.Connection, nil
 }
 
+// Exec runs the statement without creating a QueryResult.
 func (dbAlias *DbConnection) Exec(statement string, args ...interface{}) error {
 	return dbAlias.ExecInTransaction(statement, nil, args...)
 }
 
+// ExecInTransaction runs a statement within a transaction.
 func (dbAlias *DbConnection) ExecInTransaction(statement string, tx *sql.Tx, args ...interface{}) error {
 	stmt, stmtErr := dbAlias.Prepare(statement, tx)
 	if stmtErr != nil {
@@ -584,12 +728,14 @@ func (dbAlias *DbConnection) ExecInTransaction(statement string, tx *sql.Tx, arg
 	return nil
 }
 
-func (dbAlias *DbConnection) Query(statement string, args ...interface{}) *queryResult {
+// Query runs the selected statement and returns a QueryResult.
+func (dbAlias *DbConnection) Query(statement string, args ...interface{}) *QueryResult {
 	return dbAlias.QueryInTransaction(statement, nil, args...)
 }
 
-func (dbAlias *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, args ...interface{}) *queryResult {
-	result := queryResult{}
+// QueryInTransaction runs the selected statement in a transaction and returns a QueryResult.
+func (dbAlias *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, args ...interface{}) *QueryResult {
+	result := QueryResult{}
 
 	stmt, stmtErr := dbAlias.Prepare(statement, tx)
 	if stmtErr != nil {
@@ -611,17 +757,19 @@ func (dbAlias *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, ar
 	return &result
 }
 
-func (dbAlias *DbConnection) GetById(object DatabaseMapped, ids ...interface{}) error {
-	return dbAlias.GetByIdInTransaction(object, nil, ids...)
+// GetByID returns a given object based on a group of primary key ids.
+func (dbAlias *DbConnection) GetByID(object DatabaseMapped, ids ...interface{}) error {
+	return dbAlias.GetByIDInTransaction(object, nil, ids...)
 }
 
-func (dbAlias *DbConnection) GetByIdInTransaction(object DatabaseMapped, tx *sql.Tx, ids ...interface{}) error {
+// GetByIDInTransaction returns a given object based on a group of primary key ids within a transaction.
+func (dbAlias *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql.Tx, ids ...interface{}) error {
 	if ids == nil {
 		return exception.New("invalid `ids` parameter.")
 	}
 
-	meta := getColumns(object)
-	standardCols := meta.NotReadonly()
+	meta := NewColumnCollectionFromInstance(object)
+	standardCols := meta.NotReadOnly()
 	columnNames := standardCols.ColumnNames()
 	tableName := object.TableName()
 	pks := standardCols.PrimaryKeys()
@@ -646,7 +794,7 @@ func (dbAlias *DbConnection) GetByIdInTransaction(object DatabaseMapped, tx *sql
 	defer rows.Close()
 
 	for rows.Next() {
-		if popErr := populateInOrder(object, rows, standardCols); popErr != nil {
+		if popErr := PopulateInOrder(object, rows, standardCols); popErr != nil {
 			return exception.Wrap(popErr)
 		}
 	}
@@ -654,15 +802,17 @@ func (dbAlias *DbConnection) GetByIdInTransaction(object DatabaseMapped, tx *sql
 	return exception.Wrap(rows.Err())
 }
 
+// GetAll returns all rows of an object mapped table.
 func (dbAlias *DbConnection) GetAll(collection interface{}) error {
 	return dbAlias.GetAllInTransaction(collection, nil)
 }
 
+// GetAllInTransaction returns all rows of an object mapped table wrapped in a transaction.
 func (dbAlias *DbConnection) GetAllInTransaction(collection interface{}, tx *sql.Tx) error {
 	collectionValue := reflectValue(collection)
 	t := reflectSliceType(collection)
-	tableName := tableName(t)
-	meta := getColumnsByType(t).NotReadonly()
+	tableName, _ := TableName(t)
+	meta := NewColumnCollectionFromType(t).NotReadOnly()
 
 	columnNames := meta.ColumnNames()
 
@@ -681,8 +831,8 @@ func (dbAlias *DbConnection) GetAllInTransaction(collection interface{}, tx *sql
 	defer rows.Close()
 
 	for rows.Next() {
-		newObj := makeNew(t)
-		popErr := populateInOrder(newObj, rows, meta)
+		newObj, _ := MakeNew(t)
+		popErr := PopulateInOrder(newObj, rows, meta)
 		if popErr != nil {
 			return exception.Wrap(popErr)
 		}
@@ -693,13 +843,15 @@ func (dbAlias *DbConnection) GetAllInTransaction(collection interface{}, tx *sql
 	return exception.Wrap(rows.Err())
 }
 
+// Create writes an object to the database.
 func (dbAlias *DbConnection) Create(object DatabaseMapped) error {
 	return dbAlias.CreateInTransaction(object, nil)
 }
 
+// CreateInTransaction writes an object to the database within a transaction.
 func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) error {
-	cols := getColumns(object)
-	writeCols := cols.NotReadonly().NotSerials()
+	cols := NewColumnCollectionFromInstance(object)
+	writeCols := cols.NotReadOnly().NotSerials()
 
 	//NOTE: we're only using one.
 	serials := cols.Serials()
@@ -755,15 +907,17 @@ func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.
 	return nil
 }
 
+// Update updates an object.
 func (dbAlias *DbConnection) Update(object DatabaseMapped) error {
 	return dbAlias.UpdateInTransaction(object, nil)
 }
 
+// UpdateInTransaction updates an object wrapped in a transaction.
 func (dbAlias *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.Tx) error {
 	tableName := object.TableName()
 
-	cols := getColumns(object)
-	writeCols := cols.NotReadonly().NotSerials().NotPrimaryKeys()
+	cols := NewColumnCollectionFromInstance(object)
+	writeCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
 	pks := cols.PrimaryKeys()
 	allCols := writeCols.ConcatWith(pks)
 
@@ -797,13 +951,15 @@ func (dbAlias *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.
 	return nil
 }
 
+// Exists returns a bool if a given object exists (utilizing the primary key columns if they exist).
 func (dbAlias *DbConnection) Exists(object DatabaseMapped) (bool, error) {
 	return dbAlias.ExistsInTransaction(object, nil)
 }
 
+// ExistsInTransaction returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
 func (dbAlias *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.Tx) (bool, error) {
 	tableName := object.TableName()
-	cols := getColumns(object)
+	cols := NewColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
 	if len(pks.Columns) == 0 {
@@ -827,13 +983,15 @@ func (dbAlias *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.
 	return exists, nil
 }
 
+// Delete deletes an object from the database.
 func (dbAlias *DbConnection) Delete(object DatabaseMapped) error {
 	return dbAlias.DeleteInTransaction(object, nil)
 }
 
+// DeleteInTransaction deletes an object from the database wrapped in a transaction.
 func (dbAlias *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.Tx) error {
 	tableName := object.TableName()
-	cols := getColumns(object)
+	cols := NewColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
 	if len(pks.Columns) == 0 {
@@ -859,6 +1017,7 @@ func (dbAlias *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.
 // Utility Methods
 // --------------------------------------------------------------------------------
 
+// reflectValue returns the reflect.Value for an object following pointers.
 func reflectValue(obj interface{}) reflect.Value {
 	v := reflect.ValueOf(obj)
 	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
@@ -867,6 +1026,7 @@ func reflectValue(obj interface{}) reflect.Value {
 	return v
 }
 
+// reflectType retruns the reflect.Type for an object following pointers.
 func reflectType(obj interface{}) reflect.Type {
 	t := reflect.TypeOf(obj)
 	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Interface {
@@ -876,6 +1036,7 @@ func reflectType(obj interface{}) reflect.Type {
 	return t
 }
 
+// reflectSliceType returns the inner type of a slice following pointers.
 func reflectSliceType(collection interface{}) reflect.Type {
 	t := reflect.TypeOf(collection)
 	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Interface || t.Kind() == reflect.Slice {
@@ -885,10 +1046,11 @@ func reflectSliceType(collection interface{}) reflect.Type {
 	return t
 }
 
-func makeWhereClause(pks columnCollection, start_at int) string {
+// makeWhereClause returns the sql `where` clause for a column collection, starting at a given index (used in sql $1 parameterization).
+func makeWhereClause(pks ColumnCollection, startAt int) string {
 	whereClause := " WHERE "
 	for i, pk := range pks.Columns {
-		whereClause = whereClause + fmt.Sprintf("%s = %s", pk.ColumnName, "$"+strconv.Itoa(i+start_at))
+		whereClause = whereClause + fmt.Sprintf("%s = %s", pk.ColumnName, "$"+strconv.Itoa(i+startAt))
 		if i < (len(pks.Columns) - 1) {
 			whereClause = whereClause + " AND "
 		}
@@ -897,6 +1059,7 @@ func makeWhereClause(pks columnCollection, start_at int) string {
 	return whereClause
 }
 
+// makeCsvTokens returns a csv token string in the form "$1,$2,$3...$N"
 func makeCsvTokens(num int) string {
 	str := ""
 	for i := 1; i <= num; i++ {
@@ -908,24 +1071,36 @@ func makeCsvTokens(num int) string {
 	return str
 }
 
-func tableName(t reflect.Type) string {
-	return makeNew(t).TableName()
+// TableName returns the table name for a given reflect.Type by instantiating it and calling o.TableName().
+// The type must implement DatabaseMapped or an exception will be returned.
+func TableName(t reflect.Type) (string, error) {
+	i, err := MakeNew(t)
+	if err == nil {
+		return i.TableName(), nil
+	}
+	return "", err
 }
 
-func makeNew(t reflect.Type) DatabaseMapped {
+// MakeNew returns a new instance of a database mapped type.
+func MakeNew(t reflect.Type) (DatabaseMapped, error) {
 	newInterface := reflect.New(t).Interface()
-	return newInterface.(DatabaseMapped)
+	if typed, isTyped := newInterface.(DatabaseMapped); isTyped {
+		return typed.(DatabaseMapped), nil
+	}
+	return nil, exception.New("`t` does not implement DatabaseMapped.")
 }
 
 func makeSliceOfType(t reflect.Type) interface{} {
 	return reflect.New(reflect.SliceOf(t)).Interface()
 }
 
-func populate(object DatabaseMapped, row *sql.Rows) error {
-	return populateByName(object, row, getColumns(object))
+// Populate puts the contents of a sql.Rows object into a mapped object using magic reflection.
+func Populate(object DatabaseMapped, row *sql.Rows) error {
+	return PopulateByName(object, row, NewColumnCollectionFromInstance(object))
 }
 
-func populateByName(object DatabaseMapped, row *sql.Rows, cols columnCollection) error {
+// PopulateByName sets the values of an object from the values of a sql.Rows object using column names.
+func PopulateByName(object DatabaseMapped, row *sql.Rows, cols ColumnCollection) error {
 	if populatable, isPopulatable := object.(Populatable); isPopulatable {
 		return populatable.Populate(row)
 	}
@@ -940,7 +1115,7 @@ func populateByName(object DatabaseMapped, row *sql.Rows, cols columnCollection)
 
 	for i, name := range rowColumns {
 		if col, ok := cols.Lookup[name]; ok {
-			if col.IsJson {
+			if col.IsJSON {
 				str := ""
 				values[i] = &str
 			} else {
@@ -972,8 +1147,10 @@ func populateByName(object DatabaseMapped, row *sql.Rows, cols columnCollection)
 	return nil
 }
 
-func populateInOrder(object DatabaseMapped, row *sql.Rows, cols columnCollection) error {
-
+// PopulateInOrder sets the values of an object in order from a sql.Rows object.
+// Only use this method if you're certain of the column order. It is faster than populateByName.
+// Optionally if your object implements Populatable this process will be skipped completely, which is even faster.
+func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols ColumnCollection) error {
 	if populatable, isPopulatable := object.(Populatable); isPopulatable {
 		return populatable.Populate(row)
 	}
@@ -982,19 +1159,19 @@ func populateInOrder(object DatabaseMapped, row *sql.Rows, cols columnCollection
 
 	for i, col := range cols.Columns {
 		if col.FieldType.Kind() == reflect.Ptr {
-			if col.IsJson {
+			if col.IsJSON {
 				str := ""
 				values[i] = &str
 			} else {
-				blank_ptr := reflect.New(reflect.PtrTo(col.FieldType))
-				if blank_ptr.CanAddr() {
-					values[i] = blank_ptr.Addr()
+				blankPtr := reflect.New(reflect.PtrTo(col.FieldType))
+				if blankPtr.CanAddr() {
+					values[i] = blankPtr.Addr()
 				} else {
-					values[i] = blank_ptr.Interface()
+					values[i] = blankPtr.Interface()
 				}
 			}
 		} else {
-			if col.IsJson {
+			if col.IsJSON {
 				str := ""
 				values[i] = &str
 			} else {
@@ -1015,78 +1192,6 @@ func populateInOrder(object DatabaseMapped, row *sql.Rows, cols columnCollection
 		if err != nil {
 			return exception.Wrap(err)
 		}
-	}
-
-	return nil
-}
-
-func getColumns(object DatabaseMapped) columnCollection {
-	return getColumnsByType(reflect.TypeOf(object))
-}
-
-func getColumnsByType(t reflect.Type) columnCollection {
-	metaCacheLock.Lock()
-	defer metaCacheLock.Unlock()
-
-	if metaCache == nil {
-		metaCache = map[reflect.Type]columnCollection{}
-	}
-
-	if _, ok := metaCache[t]; !ok {
-		metaCache[t] = createColumnsByType(t)
-	}
-	return metaCache[t]
-}
-
-func createColumnsByType(t reflect.Type) columnCollection {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	tableName := tableName(t)
-	numFields := t.NumField()
-
-	var cols []column
-	for index := 0; index < numFields; index++ {
-		field := t.Field(index)
-		if !field.Anonymous {
-			col := readFieldTag(field)
-			if col != nil {
-				col.Index = index
-				col.TableName = tableName
-				cols = append(cols, *col)
-			}
-		}
-	}
-
-	return newColumnCollection(cols)
-}
-
-// reads the contents of a field tag, ex: `json:"foo" db:"bar,isprimarykey,isserial"
-func readFieldTag(field reflect.StructField) *column {
-	db := field.Tag.Get("db")
-	if db != "-" {
-		col := column{}
-		col.FieldName = field.Name
-		col.ColumnName = strings.ToLower(field.Name)
-		col.FieldType = field.Type
-		if db != "" {
-			pieces := strings.Split(db, ",")
-
-			if !strings.HasPrefix(db, ",") {
-				col.ColumnName = pieces[0]
-			}
-
-			if len(pieces) >= 1 {
-				args := strings.Join(pieces[1:], ",")
-				col.IsPrimaryKey = strings.Contains(strings.ToLower(args), "pk")
-				col.IsSerial = strings.Contains(strings.ToLower(args), "serial")
-				col.IsNullable = strings.Contains(strings.ToLower(args), "nullable")
-				col.IsReadOnly = strings.Contains(strings.ToLower(args), "readonly")
-				col.IsJson = strings.Contains(strings.ToLower(args), "json")
-			}
-		}
-		return &col
 	}
 
 	return nil

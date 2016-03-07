@@ -54,7 +54,8 @@ CREATE TABLE image_tag_votes (
 	last_vote_by bigint not null,
 	last_vote_utc timestamp not null,
 	votes_for int not null,
-	votes_against int not null
+	votes_against int not null,
+	votes_total int not null
 );
 ALTER TABLE image_tag_votes ADD CONSTRAINT pk_image_tag_votes_image_id_tag_id PRIMARY KEY (image_id, tag_id);
 ALTER TABLE image_tag_votes ADD CONSTRAINT fk_image_tag_votes_image_id

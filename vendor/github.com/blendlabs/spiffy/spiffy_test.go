@@ -24,10 +24,10 @@ func TestMain(m *testing.M) {
 }
 
 func dbConnectionFromEnvironment() *DbConnection {
-	var dbHost string = os.Getenv("DB_HOST")
-	var dbSchema string = os.Getenv("DB_SCHEMA")
-	var dbUser string = os.Getenv("DB_USER")
-	var dbPassword string = os.Getenv("DB_PASSWORD")
+	dbHost := os.Getenv("DB_HOST")
+	dbSchema := os.Getenv("DB_SCHEMA")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
 
 	if dbHost == "" {
 		dbHost = "localhost"
@@ -45,7 +45,7 @@ func dbConnectionFromEnvironment() *DbConnection {
 //------------------------------------------------------------------------------------------------
 
 type BenchObj struct {
-	Id        int       `db:"id,pk,serial"`
+	ID        int       `db:"id,pk,serial"`
 	Name      string    `db:"name"`
 	Timestamp time.Time `db:"timestamp_utc"`
 	Amount    float32   `db:"amount"`
@@ -66,7 +66,7 @@ func (b *BenchObj) Populate(rows *sql.Rows) error {
 		return scanErr
 	}
 
-	b.Id = id
+	b.ID = id
 	b.Name = name
 	b.Timestamp = ts
 	b.Amount = amount
@@ -80,8 +80,8 @@ func (b BenchObj) TableName() string {
 }
 
 func createTable(tx *sql.Tx) error {
-	createSql := `CREATE TABLE bench_object (id serial not null, name varchar(255), timestamp_utc timestamp, amount real, pending boolean, category varchar(255));`
-	return DefaultDb().ExecInTransaction(createSql, tx)
+	createSQL := `CREATE TABLE bench_object (id serial not null, name varchar(255), timestamp_utc timestamp, amount real, pending boolean, category varchar(255));`
+	return DefaultDb().ExecInTransaction(createSQL, tx)
 }
 
 func createObject(index int, tx *sql.Tx) error {
@@ -111,8 +111,8 @@ func seedObjects(count int, tx *sql.Tx) error {
 
 func readManual(tx *sql.Tx) ([]BenchObj, error) {
 	objs := []BenchObj{}
-	readSql := `select id,name,timestamp_utc,amount,pending,category from bench_object`
-	readStmt, readStmtErr := DefaultDb().Prepare(readSql, tx)
+	readSQL := `select id,name,timestamp_utc,amount,pending,category from bench_object`
+	readStmt, readStmtErr := DefaultDb().Prepare(readSQL, tx)
 	if readStmtErr != nil {
 		return nil, readStmtErr
 	}
@@ -288,9 +288,9 @@ func TestQuery(t *testing.T) {
 	a.Nil(seedErr)
 
 	objs := []BenchObj{}
-	query_err := DefaultDb().QueryInTransaction("select * from bench_object", tx).OutMany(&objs)
+	queryErr := DefaultDb().QueryInTransaction("select * from bench_object", tx).OutMany(&objs)
 
-	a.Nil(query_err)
+	a.Nil(queryErr)
 	a.NotEmpty(objs)
 
 	all := []BenchObj{}
@@ -301,7 +301,7 @@ func TestQuery(t *testing.T) {
 	obj := BenchObj{}
 	singleQueryErr := DefaultDb().QueryInTransaction("select * from bench_object limit 1", tx).Out(&obj)
 	a.Nil(singleQueryErr)
-	a.NotEqual(obj.Id, 0)
+	a.NotEqual(obj.ID, 0)
 
 	var id int
 	scanErr := DefaultDb().QueryInTransaction("select id from bench_object limit 1", tx).Scan(&id)
@@ -334,9 +334,9 @@ func TestCRUDMethods(t *testing.T) {
 	sampleObj := all[0]
 
 	getTest := BenchObj{}
-	getTestErr := DefaultDb().GetByIdInTransaction(&getTest, tx, sampleObj.Id)
+	getTestErr := DefaultDb().GetByIDInTransaction(&getTest, tx, sampleObj.ID)
 	a.Nil(getTestErr)
-	a.Equal(sampleObj.Id, getTest.Id)
+	a.Equal(sampleObj.ID, getTest.ID)
 
 	exists, existsErr := DefaultDb().ExistsInTransaction(&getTest, tx)
 	a.Nil(existsErr)
@@ -348,7 +348,7 @@ func TestCRUDMethods(t *testing.T) {
 	a.Nil(updateErr)
 
 	verify := BenchObj{}
-	verifyErr := DefaultDb().GetByIdInTransaction(&verify, tx, getTest.Id)
+	verifyErr := DefaultDb().GetByIDInTransaction(&verify, tx, getTest.ID)
 	a.Nil(verifyErr)
 	a.Equal(getTest.Name, verify.Name)
 
@@ -356,7 +356,7 @@ func TestCRUDMethods(t *testing.T) {
 	a.Nil(deleteErr)
 
 	delVerify := BenchObj{}
-	delVerifyErr := DefaultDb().GetByIdInTransaction(&delVerify, tx, getTest.Id)
+	delVerifyErr := DefaultDb().GetByIDInTransaction(&delVerify, tx, getTest.ID)
 	a.Nil(delVerifyErr)
 }
 
@@ -375,12 +375,12 @@ func (m myStruct) TableName() string {
 func TestGetColumns(t *testing.T) {
 	a := assert.New(t)
 
-	emptyColumnCollection := columnCollection{}
+	emptyColumnCollection := ColumnCollection{}
 	firstOrDefaultNil := emptyColumnCollection.FirstOrDefault()
 	a.Nil(firstOrDefaultNil)
 
 	obj := myStruct{}
-	meta := getColumns(obj)
+	meta := NewColumnCollectionFromInstance(obj)
 
 	a.NotNil(meta.Columns)
 	a.NotEmpty(meta.Columns)
@@ -430,7 +430,7 @@ func TestSetValue(t *testing.T) {
 
 	var value interface{}
 	value = 10
-	meta := getColumns(obj)
+	meta := NewColumnCollectionFromInstance(obj)
 	pk := meta.Columns[0]
 	a.Nil(pk.SetValue(&obj, value))
 	a.Equal(10, obj.PrimaryKeyCol)
@@ -440,7 +440,7 @@ func TestGetValue(t *testing.T) {
 	a := assert.New(t)
 	obj := myStruct{PrimaryKeyCol: 5, InferredName: "Hello."}
 
-	meta := getColumns(obj)
+	meta := NewColumnCollectionFromInstance(obj)
 	pk := meta.PrimaryKeys().Columns[0]
 	value := pk.GetValue(&obj)
 	a.NotNil(value)
@@ -467,16 +467,16 @@ func TestMakeSliceOfType(t *testing.T) {
 		a.Nil(tx.Rollback())
 	}()
 
-	seed_err := seedObjects(10, tx)
-	a.Nil(seed_err)
+	seedErr := seedObjects(10, tx)
+	a.Nil(seedErr)
 
-	my_type := reflectType(BenchObj{})
-	slice_of_t, cast_ok := makeSliceOfType(my_type).(*[]BenchObj)
-	a.True(cast_ok)
+	myType := reflectType(BenchObj{})
+	sliceOfT, castOk := makeSliceOfType(myType).(*[]BenchObj)
+	a.True(castOk)
 
-	all_err := DefaultDb().GetAllInTransaction(slice_of_t, tx)
-	a.Nil(all_err)
-	a.NotEmpty(*slice_of_t)
+	allErr := DefaultDb().GetAllInTransaction(sliceOfT, tx)
+	a.Nil(allErr)
+	a.NotEmpty(*sliceOfT)
 }
 
 func TestDbConnectionOpen(t *testing.T) {
@@ -499,4 +499,54 @@ func TestExec(t *testing.T) {
 
 	execErr := DefaultDb().ExecInTransaction("select 'ok!'", tx)
 	a.Nil(execErr)
+}
+
+func TestQueryResultAny(t *testing.T) {
+	a := assert.New(t)
+	tx, txErr := DefaultDb().Begin()
+	a.Nil(txErr)
+	defer tx.Rollback()
+
+	seedErr := seedObjects(10, tx)
+	a.Nil(seedErr)
+
+	var all []BenchObj
+	allErr := DefaultDb().GetAllInTransaction(&all, tx)
+	a.Nil(allErr)
+	a.NotEmpty(all)
+
+	obj := all[0]
+
+	exists, existsErr := DefaultDb().QueryInTransaction("select 1 from bench_object where id = $1", tx, obj.ID).Any()
+	a.Nil(existsErr)
+	a.True(exists)
+
+	notExists, notExistsErr := DefaultDb().QueryInTransaction("select 1 from bench_object where id = $1", tx, -1).Any()
+	a.Nil(notExistsErr)
+	a.False(notExists)
+}
+
+func TestQueryResultNone(t *testing.T) {
+	a := assert.New(t)
+	tx, txErr := DefaultDb().Begin()
+	a.Nil(txErr)
+	defer tx.Rollback()
+
+	seedErr := seedObjects(10, tx)
+	a.Nil(seedErr)
+
+	var all []BenchObj
+	allErr := DefaultDb().GetAllInTransaction(&all, tx)
+	a.Nil(allErr)
+	a.NotEmpty(all)
+
+	obj := all[0]
+
+	exists, existsErr := DefaultDb().QueryInTransaction("select 1 from bench_object where id = $1", tx, obj.ID).None()
+	a.Nil(existsErr)
+	a.False(exists)
+
+	notExists, notExistsErr := DefaultDb().QueryInTransaction("select 1 from bench_object where id = $1", tx, -1).None()
+	a.Nil(notExistsErr)
+	a.True(notExists)
 }

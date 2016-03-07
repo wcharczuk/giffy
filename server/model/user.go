@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/go-slack"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 type User struct {
@@ -23,7 +23,7 @@ func (u User) TableName() string {
 
 func NewUser() *User {
 	return &User{
-		UUID:       slack.UUIDv4().ToShortString(),
+		UUID:       core.UUIDv4().ToShortString(),
 		CreatedUTC: time.Now().UTC(),
 	}
 }

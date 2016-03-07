@@ -14,8 +14,13 @@
 		},
 		{
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "3777266315e0ad78ff4a3bd6643c86b0909be3f3",
-			"revisionTime": "2016-01-28T18:33:17-08:00"
+			"revision": "aaa46d11b1e396e7e613bb540dc15dff7e8e31a2",
+			"revisionTime": "2016-03-02T15:46:55-08:00"
+		},
+		{
+			"path": "github.com/gorilla/websocket",
+			"revision": "c45a635370221f34fea2d5163fd156fcb4e38e8a",
+			"revisionTime": "2016-03-02T15:27:37-08:00"
 		},
 		{
 			"path": "github.com/lib/pq",

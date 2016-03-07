@@ -43,7 +43,7 @@ func SetupDatabaseContext(config *DBConfig) error {
 }
 
 func DBInit() error {
-	config := &ConfigDb{}
+	config := &DBConfig{}
 	config.InitFromEnvironment()
 	return SetupDatabaseContext(config)
 }

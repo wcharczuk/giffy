@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 type Tag struct {
@@ -14,10 +15,10 @@ type Tag struct {
 	CreatedBy  int64     `json:"created_by" db:"created_by"`
 	TagValue   string    `json:"tag_value" db:"tag_value"`
 
-	ImageID      int `json:"image_id,omitempty" db:"image_id,readonly"`
-	VotesFor     int `json:"votes_for,omitempty" db:"votes_for,readonly"`
-	VotesAgainst int `json:"votes_against,omitempty" db:"votes_against,readonly"`
-	VotesTotal   int `json:"votes_total,omitempty" db:"votes_total"`
+	ImageID      int64 `json:"image_id,omitempty" db:"image_id,readonly"`
+	VotesFor     int   `json:"votes_for,omitempty" db:"votes_for,readonly"`
+	VotesAgainst int   `json:"votes_against,omitempty" db:"votes_against,readonly"`
+	VotesTotal   int   `json:"votes_total,omitempty" db:"votes_total,readonly"`
 }
 
 func (it Tag) TableName() string {
@@ -26,7 +27,7 @@ func (it Tag) TableName() string {
 
 func NewTag() *Tag {
 	return &Tag{
-		UUID:       slack.UUIDv4().ToShortString(),
+		UUID:       core.UUIDv4().ToShortString(),
 		CreatedUTC: time.Now().UTC(),
 	}
 }
@@ -62,5 +63,5 @@ order by
 	itv.votes_total desc;
 `
 	err := spiffy.DefaultDb().QueryInTransaction(query, tx, imageID).OutMany(&tags)
-	return &tags, err
+	return tags, err
 }
