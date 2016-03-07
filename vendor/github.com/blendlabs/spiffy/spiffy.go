@@ -315,6 +315,10 @@ type ColumnCollection struct {
 	Lookup  map[string]*Column
 }
 
+func (cc ColumnCollection) Length() int {
+	return len(cc.Columns)
+}
+
 // PrimaryKeys are columns we use as where predicates and can't update.
 func (cc ColumnCollection) PrimaryKeys() ColumnCollection {
 	var cols []Column
@@ -919,7 +923,7 @@ func (dbAlias *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.
 	cols := NewColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
 	pks := cols.PrimaryKeys()
-	if len(pks) == nil {
+	if pks.Length() == 0 {
 		return exception.New("Cannot update object; no primary keys marked.")
 	}
 	allCols := writeCols.ConcatWith(pks)
