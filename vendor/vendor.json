@@ -13,6 +13,11 @@
 			"revisionTime": "2015-12-07T18:39:50-08:00"
 		},
 		{
+			"path": "github.com/blendlabs/httprouter",
+			"revision": "89b405072eaa897e45f3558d1720103070d8587a",
+			"revisionTime": "2015-08-14T12:04:07-07:00"
+		},
+		{
 			"path": "github.com/blendlabs/spiffy",
 			"revision": "3ee6a046c0d31c5dcb27abaf3ef96c39f133ee53",
 			"revisionTime": "2016-03-06T17:16:17-08:00"
@@ -21,11 +26,6 @@
 			"path": "github.com/gorilla/websocket",
 			"revision": "c45a635370221f34fea2d5163fd156fcb4e38e8a",
 			"revisionTime": "2016-03-02T15:27:37-08:00"
-		},
-		{
-			"path": "github.com/julienschmidt/httprouter",
-			"revision": "77366a47451a56bb3ba682481eed85b64fea14e8",
-			"revisionTime": "2016-02-19T16:40:26+01:00"
 		},
 		{
 			"path": "github.com/lib/pq",

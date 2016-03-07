@@ -5,13 +5,16 @@ import (
 	"net"
 	"os"
 
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 )
 
 const (
+	// RequestLogFormat is the default log format.
 	RequestLogFormat = "datetime c-ip cs-method cs-uri cs-status time-taken bytes"
 )
 
+// DBConfig is the basic config object for db connections.
 type DBConfig struct {
 	Server   string
 	Schema   string
@@ -19,6 +22,7 @@ type DBConfig struct {
 	Password string
 }
 
+// InitFromEnvironment initializes the db config from environment variables.
 func (db *DBConfig) InitFromEnvironment() {
 	db.Server = os.Getenv("DB_HOST")
 	db.Schema = os.Getenv("DB_SCHEMA")
@@ -26,10 +30,12 @@ func (db *DBConfig) InitFromEnvironment() {
 	db.Password = os.Getenv("DB_PASSWORD")
 }
 
+// AsPostgresDSN returns the config as a postgres dsn.
 func (db DBConfig) AsPostgresDSN() string {
 	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", db.User, db.Password, db.Server, db.Schema)
 }
 
+// SetupDatabaseContext writes the config to spiffy.
 func SetupDatabaseContext(config *DBConfig) error {
 	spiffy.CreateDbAlias("main", spiffy.NewDbConnection(config.Server, config.Schema, config.User, config.Password))
 	spiffy.SetDefaultAlias("main")
@@ -43,12 +49,23 @@ func SetupDatabaseContext(config *DBConfig) error {
 	return nil
 }
 
+// DBInit reads the config from the environment and sets up spiffy.
 func DBInit() error {
 	config := &DBConfig{}
 	config.InitFromEnvironment()
 	return SetupDatabaseContext(config)
 }
 
+// ConfigPort is the port the server should listen on.
+func ConfigPort() string {
+	envPort := os.Getenv("PORT")
+	if !util.IsEmpty(envPort) {
+		return envPort
+	}
+	return "8080"
+}
+
+// ConfigLocalIP is the server local IP.
 func ConfigLocalIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {

@@ -5,40 +5,41 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/blendlabs/connectivity/core/logging"
-	"github.com/julienschmidt/httprouter"
+	"github.com/blendlabs/httprouter"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
+// APIControllerAction is the function signature for controller actions.
 type APIControllerAction func(*APIContext) *ServiceResponse
 
+// APIActionHandler takes an APIControllerAction and makes it an httprouter.Handle.
 func APIActionHandler(action APIControllerAction) httprouter.Handle {
-	return GZipped(Logged(MarshalAPIControllerAction(action)))
+	return GZipped(MarshalAPIControllerAction(Logged(action)))
 }
 
+// MarshalAPIControllerAction is the translation step from APIControllerAction to httprouter.Handle.
 func MarshalAPIControllerAction(action APIControllerAction) httprouter.Handle {
 	jsonMiddleware := func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		responseResult := action(NewAPIContext(w, r, p))
-		if responseResult.Meta.HttpCode == http.StatusNoContent {
-			WriteNoContent(w)
-		} else {
-			_, writeErr := WriteJson(w, r, responseResult.Meta.HttpCode, responseResult)
-			if writeErr != nil {
-				logging.LogError(writeErr)
-			}
-		}
+		context := NewAPIContext(w, r, p)
+		responseResult := action(context)
+		WriteJSON(w, r, context.StatusCode(), responseResult)
 	}
 	return jsonMiddleware
 }
 
-func Logged(handler httprouter.Handle) httprouter.Handle {
-	logMiddleware := func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-
-		handler(outerWriter, r, p)
-		logging.LogRequest(r, p, statusCode, end.Sub(start), contentLength, nil)
+// Logged is a middleware step that logs requests.
+func Logged(handler APIControllerAction) APIControllerAction {
+	logMiddleware := func(ctx *APIContext) *ServiceResponse {
+		ctx.MarkRequestStart()
+		response := handler(ctx)
+		ctx.MarkRequestEnd()
+		ctx.LogRequest(core.RequestLogFormat)
+		return response
 	}
 	return logMiddleware
 }
 
+// GZipped is a middleware step that compresses the response output.
 func GZipped(handler httprouter.Handle) httprouter.Handle {
 	gzipMiddleware := func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
@@ -46,25 +47,25 @@ func GZipped(handler httprouter.Handle) httprouter.Handle {
 			return
 		}
 
-		byte_storage := new(bytes.Buffer)
-		gzipped_writer := NewGZipResponseWriter(byte_storage)
-		defer gzipped_writer.Writer.Close()
+		byteStorage := new(bytes.Buffer)
+		gzippedWriter := NewGZippedResponseWriter(byteStorage)
+		defer gzippedWriter.Writer.Close()
 
-		handler(gzipped_writer, r, p)
-		flush_error := gzipped_writer.Writer.Flush()
-		if flush_error != nil {
-			logging.LogErrorMessageSimple(flush_error.Error())
+		handler(gzippedWriter, r, p)
+		err := gzippedWriter.Writer.Flush()
+		if err != nil {
+			LogError(err)
 		}
-		gzipped_writer.Writer.Close()
-		gzipped_writer.Headers.Set("Content-Encoding", "gzip")
+		gzippedWriter.Writer.Close()
+		gzippedWriter.Headers.Set("Content-Encoding", "gzip")
 
-		for header, header_values := range gzipped_writer.Headers {
-			for _, header_value := range header_values {
-				w.Header().Set(header, header_value)
+		for header, headerValues := range gzippedWriter.Headers {
+			for _, headerValue := range headerValues {
+				w.Header().Set(header, headerValue)
 			}
 		}
-		w.WriteHeader(gzipped_writer.StatusCode)
-		w.Write(byte_storage.Bytes())
+		w.WriteHeader(gzippedWriter.StatusCode)
+		w.Write(byteStorage.Bytes())
 	}
 	return gzipMiddleware
 }

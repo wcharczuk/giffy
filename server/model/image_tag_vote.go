@@ -8,6 +8,7 @@ import (
 	"github.com/blendlabs/spiffy"
 )
 
+// ImageTagVotes is the link between an image and a tag.
 type ImageTagVotes struct {
 	ImageID      int64     `json:"image_id" db:"image_id,pk"`
 	TagID        int64     `json:"tag_id" db:"tag_id,pk"`
@@ -18,14 +19,17 @@ type ImageTagVotes struct {
 	VotesTotal   int       `json:"votes_total" db:"votes_total"`
 }
 
+// IsZero returns if an image has been set.
 func (itv ImageTagVotes) IsZero() bool {
 	return itv.ImageID == 0 || itv.TagID == 0
 }
 
+// TableName returns the tablename for an object.
 func (itv ImageTagVotes) TableName() string {
 	return "image_tag_votes"
 }
 
+// NewImageTagVote returns a new instance for an ImageTagVotes.
 func NewImageTagVote(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time, votesFor, votesAgainst int) *ImageTagVotes {
 	return &ImageTagVotes{
 		ImageID:      imageID,
@@ -38,6 +42,7 @@ func NewImageTagVote(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time, vo
 	}
 }
 
+// Vote votes for a tag for an image in the db.
 func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 	existing, existingErr := GetImageTagVote(imageID, tagID, tx)
 	if existingErr != nil {
@@ -66,6 +71,7 @@ func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 	return exception.New("Invalid schema state; no `image_tag_votes` for image.")
 }
 
+// GetImageTagVote fetches an ImageTagVotes by constituent pks.
 func GetImageTagVote(imageID, tagID int64, tx *sql.Tx) (*ImageTagVotes, error) {
 	var imv ImageTagVotes
 	query := `select * from image_tag_votes where image_id = $1 and tag_id = $2`

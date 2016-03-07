@@ -10,6 +10,7 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 )
 
+// Image is an image stored in the db.
 type Image struct {
 	ID          int64     `json:"-" db:"id,pk,serial"`
 	UUID        string    `json:"uuid" db:"uuid"`
@@ -31,6 +32,7 @@ type Image struct {
 	Tags []Tag `json:"tags" db:"-"`
 }
 
+// TableName returns the tablename for the object.
 func (i Image) TableName() string {
 	return "image"
 }
@@ -53,6 +55,7 @@ func (is imageSignatures) AsInt64s() []int64 {
 	return all
 }
 
+// NewImage returns a new instance of an image.
 func NewImage() *Image {
 	return &Image{
 		UUID:       core.UUIDv4().ToShortString(),
@@ -60,18 +63,21 @@ func NewImage() *Image {
 	}
 }
 
+// GetAllImages returns all the images in the database.
 func GetAllImages(tx *sql.Tx) ([]Image, error) {
 	var all []Image
 	err := spiffy.DefaultDb().GetAllInTransaction(&all, tx)
 	return all, err
 }
 
+// GetImageByID returns an image for an id.
 func GetImageByID(id int64, tx *sql.Tx) (*Image, error) {
 	var image Image
 	err := spiffy.DefaultDb().GetByIDInTransaction(&image, tx, id)
 	return &image, err
 }
 
+// GetImageByUUID returns an image by uuid.
 func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 	var image Image
 	err := spiffy.DefaultDb().
@@ -79,6 +85,7 @@ func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 	return &image, err
 }
 
+// GetImagesByID returns images with tags for a list of ids.
 func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	idsCSV := fmt.Sprintf("{%s}", csvOfInt(ids))
 	query := `select * from image where id = ANY($1::bigint[])`
@@ -124,6 +131,7 @@ where
 	return images, nil
 }
 
+// QueryImages searches for an image.
 func QueryImages(query string, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 

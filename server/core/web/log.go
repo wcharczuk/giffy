@@ -1,4 +1,4 @@
-package logging
+package web
 
 import (
 	"fmt"
@@ -8,34 +8,48 @@ import (
 
 	"github.com/blendlabs/connectivity/core"
 	"github.com/blendlabs/go-util"
-	"github.com/wcharczuk/giffy/server/core/web"
 )
 
 const (
-	//the below are for W3C extended log format
-	RequestLogItemPrefixClient       = "c"
-	RequestLogItemPrefixServer       = "s"
-	RequestLogItemPrefixRemote       = "r"
+	// RequestLogItemPrefixClient is the prefix for client items.
+	RequestLogItemPrefixClient = "c"
+	// RequestLogItemPrefixServer is the prefix for server items.
+	RequestLogItemPrefixServer = "s"
+	// RequestLogItemPrefixRemote is the prefix for remote items.
+	RequestLogItemPrefixRemote = "r"
+	// RequestLogItemPrefixClientServer is the prefix for combination client and server items.
 	RequestLogItemPrefixClientServer = "cs"
+	// RequestLogItemPrefixServerClient is the prefix for combination client and server items.
 	RequestLogItemPrefixServerClient = "sc"
 
-	//these can just appear as a token
-	RequestLogItemDateTime  = "datetime"   //w3c has separate date and time fields, we just use one.
-	RequestLogItemTimeTaken = "time-taken" //we call this "with timing"
-	RequestLogItemBytes     = "bytes"      //response content-length
-	RequestLogItemCached    = "cached"     //will always return false
+	// RequestLogItemDateTime is the timestamp item.
+	RequestLogItemDateTime = "datetime" //w3c has separate date and time fields, we just use one.
+	// RequestLogItemTimeTaken is the elapsed time item.
+	RequestLogItemTimeTaken = "time-taken"
+	// RequestLogItemBytes is the size of the resulting message.
+	RequestLogItemBytes = "bytes"
+	// RequestLogItemCached is a flag indicating if the response was cached.
+	RequestLogItemCached = "cached"
 
-	//these require a prefix
-	RequestLogItemIP       = "ip"
-	RequestLogItemDNS      = "dns"
-	RequestLogItemStatus   = "status" //status code ... why does this need a prefix.
-	RequestLogItemComment  = "comment"
-	RequestLogItemMethod   = "method"
-	RequestLogItemURI      = "uri"
-	RequestLogItemURIStem  = "uri-stem"
+	// RequestLogItemIP requires a prefix.
+	RequestLogItemIP = "ip"
+	// RequestLogItemDNS requires a prefix.
+	RequestLogItemDNS = "dns"
+	// RequestLogItemStatus requires a prefix.
+	RequestLogItemStatus = "status" //status code ... why does this need a prefix.
+	// RequestLogItemComment requires a prefix.
+	RequestLogItemComment = "comment"
+	// RequestLogItemMethod requires a prefix.
+	RequestLogItemMethod = "method"
+	// RequestLogItemURI requires a prefix.
+	RequestLogItemURI = "uri"
+	// RequestLogItemURIStem requires a prefix.
+	RequestLogItemURIStem = "uri-stem"
+	// RequestLogItemURIQuery requires a prefix.
 	RequestLogItemURIQuery = "uri-query"
 )
 
+// RequestLogPrefixes are prefixes for log item.
 var RequestLogPrefixes = []string{
 	RequestLogItemPrefixClientServer,
 	RequestLogItemPrefixServerClient,
@@ -44,6 +58,7 @@ var RequestLogPrefixes = []string{
 	RequestLogItemPrefixRemote,
 }
 
+// RequestLogItemsWithPrefix are log items that require a prefix.
 var RequestLogItemsWithPrefix = []string{
 	RequestLogItemIP,
 	RequestLogItemDNS,
@@ -56,11 +71,22 @@ var RequestLogItemsWithPrefix = []string{
 }
 
 func getLoggingTimestamp() string {
-	timestamp_str := time.Now().UTC().Format(time.RFC3339)
-	return util.Color(timestamp_str, util.COLOR_GRAY)
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	return util.Color(timestamp, util.COLOR_GRAY)
 }
 
-func escapeRequestLogOutput(format string, context *web.APIContext) string {
+func formatFileSize(sizeBytes int) string {
+	if sizeBytes >= 1<<30 {
+		return fmt.Sprintf("%dgB", sizeBytes/(1<<30))
+	} else if sizeBytes >= 1<<20 {
+		return fmt.Sprintf("%dmB", sizeBytes/(1<<20))
+	} else if sizeBytes >= 1<<10 {
+		return fmt.Sprintf("%dkB", sizeBytes/(1<<10))
+	}
+	return fmt.Sprintf("%dB", sizeBytes)
+}
+
+func escapeRequestLogOutput(format string, context *APIContext) string {
 	output := format
 
 	//log item: datetime
@@ -78,11 +104,11 @@ func escapeRequestLogOutput(format string, context *web.APIContext) string {
 	//log item: cached
 	output = strings.Replace(output, RequestLogItemCached, "false", -1)
 
-	clientIp := util.GetIP(context.Request)
-	output = strings.Replace(output, RequestLogItemPrefixClient+"-"+RequestLogItemIP, clientIp, -1)
+	clientIP := util.GetIP(context.Request)
+	output = strings.Replace(output, RequestLogItemPrefixClient+"-"+RequestLogItemIP, clientIP, -1)
 
-	serverIp := core.ConfigLocalIP()
-	output = strings.Replace(output, RequestLogItemPrefixServer+"-"+RequestLogItemIP, serverIp, -1)
+	serverIP := core.ConfigLocalIP()
+	output = strings.Replace(output, RequestLogItemPrefixServer+"-"+RequestLogItemIP, serverIP, -1)
 
 	status := util.Color(util.IntToString(context.StatusCode()), util.COLOR_YELLOW)
 	if context.StatusCode() == http.StatusOK {
@@ -102,11 +128,11 @@ func escapeRequestLogOutput(format string, context *web.APIContext) string {
 	}
 	output = strings.Replace(output, RequestLogItemMethod, method, -1)
 
-	fullUri := context.Request.URL.String()
+	fullURI := context.Request.URL.String()
 	for _, prefix := range RequestLogPrefixes {
-		output = strings.Replace(output, prefix+"-"+RequestLogItemURI, fullUri, -1)
+		output = strings.Replace(output, prefix+"-"+RequestLogItemURI, fullURI, -1)
 	}
-	output = strings.Replace(output, RequestLogItemURI, fullUri, -1)
+	output = strings.Replace(output, RequestLogItemURI, fullURI, -1)
 
 	uriPath := context.Request.URL.Path
 	for _, prefix := range RequestLogPrefixes {
@@ -123,16 +149,19 @@ func escapeRequestLogOutput(format string, context *web.APIContext) string {
 	return output
 }
 
-func LogRequest(format string, context *web.APIContext) {
-	fmt.Println(escapeRequestLogOutput(format, context))
+// LogError logs an error.
+func LogError(err error) {
+	Logf("%v", err)
 }
 
+// Log writes to the log output.
 func Log(a ...interface{}) {
 	timestamp := getLoggingTimestamp()
 	output := fmt.Sprint(a...)
 	fmt.Printf("%s %s\n", timestamp, output)
 }
 
+// Logf writes to the log with a given format.
 func Logf(format string, a ...interface{}) {
 	timestamp := getLoggingTimestamp()
 	output := fmt.Sprintf(format, a...)

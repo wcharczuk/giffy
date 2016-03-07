@@ -8,6 +8,7 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 )
 
+// Tag is a label for an image or set of images.
 type Tag struct {
 	ID         int64     `json:"-" db:"id,pk,serial"`
 	UUID       string    `json:"uuid" db:"uuid"`
@@ -21,10 +22,12 @@ type Tag struct {
 	VotesTotal   int   `json:"votes_total,omitempty" db:"votes_total,readonly"`
 }
 
+// TableName returns the name of a table.
 func (it Tag) TableName() string {
 	return "tag"
 }
 
+// NewTag returns a new tag.
 func NewTag() *Tag {
 	return &Tag{
 		UUID:       core.UUIDv4().ToShortString(),
@@ -32,12 +35,14 @@ func NewTag() *Tag {
 	}
 }
 
+// GetAllTags returns all the tags in the db.
 func GetAllTags(tx *sql.Tx) ([]Tag, error) {
 	var all []Tag
 	err := spiffy.DefaultDb().GetAllInTransaction(&all, tx)
 	return all, err
 }
 
+// GetTagByUUID returns a tag for a uuid.
 func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 	var imageTag Tag
 	err := spiffy.DefaultDb().
@@ -45,6 +50,7 @@ func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 	return &imageTag, err
 }
 
+// GetTagsForImageID returns all the tags for an image.
 func GetTagsForImageID(imageID int64, tx *sql.Tx) ([]Tag, error) {
 	var tags []Tag
 	query := `

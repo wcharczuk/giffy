@@ -8,6 +8,7 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 )
 
+// User is a user in the app.
 type User struct {
 	ID         int64     `json:"-" db:"id,pk,serial"`
 	UUID       string    `json:"uuid" db:"uuid"`
@@ -17,10 +18,12 @@ type User struct {
 	LastName   string    `json:"last_name" db:"last_name"`
 }
 
+// TableName is the table name.
 func (u User) TableName() string {
 	return "users"
 }
 
+// NewUser returns a new user.
 func NewUser() *User {
 	return &User{
 		UUID:       core.UUIDv4().ToShortString(),
@@ -28,18 +31,21 @@ func NewUser() *User {
 	}
 }
 
+// GetAllUsers returns all the users.
 func GetAllUsers(tx *sql.Tx) ([]User, error) {
 	var all []User
 	err := spiffy.DefaultDb().GetAllInTransaction(&all, tx)
 	return all, err
 }
 
+// GetUserByID returns a user by id.
 func GetUserByID(id int, tx *sql.Tx) (*User, error) {
 	var user User
 	err := spiffy.DefaultDb().GetByIDInTransaction(&user, tx, id)
 	return &user, err
 }
 
+// GetUserByUUID returns a user for a uuid.
 func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
 	var user User
 	err := spiffy.DefaultDb().

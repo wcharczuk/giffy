@@ -12,6 +12,62 @@ import (
 	"testing"
 )
 
+func TestDump(t *testing.T) {
+	tree := &node{}
+
+	routes := []string{
+		"/",
+		"/test",
+		"/tested",
+		"/test/more",
+		"/param",
+		"/param/:id",
+		"/params/:id/:name",
+	}
+
+	for _, route := range routes {
+		tree.addRoute(route, fakeHandler(route))
+	}
+
+	dumpedRoutes := tree.dumpRoutes(0)
+	if len(dumpedRoutes) != 11 {
+		t.Fatal("`dumpedRoutes` is the wrong length (11).")
+	}
+}
+
+type pathRoutePair struct {
+	route string
+	path  string
+}
+
+func TestDumpInverted(t *testing.T) {
+	invertedTree := &node{}
+	invertedRoutes := []pathRoutePair{
+		pathRoutePair{"/params/:id/:name", "/params/test/new"},
+		pathRoutePair{"/param/:id", "/param/test"},
+		pathRoutePair{"/param", "/param"},
+		pathRoutePair{"/test/more", "/test/more"},
+		pathRoutePair{"/tested", "/tested"},
+		pathRoutePair{"/test", "/test"},
+		pathRoutePair{"/", "/"},
+	}
+
+	for _, routePair := range invertedRoutes {
+		invertedTree.addRoute(routePair.route, fakeHandler(routePair.route))
+	}
+
+	invertedDumpedRoutes := invertedTree.dumpRoutes(0)
+	if len(invertedDumpedRoutes) != 11 {
+		t.Fatal("`invertedDumpedRoutes` is the wrong length (11).")
+	}
+	for _, routePair := range invertedRoutes {
+		_, _, _, gotRoute := invertedTree.getValue(routePair.path)
+		if gotRoute != routePair.route {
+			t.Errorf("mismatched inverted tree routes %s != %s", gotRoute, routePair.route)
+		}
+	}
+}
+
 func printChildren(n *node, prefix string) {
 	fmt.Printf(" %02d:%02d %s%s[%d] %v %t %d \r\n", n.priority, n.maxParams, prefix, n.path, len(n.children), n.handle, n.wildChild, n.nType)
 	for l := len(n.path); l > 0; l-- {
@@ -22,7 +78,7 @@ func printChildren(n *node, prefix string) {
 	}
 }
 
-// Used as a workaround since we can't compare functions or their addresses
+// Used as a workaround since we can't compare functions or their adresses
 var fakeHandlerValue string
 
 func fakeHandler(val string) Handle {
@@ -40,7 +96,7 @@ type testRequests []struct {
 
 func checkRequests(t *testing.T, tree *node, requests testRequests) {
 	for _, request := range requests {
-		handler, ps, _ := tree.getValue(request.path)
+		handler, ps, _, routePath := tree.getValue(request.path)
 
 		if handler == nil {
 			if !request.nilHandler {
@@ -52,6 +108,14 @@ func checkRequests(t *testing.T, tree *node, requests testRequests) {
 			handler(nil, nil, nil)
 			if fakeHandlerValue != request.route {
 				t.Errorf("handle mismatch for route '%s': Wrong handle (%s != %s)", request.path, fakeHandlerValue, request.route)
+			}
+		}
+
+		if len(request.route) != 0 {
+			if len(routePath) == 0 {
+				t.Error("`routePath` is empty.")
+			} else if routePath != request.route {
+				t.Errorf("`routePath` mismatch (%s != %s)", request.route, routePath)
 			}
 		}
 
@@ -89,7 +153,7 @@ func checkMaxParams(t *testing.T, n *node) uint8 {
 			maxParams = params
 		}
 	}
-	if n.nType > root && !n.wildChild {
+	if n.nType != static && !n.wildChild {
 		maxParams++
 	}
 
@@ -132,8 +196,6 @@ func TestTreeAddAndGet(t *testing.T) {
 		tree.addRoute(route, fakeHandler(route))
 	}
 
-	//printChildren(tree, "")
-
 	checkRequests(t, tree, testRequests{
 		{"/a", false, "/a", nil},
 		{"/", true, "", nil},
@@ -174,8 +236,6 @@ func TestTreeWildcard(t *testing.T) {
 	for _, route := range routes {
 		tree.addRoute(route, fakeHandler(route))
 	}
-
-	//printChildren(tree, "")
 
 	checkRequests(t, tree, testRequests{
 		{"/", false, "/", nil},
@@ -394,9 +454,6 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/1/:id/2",
 		"/aa",
 		"/a/",
-		"/admin",
-		"/admin/:category",
-		"/admin/:category/:page",
 		"/doc",
 		"/doc/go_faq.html",
 		"/doc/go1.html",
@@ -426,13 +483,10 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/0/go/",
 		"/1/go",
 		"/a",
-		"/admin/",
-		"/admin/config/",
-		"/admin/config/permissions/",
 		"/doc/",
 	}
 	for _, route := range tsrRoutes {
-		handler, _, tsr := tree.getValue(route)
+		handler, _, tsr, _ := tree.getValue(route)
 		if handler != nil {
 			t.Fatalf("non-nil handler for TSR route '%s", route)
 		} else if !tsr {
@@ -449,30 +503,12 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/api/world/abc",
 	}
 	for _, route := range noTsrRoutes {
-		handler, _, tsr := tree.getValue(route)
+		handler, _, tsr, _ := tree.getValue(route)
 		if handler != nil {
 			t.Fatalf("non-nil handler for No-TSR route '%s", route)
 		} else if tsr {
 			t.Errorf("expected no TSR recommendation for route '%s'", route)
 		}
-	}
-}
-
-func TestTreeRootTrailingSlashRedirect(t *testing.T) {
-	tree := &node{}
-
-	recv := catchPanic(func() {
-		tree.addRoute("/:test", fakeHandler("/:test"))
-	})
-	if recv != nil {
-		t.Fatalf("panic inserting test route: %v", recv)
-	}
-
-	handler, _, tsr := tree.getValue("/")
-	if handler != nil {
-		t.Fatalf("non-nil handler")
-	} else if tsr {
-		t.Errorf("expected no TSR recommendation")
 	}
 }
 
@@ -502,16 +538,6 @@ func TestTreeFindCaseInsensitivePath(t *testing.T) {
 		"/doc/go/away",
 		"/no/a",
 		"/no/b",
-		"/Π",
-		"/u/apfêl/",
-		"/u/äpfêl/",
-		"/u/öpfêl",
-		"/v/Äpfêl/",
-		"/v/Öpfêl",
-		"/w/♬",  // 3 byte
-		"/w/♭/", // 3 byte, last byte differs
-		"/w/𠜎",  // 4 byte
-		"/w/𠜏/", // 4 byte
 	}
 
 	for _, route := range routes {
@@ -590,20 +616,6 @@ func TestTreeFindCaseInsensitivePath(t *testing.T) {
 		{"/DOC/", "/doc", true, true},
 		{"/NO", "", false, true},
 		{"/DOC/GO", "", false, true},
-		{"/π", "/Π", true, false},
-		{"/π/", "/Π", true, true},
-		{"/u/ÄPFÊL/", "/u/äpfêl/", true, false},
-		{"/u/ÄPFÊL", "/u/äpfêl/", true, true},
-		{"/u/ÖPFÊL/", "/u/öpfêl", true, true},
-		{"/u/ÖPFÊL", "/u/öpfêl", true, false},
-		{"/v/äpfêL/", "/v/Äpfêl/", true, false},
-		{"/v/äpfêL", "/v/Äpfêl/", true, true},
-		{"/v/öpfêL/", "/v/Öpfêl", true, true},
-		{"/v/öpfêL", "/v/Öpfêl", true, false},
-		{"/w/♬/", "/w/♬", true, true},
-		{"/w/♭", "/w/♭/", true, true},
-		{"/w/𠜎/", "/w/𠜎", true, true},
-		{"/w/𠜏", "/w/𠜏/", true, true},
 	}
 	// With fixTrailingSlash = true
 	for _, test := range tests {
