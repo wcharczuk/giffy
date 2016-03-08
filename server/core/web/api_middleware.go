@@ -2,9 +2,11 @@ package web
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -15,6 +17,20 @@ type APIControllerAction func(*APIContext) *ServiceResponse
 // APIActionHandler takes an APIControllerAction and makes it an httprouter.Handle.
 func APIActionHandler(action APIControllerAction) httprouter.Handle {
 	return GZipped(MarshalAPIControllerAction(Logged(action)))
+}
+
+// APINotFoundHandler is a handler for panics.
+func APINotFoundHandler(w http.ResponseWriter, r *http.Request) {
+	context := NewAPIContext(w, r, httprouter.Params{})
+	response := context.NotFound()
+	WriteJSON(w, r, context.StatusCode(), response)
+}
+
+// APIPanicHandler is a handler for panics.
+func APIPanicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
+	context := NewAPIContext(w, r, httprouter.Params{})
+	response := context.InternalError(exception.New(fmt.Sprintf("%v", err)))
+	WriteJSON(w, r, context.StatusCode(), response)
 }
 
 // MarshalAPIControllerAction is the translation step from APIControllerAction to httprouter.Handle.

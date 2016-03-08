@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blendlabs/connectivity/core"
 	"github.com/blendlabs/go-util"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 const (

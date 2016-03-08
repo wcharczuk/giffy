@@ -44,8 +44,8 @@ func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response 
 
 }
 
-// DeserializePostBody deserializes a post body as json to a given object.
-func DeserializePostBody(object interface{}, body io.ReadCloser) error {
+// DeserializeReaderAsJSON deserializes a post body as json to a given object.
+func DeserializeReaderAsJSON(object interface{}, body io.ReadCloser) error {
 	defer body.Close()
 	bodyBytes, err := ioutil.ReadAll(body)
 	if err != nil {

@@ -16,6 +16,9 @@ type User struct {
 	Username   string    `json:"username" db:"username"`
 	FirstName  string    `json:"first_name" db:"first_name"`
 	LastName   string    `json:"last_name" db:"last_name"`
+
+	EmailAddress    string `json:"email_address" db:"email_address"`
+	IsEmailVerified bool   `json:"is_email_verified" db:"is_email_verified"`
 }
 
 // TableName is the table name.
@@ -24,10 +27,12 @@ func (u User) TableName() string {
 }
 
 // NewUser returns a new user.
-func NewUser() *User {
+func NewUser(username string) *User {
 	return &User{
-		UUID:       core.UUIDv4().ToShortString(),
-		CreatedUTC: time.Now().UTC(),
+		UUID:            core.UUIDv4().ToShortString(),
+		CreatedUTC:      time.Now().UTC(),
+		Username:        username,
+		IsEmailVerified: false,
 	}
 }
 

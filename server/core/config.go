@@ -81,3 +81,23 @@ func ConfigLocalIP() string {
 	}
 	return ""
 }
+
+var configKey []byte
+
+// ConfigKey is the app secret we use to encrypt things.
+func ConfigKey() []byte {
+	if configKey == nil {
+		keyBlob := os.Getenv("ENCRYPTION_KEY")
+		if len(keyBlob) != 0 {
+			key, keyErr := util.Base64Decode(keyBlob)
+			if keyErr != nil {
+				fmt.Printf("error reading key: %v\n", keyErr)
+				os.Exit(1)
+			}
+			configKey = key
+		} else {
+			configKey = CreateKey(256)
+		}
+	}
+	return configKey
+}

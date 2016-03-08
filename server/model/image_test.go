@@ -51,8 +51,7 @@ func createTestImage(userID int64, tx *sql.Tx) (*Image, error) {
 }
 
 func createTestUser(tx *sql.Tx) (*User, error) {
-	u := NewUser()
-	u.Username = fmt.Sprintf("__test_user_%s__", core.UUIDv4().ToShortString())
+	u := NewUser(fmt.Sprintf("__test_user_%s__", core.UUIDv4().ToShortString()))
 	u.FirstName = "Test"
 	u.LastName = "User"
 	err := spiffy.DefaultDb().CreateInTransaction(u, tx)
