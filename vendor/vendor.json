@@ -36,6 +36,11 @@
 			"path": "github.com/wcharczuk/go-slack",
 			"revision": "0ae4b3fd82373845fbce3bf967b12eacf1236c24",
 			"revisionTime": "2016-02-03T16:47:18-08:00"
+		},
+		{
+			"path": "golang.org/x/oauth2/google",
+			"revision": "045497edb6234273d67dbc25da3f2ddbc4c4cacf",
+			"revisionTime": "2016-03-04T15:22:30-06:00"
 		}
 	]
 }
