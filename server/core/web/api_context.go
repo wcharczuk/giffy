@@ -98,6 +98,11 @@ func (api *APIContext) Elapsed() time.Duration {
 	return api.requestEnd.Sub(api.requestStart)
 }
 
+// Param returns a parameter from the request.
+func (api *APIContext) Param(paramName string) string {
+	return util.GetParamByName(api.Request, paramName)
+}
+
 // PostBodyAsJSON reads the incoming post body (closing it) and marshals it to the target object as json.
 func (api *APIContext) PostBodyAsJSON(response interface{}) error {
 	return DeserializeReaderAsJSON(response, api.Request.Body)
@@ -130,6 +135,14 @@ func (api *APIContext) NotFound() *ServiceResponse {
 	api.SetStatusCode(http.StatusNotFound)
 	return &ServiceResponse{
 		Meta: ServiceResponseMeta{HTTPCode: http.StatusNotFound, Message: "Not Found."},
+	}
+}
+
+// NotAuthorized returns a service response.
+func (api *APIContext) NotAuthorized() *ServiceResponse {
+	api.SetStatusCode(http.StatusForbidden)
+	return &ServiceResponse{
+		Meta: ServiceResponseMeta{HTTPCode: http.StatusForbidden, Message: "Not Authorized."},
 	}
 }
 

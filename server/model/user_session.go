@@ -1,9 +1,11 @@
 package model
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/spiffy"
 )
 
 // UserSession is a session for a user
@@ -30,4 +32,9 @@ func NewUserSession(userID int64) *UserSession {
 		TimestampUTC: time.Now().UTC(),
 		SessionID:    util.RandomString(32),
 	}
+}
+
+// DeleteUserSession removes a session from the db.
+func DeleteUserSession(userID int64, sessionID string, tx *sql.Tx) error {
+	return spiffy.DefaultDb().Exec("DELETE FROM user_session where user_id = $1 and session_id = $2", userID, sessionID)
 }

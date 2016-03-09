@@ -9,9 +9,49 @@ import (
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 )
+
+const (
+	// AuthParamName is the name of the field that needs to have the sessionID on it.
+	AuthParamName = "giffy_auth"
+	// StateSession is the state key for the user session.
+	StateSession = "__session__"
+)
+
+// AuthRequiredAction is an action that requires the user to be logged in.
+func AuthRequiredAction(action web.APIControllerAction) web.APIControllerAction {
+	return func(ctx *web.APIContext) *web.ServiceResponse {
+		sessionID := ctx.Param(AuthParamName)
+		if len(sessionID) == 0 {
+			return ctx.NotAuthorized()
+		}
+
+		session, sessionErr := auth.VerifySession(sessionID)
+		if sessionErr != nil {
+			return ctx.InternalError(sessionErr)
+		}
+
+		if session == nil {
+			return ctx.NotAuthorized()
+		}
+
+		ctx.SetState(StateSession, session)
+
+		return action(ctx)
+	}
+}
+
+func getSession(ctx *web.APIContext) *auth.Session {
+	if session := ctx.State(StateSession); session != nil {
+		if typed, isTyped := session.(*auth.Session); isTyped {
+			return typed
+		}
+	}
+	return nil
+}
 
 func getImagesAction(ctx *web.APIContext) *web.ServiceResponse {
 	images, err := model.GetAllImages(nil)
@@ -48,7 +88,6 @@ func createImageAction(ctx *web.APIContext) *web.ServiceResponse {
 	}
 
 	//upload file to s3, save it etc.
-
 	return ctx.OK()
 }
 
@@ -101,9 +140,14 @@ func vote(ctx *web.APIContext, isUpvote bool) error {
 		return err
 	}
 
+	session := getSession(ctx)
+	if session == nil {
+		return exception.New("User is not logged in.")
+	}
+
 	imageID := ctx.RouteParameterInt64("image_id")
 	tagID := ctx.RouteParameterInt64("tag_id")
-	userID := ctx.User.ID
+	userID := session.UserID
 
 	err = model.Vote(userID, imageID, tagID, isUpvote, tx)
 	if err != nil {
@@ -114,10 +158,54 @@ func vote(ctx *web.APIContext, isUpvote bool) error {
 	return spiffy.DefaultDb().Commit(tx)
 }
 
+func searchAction(ctx *web.APIContext) *web.ServiceResponse {
+	query := ctx.Param("query")
+	results, err := model.QueryImages(query, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.Content(results)
+}
+
+type authedResponse struct {
+	SessionID string `json:"giffy_auth"`
+}
+
+func oauthAction(ctx *web.APIContext) *web.ServiceResponse {
+	token := ctx.Param("token")
+	secret := ctx.Param("secret")
+
+	session, err := auth.Login(token, secret)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	if session == nil {
+		return ctx.NotAuthorized()
+	}
+
+	return ctx.Content(authedResponse{SessionID: session.SessionID})
+}
+
+func logoutAction(ctx *web.APIContext) *web.ServiceResponse {
+	session := getSession(ctx)
+	if session != nil {
+		return ctx.NotAuthorized()
+	}
+
+	err := auth.Logout(session.UserID, session.SessionID)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.OK()
+}
+
 func initRouter(router *httprouter.Router) {
 	router.GET("/images", web.APIActionHandler(getImagesAction))
 	router.GET("/tags", web.APIActionHandler(getTagsAction))
 	router.GET("/users", web.APIActionHandler(getUsersAction))
+
+	router.GET("/search", web.APIActionHandler(searchAction))
 
 	router.POST("/images", web.APIActionHandler(createImageAction))
 	router.POST("/tags", web.APIActionHandler(createTagAction))
@@ -125,6 +213,9 @@ func initRouter(router *httprouter.Router) {
 
 	router.POST("/upvote/:image_id/:tag_id", web.APIActionHandler(upvoteAction))
 	router.POST("/downvote/:image_id/:tag_id", web.APIActionHandler(downvoteAction))
+
+	router.GET("/oauth", web.APIActionHandler(oauthAction))
+	router.POST("/logout", web.APIActionHandler(logoutAction))
 }
 
 func main() {

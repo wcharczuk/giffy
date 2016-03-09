@@ -22,7 +22,12 @@ func (ua UserAuth) TableName() string {
 	return "user_auth"
 }
 
-// NewUserAuth returns a new user auth entry.
+// IsZero returns if the object has been set or not.
+func (ua UserAuth) IsZero() bool {
+	return ua.UserID == 0
+}
+
+// NewUserAuth returns a new user auth entry, encrypting the authToken and authSecret.
 func NewUserAuth(userID int64, authToken, authSecret string) *UserAuth {
 	auth := &UserAuth{
 		UserID:       userID,
@@ -46,9 +51,19 @@ func NewUserAuth(userID int64, authToken, authSecret string) *UserAuth {
 	return auth
 }
 
-// GetUserAuthByCredentials returns an auth entry for the given credentials.
-func GetUserAuthByCredentials(authToken, authSecret []byte, tx *sql.Tx) (*UserAuth, error) {
+// GetUserAuthByTokenAndSecret returns an auth entry for the given credentials.
+func GetUserAuthByTokenAndSecret(token, secret string, tx *sql.Tx) (*UserAuth, error) {
+	authToken, err := core.Encrypt(core.ConfigKey(), token)
+	if err != nil {
+		return nil, err
+	}
+
+	authSecret, err := core.Encrypt(core.ConfigKey(), token)
+	if err != nil {
+		return nil, err
+	}
+
 	var auth UserAuth
-	err := spiffy.DefaultDb().Query("SELECT * FROM user_auth where authToken = $1 and authSecret = $2", authToken, authSecret).Out(&auth)
+	err = spiffy.DefaultDb().Query("SELECT * FROM user_auth where authToken = $1 and authSecret = $2", authToken, authSecret).Out(&auth)
 	return &auth, err
 }

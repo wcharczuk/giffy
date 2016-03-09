@@ -72,7 +72,7 @@ var RequestLogItemsWithPrefix = []string{
 
 func getLoggingTimestamp() string {
 	timestamp := time.Now().UTC().Format(time.RFC3339)
-	return util.Color(timestamp, util.COLOR_GRAY)
+	return util.Color(timestamp, util.ColorGray)
 }
 
 func formatFileSize(sizeBytes int) string {
@@ -110,11 +110,11 @@ func escapeRequestLogOutput(format string, context *APIContext) string {
 	serverIP := core.ConfigLocalIP()
 	output = strings.Replace(output, RequestLogItemPrefixServer+"-"+RequestLogItemIP, serverIP, -1)
 
-	status := util.Color(util.IntToString(context.StatusCode()), util.COLOR_YELLOW)
+	status := util.Color(util.IntToString(context.StatusCode()), util.ColorYellow)
 	if context.StatusCode() == http.StatusOK {
-		status = util.Color(util.IntToString(context.StatusCode()), util.COLOR_GREEN)
+		status = util.Color(util.IntToString(context.StatusCode()), util.ColorGreen)
 	} else if context.StatusCode() == http.StatusInternalServerError {
-		status = util.Color(util.IntToString(context.StatusCode()), util.COLOR_RED)
+		status = util.Color(util.IntToString(context.StatusCode()), util.ColorRed)
 	}
 
 	for _, prefix := range RequestLogPrefixes {
@@ -122,7 +122,7 @@ func escapeRequestLogOutput(format string, context *APIContext) string {
 	}
 	output = strings.Replace(output, RequestLogItemStatus, status, -1)
 
-	method := util.Color(strings.ToUpper(context.Request.Method), util.COLOR_BLUE)
+	method := util.Color(strings.ToUpper(context.Request.Method), util.ColorBlue)
 	for _, prefix := range RequestLogPrefixes {
 		output = strings.Replace(output, prefix+"-"+RequestLogItemMethod, method, -1)
 	}
