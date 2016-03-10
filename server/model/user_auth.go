@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -13,8 +14,8 @@ type UserAuth struct {
 	UserID       int64     `json:"user_id" db:"user_id,pk"`
 	TimestampUTC time.Time `json:"timestamp_utc" db:"timestamp_utc"`
 	Provider     string    `json:"provider" db:"provider"`
-	AuthToken    []byte    `json:"auth_token"`
-	AuthSecret   []byte    `json:"auth_secret"`
+	AuthToken    []byte    `json:"auth_token" db:"auth_token"`
+	AuthSecret   []byte    `json:"auth_secret" db:"auth_secret"`
 }
 
 // TableName returns the table name.
@@ -53,6 +54,10 @@ func NewUserAuth(userID int64, authToken, authSecret string) *UserAuth {
 
 // GetUserAuthByTokenAndSecret returns an auth entry for the given credentials.
 func GetUserAuthByTokenAndSecret(token, secret string, tx *sql.Tx) (*UserAuth, error) {
+	if len(core.ConfigKey()) == 0 {
+		return nil, exception.New("`ENCRYPTION_KEY` is not set, cannot continue.")
+	}
+
 	authToken, err := core.Encrypt(core.ConfigKey(), token)
 	if err != nil {
 		return nil, err
@@ -64,6 +69,6 @@ func GetUserAuthByTokenAndSecret(token, secret string, tx *sql.Tx) (*UserAuth, e
 	}
 
 	var auth UserAuth
-	err = spiffy.DefaultDb().Query("SELECT * FROM user_auth where authToken = $1 and authSecret = $2", authToken, authSecret).Out(&auth)
+	err = spiffy.DefaultDb().Query("SELECT * FROM user_auth where auth_token = $1 and auth_secret = $2", authToken, authSecret).Out(&auth)
 	return &auth, err
 }

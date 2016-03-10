@@ -11,3 +11,9 @@ func TestConfigLocalIP(t *testing.T) {
 	localIP := ConfigLocalIP()
 	assert.NotEmpty(localIP)
 }
+
+func TestConfigKey(t *testing.T) {
+	assert := assert.New(t)
+	key := ConfigKey()
+	assert.NotEmpty(key)
+}

@@ -26,6 +26,11 @@ func (u User) TableName() string {
 	return "users"
 }
 
+// IsZero returns if the user is set or not.
+func (u User) IsZero() bool {
+	return u.ID == 0
+}
+
 // NewUser returns a new user.
 func NewUser(username string) *User {
 	return &User{
@@ -55,5 +60,13 @@ func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
 	var user User
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from users where uuid = $1`, tx, uuid).Out(&user)
+	return &user, err
+}
+
+// GetUserByUsername returns a user for a uuid.
+func GetUserByUsername(username string, tx *sql.Tx) (*User, error) {
+	var user User
+	err := spiffy.DefaultDb().
+		QueryInTransaction(`select * from users where username = $1`, tx, username).Out(&user)
 	return &user, err
 }

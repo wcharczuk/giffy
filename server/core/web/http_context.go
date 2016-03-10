@@ -10,6 +10,7 @@ import (
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 const (
@@ -45,9 +46,9 @@ type HTTPContext struct {
 	routeParameters httprouter.Params
 
 	statusCode    int
+	contentLength int
 	requestStart  time.Time
 	requestEnd    time.Time
-	contentLength int
 }
 
 // State returns an object in the state cache.
@@ -63,48 +64,13 @@ func (hc *HTTPContext) SetState(key string, value interface{}) {
 	hc.state[key] = value
 }
 
-// StatusCode returns the status code for the request.
-func (hc HTTPContext) StatusCode() int {
-	return hc.statusCode
-}
-
-// SetStatusCode sets the status code for the request.
-func (hc *HTTPContext) SetStatusCode(code int) {
-	hc.statusCode = code
-}
-
-// ContentLength returns the content length for the request.
-func (hc HTTPContext) ContentLength() int {
-	return hc.contentLength
-}
-
-// SetContentLength sets the content length.
-func (hc *HTTPContext) SetContentLength(length int) {
-	hc.contentLength = length
-}
-
-// MarkRequestStart will mark the start of request timing.
-func (hc *HTTPContext) MarkRequestStart() {
-	hc.requestStart = time.Now().UTC()
-}
-
-// MarkRequestEnd will mark the end of request timing.
-func (hc *HTTPContext) MarkRequestEnd() {
-	hc.requestEnd = time.Now().UTC()
-}
-
-// Elapsed is the time delta between start and end.
-func (hc *HTTPContext) Elapsed() time.Duration {
-	return hc.requestEnd.Sub(hc.requestStart)
-}
-
 // Param returns a parameter from the request.
 func (hc *HTTPContext) Param(paramName string) string {
 	return util.GetParamByName(hc.Request, paramName)
 }
 
-// PostBody is the string post body.
-func (hc *HTTPContext) PostBody() string {
+// PostBodyAsString is the string post body.
+func (hc *HTTPContext) PostBodyAsString() string {
 	defer hc.Request.Body.Close()
 	bytes, _ := ioutil.ReadAll(hc.Request.Body)
 	return string(bytes)
@@ -139,7 +105,7 @@ func (hc *HTTPContext) PostedFiles() ([]PostedFile, error) {
 
 // LogRequest consumes the context and writes a log message for the request.
 func (hc *HTTPContext) LogRequest(format string) {
-	fmt.Println(escapeRequestLogOutput(format, api))
+	fmt.Println(escapeRequestLogOutput(format, hc))
 }
 
 // RouteParameterInt returns a route parameter as an integer
@@ -168,13 +134,47 @@ func (hc *HTTPContext) RouteParameter(key string) string {
 	return hc.routeParameters.ByName(key)
 }
 
+// WriteCookie writes the cookie to the response.
+func (hc *HTTPContext) WriteCookie(cookie *http.Cookie) {
+	http.SetCookie(hc.Response, cookie)
+}
+
+// SetCookie is a helper method for WriteCookie.
+func (hc *HTTPContext) SetCookie(name string, value string, expires *time.Time, path string) {
+	c := http.Cookie{}
+	c.Name = name
+	c.HttpOnly = true
+	c.Domain = core.ConfigHostname()
+	c.Value = value
+	c.Path = path
+	if expires != nil {
+		c.Expires = *expires
+	}
+	hc.WriteCookie(&c)
+}
+
+// ExpireCookie expires a cookie.
+func (hc *HTTPContext) ExpireCookie(name string) {
+	c := http.Cookie{}
+	c.Name = name
+	c.Expires = time.Now().UTC().AddDate(-1, 0, 0)
+	hc.WriteCookie(&c)
+}
+
+// Render writes the body of the response, it should not alter metadata.
+func (hc *HTTPContext) Render(result ControllerResult) {
+	renderErr := result.Render(hc)
+	if renderErr != nil {
+		LogError(renderErr)
+	}
+}
+
 // ----------------------------------------------------------------------
 // HTTPContext - API Responses
 // ----------------------------------------------------------------------
 
-// APINotFound returns a service response.
-func (hc *HTTPContext) APINotFound() *APIResult {
-	hc.SetStatusCode(http.StatusNotFound)
+// NotFound returns a service response.
+func (hc *HTTPContext) NotFound() *APIResult {
 	return &APIResult{
 		Meta: &APIResultMeta{HTTPCode: http.StatusNotFound, Message: "Not Found."},
 	}
@@ -182,7 +182,6 @@ func (hc *HTTPContext) APINotFound() *APIResult {
 
 // NotAuthorized returns a service response.
 func (hc *HTTPContext) NotAuthorized() *APIResult {
-	hc.SetStatusCode(http.StatusForbidden)
 	return &APIResult{
 		Meta: &APIResultMeta{HTTPCode: http.StatusForbidden, Message: "Not Authorized."},
 	}
@@ -190,7 +189,6 @@ func (hc *HTTPContext) NotAuthorized() *APIResult {
 
 // NoContent returns a service response.
 func (hc *HTTPContext) NoContent() *APIResult {
-	hc.SetStatusCode(http.StatusNoContent)
 	return &APIResult{
 		Meta: &APIResultMeta{HTTPCode: http.StatusNoContent},
 	}
@@ -198,7 +196,6 @@ func (hc *HTTPContext) NoContent() *APIResult {
 
 // OK returns a service response.
 func (hc *HTTPContext) OK() *APIResult {
-	hc.SetStatusCode(http.StatusOK)
 	return &APIResult{
 		Meta: &APIResultMeta{HTTPCode: http.StatusOK, Message: "OK!"},
 	}
@@ -206,10 +203,9 @@ func (hc *HTTPContext) OK() *APIResult {
 
 // InternalError returns a service response.
 func (hc *HTTPContext) InternalError(err error) *APIResult {
-	hc.SetStatusCode(http.StatusInternalServerError)
-	if ex, isException := err.(*exception.Exception); isException {
+	if exPtr, isException := err.(*exception.Exception); isException {
 		return &APIResult{
-			Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: "An internal server error occurred.", Exception: ex},
+			Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: "An internal server error occurred.", Exception: exPtr},
 		}
 	}
 	return &APIResult{
@@ -219,22 +215,70 @@ func (hc *HTTPContext) InternalError(err error) *APIResult {
 
 // BadRequest returns a service response.
 func (hc *HTTPContext) BadRequest(message string) *APIResult {
-	hc.SetStatusCode(http.StatusBadRequest)
 	return &APIResult{
 		Meta: &APIResultMeta{HTTPCode: http.StatusBadRequest, Message: message},
 	}
 }
 
-// Content returns a service response.
-func (hc *HTTPContext) Content(response interface{}) *APIResult {
-	hc.SetStatusCode(http.StatusOK)
+// JSON returns a service response.
+func (hc *HTTPContext) JSON(response interface{}) *APIResult {
 	return &APIResult{
 		Meta:     &APIResultMeta{HTTPCode: http.StatusOK, Message: "OK!"},
 		Response: response,
 	}
 }
 
-func (hc *HTTPContext) Redirect(path string) *APIResult {
+// View returns a view result.
+func (hc *HTTPContext) View(viewName string, viewModel interface{}) *ViewResult {
+	return &ViewResult{
+		StatusCode: http.StatusOK,
+		ViewModel:  viewModel,
+		Template:   viewName,
+	}
+}
 
-	return nil
+// Redirect returns a redirect result.
+func (hc *HTTPContext) Redirect(path string) *RedirectResult {
+	return &RedirectResult{
+		RedirectURI: path,
+	}
+}
+
+// --------------------------------------------------------------------------------
+// Stats Methods used for logging.
+// --------------------------------------------------------------------------------
+
+// StatusCode returns the status code for the request, this is used for logging.
+func (hc HTTPContext) getStatusCode() int {
+	return hc.statusCode
+}
+
+// SetStatusCode sets the status code for the request, this is used for logging.
+func (hc *HTTPContext) setStatusCode(code int) {
+	hc.statusCode = code
+}
+
+// ContentLength returns the content length for the request, this is used for logging.
+func (hc HTTPContext) getContentLength() int {
+	return hc.contentLength
+}
+
+// SetContentLength sets the content length, this is used for logging.
+func (hc *HTTPContext) setContentLength(length int) {
+	hc.contentLength = length
+}
+
+// OnRequestStart will mark the start of request timing.
+func (hc *HTTPContext) onRequestStart() {
+	hc.requestStart = time.Now().UTC()
+}
+
+// OnRequestEnd will mark the end of request timing.
+func (hc *HTTPContext) onRequestEnd() {
+	hc.requestEnd = time.Now().UTC()
+}
+
+// Elapsed is the time delta between start and end.
+func (hc *HTTPContext) elapsed() time.Duration {
+	return hc.requestEnd.Sub(hc.requestStart)
 }

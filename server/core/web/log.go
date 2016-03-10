@@ -86,7 +86,7 @@ func formatFileSize(sizeBytes int) string {
 	return fmt.Sprintf("%dB", sizeBytes)
 }
 
-func escapeRequestLogOutput(format string, context *APIContext) string {
+func escapeRequestLogOutput(format string, context *HTTPContext) string {
 	output := format
 
 	//log item: datetime
@@ -94,11 +94,11 @@ func escapeRequestLogOutput(format string, context *APIContext) string {
 	output = strings.Replace(output, RequestLogItemDateTime, dateTime, -1)
 
 	//log item: time-taken
-	timeTakenStr := fmt.Sprintf("%v", context.Elapsed())
+	timeTakenStr := fmt.Sprintf("%v", context.elapsed())
 	output = strings.Replace(output, RequestLogItemTimeTaken, timeTakenStr, -1)
 
 	//log item: bytes
-	contentLengthStr := fmt.Sprintf("%v", formatFileSize(context.ContentLength()))
+	contentLengthStr := fmt.Sprintf("%v", formatFileSize(context.getContentLength()))
 	output = strings.Replace(output, RequestLogItemBytes, contentLengthStr, -1)
 
 	//log item: cached
@@ -110,11 +110,11 @@ func escapeRequestLogOutput(format string, context *APIContext) string {
 	serverIP := core.ConfigLocalIP()
 	output = strings.Replace(output, RequestLogItemPrefixServer+"-"+RequestLogItemIP, serverIP, -1)
 
-	status := util.Color(util.IntToString(context.StatusCode()), util.ColorYellow)
-	if context.StatusCode() == http.StatusOK {
-		status = util.Color(util.IntToString(context.StatusCode()), util.ColorGreen)
-	} else if context.StatusCode() == http.StatusInternalServerError {
-		status = util.Color(util.IntToString(context.StatusCode()), util.ColorRed)
+	status := util.Color(util.IntToString(context.getStatusCode()), util.ColorYellow)
+	if context.getStatusCode() == http.StatusOK {
+		status = util.Color(util.IntToString(context.getStatusCode()), util.ColorGreen)
+	} else if context.getStatusCode() == http.StatusInternalServerError {
+		status = util.Color(util.IntToString(context.getStatusCode()), util.ColorRed)
 	}
 
 	for _, prefix := range RequestLogPrefixes {

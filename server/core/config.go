@@ -91,12 +91,10 @@ func ConfigKey() []byte {
 		if len(keyBlob) != 0 {
 			key, keyErr := util.Base64Decode(keyBlob)
 			if keyErr != nil {
-				fmt.Printf("error reading key: %v\n", keyErr)
-				os.Exit(1)
+				println(keyErr.Error())
+				return key
 			}
 			configKey = key
-		} else {
-			configKey = CreateKey(32)
 		}
 	}
 	return configKey

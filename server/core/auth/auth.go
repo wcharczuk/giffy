@@ -35,9 +35,6 @@ func Logout(userID int64, sessionID string) error {
 
 // VerifySession checks a sessionID to see if it's valid.
 func VerifySession(sessionID string) (*Session, error) {
-	LockSessionState()
-	defer UnlockSessionState()
-
 	if SessionState().IsActive(sessionID) {
 		return SessionState().Sessions[sessionID], nil
 	}
