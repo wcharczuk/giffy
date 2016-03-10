@@ -2,16 +2,19 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 
 	"github.com/blendlabs/go-exception"
+	"github.com/blendlabs/go-request"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/viewmodel"
 )
 
 const (
@@ -23,7 +26,7 @@ const (
 
 // AuthRequiredAction is an action that requires the user to be logged in.
 func AuthRequiredAction(action web.APIControllerAction) web.APIControllerAction {
-	return func(ctx *web.APIContext) *web.ServiceResponse {
+	return func(ctx *web.APIContext) *web.APIResponse {
 		sessionID := ctx.Param(AuthParamName)
 		if len(sessionID) == 0 {
 			return ctx.NotAuthorized()
@@ -53,7 +56,7 @@ func getSession(ctx *web.APIContext) *auth.Session {
 	return nil
 }
 
-func getImagesAction(ctx *web.APIContext) *web.ServiceResponse {
+func getImagesAction(ctx *web.APIContext) *web.APIResponse {
 	images, err := model.GetAllImages(nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -61,7 +64,7 @@ func getImagesAction(ctx *web.APIContext) *web.ServiceResponse {
 	return ctx.Content(images)
 }
 
-func getTagsAction(ctx *web.APIContext) *web.ServiceResponse {
+func getTagsAction(ctx *web.APIContext) *web.APIResponse {
 	tags, err := model.GetAllTags(nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -69,7 +72,7 @@ func getTagsAction(ctx *web.APIContext) *web.ServiceResponse {
 	return ctx.Content(tags)
 }
 
-func getUsersAction(ctx *web.APIContext) *web.ServiceResponse {
+func getUsersAction(ctx *web.APIContext) *web.APIResponse {
 	users, err := model.GetAllUsers(nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -77,7 +80,7 @@ func getUsersAction(ctx *web.APIContext) *web.ServiceResponse {
 	return ctx.Content(users)
 }
 
-func createImageAction(ctx *web.APIContext) *web.ServiceResponse {
+func createImageAction(ctx *web.APIContext) *web.APIResponse {
 	files, filesErr := ctx.PostedFiles()
 	if filesErr != nil {
 		return ctx.BadRequest("Problem reading posted file.")
@@ -91,7 +94,7 @@ func createImageAction(ctx *web.APIContext) *web.ServiceResponse {
 	return ctx.OK()
 }
 
-func createTagAction(ctx *web.APIContext) *web.ServiceResponse {
+func createTagAction(ctx *web.APIContext) *web.APIResponse {
 	var tag model.Tag
 	err := ctx.PostBodyAsJSON(&tag)
 	if err != nil {
@@ -105,7 +108,7 @@ func createTagAction(ctx *web.APIContext) *web.ServiceResponse {
 	return ctx.Content(tag)
 }
 
-func createUserAction(ctx *web.APIContext) *web.ServiceResponse {
+func createUserAction(ctx *web.APIContext) *web.APIResponse {
 	var user model.User
 	err := ctx.PostBodyAsJSON(&user)
 	if err != nil {
@@ -118,7 +121,7 @@ func createUserAction(ctx *web.APIContext) *web.ServiceResponse {
 	return ctx.Content(user)
 }
 
-func upvoteAction(ctx *web.APIContext) *web.ServiceResponse {
+func upvoteAction(ctx *web.APIContext) *web.APIResponse {
 	err := vote(ctx, true)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -126,7 +129,7 @@ func upvoteAction(ctx *web.APIContext) *web.ServiceResponse {
 	return ctx.OK()
 }
 
-func downvoteAction(ctx *web.APIContext) *web.ServiceResponse {
+func downvoteAction(ctx *web.APIContext) *web.APIResponse {
 	err := vote(ctx, false)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -158,7 +161,7 @@ func vote(ctx *web.APIContext, isUpvote bool) error {
 	return spiffy.DefaultDb().Commit(tx)
 }
 
-func searchAction(ctx *web.APIContext) *web.ServiceResponse {
+func searchAction(ctx *web.APIContext) *web.APIResponse {
 	query := ctx.Param("query")
 	results, err := model.QueryImages(query, nil)
 	if err != nil {
@@ -171,23 +174,53 @@ type authedResponse struct {
 	SessionID string `json:"giffy_auth"`
 }
 
-func oauthAction(ctx *web.APIContext) *web.ServiceResponse {
-	token := ctx.Param("token")
-	secret := ctx.Param("secret")
+func oauthRedirectURI(r *http.Request) string {
+	return fmt.Sprintf("http://%s/oauth", core.ConfigHostname())
+}
 
-	session, err := auth.Login(token, secret)
+type oauthResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+	IDToken     string `json:"id_token"`
+}
+
+func oauthAction(ctx *web.APIContext) *web.APIResponse {
+	code := ctx.Param("code")
+	if len(code) == 0 {
+		return ctx.BadRequest("`code` parameter missing, cannot continue")
+	}
+
+	var oa oauthResponse
+	err := request.NewHTTPRequest().AsPost().WithScheme("https").WithHost("accounts.google.com").WithPath("o/oauth2/token").
+		WithPostData("client_id", core.ConfigGoogleClientID()).
+		WithPostData("client_secret", core.ConfigGoogleSecret()).
+		WithPostData("grant_type", "authorization_code").
+		WithPostData("redirect_uri", oauthRedirectURI(ctx.Request)).
+		WithPostData("code", code).FetchJSONToObject(&oa)
+
 	if err != nil {
 		return ctx.InternalError(err)
 	}
 
-	if session == nil {
-		return ctx.NotAuthorized()
+	creds, err := model.GetUserAuthByTokenAndSecret(oa.AccessToken, oa.IDToken, nil)
+	if err != nil {
+		return ctx.InternalError(err)
 	}
 
-	return ctx.Content(authedResponse{SessionID: session.SessionID})
+	if creds.IsZero() {
+		// create the user
+		user := model.NewUser(core.UUIDv4().ToShortString())
+		err = spiffy.DefaultDb().Create(user)
+		if err != nil {
+			return ctx.InternalError(err)
+		}
+	}
+
+	return ctx.Redirect("/")
 }
 
-func logoutAction(ctx *web.APIContext) *web.ServiceResponse {
+func logoutAction(ctx *web.APIContext) *web.APIResponse {
 	session := getSession(ctx)
 	if session != nil {
 		return ctx.NotAuthorized()
@@ -198,6 +231,22 @@ func logoutAction(ctx *web.APIContext) *web.ServiceResponse {
 		return ctx.InternalError(err)
 	}
 	return ctx.OK()
+}
+
+var templates = template.Must(template.ParseFiles("server/_views/header.html", "server/_views/footer.html", "server/_views/index.html", "server/_views/login.html"))
+
+func indexHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	err := templates.ExecuteTemplate(w, "index", viewmodel.Index{Title: "Home"})
+	if err != nil {
+		fmt.Printf("index: %#v\n", err)
+	}
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	err := templates.ExecuteTemplate(w, "login", viewmodel.Login{Title: "Login", ClientID: core.ConfigGoogleClientID(), Secret: core.ConfigGoogleSecret(), OAUTHRedirectURI: oauthRedirectURI(r)})
+	if err != nil {
+		fmt.Printf("login: %#v\n", err)
+	}
 }
 
 func initRouter(router *httprouter.Router) {
@@ -216,6 +265,11 @@ func initRouter(router *httprouter.Router) {
 
 	router.GET("/oauth", web.APIActionHandler(oauthAction))
 	router.POST("/logout", web.APIActionHandler(logoutAction))
+
+	router.GET("/", indexHandler)
+	router.GET("/login", loginHandler)
+
+	router.ServeFiles("/static/*filepath", http.Dir("_static"))
 }
 
 func main() {

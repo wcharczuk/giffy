@@ -1,0 +1,7 @@
+dev.giffy.charczuk.com:80 {
+	proxy / localhost:8080 {
+		policy round_robin
+		proxy_header X-REAL-IP {remote}
+		proxy_header X-Forwarded-Proto {scheme}
+	}
+}

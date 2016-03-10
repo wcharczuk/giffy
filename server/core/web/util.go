@@ -19,6 +19,12 @@ func WriteNoContent(w http.ResponseWriter) error {
 	return nil
 }
 
+// WriteRawContent writes raw content for the request.
+func WriteRawContent(w http.ResponseWriter, statusCode int, content []byte) (int, error) {
+	w.WriteHeader(statusCode)
+	return w.Write(content)
+}
+
 // WriteJSON marshalls an object to json.
 func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response interface{}) (int, error) {
 	bytes, err := json.Marshal(response)
@@ -38,10 +44,7 @@ func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response 
 		return count, exception.Wrap(err)
 	}
 
-	w.WriteHeader(500)
-	w.Write([]byte{})
 	return 0, exception.Wrap(err)
-
 }
 
 // DeserializeReaderAsJSON deserializes a post body as json to a given object.

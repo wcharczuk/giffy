@@ -1,282 +1,243 @@
+// Copyright 2016 Will Charczuk. Use of this source code is governed by a MIT-style license that can be found
+// in the LICENSE file.
+
+// Package slack is a event driven client for the popular Slack chat application.
+
+// A trivial example is:
+//  package main
+//  import (
+//      "fmt"
+//      "os"
+//      "github.com/wcharczuk/go-slack"
+//  )
+//
+//  func main() {
+//      client := slack.NewClient(os.Getenv("SLACK_TOKEN"))
+//      client.Listen(slack.EventHello, func(m *slack.Message, c *slack.Client) {
+//          fmt.Println("connected")
+//      })
+//      client.Listen(slack.EventMessage, func(m *slack.Message, c *slack.Client) {
+//          fmt.Prinln("message received!")
+//      })
+//      session, err := client.Connect() //session has the current users list and channel list
+//      if err != nil {
+//          fmt.Printf("%v\n", err)
+//          os.Exit(1)
+//      }
+//  }
+// The client has two phases of initialization, NewClient and Start.
+
 package slack
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-request"
-	"github.com/blendlabs/go-util"
 	"github.com/gorilla/websocket"
 )
 
+// Event is a type alias for string to differentiate Slack event types.
 type Event string
 
 const (
-	API_SCHEME   = "https"
-	API_ENDPOINT = "slack.com"
+	// APIScheme is the protocol used to communicate with slack.
+	APIScheme = "https"
+	// APIEndpoint is the host used to communicate with slack.
+	APIEndpoint = "slack.com"
 
-	EVENT_HELLO                   Event = "hello"
-	EVENT_MESSAGE                 Event = "message"
-	EVENT_USER_TYPING             Event = "user_typing"
-	EVENT_CHANNEL_MARKED          Event = "channel_marked"
-	EVENT_CHANNEL_JOINED          Event = "channel_joined"
-	EVENT_CHANNEL_LEFT            Event = "channel_left"
-	EVENT_CHANNEL_DELETED         Event = "channel_deleted"
-	EVENT_CHANNEL_RENAME          Event = "channel_rename"
-	EVENT_CHANNEL_ARCHIVE         Event = "channel_archive"
-	EVENT_CHANNEL_UNARCHIVE       Event = "channel_unarchive"
-	EVENT_CHANNEL_HISTORY_CHANGED Event = "channel_history_changed"
-	EVENT_DND_UPDATED             Event = "dnd_updated"
-	EVENT_DND_UPDATED_USER        Event = "dnd_updated_user"
-	EVENT_IM_CREATED              Event = "im_created"
-	EVENT_IM_OPEN                 Event = "im_open"
-	EVENT_IM_CLOSE                Event = "im_close"
-	EVENT_IM_MARKED               Event = "im_marked"
-	EVENT_IM_HISTORY_CHANGED      Event = "im_history_changed"
-	EVENT_GROUP_JOINED            Event = "group_joined"
-	EVENT_GROUP_LEFT              Event = "group_left"
-	EVENT_GROUP_OPEN              Event = "group_open"
-	EVENT_GROUP_CLOSE             Event = "group_close"
-	EVENT_GROUP_ARCHIVE           Event = "group_archive"
-	EVENT_GROUP_UNARCHIVE         Event = "group_unarchive"
-	EVENT_GROUP_RENAME            Event = "group_rename"
-	EVENT_GROUP_MARKED            Event = "group_marked"
-	EVENT_GROUP_HISTORY_CHANGED   Event = "group_history_changed"
-	EVENT_FILE_CREATED            Event = "file_created"
-	EVENT_FILE_SHARED             Event = "file_shared"
-	EVENT_FILE_UNSHARED           Event = "file_unshared"
-	EVENT_FILE_PUBLIC             Event = "file_public"
-	EVENT_FILE_PRIVATE            Event = "file_private"
-	EVENT_FILE_CHANGE             Event = "file_change"
-	EVENT_FILE_DELETED            Event = "file_deleted"
-	EVENT_FILE_COMMENT_ADDED      Event = "file_comment_added"
-	EVENT_FILE_COMMENT_EDITED     Event = "file_comment_edited"
-	EVENT_FILE_COMMENT_DELETED    Event = "file_comment_deleted"
-	EVENT_PIN_ADDED               Event = "pin_added"
-	EVENT_PIN_REMOVED             Event = "pin_removed"
-	EVENT_PRESENCE_CHANGE         Event = "presence_change"
-	EVENT_MANUAL_PRESENCE_CHANGE  Event = "manual_presence_change"
-	EVENT_PREF_CHANGE             Event = "pref_change"
-	EVENT_USER_CHANGE             Event = "user_change"
-	EVENT_TEAM_JOIN               Event = "team_join"
-	EVENT_STAR_ADDED              Event = "star_added"
-	EVENT_STAR_REMOVED            Event = "star_removed"
-	EVENT_REACTION_ADDED          Event = "reaction_added"
-	EVENT_REACTION_REMOVED        Event = "reaction_removed"
-	EVENT_EMOJI_CHANGED           Event = "emoji_changed"
-	EVENT_COMMANDS_CHANGED        Event = "commands_changed"
-	EVENT_TEAM_PLAN_CHANGED       Event = "team_plan_changed"
-	EVENT_TEAM_PREF_CHANGED       Event = "team_pref_changed"
-	EVENT_EMAIL_DOMAIN_CHANGED    Event = "email_domain_changed"
-	EVENT_TEAM_PROFILE_CHANGE     Event = "team_profile_change"
-	EVENT_TEAM_PROFILE_DELETE     Event = "team_profile_delete"
-	EVENT_TEAM_PROFILE_REORDER    Event = "team_profile_reorder"
-	EVENT_BOT_ADDED               Event = "bot_added"
-	EVENT_BOT_CHANGED             Event = "bot_changed"
-	EVENT_ACCOUNTS_CHANGED        Event = "accounts_changed"
-	EVENT_TEAM_MIGRATION_STARTED  Event = "team_migration_started"
+	// ErrorNotAuthed : No authentication token provided.
+	ErrorNotAuthed = "not_authed"
+	// ErrorInvalidAuth : Invalid authentication token
+	ErrorInvalidAuth = "invalid_auth"
+	// ErrorAccountInactive : Authentication token is for a deleted user or team.
+	ErrorAccountInactive = "account_inactive"
+	// ErrorInvalidArrayArg : The method was passed a PHP-style array argument (e.g. with a name like foo[7]). These are never valid with the Slack API.
+	ErrorInvalidArrayArg = "invalid_array_arg"
+	// ErrorInvalidCharset : The method was called via a POST request, but the charset specified in the Content-Type header was invalid. Valid charset names are: utf-8 or iso-8859-1.
+	ErrorInvalidCharset = "invalid_charset"
+	// ErrorInvalidFormData : The method was called via a POST request with Content-Type application/x-www-form-urlencoded or multipart/form-data, but the form data was either missing or syntactically invalid.
+	ErrorInvalidFormData = "invalid_form_data"
+	// ErrorInvalidPostType : The method was called via a POST request, but the specified Content-Type was invalid. Valid types are: application/json application/x-www-form-urlencoded multipart/form-data text/plain.
+	ErrorInvalidPostType = "invalid_post_type"
+	// ErrorMissingPostType : The method was called via a POST request and included a data payload, but the request did not include a Content-Type header.
+	ErrorMissingPostType = "missing_post_type"
+	// ErrorRequestTimeout : The method was called via a POST request, but the POST data was either missing or truncated.
+	ErrorRequestTimeout = "request_timeout"
+	// ErrorMessageNotFound No message exists with the requested timestamp.
+	ErrorMessageNotFound = "message_not_found"
+	// ErrorChannelNotFound : Value passed for channel was invalid.
+	ErrorChannelNotFound = "channel_not_found"
+	// ErrorCantDeleteMessage : Authenticated user does not have permission to delete this message.
+	ErrorCantDeleteMessage = "cant_delete_message"
+	// ErrorUserIsBot : Authenticated user is a bot and is restricted in it's use of certain api endpoints.
+	ErrorUserIsBot = "user_is_bot"
+	// ErrorBadTimestamp : Value passed for timestamp was invalid.
+	ErrorBadTimestamp = "bad_timestamp"
+	// ErrorFileNotFound : File specified by file does not exist.
+	ErrorFileNotFound = "file_not_found"
+	// ErrorFileCommentNotFound : File comment specified by file_comment does not exist.
+	ErrorFileCommentNotFound = "file_comment_not_found"
+	// ErrorNoItemSpecified : file, file_comment, or combination of channel and timestamp was not specified.
+	ErrorNoItemSpecified = "no_item_specified"
+	// ErrorInvalidName : Value passed for name was invalid.
+	ErrorInvalidName = "invalid_name"
+	// ErrorAlreadyReacted : The specified item already has the user/reaction combination.
+	ErrorAlreadyReacted = "already_reacted"
+	// ErrorTooManyEmoji : The limit for distinct reactions (i.e emoji) on the item has been reached.
+	ErrorTooManyEmoji = "too_many_emoji"
+	// ErrorTooManyReactions : 	The limit for reactions a person may add to the item has been reached.
+	ErrorTooManyReactions = "too_many_reactions"
 
-	EVENT_SUBTYPE_BOT_MESSAGE       Event = "bot_message"
-	EVENT_SUBTYPE_ME_MESSAGE        Event = "me_message"
-	EVENT_SUBTYPE_MESSAGE_CHANGED   Event = "message_changed"
-	EVENT_SUBTYPE_MESSAGE_DELETED   Event = "message_deleted"
-	EVENT_SUBTYPE_CHANNEL_JOIN      Event = "channel_join"
-	EVENT_SUBTYPE_CHANNEL_LEAVE     Event = "channel_leave"
-	EVENT_SUBTYPE_CHANNEL_TOPIC     Event = "channel_topic"
-	EVENT_SUBTYPE_CHANNEL_PURPOSE   Event = "channel_purpose"
-	EVENT_SUBTYPE_CHANNEL_NAME      Event = "channel_name"
-	EVENT_SUBTYPE_CHANNEL_ARCHIVE   Event = "channel_archive"
-	EVENT_SUBTYPE_CHANNEL_UNARCHIVE Event = "channel_unarchive"
+	// EventHello is an enumerated event.
+	EventHello Event = "hello"
+	// EventMessage is an enumerated event.
+	EventMessage Event = "message"
+	// EventUserTyping is an enumerated event.
+	EventUserTyping Event = "user_typing"
+	// EventChannelMarked is an enumerated event.
+	EventChannelMarked Event = "channel_marked"
+	// EventChannelJoined is an enumerated event.
+	EventChannelJoined Event = "channel_joined"
+	// EventChannelLeft is an enumerated event.
+	EventChannelLeft Event = "channel_left"
+	// EventChannelDeleted is an enumerated event.
+	EventChannelDeleted Event = "channel_deleted"
+	// EventChannelRename is an enumerated event.
+	EventChannelRename Event = "channel_rename"
+	// EventChannelArchive is an enumerated event.
+	EventChannelArchive Event = "channel_archive"
+	// EventChannelUnArchive is an enumerated event.
+	EventChannelUnArchive Event = "channel_unarchive"
+	// EventChannelHistoryChanged is an enumerated event.
+	EventChannelHistoryChanged Event = "channel_history_changed"
+	// EventDNDUpdated is an enumerated event.
+	EventDNDUpdated Event = "dnd_updated"
+	// EventDNDUpdatedUser is an enumerated event.
+	EventDNDUpdatedUser Event = "dnd_updated_user"
+	// EventIMCreated is an enumerated event.
+	EventIMCreated Event = "im_created"
+	// EventImOpen is an enumerated event.
+	EventImOpen Event = "im_open"
+	// EventImClose is an enumerated event.
+	EventImClose Event = "im_close"
+	// EventImMarked is an enumerated event.
+	EventImMarked Event = "im_marked"
+	// EventImHistoryChanged is an enumerated event.
+	EventImHistoryChanged Event = "im_history_changed"
+	// EventGroupJoined is an enumerated event.
+	EventGroupJoined Event = "group_joined"
+	// EventGroupLeft is an enumerated event.
+	EventGroupLeft Event = "group_left"
+	// EventGroupOpen is an enumerated event.
+	EventGroupOpen Event = "group_open"
+	// EventGroupClose is an enumerated event.
+	EventGroupClose Event = "group_close"
+	// EventGroupArchive is an enumerated event.
+	EventGroupArchive Event = "group_archive"
+	// EventGroupUnarchive is an enumerated event.
+	EventGroupUnarchive Event = "group_unarchive"
+	// EventGroupRename is an enumerated event.
+	EventGroupRename Event = "group_rename"
+	// EventGroupMarked is an enumerated event.
+	EventGroupMarked Event = "group_marked"
+	// EventGroupHistoryChanged is an enumerated event.
+	EventGroupHistoryChanged Event = "group_history_changed"
+	// EventFileCreated is an enumerated event.
+	EventFileCreated Event = "file_created"
+	// EventFileShared is an enumerated event.
+	EventFileShared Event = "file_shared"
+	// EventFileUnshared is an enumerated event.
+	EventFileUnshared Event = "file_unshared"
+	// EventFilePublic is an enumerated event.
+	EventFilePublic Event = "file_public"
+	// EventFilePrivate is an enumerated event.
+	EventFilePrivate Event = "file_private"
+	// EventFileChange is an enumerated event.
+	EventFileChange Event = "file_change"
+	// EventFileDeleted is an enumerated event.
+	EventFileDeleted Event = "file_deleted"
+	// EventFileCommentAdded is an enumerated event.
+	EventFileCommentAdded Event = "file_comment_added"
+	// EventFileCommentEdited is an enumerated event.
+	EventFileCommentEdited Event = "file_comment_edited"
+	// EventFileCommentDeleted is an enumerated event.
+	EventFileCommentDeleted Event = "file_comment_deleted"
+	// EventPinAdded is an enumerated event.
+	EventPinAdded Event = "pin_added"
+	// EventPinRemoved is an enumerated event.
+	EventPinRemoved Event = "pin_removed"
+	// EventPresenceChange is an enumerated event.
+	EventPresenceChange Event = "presence_change"
+	// EventManualPresenceChange is an enumerated event.
+	EventManualPresenceChange Event = "manual_presence_change"
+	// EventPrefChange is an enumerated event.
+	EventPrefChange Event = "pref_change"
+	// EventUserChange is an enumerated event.
+	EventUserChange Event = "user_change"
+	// EventTeamJoin is an enumerated event.
+	EventTeamJoin Event = "team_join"
+	// EventStarAdded is an enumerated event.
+	EventStarAdded Event = "star_added"
+	// EventStarRemoved is an enumerated event.
+	EventStarRemoved Event = "star_removed"
+	// EventReactionAdded is an enumerated event.
+	EventReactionAdded Event = "reaction_added"
+	// EventReactionRemoved is an enumerated event.
+	EventReactionRemoved Event = "reaction_removed"
+	// EventEmojiChanged is an enumerated event.
+	EventEmojiChanged Event = "emoji_changed"
+	// EventCommandsChanged is an enumerated event.
+	EventCommandsChanged Event = "commands_changed"
+	// EventTeamPlanChanged is an enumerated event.
+	EventTeamPlanChanged Event = "team_plan_changed"
+	// EventTeamPrefChanged is an enumerated event.
+	EventTeamPrefChanged Event = "team_pref_changed"
+	// EventEmailDomainChanged is an enumerated event.
+	EventEmailDomainChanged Event = "email_domain_changed"
+	// EventTeamProfileChange is an enumerated event.
+	EventTeamProfileChange Event = "team_profile_change"
+	// EventTeamProfileDelete is an enumerated event.
+	EventTeamProfileDelete Event = "team_profile_delete"
+	// EventTeamProfileReorder is an enumerated event.
+	EventTeamProfileReorder Event = "team_profile_reorder"
+	// EventBotAdded is an enumerated event.
+	EventBotAdded Event = "bot_added"
+	// EventBotChanged is an enumerated event.
+	EventBotChanged Event = "bot_changed"
+	// EventAccountsChanged is an enumerated event.
+	EventAccountsChanged Event = "accounts_changed"
+	// EventTeamMigrationStarted is an enumerated event.
+	EventTeamMigrationStarted Event = "team_migration_started"
+
+	// EventSubtypeBotMessage is an enumerated sub event.
+	EventSubtypeBotMessage Event = "bot_message"
+	// EventSubtypeMeMessage is an enumerated sub event.
+	EventSubtypeMeMessage Event = "me_message"
+	// EventSubtypeMessageChanged is an enumerated sub event.
+	EventSubtypeMessageChanged Event = "message_changed"
+	// EventSubtypeMessageDeleted is an enumerated sub event.
+	EventSubtypeMessageDeleted Event = "message_deleted"
+	// EventSubtypeChannelJoin is an enumerated sub event.
+	EventSubtypeChannelJoin Event = "channel_join"
+	// EventSubtypeChannelLeave is an enumerated sub event.
+	EventSubtypeChannelLeave Event = "channel_leave"
+	// EventSubtypeChannelTopic is an enumerated sub event.
+	EventSubtypeChannelTopic Event = "channel_topic"
+	// EventSubtypeChannelPurpose is an enumerated sub event.
+	EventSubtypeChannelPurpose Event = "channel_purpose"
+	// EventSubtypeChannelName is an enumerated sub event.
+	EventSubtypeChannelName Event = "channel_name"
+	// EventSubtypeChannelArchive is an enumerated sub event.
+	EventSubtypeChannelArchive Event = "channel_archive"
+	// EventSubtypeChannelUnarchive is an enumerated sub event.
+	EventSubtypeChannelUnarchive Event = "channel_unarchive"
 )
 
-type User struct {
-	Id                string       `json:"id"`
-	Name              string       `json:"name"`
-	Deleted           bool         `json:"deletd"`
-	Color             string       `json:"color"`
-	Profile           *UserProfile `json:"profile"`
-	IsBot             bool         `json:"is_bot"`
-	IsAdmin           bool         `json:"is_admin"`
-	IsOwner           bool         `json:"is_owner"`
-	IsPrimaryOwner    bool         `json:"is_primary_owner"`
-	IsRestricted      bool         `json:"is_restricted"`
-	IsUltraRestricted bool         `json:"is_ultra_restricted"`
-	Has2FA            bool         `json:"has_2fa"`
-	TwoFactorType     string       `json:"two_factor_type"`
-	HasFiles          bool         `json:"has_files"`
-}
-
-type UserProfile struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	RealName  string `json:"real_name"`
-	Email     string `json:"email"`
-	Skype     string `json:"skype"`
-	Phone     string `json:"phone"`
-	Image24   string `json:"image_24"`
-	Image32   string `json:"image_32"`
-	Image48   string `json:"image_48"`
-	Image72   string `json:"image_72"`
-	Image192  string `json:"image_192"`
-}
-
-type Channel struct {
-	Id                 string    `json:"id"`
-	Name               string    `json:"name"`
-	IsChannel          bool      `json:"is_channel"`
-	Created            Timestamp `json:"created"`
-	Creator            string    `json:"creator"`
-	IsArchived         bool      `json:"is_archived"`
-	IsGeneral          bool      `json:"is_general"`
-	Members            []string  `json:"members"`
-	Topic              *Topic    `json:"topic"`
-	Purpose            *Topic    `json:"purpose"`
-	IsMember           bool      `json:"is_member"`
-	LastRead           Timestamp `json:"last_read"`
-	UnreadCount        int       `json:"unread_count"`
-	UnreadCountDisplay int       `json:"unread_count_display"`
-	Latest             Message   `json:"latest"`
-}
-
-type Topic struct {
-	Value   string    `json:"value"`
-	Creator string    `json:"creator"`
-	LastSet Timestamp `json:"last_set"`
-}
-
-type Group struct {
-	Id                 string    `json:"id"`
-	Name               string    `json:"name"`
-	IsGroup            bool      `json:"is_group"`
-	Created            Timestamp `json:"created"`
-	Creator            string    `json:"creator"`
-	IsArchived         bool      `json:"is_archived"`
-	IsMPIM             bool      `json:"is_mpim"`
-	Members            []string  `json:"members"`
-	Topic              *Topic    `json:"topic"`
-	Purpose            *Topic    `json:"purpose"`
-	LastRead           Timestamp `json:"last_read"`
-	UnreadCount        int       `json:"unread_count"`
-	UnreadCountDisplay int       `json:"unread_count_display"`
-	Latest             Message   `json:"latest"`
-}
-
-type InstantMessage struct {
-	Id            string    `json:"id"`
-	IsIM          bool      `json:"is_im"`
-	User          string    `json:"user"`
-	Created       Timestamp `json:"created"`
-	IsUserDeleted bool      `json:"is_user_deleted"`
-	Latest        Message   `json:"latest"`
-}
-
-type Icon struct {
-	Image24  string `json:"image_24"`
-	Image32  string `json:"image_32"`
-	Image48  string `json:"image_48"`
-	Image72  string `json:"image_72"`
-	Image192 string `json:"image_192"`
-}
-
-type Bot struct {
-	Id    string `json:"id"`
-	Name  string `json:"name"`
-	Icons Icon   `json:"icons"`
-}
-
-type BareMessage struct {
-	Type Event `json:"type"`
-}
-
-type Message struct {
-	Id        string    `json:"id"`
-	Type      Event     `json:"type"`
-	SubType   string    `json:"subtype,omitempty"`
-	Hidden    bool      `json:"hidden,omitempty"`
-	Timestamp Timestamp `json:"ts,omitempty"`
-	Channel   string    `json:"channel,omitempty"`
-	User      string    `json:"user"`
-	Text      string    `json:"text"`
-}
-
-type ChannelJoinedMessage struct {
-	Type    Event   `json:"type"`
-	Channel Channel `json:"channel,omitempty"`
-}
-
-type Self struct {
-	Id             string    `json:"id"`
-	Name           string    `json:"name"`
-	Created        Timestamp `json:"created"`
-	ManualPresense string    `json:"manual_presence"`
-}
-
-type Team struct {
-	Id                string `json:"id"`
-	Name              string `json:"name"`
-	EmailDomain       string `json:"email_domain"`
-	MsgEditWindowMins int    `json:"msg_edit_window_mins"`
-	OverStorageLimit  bool   `json:"over_storage_limit"`
-}
-
-type Session struct {
-	OK       bool             `json:"ok"`
-	URL      string           `json:"url"`
-	Self     *Self            `json:"self"`
-	Team     *Team            `json:"team"`
-	Users    []User           `json:"users"`
-	Channels []Channel        `json:"channels"`
-	Groups   []Group          `json:"groups"`
-	IMs      []InstantMessage `json:"ims"`
-	Error    string           `json:"error,omitempty"`
-}
-
-type basicResponse struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error"`
-}
-
-type ChatMessage struct {
-	Token       string                  `json:"token"`
-	Channel     string                  `json:"channel"`
-	Text        string                  `json:"text"`
-	Username    *string                 `json:"username,omitempty"`
-	AsUser      *bool                   `json:"as_user,omitempty"`
-	Parse       *string                 `json:"parse,omitempty"`
-	LinkNames   *bool                   `json:"link_names,omitempty"`
-	UnfurlLinks *bool                   `json:"unfurl_links,omitempty"`
-	UnfurlMedia *bool                   `json:"unfurl_media,omitempty"`
-	IconUrl     *string                 `json:"icon_url,omitempty"`
-	IconEmoji   *string                 `json:"icon_emoji,omitempty"`
-	Attachments []ChatMessageAttachment `json:"attachments,omitempty"`
-}
-
-type ChatMessageAttachment struct {
-	Fallback      string  `json:"fallback"`
-	Color         *string `json:"color"`
-	Pretext       *string `json:"pretext,omitempty"`
-	AuthorName    *string `json:"author_name,omitempty"`
-	AuthorLink    *string `json:"author_link,omitempty"`
-	AuthorIcon    *string `json:"author_icon,omitempty"`
-	Title         *string `json:"title,omitempty"`
-	TitleLink     *string `json:"title_link,omitempty"`
-	Text          *string `json:"text,omitempty"`
-	Fields        []Field `json:"fields,omitempty"`
-	ImageUrl      *string `json:"image_url,omitempty"`
-	ImageThumbUrl *string `json:"thumb_url,omitempty"`
-}
-
-type Field struct {
-	Title string `json:"title"`
-	Value string `json:"value"`
-	Short bool   `json:"short"`
-}
-
+// Listener is a function that recieves messages from a client.
 type Listener func(message *Message, client *Client)
 
 // --------------------------------------------------------------------------------
@@ -286,24 +247,29 @@ type Listener func(message *Message, client *Client)
 // dont' care about.
 // --------------------------------------------------------------------------------
 
-func Connect(token string) *Client {
-	c := &Client{Token: token, EventListeners: map[Event][]Listener{}, ActiveChannels: []string{}, activeLock: sync.Mutex{}}
-	c.Listen(EVENT_CHANNEL_JOINED, c.handleChannelJoined)
-	c.Listen(EVENT_CHANNEL_DELETED, c.handleChannelDeleted)
-	c.Listen(EVENT_CHANNEL_UNARCHIVE, c.handleChannelUnarchive)
-	c.Listen(EVENT_CHANNEL_LEFT, c.handleChannelLeft)
+// NewClient creates a Client with a given token.
+func NewClient(token string) *Client {
+	c := &Client{Token: token, EventListeners: map[Event][]Listener{}, ActiveChannels: []string{}, activeLock: &sync.Mutex{}}
+	c.Listen(EventChannelJoined, c.handleChannelJoined)
+	c.Listen(EventChannelDeleted, c.handleChannelDeleted)
+	c.Listen(EventChannelUnArchive, c.handleChannelUnarchive)
+	c.Listen(EventChannelLeft, c.handleChannelLeft)
 	return c
 }
 
+// Client is the mechanism with which the package consumer interacts with Slack.
 type Client struct {
 	Token          string
 	EventListeners map[Event][]Listener
 	ActiveChannels []string
 
-	activeLock       sync.Mutex
+	activeLock       *sync.Mutex
 	socketConnection *websocket.Conn
 }
 
+// Listen attaches a new Listener to the given event.
+// There can be multiple listeners to an event.
+// If an event is already being listened for, calling Listen will add a new listener to that event.
 func (rtm *Client) Listen(event Event, handler Listener) {
 	if listeners, handlesEvent := rtm.EventListeners[event]; handlesEvent {
 		rtm.EventListeners[event] = append(listeners, handler)
@@ -312,27 +278,29 @@ func (rtm *Client) Listen(event Event, handler Listener) {
 	}
 }
 
+// StopListening removes all listeners for an event.
 func (rtm *Client) StopListening(event Event) {
 	delete(rtm.EventListeners, event)
 }
 
-func (rtm *Client) Start() (*Session, error) {
+// Connect begins a session with Slack.
+func (rtm *Client) Connect() (*Session, error) {
 	res := Session{}
-	resErr := request.NewRequest().
+	resErr := NewExternalRequest().
 		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
 		WithPath("api/rtm.start").
 		WithPostData("token", rtm.Token).
 		WithPostData("no_unreads", "true").
 		WithPostData("mpim_aware", "true").
-		FetchJsonToObject(&res)
+		FetchJSONToObject(&res)
 
 	if resErr != nil {
 		return nil, resErr
 	}
 
-	if !util.IsEmpty(res.Error) {
+	if !IsEmpty(res.Error) {
 		return nil, exception.New(res.Error)
 	}
 
@@ -361,7 +329,7 @@ func (rtm *Client) Start() (*Session, error) {
 		for x := 0; x < len(channels); x++ {
 			channel := channels[x]
 			if channel.IsMember && !channel.IsArchived {
-				rtm.ActiveChannels = append(rtm.ActiveChannels, channel.Id)
+				rtm.ActiveChannels = append(rtm.ActiveChannels, channel.ID)
 			}
 		}
 	}()
@@ -373,6 +341,7 @@ func (rtm *Client) Start() (*Session, error) {
 	return &res, nil
 }
 
+// Stop closes the connection with Slack.
 func (rtm *Client) Stop() error {
 	if rtm.socketConnection == nil {
 		return nil
@@ -386,6 +355,7 @@ func (rtm *Client) Stop() error {
 	return nil
 }
 
+// SendMessage sends a basic message over the open web socket connection to slack.
 func (rtm Client) SendMessage(m *Message) error {
 	if rtm.socketConnection == nil {
 		return exception.New("Connection is closed.")
@@ -394,30 +364,34 @@ func (rtm Client) SendMessage(m *Message) error {
 	return rtm.socketConnection.WriteJSON(m)
 }
 
-func (rtm Client) Say(channelId string, messageComponents ...interface{}) error {
+// Say sends a basic message to a given channelID.
+func (rtm Client) Say(channelID string, messageComponents ...interface{}) error {
 	if rtm.socketConnection == nil {
 		return exception.New("Connection is closed.")
 	}
 
-	m := &Message{Type: "message", Text: fmt.Sprint(messageComponents...), Channel: channelId}
+	m := &Message{Type: "message", Text: fmt.Sprint(messageComponents...), Channel: channelID}
 	return rtm.SendMessage(m)
 }
 
-func (rtm Client) Sayf(channelId, format string, messageComponents ...interface{}) error {
+// Sayf is an overload that uses Printf style replacements for a basic message to a given channelID.
+func (rtm Client) Sayf(channelID, format string, messageComponents ...interface{}) error {
 	if rtm.socketConnection == nil {
 		return exception.New("Connection is closed.")
 	}
 
-	m := &Message{Type: "message", Text: fmt.Sprintf(format, messageComponents...), Channel: channelId}
+	m := &Message{Type: "message", Text: fmt.Sprintf(format, messageComponents...), Channel: channelID}
 	return rtm.SendMessage(m)
 }
 
+// Ping sends a special type of "ping" message to Slack to remind it to keep the connection open.
+// Currently unused internally by Slack.
 func (rtm *Client) Ping() error {
 	if rtm.socketConnection == nil {
 		return exception.New("Connection is closed.")
 	}
 
-	m := &Message{Id: util.UUID_v4().ToShortString(), Type: "ping"}
+	m := &Message{ID: UUIDv4().ToShortString(), Type: "ping"}
 	return rtm.SendMessage(m)
 }
 
@@ -435,25 +409,22 @@ func (rtm *Client) listenLoop() error {
 			return err
 		}
 
-		body := string(messageBytes)
-
 		var bm BareMessage
-		jsonErr := util.DeserializeJson(&bm, body)
-		if bm.Type == EVENT_CHANNEL_JOINED {
+		jsonErr := json.Unmarshal(messageBytes, &bm)
+		if bm.Type == EventChannelJoined {
 			var cm ChannelJoinedMessage
-			jsonErr = util.DeserializeJson(&cm, body)
+			jsonErr = json.Unmarshal(messageBytes, &cm)
 			if jsonErr == nil {
-				rtm.dispatch(&Message{Type: EVENT_CHANNEL_JOINED, Channel: cm.Channel.Id})
+				rtm.dispatch(&Message{Type: EventChannelJoined, Channel: cm.Channel.ID})
 			}
 		} else {
 			var m Message
-			jsonErr = util.DeserializeJson(&m, body)
+			jsonErr = json.Unmarshal(messageBytes, &m)
 			if jsonErr == nil {
 				rtm.dispatch(&m)
 			}
 		}
 	}
-	return nil
 }
 
 func (rtm *Client) dispatch(m *Message) {
@@ -494,15 +465,15 @@ func (rtm *Client) handleChannelDeleted(message *Message, client *Client) {
 	rtm.removeActiveChannel(message.Channel)
 }
 
-func (rtm *Client) removeActiveChannel(channelId string) {
+func (rtm *Client) removeActiveChannel(channelID string) {
 	rtm.activeLock.Lock()
 	defer rtm.activeLock.Unlock()
 
 	currentChannels := []string{}
 	for x := 0; x < len(rtm.ActiveChannels); x++ {
-		currentChannelId := rtm.ActiveChannels[x]
-		if channelId != currentChannelId {
-			currentChannels = append(currentChannels, currentChannelId)
+		currentChannelID := rtm.ActiveChannels[x]
+		if channelID != currentChannelID {
+			currentChannels = append(currentChannels, currentChannelID)
 		}
 	}
 	rtm.ActiveChannels = currentChannels
@@ -512,18 +483,116 @@ func (rtm *Client) removeActiveChannel(channelId string) {
 // API METHODS
 //--------------------------------------------------------------------------------
 
-type channelsListResponse struct {
-	Ok       bool      `json:"ok"`
-	Error    string    `json:"error"`
-	Channels []Channel `json:"channels"`
+// AuthTest tests if the token works for a client.
+func (rtm *Client) AuthTest() (*AuthTestResponse, error) {
+	res := AuthTestResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/auth.test").
+		WithPostData("token", rtm.Token).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return nil, resErr
+	}
+
+	if len(res.Error) != 0 {
+		return nil, exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
+	}
+
+	return &res, nil
 }
 
+// ChannelsHistory returns the messages in a channel.
+func (rtm *Client) ChannelsHistory(channelID string, latest, oldest *time.Time, count int, unreads bool) (*ChannelsHistoryResponse, error) {
+	unreadsValue := "0"
+	if unreads {
+		unreadsValue = "1"
+	}
+
+	if count == -1 {
+		count = 1000
+	} else if count < 1 {
+		count = 1
+	} else if count > 1000 {
+		count = 1000
+	}
+
+	res := ChannelsHistoryResponse{}
+	req := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/channels.history").
+		WithPostData("token", rtm.Token).
+		WithPostData("channel", channelID).
+		WithPostData("count", string(count)).
+		WithPostData("unreads", unreadsValue)
+
+	if latest != nil {
+		req = req.WithPostData("latest", Timestamp{time: *latest}.String())
+	}
+
+	if oldest != nil {
+		req = req.WithPostData("oldest", Timestamp{time: *latest}.String())
+	}
+
+	resErr := req.FetchJSONToObject(&res)
+	if resErr != nil {
+		return nil, resErr
+	}
+
+	if len(res.Error) != 0 {
+		return nil, exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
+	}
+
+	return &res, nil
+}
+
+// ChannelsInfo returns information about a given channelID.
+func (rtm *Client) ChannelsInfo(channelID string) (*Channel, error) {
+	res := channelsInfoResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/channels.info").
+		WithPostData("token", rtm.Token).
+		WithPostData("channel", channelID).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return nil, resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return nil, exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
+	}
+
+	return res.Channel, nil
+}
+
+// ChannelsList returns the list of channels available to the bot.
 func (rtm *Client) ChannelsList(excludeArchived bool) ([]Channel, error) {
 	res := channelsListResponse{}
-	req := request.NewRequest().
+	req := NewExternalRequest().
 		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
 		WithPath("api/channels.list").
 		WithPostData("token", rtm.Token)
 
@@ -531,225 +600,367 @@ func (rtm *Client) ChannelsList(excludeArchived bool) ([]Channel, error) {
 		req = req.WithPostData("exclude_archived", "1")
 	}
 
-	resErr := req.FetchJsonToObject(&res)
+	resErr := req.FetchJSONToObject(&res)
 
 	if resErr != nil {
 		return nil, resErr
 	}
 
-	if !util.IsEmpty(res.Error) {
+	if !IsEmpty(res.Error) {
 		return nil, exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
 	}
 
 	return res.Channels, nil
 }
 
-type channelsInfoResponse struct {
-	Ok      bool     `json:"ok"`
-	Error   string   `json:"error"`
-	Channel *Channel `json:"channel"`
+// ChannelsMark marks a message.
+func (rtm *Client) ChannelsMark(channelID string, ts Timestamp) error {
+	res := basicResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/chat.mark").
+		WithPostData("token", rtm.Token).
+		WithPostData("channel", channelID).
+		WithPostData("ts", ts.String()).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return exception.New(res.Error)
+	}
+	if !res.OK {
+		return exception.New("slack response `ok` is false.")
+	}
+
+	return nil
 }
 
-func (rtm *Client) ChannelsInfo(channelId string) (*Channel, error) {
-	res := channelsInfoResponse{}
-	resErr := request.NewRequest().
+// ChannelsSetPurpose sets the purpose for a given Slack channel.
+func (rtm *Client) ChannelsSetPurpose(channelID, purpose string) error {
+	res := basicResponse{}
+	resErr := NewExternalRequest().
 		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
-		WithPath("api/channels.info").
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/channels.setPurpose").
 		WithPostData("token", rtm.Token).
-		WithPostData("channel", channelId).
-		FetchJsonToObject(&res)
+		WithPostData("channel", channelID).
+		WithPostData("purpose", purpose).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return exception.New("slack response `ok` is false.")
+	}
+
+	return nil
+}
+
+// ChannelsSetTopic sets the topic for a given Slack channel.
+func (rtm *Client) ChannelsSetTopic(channelID, topic string) error {
+	res := basicResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/channels.setTopic").
+		WithPostData("token", rtm.Token).
+		WithPostData("channel", channelID).
+		WithPostData("topic", topic).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return exception.New("slack response `ok` is false.")
+	}
+
+	return nil
+}
+
+// ChatDelete deletes a message.
+func (rtm *Client) ChatDelete(channelID string, ts Timestamp) error {
+	res := basicResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/chat.delete").
+		WithPostData("token", rtm.Token).
+		WithPostData("channel", channelID).
+		WithPostData("ts", ts.String()).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return exception.New(res.Error)
+	}
+	if !res.OK {
+		return exception.New("slack response `ok` is false.")
+	}
+
+	return nil
+}
+
+// ChatPostMessage posts a message to Slack using the chat api.
+func (rtm *Client) ChatPostMessage(m *ChatMessage) (*ChatMessageResponse, error) { //the response version of the message is returned for verification
+	res := ChatMessageResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/chat.postMessage").
+		WithPostData("token", rtm.Token).
+		WithPostDataFromObject(m).
+		FetchJSONToObject(&res)
 
 	if resErr != nil {
 		return nil, resErr
 	}
 
-	if !util.IsEmpty(res.Error) {
+	if !IsEmpty(res.Error) {
 		return nil, exception.New(res.Error)
 	}
 
-	return res.Channel, nil
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
+	}
+
+	return &res, nil
 }
 
-func (rtm *Client) ChannelsSetTopic(channelId, topic string) error {
-	res := basicResponse{}
-	resErr := request.NewRequest().
+// ChatUpdate updates a chat message.
+func (rtm *Client) ChatUpdate(ts Timestamp, m *ChatMessage) (*ChatMessageResponse, error) { //the response version of the message is returned for verification
+	res := ChatMessageResponse{}
+	resErr := NewExternalRequest().
 		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
-		WithPath("api/channels.leave").
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/chat.update").
 		WithPostData("token", rtm.Token).
-		WithPostData("channel", channelId).
-		WithPostData("topic", topic).
-		FetchJsonToObject(&res)
-
-	if resErr != nil {
-		return resErr
-	}
-
-	if !util.IsEmpty(res.Error) {
-		return exception.New(res.Error)
-	}
-
-	return nil
-}
-
-func (rtm *Client) ChannelsSetPurpose(channelId, purpose string) error {
-	res := basicResponse{}
-	resErr := request.NewRequest().
-		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
-		WithPath("api/channels.leave").
-		WithPostData("token", rtm.Token).
-		WithPostData("channel", channelId).
-		WithPostData("purpose", purpose).
-		FetchJsonToObject(&res)
-
-	if resErr != nil {
-		return resErr
-	}
-
-	if !util.IsEmpty(res.Error) {
-		return exception.New(res.Error)
-	}
-
-	return nil
-}
-
-type usersListResponse struct {
-	Ok    bool   `json:"ok"`
-	Error string `json:"error"`
-	Users []User `json:"members"`
-}
-
-func (rtm *Client) UsersList() ([]User, error) {
-	res := usersListResponse{}
-	resErr := request.NewRequest().
-		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
-		WithPath("api/users.list").
-		WithPostData("token", rtm.Token).
-		FetchJsonToObject(&res)
+		WithPostData("ts", ts.String()).
+		WithPostDataFromObject(m).
+		FetchJSONToObject(&res)
 
 	if resErr != nil {
 		return nil, resErr
 	}
 
-	if !util.IsEmpty(res.Error) {
+	if !IsEmpty(res.Error) {
+		return nil, exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
+	}
+
+	return &res, nil
+}
+
+// EmojiList returns a list of current emoji's for a slack.
+func (rtm *Client) EmojiList() (map[string]string, error) {
+	res := emojiResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/emoji.list").
+		WithPostData("token", rtm.Token).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return nil, resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return nil, exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
+	}
+	return res.Emoji, nil
+}
+
+// ReactionsAdd adds a reaction.
+func (rtm *Client) ReactionsAdd(name string, fileID, fileCommentID, channelID *string, ts *Timestamp) error {
+	res := basicResponse{}
+	req := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/reactions.add").
+		WithPostData("token", rtm.Token).
+		WithPostData("name", name)
+
+	if fileID != nil {
+		req = req.WithPostData("file", *fileID)
+	} else if fileCommentID != nil {
+		req = req.WithPostData("file_comment", *fileCommentID)
+	} else if channelID != nil && ts != nil {
+		req = req.WithPostData("channel", *channelID)
+		req = req.WithPostData("timestamp", ts.String())
+	} else {
+		return exception.New("`fileId` or `fileCommentID` or (`channelID` and `ts`) must be not be nil.")
+	}
+
+	resErr := req.FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return exception.New("slack response `ok` is false.")
+	}
+	return nil
+}
+
+// ReactionsGet gets reactions.
+func (rtm *Client) ReactionsGet(fileID, fileCommentID, channelID *string, ts *Timestamp) (*ChatMessageResponse, error) {
+	res := ChatMessageResponse{}
+	req := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/reactions.get").
+		WithPostData("token", rtm.Token)
+
+	if fileID != nil {
+		req = req.WithPostData("file", *fileID)
+	} else if fileCommentID != nil {
+		req = req.WithPostData("file_comment", *fileCommentID)
+	} else if channelID != nil && ts != nil {
+		req = req.WithPostData("channel", *channelID)
+		req = req.WithPostData("timestamp", ts.String())
+	} else {
+		return nil, exception.New("`fileId` or `fileCommentID` or (`channelID` and `ts`) must be not be nil.")
+	}
+
+	resErr := req.FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return nil, resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return nil, exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return nil, exception.New("slack response `ok` is false.")
+	}
+	return &res, nil
+}
+
+// ReactionsRemove removes a reaction.
+func (rtm *Client) ReactionsRemove(name string, fileID, fileCommentID, channelID *string, ts *Timestamp) error {
+	res := basicResponse{}
+	req := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/reactions.remove").
+		WithPostData("token", rtm.Token).
+		WithPostData("name", name)
+
+	if fileID != nil {
+		req = req.WithPostData("file", *fileID)
+	} else if fileCommentID != nil {
+		req = req.WithPostData("file_comment", *fileCommentID)
+	} else if channelID != nil && ts != nil {
+		req = req.WithPostData("channel", *channelID)
+		req = req.WithPostData("timestamp", ts.String())
+	} else {
+		return exception.New("`fileId` or `fileCommentID` or (`channelID` and `ts`) must be not be nil.")
+	}
+
+	resErr := req.FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return resErr
+	}
+
+	if !IsEmpty(res.Error) {
+		return exception.New(res.Error)
+	}
+
+	if !res.OK {
+		return exception.New("slack response `ok` is false.")
+	}
+	return nil
+}
+
+// UsersList returns all users for a given Slack organization.
+func (rtm *Client) UsersList() ([]User, error) {
+	res := usersListResponse{}
+	resErr := NewExternalRequest().
+		AsPost().
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
+		WithPath("api/users.list").
+		WithPostData("token", rtm.Token).
+		FetchJSONToObject(&res)
+
+	if resErr != nil {
+		return nil, resErr
+	}
+
+	if !IsEmpty(res.Error) {
 		return nil, exception.New(res.Error)
 	}
 
 	return res.Users, nil
 }
 
-type usersInfoResponse struct {
-	Ok    bool   `json:"ok"`
-	Error string `json:"error"`
-	User  *User  `json:"users"`
-}
-
-func (rtm *Client) UsersInfo(userId string) (*User, error) {
+// UsersInfo returns an User object for a given userID.
+func (rtm *Client) UsersInfo(userID string) (*User, error) {
 	res := usersInfoResponse{}
-	resErr := request.NewRequest().
+	resErr := NewExternalRequest().
 		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
+		WithScheme(APIScheme).
+		WithHost(APIEndpoint).
 		WithPath("api/users.info").
 		WithPostData("token", rtm.Token).
-		WithPostData("user", userId).
-		FetchJsonToObject(&res)
+		WithPostData("user", userID).
+		FetchJSONToObject(&res)
 
 	if resErr != nil {
 		return nil, resErr
 	}
 
-	if !util.IsEmpty(res.Error) {
+	if !IsEmpty(res.Error) {
 		return nil, exception.New(res.Error)
 	}
 
 	return res.User, nil
-}
-
-func NewChatMessage(channelId, text string) *ChatMessage {
-	return &ChatMessage{Channel: channelId, Text: text, Parse: OptionalString("full")}
-}
-
-type chatPostMessageResponse struct {
-	Ok        bool         `json:"ok"`
-	Timestamp Timestamp    `json:"timestamp"`
-	Message   *ChatMessage `json:"message"`
-	Error     string       `json:"error"`
-}
-
-func (rtm *Client) ChatPostMessage(m *ChatMessage) (*ChatMessage, error) { //the response version of the message is returned for verification
-	m.Token = rtm.Token
-
-	res := chatPostMessageResponse{}
-	resErr := request.NewRequest().
-		AsPost().
-		WithScheme(API_SCHEME).
-		WithHost(API_ENDPOINT).
-		WithPath("api/chat.postMessage").
-		WithPostDataFromObject(m).
-		FetchJsonToObject(&res)
-
-	if resErr != nil {
-		return nil, resErr
-	}
-
-	if !util.IsEmpty(res.Error) {
-		return nil, exception.New(res.Error)
-	}
-
-	return res.Message, nil
-}
-
-func OptionalBool(value bool) *bool {
-	return &value
-}
-
-func OptionalString(value string) *string {
-	return &value
-}
-
-func OptionalInt32(value int32) *int32 {
-	return &value
-}
-
-func OptionalInt64(value int64) *int64 {
-	return &value
-}
-
-func OptionalTimestamp(value time.Time) *time.Time {
-	return &value
-}
-
-type Timestamp time.Time
-
-func ParseTimestamp(strValue string) *Timestamp {
-	if integerValue, integerErr := strconv.ParseInt(strValue, 10, 64); integerErr == nil {
-		t := Timestamp(time.Unix(integerValue, 0))
-		return &t
-	}
-	if _, floatErr := strconv.ParseFloat(strValue, 64); floatErr == nil {
-		components := strings.Split(strValue, ".")
-		if integerValue, integerErr := strconv.ParseInt(components[0], 10, 64); integerErr == nil {
-			t := Timestamp(time.Unix(integerValue, 0))
-			return &t
-		}
-	}
-	return nil
-}
-
-func (t *Timestamp) UnmarshalJSON(data []byte) error {
-	strValue := string(data)
-	t = ParseTimestamp(strValue)
-	return nil
-}
-
-func (t Timestamp) DateTime() time.Time {
-	return time.Time(t)
 }

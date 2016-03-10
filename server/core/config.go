@@ -96,8 +96,40 @@ func ConfigKey() []byte {
 			}
 			configKey = key
 		} else {
-			configKey = CreateKey(256)
+			configKey = CreateKey(32)
 		}
 	}
 	return configKey
+}
+
+// ConfigEnvironment returns the current environment.
+func ConfigEnvironment() string {
+	env := os.Getenv("ENV")
+	if len(env) != 0 {
+		return env
+	}
+	return "dev"
+}
+
+// ConfigHostname returns the hostname for the server.
+func ConfigHostname() string {
+	envHost := os.Getenv("HOSTNAME")
+	if len(envHost) != 0 {
+		return envHost
+	}
+
+	if ConfigEnvironment() == "dev" {
+		return "dev.giffy.charczuk.com"
+	}
+	return "giffy.charczuk.com"
+}
+
+// ConfigGoogleClientID returns the google client id.
+func ConfigGoogleClientID() string {
+	return os.Getenv("GOOGLE_CLIENT_ID")
+}
+
+// ConfigGoogleSecret returns the google secret.
+func ConfigGoogleSecret() string {
+	return os.Getenv("GOOGLE_CLIENT_SECRET")
 }

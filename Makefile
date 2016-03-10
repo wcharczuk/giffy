@@ -7,18 +7,18 @@ WARN_COLOR=\033[33;01m
 all: test-bot test-server
 
 run:
-	@echo "$(OK_COLOR)==> Running Bot$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Running$(NO_COLOR)"
 	@genv -f="./_config/config.json" go run ./server/main.go
 
 test:
-	@echo "$(OK_COLOR)==> Running Server Tests$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
 	@bash ./_util/test.bash --root="./server" --package=$(package) --short --filter=${filter}
-	@echo "$(OK_COLOR)==> Running Server Tests Done!$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
 
 cover:
-	@echo "$(OK_COLOR)==> Running Coverage$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Coverage$(NO_COLOR)"
 	@sh ./_util/coverage.sh --root="./server"
-	@echo "$(OK_COLOR)==> Running Coverage Done!$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Coverage Done!$(NO_COLOR)"
 
 db:
 	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
