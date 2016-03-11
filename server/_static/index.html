@@ -15,15 +15,21 @@
     <body ng-controller="imageSearchController">
         <div class="row">
             <div class="col-md-2">
-                Search: <input ng-model="query">
+                <input ng-model="query">
             </div>
             <div class="col-md-10">
-                <ul class="images">
-                    <li ng-repeat="image in images | filter:query">
-                        <img src="{{image.s3_read_url}}"/>
-                        <p>{{image.created_by}}</p>
-                    </li>
-                </ul>
+                <div class="row">
+                    <h1>GIFFY</h1>
+                </div>
+                <div class="row">
+                    <ul class="images">
+                        <li ng-repeat="image in images">
+                            <img src="{{image.s3_read_url}}"/>
+                            <div>Added By: {{image.created_by.username}}</div>
+                            <div>Tags: <span ng-repeat="tag in image.tags" class="tag"><a href="/tag/{{tag.uuid}}">{{tag.tag_value}}</a>&nbsp;({{tag.votes_total}})</span><a href="#">Add</a></div>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </body>

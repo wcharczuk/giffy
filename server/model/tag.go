@@ -37,7 +37,17 @@ func (t Tag) TableName() string {
 
 // Populate pulls data off a reader and sets fields on the struct.
 func (t *Tag) Populate(r *sql.Rows) error {
+	return r.Scan(&t.ID, &t.UUID, &t.CreatedUTC, &t.CreatedBy, &t.TagValue)
+}
+
+// PopulateExtra pulls data off a reader and sets fields on the struct.
+func (t *Tag) PopulateExtra(r *sql.Rows) error {
 	return r.Scan(&t.ID, &t.UUID, &t.CreatedUTC, &t.CreatedBy, &t.TagValue, &t.ImageID, &t.VotesFor, &t.VotesAgainst, &t.VotesTotal)
+}
+
+// IsZero denotes if an object has been set or not.
+func (t *Tag) IsZero() bool {
+	return t.ID == 0
 }
 
 // GetAllTags returns all the tags in the db.

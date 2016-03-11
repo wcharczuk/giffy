@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
-	"time"
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
@@ -170,8 +169,6 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 			newImage := model.NewImage()
 			newImage.MD5 = md5sum
 			newImage.CreatedBy = session.UserID
-			newImage.UpdatedUTC = time.Now().UTC()
-			newImage.UpdatedBy = session.UserID
 
 			imageBuf := bytes.NewBuffer(f.Contents)
 
@@ -207,16 +204,14 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 }
 
 func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	var tag model.Tag
-	err := ctx.PostBodyAsJSON(&tag)
+	tag := model.NewTag()
+	err := ctx.PostBodyAsJSON(tag)
 	if err != nil {
 		return ctx.BadRequest(err.Error())
 	}
-
 	tag.CreatedBy = session.UserID
-	tag.CreatedUTC = time.Now().UTC()
 
-	err = spiffy.DefaultDb().Create(&tag)
+	err = spiffy.DefaultDb().Create(tag)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -224,38 +219,60 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 }
 
 func upvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	err := vote(session, ctx, true)
-	if err != nil {
-		return ctx.InternalError(err)
-	}
-	return ctx.OK()
+	return voteResult(true, session, ctx)
 }
 
 func downvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	err := vote(session, ctx, false)
-	if err != nil {
-		return ctx.InternalError(err)
-	}
-	return ctx.OK()
+	return voteResult(false, session, ctx)
 }
 
-func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) error {
+func voteResult(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	statusCode, err := vote(session, ctx, isUpvote)
+	if statusCode == http.StatusOK {
+		return ctx.OK()
+	} else if statusCode == http.StatusNotFound {
+		return ctx.NotFound()
+	} else if statusCode == http.StatusInternalServerError && err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.BadRequest("There was an issue voting.")
+}
+
+func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, error) {
 	tx, err := spiffy.DefaultDb().Begin()
 	if err != nil {
-		return err
+		return http.StatusInternalServerError, err
 	}
 
-	imageID := ctx.RouteParameterInt64("image_id")
-	tagID := ctx.RouteParameterInt64("tag_id")
+	imageUUID := ctx.RouteParameter("image_id")
+	tagUUID := ctx.RouteParameter("tag_id")
 	userID := session.UserID
 
-	err = model.Vote(userID, imageID, tagID, isUpvote, tx)
+	tag, err := model.GetTagByUUID(tagUUID, tx)
 	if err != nil {
-		rollbackErr := spiffy.DefaultDb().Rollback(tx)
-		return exception.WrapMany(err, rollbackErr)
+		spiffy.DefaultDb().Rollback(tx)
+		return http.StatusInternalServerError, err
 	}
 
-	return spiffy.DefaultDb().Commit(tx)
+	if tag.IsZero() {
+		return http.StatusNotFound, exception.New("`tag_id` not found.")
+	}
+
+	image, err := model.GetImageByUUID(imageUUID, tx)
+	if err != nil {
+		return http.StatusInternalServerError, exception.WrapMany(err, spiffy.DefaultDb().Rollback(tx))
+	}
+
+	if image.IsZero() {
+		return http.StatusNotFound, exception.New("`image_id` not found.")
+	}
+
+	err = model.Vote(userID, image.ID, tag.ID, isUpvote, tx)
+	if err != nil {
+		return http.StatusInternalServerError, exception.WrapMany(err, spiffy.DefaultDb().Rollback(tx))
+	}
+
+	return http.StatusOK, spiffy.DefaultDb().Commit(tx)
 }
 
 func searchAction(ctx *web.HTTPContext) web.ControllerResult {

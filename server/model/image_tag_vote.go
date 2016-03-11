@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/spiffy"
 )
 
@@ -49,7 +48,18 @@ func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 		return existingErr
 	}
 
-	if existing != nil && !existing.IsZero() {
+	if existing.IsZero() {
+		var itv *ImageTagVotes
+		if isUpvote {
+			itv = NewImageTagVote(imageID, tagID, userID, time.Now().UTC(), 1, 0)
+		} else {
+			itv = NewImageTagVote(imageID, tagID, userID, time.Now().UTC(), 0, 1)
+		}
+		err := spiffy.DefaultDb().CreateInTransaction(itv, tx)
+		if err != nil {
+			return err
+		}
+	} else {
 		if isUpvote {
 			existing.VotesFor = existing.VotesFor + 1
 		} else {
@@ -63,12 +73,9 @@ func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 		if updateErr != nil {
 			return updateErr
 		}
-
-		logEntry := NewVoteLog(userID, imageID, tagID, isUpvote)
-		return spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
 	}
-
-	return exception.New("Invalid schema state; no `image_tag_votes` for image.")
+	logEntry := NewVoteLog(userID, imageID, tagID, isUpvote)
+	return spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
 }
 
 // GetImageTagVote fetches an ImageTagVotes by constituent pks.

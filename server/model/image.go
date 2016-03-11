@@ -26,9 +26,6 @@ type Image struct {
 	CreatedUTC    time.Time `json:"created_utc" db:"created_utc"`
 	CreatedBy     int64     `json:"-" db:"created_by"`
 	CreatedByUser *User     `json:"created_by,omitempty" db:"-"`
-	UpdatedUTC    time.Time `json:"updated_utc,omitempty" db:"updated_utc"`
-	UpdatedBy     int64     `json:"-" db:"updated_by"`
-	UpdatedByUser *User     `json:"updated_by,omitempty" db:"-"`
 
 	DisplayName string `json:"display_name" db:"display_name"`
 
@@ -62,8 +59,6 @@ func (i *Image) Populate(r *sql.Rows) error {
 		&i.UUID,
 		&i.CreatedUTC,
 		&i.CreatedBy,
-		&i.UpdatedUTC,
-		&i.UpdatedBy,
 		&i.DisplayName,
 		&i.MD5,
 		&i.S3ReadURL,
@@ -139,6 +134,10 @@ where
 		return nil, err
 	}
 
+	if len(imageIDs) == 0 {
+		return []Image{}, nil
+	}
+
 	ids := imageSignatures(imageIDs).AsInt64s()
 	return GetImagesByID(ids, tx)
 }
@@ -156,7 +155,7 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	tagQuerySingle := fmt.Sprintf(`%s where itv.image_id = $1;`, tagQueryAll)
 	tagQueryMany := fmt.Sprintf(`%s where itv.image_id = ANY($1::bigint[]);`, tagQueryAll)
 
-	userQueryAll := `select u.* from image i join users u on i.created_by = u.id or i.updated_by = u.id`
+	userQueryAll := `select u.* from image i join users u on i.created_by = u.id`
 	userQuerySingle := fmt.Sprintf(`%s where i.id = $1`, userQueryAll)
 	userQueryMany := fmt.Sprintf(`%s where i.id = ANY($1::bigint[])`, userQueryAll)
 
@@ -177,7 +176,7 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 
 	tagConsumer := func(r *sql.Rows) error {
 		t := &Tag{}
-		populateErr = t.Populate(r)
+		populateErr = t.PopulateExtra(r)
 		if populateErr != nil {
 			return populateErr
 		}
@@ -247,10 +246,6 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 		img := images[x]
 		if u, ok := userLookup[img.CreatedBy]; ok {
 			img.CreatedByUser = u
-		}
-
-		if u, ok := userLookup[img.UpdatedBy]; ok {
-			img.UpdatedByUser = u
 		}
 
 		finalImages[x] = *img

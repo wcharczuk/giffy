@@ -17,8 +17,6 @@ CREATE TABLE image (
 	uuid varchar(32) not null,
 	created_utc timestamp not null,
 	created_by bigint not null,
-	updated_utc timestamp,
-	updated_by bigint,
 
 	display_name varchar(255),
 
@@ -35,8 +33,6 @@ ALTER TABLE image ADD CONSTRAINT pk_image_id PRIMARY KEY (id);
 ALTER TABLE image ADD CONSTRAINT uk_image_uuid UNIQUE (uuid);
 ALTER TABLE image ADD CONSTRAINT fk_image_created_by_user_id 
 	FOREIGN KEY (created_by) REFERENCES users(id);
-ALTER TABLE image ADD CONSTRAINT fk_image_updated_by_user_id 
-	FOREIGN KEY (updated_by) REFERENCES users(id);
 
 CREATE TABLE tag (
 	id serial not null,

@@ -5,3 +5,8 @@ body {
 .images {
     list-style: none;
 }
+
+.tag {
+    margin-left: 3px;
+    margin-right: 3px;
+}
