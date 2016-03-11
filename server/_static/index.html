@@ -6,8 +6,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <!-- bootstrap -->
         <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
-        <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js" crossorigin="anonymous"></script>
         <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.5.0/angular.min.js" crossorigin="anonymous"></script>
+        <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+        
         <script src="/static/js/controllers.js"></script>
         <!-- site css -->
         <link rel="stylesheet" href="/static/css/site.css">
@@ -24,7 +26,7 @@
                 <div class="row">
                     <ul class="images">
                         <li ng-repeat="image in images">
-                            <img src="{{image.s3_read_url}}"/>
+                            <img src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
                             <div>Added By: {{image.created_by.username}}</div>
                             <div>Tags: <span ng-repeat="tag in image.tags" class="tag"><a href="/tag/{{tag.uuid}}">{{tag.tag_value}}</a>&nbsp;({{tag.votes_total}})</span><a href="#">Add</a></div>
                         </li>

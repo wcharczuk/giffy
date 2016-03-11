@@ -26,7 +26,7 @@ func createTestTag(userID, imageID int64, tagValue string, tx *sql.Tx) (*Tag, er
 		return nil, existingErr
 	}
 
-	if existing == nil || existing.IsZero() {
+	if existing.IsZero() {
 		v := NewImageTagVote(imageID, tag.ID, userID, time.Now().UTC(), 1, 0)
 		err = spiffy.DefaultDb().CreateInTransaction(v, tx)
 	}
@@ -36,8 +36,6 @@ func createTestTag(userID, imageID int64, tagValue string, tx *sql.Tx) (*Tag, er
 func createTestImage(userID int64, tx *sql.Tx) (*Image, error) {
 	i := NewImage()
 	i.CreatedBy = userID
-	i.UpdatedBy = userID
-	i.UpdatedUTC = time.Now().UTC()
 	i.Extension = "gif"
 	i.Width = 720
 	i.Height = 480
@@ -63,8 +61,6 @@ func TestQueryImages(t *testing.T) {
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
-	spiffy.DefaultDb().IsolateToTransaction(tx)
-	defer spiffy.DefaultDb().ReleaseIsolation()
 
 	u, err := createTestUser(tx)
 	assert.Nil(err)
@@ -82,10 +78,60 @@ func TestQueryImages(t *testing.T) {
 	assert.Nil(err)
 	assert.NotEmpty(images)
 
-	fmt.Printf("Test: %#v\n", images)
-
 	firstImage := images[0]
 	assert.False(firstImage.IsZero())
 	assert.NotNil(firstImage.CreatedByUser)
 	assert.NotEmpty(firstImage.Tags)
+}
+
+func TestGetImagesByID(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	_, err = createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	_, err = createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	_, err = createTestTag(u.ID, i.ID, "test", tx)
+	assert.Nil(err)
+
+	_, err = createTestTag(u.ID, i.ID, "foo", tx)
+	assert.Nil(err)
+
+	_, err = createTestTag(u.ID, i.ID, "bar", tx)
+	assert.Nil(err)
+
+	baz, err := createTestTag(u.ID, i.ID, "baz", tx)
+	assert.Nil(err)
+
+	biz, err := createTestTag(u.ID, i.ID, "biz", tx)
+	assert.Nil(err)
+
+	err = SetTagVotes(i.ID, baz.ID, 100, 3, tx)
+	assert.Nil(err)
+
+	err = SetTagVotes(i.ID, biz.ID, 1000, 30, tx)
+	assert.Nil(err)
+
+	images, err := GetAllImages(tx)
+	assert.Nil(err)
+	assert.NotNil(images)
+	assert.NotEmpty(images)
+
+	for _, returnedImage := range images {
+		if i.ID == returnedImage.ID {
+			assert.NotEmpty(returnedImage.Tags)
+			assert.Len(returnedImage.Tags, 5)
+		}
+	}
 }

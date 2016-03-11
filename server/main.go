@@ -125,6 +125,40 @@ func getImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(images)
 }
 
+func getImagesForTagAction(ctx *web.HTTPContext) web.ControllerResult {
+	tagUUID := ctx.RouteParameter("tag_id")
+	tag, err := model.GetTagByUUID(tagUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if tag.IsZero() {
+		return ctx.NotFound()
+	}
+
+	results, err := model.GetImagesForTagID(tag.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(results)
+}
+
+func getTagsForImageAction(ctx *web.HTTPContext) web.ControllerResult {
+	imageUUID := ctx.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.NotFound()
+	}
+
+	results, err := model.GetTagsForImageID(image.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(results)
+}
+
 func getTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 	tags, err := model.GetAllTags(nil)
 	if err != nil {
@@ -410,6 +444,10 @@ func main() {
 	//api endpoints
 	router.GET("/api/images", web.ActionHandler(getImagesAction))
 	router.POST("/api/images", web.ActionHandler(AuthRequiredAction(createImageAction)))
+
+	router.GET("/api/tag/images/:tag_id", web.ActionHandler(getImagesForTagAction))
+	router.GET("/api/image/tags/:image_id", web.ActionHandler(getTagsForImageAction))
+
 	router.GET("/api/tags", web.ActionHandler(getTagsAction))
 	router.POST("/api/tags", web.ActionHandler(AuthRequiredAction(createTagAction)))
 	router.GET("/api/users", web.ActionHandler(getUsersAction))

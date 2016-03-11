@@ -28,6 +28,7 @@ type Tag struct {
 	VotesFor     int   `json:"votes_for,omitempty" db:"votes_for,readonly"`
 	VotesAgainst int   `json:"votes_against,omitempty" db:"votes_against,readonly"`
 	VotesTotal   int   `json:"votes_total,omitempty" db:"votes_total,readonly"`
+	VoteRank     int   `json:"vote_rank,omitempty" db:"vote_rank,readonly"`
 }
 
 // TableName returns the name of a table.
@@ -42,7 +43,7 @@ func (t *Tag) Populate(r *sql.Rows) error {
 
 // PopulateExtra pulls data off a reader and sets fields on the struct.
 func (t *Tag) PopulateExtra(r *sql.Rows) error {
-	return r.Scan(&t.ID, &t.UUID, &t.CreatedUTC, &t.CreatedBy, &t.TagValue, &t.ImageID, &t.VotesFor, &t.VotesAgainst, &t.VotesTotal)
+	return r.Scan(&t.ID, &t.UUID, &t.CreatedUTC, &t.CreatedBy, &t.TagValue, &t.ImageID, &t.VotesFor, &t.VotesAgainst, &t.VotesTotal, &t.VoteRank)
 }
 
 // IsZero denotes if an object has been set or not.
@@ -63,26 +64,4 @@ func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from tag where uuid = $1`, tx, uuid).Out(&imageTag)
 	return &imageTag, err
-}
-
-// GetTagsForImageID returns all the tags for an image.
-func GetTagsForImageID(imageID int64, tx *sql.Tx) ([]Tag, error) {
-	var tags []Tag
-	query := `
-select 
-	t.*
-	, itv.image_id
-	, itv.votes_for
-	, itv.votes_against
-	, itv.votes_total
-from 
-	tag t 
-	join image_tag_votes itv on t.id = itv.tag_id 
-where 
-	itv.image_id = $1
-order by
-	itv.votes_total desc;
-`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, imageID).OutMany(&tags)
-	return tags, err
 }

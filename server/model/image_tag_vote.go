@@ -41,6 +41,12 @@ func NewImageTagVote(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time, vo
 	}
 }
 
+// SetTagVotes updates the votes for a tag to an image.
+func SetTagVotes(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) error {
+	votesTotal := votesFor - votesAgainst
+	return spiffy.DefaultDb().ExecInTransaction(`update image_tag_votes set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
+}
+
 // Vote votes for a tag for an image in the db.
 func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 	existing, existingErr := GetImageTagVote(imageID, tagID, tx)
@@ -84,4 +90,47 @@ func GetImageTagVote(imageID, tagID int64, tx *sql.Tx) (*ImageTagVotes, error) {
 	query := `select * from image_tag_votes where image_id = $1 and tag_id = $2`
 	err := spiffy.DefaultDb().QueryInTransaction(query, tx, imageID, tagID).Out(&imv)
 	return &imv, err
+}
+
+// GetImagesForTagID gets all the images attached to a tag.
+func GetImagesForTagID(tagID int64, tx *sql.Tx) ([]Image, error) {
+	var imageIDs []imageSignature
+	err := spiffy.DefaultDb().
+		QueryInTransaction(`select image_id as id from image_tag_votes itv where tag_id = $1`, tx, tagID).OutMany(&imageIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetImagesByID(imageSignatures(imageIDs).AsInt64s(), tx)
+}
+
+// GetTagsForImageID returns all the tags for an image.
+func GetTagsForImageID(imageID int64, tx *sql.Tx) ([]Tag, error) {
+	var tags []Tag
+	query := `
+select 
+	t.*
+	, itv.image_id
+	, itv.votes_for
+	, itv.votes_against
+	, itv.votes_total
+    , row_number() over (partition by itv.image_id order by itv.votes_total desc) as vote_rank
+from 
+	tag t 
+	join image_tag_votes itv on t.id = itv.tag_id 
+where 
+	itv.image_id = $1
+order by
+	itv.votes_total desc;
+`
+	err := spiffy.DefaultDb().QueryInTransaction(query, tx, imageID).Each(func(r *sql.Rows) error {
+		t := &Tag{}
+		popErr := t.PopulateExtra(r)
+		if popErr != nil {
+			return popErr
+		}
+		tags = append(tags, *t)
+		return nil
+	})
+	return tags, err
 }

@@ -148,12 +148,19 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	var populateErr error
 
 	imageQueryAll := `select * from image`
-	imageQuerySingle := fmt.Sprintf(`%s where id = $1;`, imageQueryAll)
-	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[]);`, imageQueryAll)
+	imageQuerySingle := fmt.Sprintf(`%s where id = $1`, imageQueryAll)
+	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[])`, imageQueryAll)
 
-	tagQueryAll := `select t.*, itv.image_id, itv.votes_for, itv.votes_against, itv.votes_total from tag t join image_tag_votes itv on itv.tag_id = t.id`
-	tagQuerySingle := fmt.Sprintf(`%s where itv.image_id = $1;`, tagQueryAll)
-	tagQueryMany := fmt.Sprintf(`%s where itv.image_id = ANY($1::bigint[]);`, tagQueryAll)
+	tagQueryAll := `select t.*, itv.image_id, itv.votes_for, itv.votes_against, itv.votes_total, row_number() over (partition by image_id order by itv.votes_total desc) as vote_rank from tag t join image_tag_votes itv on itv.tag_id = t.id`
+	tagQuerySingle := fmt.Sprintf(`%s where itv.image_id = $1`, tagQueryAll)
+	tagQueryMany := fmt.Sprintf(`%s where itv.image_id = ANY($1::bigint[])`, tagQueryAll)
+
+	tagQueryOuter := `
+select * from (
+%s
+) as intermediate
+where vote_rank <= 5
+`
 
 	userQueryAll := `select u.* from image i join users u on i.created_by = u.id`
 	userQuerySingle := fmt.Sprintf(`%s where i.id = $1`, userQueryAll)
@@ -205,7 +212,7 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = spiffy.DefaultDb().QueryInTransaction(tagQueryMany, tx, idsCSV).Each(tagConsumer)
+		err = spiffy.DefaultDb().QueryInTransaction(fmt.Sprintf(tagQueryOuter, tagQueryMany), tx, idsCSV).Each(tagConsumer)
 		if err != nil {
 			return nil, err
 		}
@@ -218,7 +225,7 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = spiffy.DefaultDb().QueryInTransaction(tagQuerySingle, tx, ids[0]).Each(tagConsumer)
+		err = spiffy.DefaultDb().QueryInTransaction(fmt.Sprintf(tagQueryOuter, tagQuerySingle), tx, ids[0]).Each(tagConsumer)
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +238,7 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = spiffy.DefaultDb().QueryInTransaction(tagQueryAll, tx).Each(tagConsumer)
+		err = spiffy.DefaultDb().QueryInTransaction(fmt.Sprintf(tagQueryOuter, tagQueryAll), tx).Each(tagConsumer)
 		if err != nil {
 			return nil, err
 		}
