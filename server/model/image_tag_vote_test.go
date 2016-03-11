@@ -31,3 +31,39 @@ func TestVote(t *testing.T) {
 	assert.NotNil(voteRecord)
 	assert.Zero(voteRecord.VotesTotal)
 }
+
+func TestGetImagesForTagID(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := createTestTag(u.ID, i.ID, "winning", tx)
+	assert.Nil(err)
+
+	imagesForTag, err := GetImagesForTagID(tag.ID, tx)
+	assert.Nil(err)
+	assert.NotEmpty(imagesForTag)
+}
+
+func TestGetTagsForImageID(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+	_, err = createTestTag(u.ID, i.ID, "winning", tx)
+	assert.Nil(err)
+
+	tagsForImage, err := GetTagsForImageID(i.ID, tx)
+	assert.Nil(err)
+	assert.NotEmpty(tagsForImage)
+}

@@ -21,7 +21,7 @@ type Tag struct {
 	ID         int64     `json:"-" db:"id,pk,serial"`
 	UUID       string    `json:"uuid" db:"uuid"`
 	CreatedUTC time.Time `json:"created_utc" db:"created_utc"`
-	CreatedBy  int64     `json:"created_by" db:"created_by"`
+	CreatedBy  int64     `json:"-" db:"created_by"`
 	TagValue   string    `json:"tag_value" db:"tag_value"`
 
 	ImageID      int64 `json:"image_id,omitempty" db:"image_id,readonly"`
