@@ -4,15 +4,17 @@ import (
 	"io"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/blendlabs/go-util"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
 var (
 	//S3Bucket is the bucket we save images to.
-	S3Bucket = os.Getenv("S3_BUCKET")
+	S3Bucket = os.Getenv("AWS_S3_BUCKET")
 
 	//AWSKey is the aws key.
 	AWSKey = os.Getenv("AWS_ACCESS_KEY_ID")
@@ -20,8 +22,8 @@ var (
 	//AWSSecret is the aws secret.
 	AWSSecret = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
-	s3Client = s3.New(session.New())
-	uploader = s3manager.NewUploader(session.New())
+	s3Client = s3.New(session.New(&aws.Config{Region: util.OptionalString("us-west-2")}))
+	uploader = s3manager.NewUploader(session.New(&aws.Config{Region: util.OptionalString("us-west-2")}))
 )
 
 // Location is an s3 location.
@@ -55,13 +57,14 @@ func UploadFile(uploadFile io.Reader, fileType FileType) (*Location, error) {
 
 //UploadFileToBucket uploads a file to a given location.
 func UploadFileToBucket(bucket string, uploadFile io.Reader, fileType FileType) (*Location, error) {
-	fileKey := core.UUIDv4().ToShortString() + "." + fileType.Extension
+	fileKey := core.UUIDv4().ToShortString() + fileType.Extension
 
 	_, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket:      &bucket,
 		Key:         &fileKey,
 		Body:        uploadFile,
 		ContentType: &fileType.MimeType,
+		ACL:         util.OptionalString("public-read"),
 	})
 
 	if err != nil {

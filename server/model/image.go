@@ -10,6 +10,15 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 )
 
+// ConvertMD5 takes a fixed buffer and turns it into a byte slice.
+func ConvertMD5(md5sum [16]byte) []byte {
+	typedBuffer := make([]byte, 16)
+	for i, b := range md5sum {
+		typedBuffer[i] = b
+	}
+	return typedBuffer
+}
+
 // Image is an image stored in the db.
 type Image struct {
 	ID          int64     `json:"-" db:"id,pk,serial"`
@@ -20,7 +29,7 @@ type Image struct {
 	UpdatedBy   int64     `json:"updated_by,omitempty" db:"updated_by"`
 	DisplayName string    `json:"display_name" db:"display_name"`
 
-	MD5       []byte `json:"-" db:"md5"`
+	MD5       []byte `json:"md5" db:"md5"`
 	S3ReadURL string `json:"s3_read_url" db:"s3_read_url"`
 	S3Bucket  string `json:"-" db:"s3_bucket"`
 	S3Key     string `json:"-" db:"s3_key"`
@@ -35,6 +44,11 @@ type Image struct {
 // TableName returns the tablename for the object.
 func (i Image) TableName() string {
 	return "image"
+}
+
+// IsZero returns if the object has been set.
+func (i Image) IsZero() bool {
+	return i.ID == 0
 }
 
 type imageSignature struct {
@@ -82,6 +96,14 @@ func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 	var image Image
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from image where uuid = $1`, tx, uuid).Out(&image)
+	return &image, err
+}
+
+// GetImageByMD5 returns an image by uuid.
+func GetImageByMD5(md5sum []byte, tx *sql.Tx) (*Image, error) {
+	var image Image
+	err := spiffy.DefaultDb().
+		QueryInTransaction(`select * from image where md5 = $1`, tx, md5sum).Out(&image)
 	return &image, err
 }
 

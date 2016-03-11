@@ -20,16 +20,16 @@ CREATE TABLE image (
 	updated_utc timestamp,
 	updated_by bigint,
 
-	display_name varchar(64),
+	display_name varchar(255),
 
 	md5 bytea not null,
 	s3_read_url varchar(1024),
-	s3_bucket varchar(32) not null,
-	s3_key varchar(32) not null,
+	s3_bucket varchar(64) not null,
+	s3_key varchar(64) not null,
 
 	width int not null,
 	height int not null,
-	extension varchar(5)
+	extension varchar(8)
 );
 ALTER TABLE image ADD CONSTRAINT pk_image_id PRIMARY KEY (id);
 ALTER TABLE image ADD CONSTRAINT uk_image_uuid UNIQUE (uuid);

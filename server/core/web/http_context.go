@@ -83,22 +83,42 @@ func (hc *HTTPContext) PostBodyAsJSON(response interface{}) error {
 
 // PostedFiles returns any files posted
 func (hc *HTTPContext) PostedFiles() ([]PostedFile, error) {
-	err := hc.Request.ParseMultipartForm(PostBodySize)
-	if err != nil {
-		return nil, err
-	}
-
 	var files []PostedFile
-	for key := range hc.Request.MultipartForm.File {
-		fileReader, _, err := hc.Request.FormFile(key)
-		if err != nil {
-			return nil, err
+
+	err := hc.Request.ParseMultipartForm(PostBodySize)
+	if err == nil {
+		for key := range hc.Request.MultipartForm.File {
+			fileReader, fileHeader, err := hc.Request.FormFile(key)
+			if err != nil {
+				return nil, err
+			}
+			bytes, err := ioutil.ReadAll(fileReader)
+			if err != nil {
+				return nil, err
+			}
+			fileKey := key
+			if !util.IsEmpty(fileHeader.Filename) {
+				fileKey = fileHeader.Filename
+			}
+			files = append(files, PostedFile{Key: fileKey, Contents: bytes})
 		}
-		bytes, err := ioutil.ReadAll(fileReader)
-		if err != nil {
-			return nil, err
+	} else {
+		err = hc.Request.ParseForm()
+		if err == nil {
+			for key := range hc.Request.PostForm {
+				if fileReader, fileHeader, err := hc.Request.FormFile(key); err == nil && fileReader != nil {
+					bytes, err := ioutil.ReadAll(fileReader)
+					if err != nil {
+						return nil, err
+					}
+					fileKey := key
+					if !util.IsEmpty(fileHeader.Filename) {
+						fileKey = fileHeader.Filename
+					}
+					files = append(files, PostedFile{Key: fileKey, Contents: bytes})
+				}
+			}
 		}
-		files = append(files, PostedFile{Key: key, Contents: bytes})
 	}
 	return files, nil
 }

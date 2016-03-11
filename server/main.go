@@ -1,9 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"crypto/md5"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/blendlabs/go-exception"
@@ -11,6 +17,7 @@ import (
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
+	"github.com/wcharczuk/giffy/server/core/filecache"
 	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
@@ -138,15 +145,64 @@ func getUsersAction(ctx *web.HTTPContext) web.ControllerResult {
 func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	files, filesErr := ctx.PostedFiles()
 	if filesErr != nil {
-		return ctx.BadRequest("Problem reading posted file.")
+		return ctx.BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
 	}
 
 	if len(files) == 0 {
 		return ctx.BadRequest("No files posted.")
 	}
 
+	images := []*model.Image{}
+
 	//upload file to s3, save it etc.
-	return ctx.OK()
+	for _, f := range files {
+		buf := bytes.NewBuffer(f.Contents)
+
+		md5sum := model.ConvertMD5(md5.Sum(f.Contents))
+		existing, err := model.GetImageByMD5(md5sum, nil)
+		if err != nil {
+			return ctx.InternalError(err)
+		}
+
+		if !existing.IsZero() {
+			images = append(images, existing)
+		} else {
+			newImage := model.NewImage()
+			newImage.MD5 = md5sum
+			newImage.CreatedBy = session.UserID
+			newImage.UpdatedUTC = time.Now().UTC()
+			newImage.UpdatedBy = session.UserID
+
+			imageBuf := bytes.NewBuffer(f.Contents)
+
+			imageMeta, _, err := image.DecodeConfig(imageBuf)
+			if err != nil {
+				return ctx.InternalError(exception.Wrap(err))
+			}
+
+			newImage.Extension = filepath.Ext(f.Key)
+			newImage.Height = imageMeta.Height
+			newImage.Width = imageMeta.Width
+
+			remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(f.Contents)})
+			if err != nil {
+				return ctx.InternalError(err)
+			}
+
+			newImage.S3Bucket = remoteEntry.Bucket
+			newImage.S3Key = remoteEntry.Key
+			newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
+
+			err = spiffy.DefaultDb().Create(newImage)
+			if err != nil {
+				return ctx.InternalError(err)
+			}
+
+			images = append(images, newImage)
+		}
+	}
+
+	return ctx.JSON(images)
 }
 
 func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
