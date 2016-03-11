@@ -45,6 +45,9 @@ type Populatable interface {
 	Populate(rows *sql.Rows) error
 }
 
+// RowsConsumer is the function signature that is called from within Each().
+type RowsConsumer func(r *sql.Rows) error
+
 // CreateDbAlias allows you to set up a connection for later use via an alias.
 //
 //	spiffy.CreateDbAlias("main", spiffy.NewDbConnection("localhost", "test_db", "", ""))
@@ -315,10 +318,6 @@ type ColumnCollection struct {
 	Lookup  map[string]*Column
 }
 
-func (cc ColumnCollection) Length() int {
-	return len(cc.Columns)
-}
-
 // PrimaryKeys are columns we use as where predicates and can't update.
 func (cc ColumnCollection) PrimaryKeys() ColumnCollection {
 	var cols []Column
@@ -549,6 +548,24 @@ func (q *QueryResult) OutMany(collection interface{}) error {
 	if !didSetRows {
 		collectionValue.Set(reflect.MakeSlice(sliceType, 0, 0))
 	}
+	q.Error = q.Rows.Err()
+	return q.Close()
+}
+
+// Each writes the query results to a slice of objects.
+func (q *QueryResult) Each(consumer RowsConsumer) error {
+	if q.Error != nil {
+		return q.Close()
+	}
+
+	var err error
+	for q.Rows.Next() {
+		err = consumer(q.Rows)
+		if err != nil {
+			return err
+		}
+	}
+
 	q.Error = q.Rows.Err()
 	return q.Close()
 }
@@ -923,9 +940,6 @@ func (dbAlias *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.
 	cols := NewColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
 	pks := cols.PrimaryKeys()
-	if pks.Length() == 0 {
-		return exception.New("Cannot update object; no primary keys marked.")
-	}
 	allCols := writeCols.ConcatWith(pks)
 
 	totalValues := allCols.ColumnValues(object)

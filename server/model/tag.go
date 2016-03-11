@@ -8,6 +8,14 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 )
 
+// NewTag returns a new tag.
+func NewTag() *Tag {
+	return &Tag{
+		UUID:       core.UUIDv4().ToShortString(),
+		CreatedUTC: time.Now().UTC(),
+	}
+}
+
 // Tag is a label for an image or set of images.
 type Tag struct {
 	ID         int64     `json:"-" db:"id,pk,serial"`
@@ -23,16 +31,13 @@ type Tag struct {
 }
 
 // TableName returns the name of a table.
-func (it Tag) TableName() string {
+func (t Tag) TableName() string {
 	return "tag"
 }
 
-// NewTag returns a new tag.
-func NewTag() *Tag {
-	return &Tag{
-		UUID:       core.UUIDv4().ToShortString(),
-		CreatedUTC: time.Now().UTC(),
-	}
+// Populate pulls data off a reader and sets fields on the struct.
+func (t *Tag) Populate(r *sql.Rows) error {
+	return r.Scan(&t.ID, &t.UUID, &t.CreatedUTC, &t.CreatedBy, &t.TagValue, &t.ImageID, &t.VotesFor, &t.VotesAgainst, &t.VotesTotal)
 }
 
 // GetAllTags returns all the tags in the db.

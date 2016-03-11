@@ -24,6 +24,7 @@ const (
 // PostedFile is a file that has been posted to an hc endpoint.
 type PostedFile struct {
 	Key      string
+	Filename string
 	Contents []byte
 }
 
@@ -96,11 +97,7 @@ func (hc *HTTPContext) PostedFiles() ([]PostedFile, error) {
 			if err != nil {
 				return nil, err
 			}
-			fileKey := key
-			if !util.IsEmpty(fileHeader.Filename) {
-				fileKey = fileHeader.Filename
-			}
-			files = append(files, PostedFile{Key: fileKey, Contents: bytes})
+			files = append(files, PostedFile{Key: key, Filename: fileHeader.Filename, Contents: bytes})
 		}
 	} else {
 		err = hc.Request.ParseForm()
@@ -111,11 +108,7 @@ func (hc *HTTPContext) PostedFiles() ([]PostedFile, error) {
 					if err != nil {
 						return nil, err
 					}
-					fileKey := key
-					if !util.IsEmpty(fileHeader.Filename) {
-						fileKey = fileHeader.Filename
-					}
-					files = append(files, PostedFile{Key: fileKey, Contents: bytes})
+					files = append(files, PostedFile{Key: key, Filename: fileHeader.Filename, Contents: bytes})
 				}
 			}
 		}
@@ -254,6 +247,13 @@ func (hc *HTTPContext) View(viewName string, viewModel interface{}) *ViewResult 
 		StatusCode: http.StatusOK,
 		ViewModel:  viewModel,
 		Template:   viewName,
+	}
+}
+
+// Static returns a static result.
+func (hc *HTTPContext) Static(filePath string) *StaticResult {
+	return &StaticResult{
+		FilePath: filePath,
 	}
 }
 

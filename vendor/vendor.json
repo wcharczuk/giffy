@@ -29,8 +29,8 @@
 		},
 		{
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "3ee6a046c0d31c5dcb27abaf3ef96c39f133ee53",
-			"revisionTime": "2016-03-06T17:16:17-08:00"
+			"revision": "e011387d56f8d4b8ffbf2c1e1bb6bd0ab86a6d07",
+			"revisionTime": "2016-03-10T21:11:41-08:00"
 		},
 		{
 			"path": "github.com/gorilla/websocket",

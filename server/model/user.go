@@ -31,6 +31,11 @@ func (u User) IsZero() bool {
 	return u.ID == 0
 }
 
+// Populate scans the rows into the struct.
+func (u *User) Populate(r *sql.Rows) error {
+	return r.Scan(&u.ID, &u.UUID, &u.CreatedUTC, &u.Username, &u.FirstName, &u.LastName, &u.EmailAddress, &u.IsEmailVerified)
+}
+
 // NewUser returns a new user.
 func NewUser(username string) *User {
 	return &User{

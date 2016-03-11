@@ -159,7 +159,7 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 		buf := bytes.NewBuffer(f.Contents)
 
 		md5sum := model.ConvertMD5(md5.Sum(f.Contents))
-		existing, err := model.GetImageByMD5(md5sum, nil)
+		existing, err := model.ImageMD5Check(md5sum, nil)
 		if err != nil {
 			return ctx.InternalError(err)
 		}
@@ -180,7 +180,8 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 				return ctx.InternalError(exception.Wrap(err))
 			}
 
-			newImage.Extension = filepath.Ext(f.Key)
+			newImage.DisplayName = f.Key
+			newImage.Extension = filepath.Ext(f.Filename)
 			newImage.Height = imageMeta.Height
 			newImage.Width = imageMeta.Width
 
@@ -350,7 +351,7 @@ func oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResu
 }
 
 func indexAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	return ctx.View("index", viewmodel.Index{Title: "Home"})
+	return ctx.Static("server/_static/index.html")
 }
 
 func loginAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -382,7 +383,6 @@ func main() {
 	web.InitViewCache(
 		"server/_views/header.html",
 		"server/_views/footer.html",
-		"server/_views/index.html",
 		"server/_views/login.html",
 	)
 

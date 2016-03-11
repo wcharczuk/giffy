@@ -21,24 +21,28 @@ func ConvertMD5(md5sum [16]byte) []byte {
 
 // Image is an image stored in the db.
 type Image struct {
-	ID          int64     `json:"-" db:"id,pk,serial"`
-	UUID        string    `json:"uuid" db:"uuid"`
-	CreatedUTC  time.Time `json:"created_utc" db:"created_utc"`
-	CreatedBy   int64     `json:"created_by" db:"created_by"`
-	UpdatedUTC  time.Time `json:"updated_utc,omitempty" db:"updated_utc"`
-	UpdatedBy   int64     `json:"updated_by,omitempty" db:"updated_by"`
-	DisplayName string    `json:"display_name" db:"display_name"`
+	ID            int64     `json:"-" db:"id,pk,serial"`
+	UUID          string    `json:"uuid" db:"uuid"`
+	CreatedUTC    time.Time `json:"created_utc" db:"created_utc"`
+	CreatedBy     int64     `json:"-" db:"created_by"`
+	CreatedByUser *User     `json:"created_by,omitempty" db:"-"`
+	UpdatedUTC    time.Time `json:"updated_utc,omitempty" db:"updated_utc"`
+	UpdatedBy     int64     `json:"-" db:"updated_by"`
+	UpdatedByUser *User     `json:"updated_by,omitempty" db:"-"`
+
+	DisplayName string `json:"display_name" db:"display_name"`
 
 	MD5       []byte `json:"md5" db:"md5"`
 	S3ReadURL string `json:"s3_read_url" db:"s3_read_url"`
 	S3Bucket  string `json:"-" db:"s3_bucket"`
 	S3Key     string `json:"-" db:"s3_key"`
-	Extension string `json:"extension" db:"extension"`
 
 	Width  int `json:"width" db:"width"`
 	Height int `json:"height" db:"height"`
 
-	Tags []Tag `json:"tags" db:"-"`
+	Extension string `json:"extension" db:"extension"`
+
+	Tags []Tag `json:"tags,omitempty" db:"-"`
 }
 
 // TableName returns the tablename for the object.
@@ -51,22 +55,24 @@ func (i Image) IsZero() bool {
 	return i.ID == 0
 }
 
-type imageSignature struct {
-	ID int64 `json:"-" db:"id"`
-}
-
-func (i imageSignature) TableName() string {
-	return "image"
-}
-
-type imageSignatures []imageSignature
-
-func (is imageSignatures) AsInt64s() []int64 {
-	var all []int64
-	for x := 0; x < len(is); x++ {
-		all = append(all, is[x].ID)
-	}
-	return all
+//Populate popultes the object from rows.
+func (i *Image) Populate(r *sql.Rows) error {
+	return r.Scan(
+		&i.ID,
+		&i.UUID,
+		&i.CreatedUTC,
+		&i.CreatedBy,
+		&i.UpdatedUTC,
+		&i.UpdatedBy,
+		&i.DisplayName,
+		&i.MD5,
+		&i.S3ReadURL,
+		&i.S3Bucket,
+		&i.S3Key,
+		&i.Width,
+		&i.Height,
+		&i.Extension,
+	)
 }
 
 // NewImage returns a new instance of an image.
@@ -79,84 +85,42 @@ func NewImage() *Image {
 
 // GetAllImages returns all the images in the database.
 func GetAllImages(tx *sql.Tx) ([]Image, error) {
-	var all []Image
-	err := spiffy.DefaultDb().GetAllInTransaction(&all, tx)
-	return all, err
+	return GetImagesByID(nil, tx)
 }
 
 // GetImageByID returns an image for an id.
 func GetImageByID(id int64, tx *sql.Tx) (*Image, error) {
-	var image Image
-	err := spiffy.DefaultDb().GetByIDInTransaction(&image, tx, id)
-	return &image, err
+	images, err := GetImagesByID([]int64{id}, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &images[0], err
 }
 
 // GetImageByUUID returns an image by uuid.
 func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
-	var image Image
+	var image imageSignature
 	err := spiffy.DefaultDb().
-		QueryInTransaction(`select * from image where uuid = $1`, tx, uuid).Out(&image)
-	return &image, err
+		QueryInTransaction(`select id from image where uuid = $1`, tx, uuid).Out(&image)
+
+	images, err := GetImagesByID([]int64{image.ID}, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &images[0], err
 }
 
-// GetImageByMD5 returns an image by uuid.
-func GetImageByMD5(md5sum []byte, tx *sql.Tx) (*Image, error) {
+// ImageMD5Check returns an image by uuid.
+func ImageMD5Check(md5sum []byte, tx *sql.Tx) (*Image, error) {
 	var image Image
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from image where md5 = $1`, tx, md5sum).Out(&image)
 	return &image, err
 }
 
-// GetImagesByID returns images with tags for a list of ids.
-func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
-	idsCSV := fmt.Sprintf("{%s}", csvOfInt(ids))
-	query := `select * from image where id = ANY($1::bigint[])`
-	var images []Image
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, idsCSV).OutMany(&images)
-
-	if err != nil {
-		return nil, err
-	}
-
-	imageLookup := map[int64]*Image{}
-	for x := 0; x < len(images); x++ {
-		i := images[x]
-		imageLookup[i.ID] = &i
-	}
-
-	var tags []Tag
-	query = `
-select 
-	t.* 
-	, itv.image_id
-	, itv.votes_for
-	, itv.votes_against
-	, itv.votes_total
-from 
-	tag t
-	join image_tag_votes itv on itv.tag_id = t.id
-where 
-	itv.image_id = ANY($1::bigint[])`
-	err = spiffy.DefaultDb().QueryInTransaction(query, tx, idsCSV).OutMany(&tags)
-
-	if err != nil {
-		return nil, err
-	}
-
-	for y := 0; y < len(tags); y++ {
-		it := tags[y]
-		if i, hasImage := imageLookup[it.ImageID]; hasImage {
-			i.Tags = append(i.Tags, it)
-		}
-	}
-
-	return images, nil
-}
-
 // QueryImages searches for an image.
 func QueryImages(query string, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
-
 	queryFormat := fmt.Sprintf("%%%s%%", query)
 
 	imageQuery := `
@@ -175,8 +139,129 @@ where
 		return nil, err
 	}
 
-	return GetImagesByID(imageSignatures(imageIDs).AsInt64s(), tx)
+	ids := imageSignatures(imageIDs).AsInt64s()
+	return GetImagesByID(ids, tx)
 }
+
+// GetImagesByID returns images with tags for a list of ids.
+func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
+	var err error
+	var populateErr error
+
+	imageQueryAll := `select * from image`
+	imageQuerySingle := fmt.Sprintf(`%s where id = $1;`, imageQueryAll)
+	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[]);`, imageQueryAll)
+
+	tagQueryAll := `select t.*, itv.image_id, itv.votes_for, itv.votes_against, itv.votes_total from tag t join image_tag_votes itv on itv.tag_id = t.id`
+	tagQuerySingle := fmt.Sprintf(`%s where itv.image_id = $1;`, tagQueryAll)
+	tagQueryMany := fmt.Sprintf(`%s where itv.image_id = ANY($1::bigint[]);`, tagQueryAll)
+
+	userQueryAll := `select u.* from image i join users u on i.created_by = u.id or i.updated_by = u.id`
+	userQuerySingle := fmt.Sprintf(`%s where i.id = $1`, userQueryAll)
+	userQueryMany := fmt.Sprintf(`%s where i.id = ANY($1::bigint[])`, userQueryAll)
+
+	images := []*Image{}
+	imageLookup := map[int64]*Image{}
+	userLookup := map[int64]*User{}
+
+	imageConsumer := func(r *sql.Rows) error {
+		i := &Image{}
+		populateErr = i.Populate(r)
+		if populateErr != nil {
+			return populateErr
+		}
+		images = append(images, i)
+		imageLookup[i.ID] = i
+		return nil
+	}
+
+	tagConsumer := func(r *sql.Rows) error {
+		t := &Tag{}
+		populateErr = t.Populate(r)
+		if populateErr != nil {
+			return populateErr
+		}
+
+		i := imageLookup[t.ImageID]
+		if i != nil {
+			i.Tags = append(i.Tags, *t)
+		}
+
+		return nil
+	}
+
+	userConsumer := func(r *sql.Rows) error {
+		u := &User{}
+		populateErr = u.Populate(r)
+		if populateErr != nil {
+			return populateErr
+		}
+		userLookup[u.ID] = u
+		return nil
+	}
+
+	if len(ids) > 1 {
+		idsCSV := fmt.Sprintf("{%s}", csvOfInt(ids))
+		err = spiffy.DefaultDb().QueryInTransaction(imageQueryMany, tx, idsCSV).Each(imageConsumer)
+		if err != nil {
+			return nil, err
+		}
+		err = spiffy.DefaultDb().QueryInTransaction(tagQueryMany, tx, idsCSV).Each(tagConsumer)
+		if err != nil {
+			return nil, err
+		}
+		err = spiffy.DefaultDb().QueryInTransaction(userQueryMany, tx, idsCSV).Each(userConsumer)
+		if err != nil {
+			return nil, err
+		}
+	} else if len(ids) == 1 {
+		err = spiffy.DefaultDb().QueryInTransaction(imageQuerySingle, tx, ids[0]).Each(imageConsumer)
+		if err != nil {
+			return nil, err
+		}
+		err = spiffy.DefaultDb().QueryInTransaction(tagQuerySingle, tx, ids[0]).Each(tagConsumer)
+		if err != nil {
+			return nil, err
+		}
+		err = spiffy.DefaultDb().QueryInTransaction(userQuerySingle, tx, ids[0]).Each(userConsumer)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = spiffy.DefaultDb().QueryInTransaction(imageQueryAll, tx).Each(imageConsumer)
+		if err != nil {
+			return nil, err
+		}
+		err = spiffy.DefaultDb().QueryInTransaction(tagQueryAll, tx).Each(tagConsumer)
+		if err != nil {
+			return nil, err
+		}
+		err = spiffy.DefaultDb().QueryInTransaction(userQueryAll, tx).Each(userConsumer)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	finalImages := make([]Image, len(images))
+	for x := 0; x < len(images); x++ {
+		img := images[x]
+		if u, ok := userLookup[img.CreatedBy]; ok {
+			img.CreatedByUser = u
+		}
+
+		if u, ok := userLookup[img.UpdatedBy]; ok {
+			img.UpdatedByUser = u
+		}
+
+		finalImages[x] = *img
+	}
+
+	return finalImages, nil
+}
+
+// --------------------------------------------------------------------------------
+// Helper Functions / Types
+// --------------------------------------------------------------------------------
 
 func csvOfInt(input []int64) string {
 	outputStrings := []string{}
@@ -184,4 +269,22 @@ func csvOfInt(input []int64) string {
 		outputStrings = append(outputStrings, fmt.Sprintf("%d", v))
 	}
 	return strings.Join(outputStrings, ",")
+}
+
+type imageSignature struct {
+	ID int64 `json:"-" db:"id"`
+}
+
+func (i imageSignature) TableName() string {
+	return "image"
+}
+
+type imageSignatures []imageSignature
+
+func (is imageSignatures) AsInt64s() []int64 {
+	var all []int64
+	for x := 0; x < len(is); x++ {
+		all = append(all, is[x].ID)
+	}
+	return all
 }

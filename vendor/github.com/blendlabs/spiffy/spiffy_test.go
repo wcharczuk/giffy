@@ -501,6 +501,30 @@ func TestExec(t *testing.T) {
 	a.Nil(execErr)
 }
 
+func TestQueryResultEach(t *testing.T) {
+	a := assert.New(t)
+	tx, txErr := DefaultDb().Begin()
+	a.Nil(txErr)
+	defer tx.Rollback()
+
+	seedErr := seedObjects(10, tx)
+	a.Nil(seedErr)
+
+	var all []BenchObj
+	var popErr error
+	err := DefaultDb().QueryInTransaction("select * from bench_object", tx).Each(func(r *sql.Rows) error {
+		bo := BenchObj{}
+		popErr = bo.Populate(r)
+		if popErr != nil {
+			return popErr
+		}
+		all = append(all, bo)
+		return nil
+	})
+	a.Nil(err)
+	a.NotEmpty(all)
+}
+
 func TestQueryResultAny(t *testing.T) {
 	a := assert.New(t)
 	tx, txErr := DefaultDb().Begin()

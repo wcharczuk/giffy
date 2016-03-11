@@ -81,4 +81,11 @@ func TestQueryImages(t *testing.T) {
 	images, err := QueryImages("test", tx)
 	assert.Nil(err)
 	assert.NotEmpty(images)
+
+	fmt.Printf("Test: %#v\n", images)
+
+	firstImage := images[0]
+	assert.False(firstImage.IsZero())
+	assert.NotNil(firstImage.CreatedByUser)
+	assert.NotEmpty(firstImage.Tags)
 }
