@@ -1,6 +1,0 @@
-{
-	"DB_HOST": "localhost",
-	"DB_SCHEMA": "giffy",
-	"DB_USER":"giffy_app",
-	"DB_PASSWORD":"thisismypassword"
-}
