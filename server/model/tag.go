@@ -24,11 +24,12 @@ type Tag struct {
 	CreatedBy  int64     `json:"-" db:"created_by"`
 	TagValue   string    `json:"tag_value" db:"tag_value"`
 
-	ImageID      int64 `json:"image_id,omitempty" db:"image_id,readonly"`
-	VotesFor     int   `json:"votes_for,omitempty" db:"votes_for,readonly"`
-	VotesAgainst int   `json:"votes_against,omitempty" db:"votes_against,readonly"`
-	VotesTotal   int   `json:"votes_total,omitempty" db:"votes_total,readonly"`
-	VoteRank     int   `json:"vote_rank,omitempty" db:"vote_rank,readonly"`
+	CreatedByUUID string `json:"created_by" db:"created_by_uuid,readonly"`
+	ImageID       int64  `json:"-" db:"image_uuid,readonly"`
+	VotesFor      int    `json:"votes_for,omitempty" db:"votes_for,readonly"`
+	VotesAgainst  int    `json:"votes_against,omitempty" db:"votes_against,readonly"`
+	VotesTotal    int    `json:"votes_total,omitempty" db:"votes_total,readonly"`
+	VoteRank      int    `json:"vote_rank,omitempty" db:"vote_rank,readonly"`
 }
 
 // TableName returns the name of a table.
@@ -43,7 +44,7 @@ func (t *Tag) Populate(r *sql.Rows) error {
 
 // PopulateExtra pulls data off a reader and sets fields on the struct.
 func (t *Tag) PopulateExtra(r *sql.Rows) error {
-	return r.Scan(&t.ID, &t.UUID, &t.CreatedUTC, &t.CreatedBy, &t.TagValue, &t.ImageID, &t.VotesFor, &t.VotesAgainst, &t.VotesTotal, &t.VoteRank)
+	return r.Scan(&t.ID, &t.UUID, &t.CreatedUTC, &t.CreatedBy, &t.TagValue, &t.CreatedByUUID, &t.ImageID, &t.VotesFor, &t.VotesAgainst, &t.VotesTotal, &t.VoteRank)
 }
 
 // IsZero denotes if an object has been set or not.

@@ -151,7 +151,7 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	imageQuerySingle := fmt.Sprintf(`%s where id = $1`, imageQueryAll)
 	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[])`, imageQueryAll)
 
-	tagQueryAll := `select t.*, itv.image_id, itv.votes_for, itv.votes_against, itv.votes_total, row_number() over (partition by image_id order by itv.votes_total desc) as vote_rank from tag t join image_tag_votes itv on itv.tag_id = t.id`
+	tagQueryAll := `select t.*, u.uuid as created_by_uuid, itv.image_id, itv.votes_for, itv.votes_against, itv.votes_total, row_number() over (partition by image_id order by itv.votes_total desc) as vote_rank from tag t join image_tag_votes itv on itv.tag_id = t.id join users u on u.id = t.created_by`
 	tagQuerySingle := fmt.Sprintf(`%s where itv.image_id = $1`, tagQueryAll)
 	tagQueryMany := fmt.Sprintf(`%s where itv.image_id = ANY($1::bigint[])`, tagQueryAll)
 

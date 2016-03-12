@@ -2,6 +2,15 @@ body {
     font-family: "Avenir Next", sans-serif;
 }
 
+.giffy-header {
+    margin-top:25px;
+    margin-bottom:10px;
+}
+
+.giffy-header button {
+    margin-left: 3px;
+}
+
 .images {
     list-style: none;
 }
@@ -9,4 +18,12 @@ body {
 .tag {
     margin-left: 3px;
     margin-right: 3px;
+}
+
+.align-center {
+    text-align: center;
+}
+
+.align-right {
+    text-align: right;
 }

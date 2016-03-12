@@ -110,6 +110,7 @@ func GetTagsForImageID(imageID int64, tx *sql.Tx) ([]Tag, error) {
 	query := `
 select 
 	t.*
+    , u.uuid as created_by_uuid
 	, itv.image_id
 	, itv.votes_for
 	, itv.votes_against
@@ -117,7 +118,8 @@ select
     , row_number() over (partition by itv.image_id order by itv.votes_total desc) as vote_rank
 from 
 	tag t 
-	join image_tag_votes itv on t.id = itv.tag_id 
+	join image_tag_votes itv on t.id = itv.tag_id
+    join users u on u.id = t.created_by 
 where 
 	itv.image_id = $1
 order by

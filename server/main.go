@@ -428,6 +428,29 @@ func logoutAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerRes
 	return ctx.Redirect("/")
 }
 
+func getCurrentUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	user, userErr := model.GetUserByID(session.UserID, nil)
+	if userErr != nil {
+		return ctx.InternalError(userErr)
+	}
+	return ctx.JSON(user)
+}
+
+func getSessionKey(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	key := ctx.RouteParameter("key")
+	value, hasValue := session.State[key]
+	if !hasValue {
+		return ctx.NotFound()
+	}
+	return ctx.JSON(value)
+}
+
+func setSessionKey(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	key := ctx.RouteParameter("key")
+	session.State[key] = ctx.PostBodyAsString()
+	return ctx.OK()
+}
+
 func main() {
 	core.DBInit()
 
@@ -454,6 +477,11 @@ func main() {
 	router.POST("/api/upvote/:image_id/:tag_id", web.ActionHandler(AuthRequiredAction(upvoteAction)))
 	router.POST("/api/downvote/:image_id/:tag_id", web.ActionHandler(AuthRequiredAction(downvoteAction)))
 	router.GET("/api/search", web.ActionHandler(searchAction))
+
+	//session endpoints
+	router.GET("/api/current_user", web.ActionHandler(AuthRequiredAction(getCurrentUserAction)))
+	router.GET("/api/session/:key", web.ActionHandler(AuthRequiredAction(getSessionKey)))
+	router.POST("/api/session/:key", web.ActionHandler(AuthRequiredAction(setSessionKey)))
 
 	//auth endpoints
 	router.GET("/login", web.ActionHandler(SessionAwareAction(loginAction)))

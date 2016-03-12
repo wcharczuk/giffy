@@ -54,7 +54,7 @@ func GetAllUsers(tx *sql.Tx) ([]User, error) {
 }
 
 // GetUserByID returns a user by id.
-func GetUserByID(id int, tx *sql.Tx) (*User, error) {
+func GetUserByID(id int64, tx *sql.Tx) (*User, error) {
 	var user User
 	err := spiffy.DefaultDb().GetByIDInTransaction(&user, tx, id)
 	return &user, err

@@ -35,11 +35,17 @@ func (sc *SessionCache) IsActive(sessionID string) bool {
 	return hasSession
 }
 
+// Get gets a session.
+func (sc *SessionCache) Get(sessionID string) *Session {
+	return sc.Sessions[sessionID]
+}
+
 // NewSession returns a new session object.
 func NewSession(userID int64, sessionID string) *Session {
 	return &Session{
 		UserID:    userID,
 		SessionID: sessionID,
+		State:     map[string]interface{}{},
 	}
 }
 
@@ -48,6 +54,7 @@ type Session struct {
 	UserID       int64     `json:"user_id"`
 	SessionID    string    `json:"session_id"`
 	TimestampUTC time.Time `json:"timestamp_utc"`
+	State        map[string]interface{}
 }
 
 var (
