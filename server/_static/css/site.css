@@ -1,18 +1,19 @@
 body {
     font-family: "Avenir Next", sans-serif;
+    padding:10px;
 }
 
-.giffy-header {
+#giffy-header {
     margin-top:25px;
     margin-bottom:10px;
 }
 
-.giffy-header button {
+#giffy-header button {
     margin-left: 3px;
 }
 
-.images {
-    list-style: none;
+#giffy-images {
+    margin-top:25px;
 }
 
 .tag {

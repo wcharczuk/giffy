@@ -105,6 +105,19 @@ func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 	return &images[0], err
 }
 
+// DeleteImageByID deletes an image fully.
+func DeleteImageByID(imageID int64, tx *sql.Tx) error {
+	err := spiffy.DefaultDb().ExecInTransaction(`delete from image_tag_votes where image_id = $1`, tx, imageID)
+	if err != nil {
+		return err
+	}
+	err = spiffy.DefaultDb().ExecInTransaction(`delete from vote_log where image_id = $1`, tx, imageID)
+	if err != nil {
+		return err
+	}
+	return spiffy.DefaultDb().ExecInTransaction(`delete from image where id = $1`, tx, imageID)
+}
+
 // ImageMD5Check returns an image by uuid.
 func ImageMD5Check(md5sum []byte, tx *sql.Tx) (*Image, error) {
 	var image Image

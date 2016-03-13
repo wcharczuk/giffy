@@ -16,105 +16,20 @@ import (
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
+	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/core/filecache"
 	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 )
 
-const (
-	// SessionParamName is the name of the field that needs to have the sessionID on it.
-	SessionParamName = "giffy_auth"
-
-	// StateKeySession is the state key for the user session.
-	StateKeySession = "__session__"
-)
-
-type authedResponse struct {
-	SessionID string `json:"giffy_auth"`
-}
-
-func oauthRedirectURI(r *http.Request) string {
-	return fmt.Sprintf("http://%s/oauth", core.ConfigHostname())
-}
-
-type oauthResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
-	IDToken     string `json:"id_token"`
-}
-
-type googleProfile struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	VerifiedEmail bool   `json:"verified_email"`
-	Name          string `json:"name"`
-	GivenName     string `json:"given_name"`
-	FamilyName    string `json:"family_name"`
-	Link          string `json:"link"`
-	Gender        string `json:"male"`
-	Locale        string `json:"locale"`
-	PictureURL    string `json:"picture"`
-}
-
-func (gp googleProfile) User() *model.User {
-	user := model.NewUser(gp.Email)
-	user.EmailAddress = gp.Email
-	user.IsEmailVerified = gp.VerifiedEmail
-	user.FirstName = gp.GivenName
-	user.LastName = gp.FamilyName
-	return user
-}
-
-// SessionAwareControllerAction is an controller action that also gets the session passed in.
-type SessionAwareControllerAction func(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult
-
-// SessionAwareAction inserts the session into the context.
-func SessionAwareAction(action SessionAwareControllerAction) web.ControllerAction {
-	return func(ctx *web.HTTPContext) web.ControllerResult {
-		sessionID := ctx.Param(SessionParamName)
-		if len(sessionID) != 0 {
-			session, err := auth.VerifySession(sessionID)
-			if err != nil {
-				return ctx.InternalError(err)
-			}
-			ctx.SetState(StateKeySession, session)
-			return action(session, ctx)
-		}
-		return action(nil, ctx)
+func getImageAction(ctx *web.HTTPContext) web.ControllerResult {
+	imageUUID := ctx.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
 	}
-}
-
-// AuthRequiredAction is an action that requires the user to be logged in.
-func AuthRequiredAction(action SessionAwareControllerAction) web.ControllerAction {
-	return func(ctx *web.HTTPContext) web.ControllerResult {
-		sessionID := ctx.Param(SessionParamName)
-		if len(sessionID) == 0 {
-			return ctx.NotAuthorized()
-		}
-
-		session, sessionErr := auth.VerifySession(sessionID)
-		if sessionErr != nil {
-			return ctx.InternalError(sessionErr)
-		}
-
-		if session == nil {
-			return ctx.NotAuthorized()
-		}
-
-		ctx.SetState(StateKeySession, session)
-		return action(session, ctx)
-	}
-}
-
-func activeSession(ctx *web.HTTPContext) *auth.Session {
-	if session := ctx.State(StateKeySession); session != nil {
-		if typed, isTyped := session.(*auth.Session); isTyped {
-			return typed
-		}
-	}
-	return nil
+	return ctx.JSON(image)
 }
 
 func getImagesAction(ctx *web.HTTPContext) web.ControllerResult {
@@ -159,6 +74,15 @@ func getTagsForImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(results)
 }
 
+func getTagAction(ctx *web.HTTPContext) web.ControllerResult {
+	tagUUID := ctx.RouteParameter("tag_id")
+	tag, err := model.GetTagByUUID(tagUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(tag)
+}
+
 func getTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 	tags, err := model.GetAllTags(nil)
 	if err != nil {
@@ -185,7 +109,15 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 		return ctx.BadRequest("No files posted.")
 	}
 
-	images := []*model.Image{}
+	images, err := createImages(session.UserID, files)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(images)
+}
+
+func createImages(userID int64, files []web.PostedFile) ([]model.Image, error) {
+	images := []model.Image{}
 
 	//upload file to s3, save it etc.
 	for _, f := range files {
@@ -194,21 +126,21 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 		md5sum := model.ConvertMD5(md5.Sum(f.Contents))
 		existing, err := model.ImageMD5Check(md5sum, nil)
 		if err != nil {
-			return ctx.InternalError(err)
+			return nil, err
 		}
 
 		if !existing.IsZero() {
-			images = append(images, existing)
+			images = append(images, *existing)
 		} else {
 			newImage := model.NewImage()
 			newImage.MD5 = md5sum
-			newImage.CreatedBy = session.UserID
+			newImage.CreatedBy = userID
 
 			imageBuf := bytes.NewBuffer(f.Contents)
 
 			imageMeta, _, err := image.DecodeConfig(imageBuf)
 			if err != nil {
-				return ctx.InternalError(exception.Wrap(err))
+				return nil, exception.Wrap(err)
 			}
 
 			newImage.DisplayName = f.Key
@@ -218,7 +150,7 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 
 			remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(f.Contents)})
 			if err != nil {
-				return ctx.InternalError(err)
+				return nil, err
 			}
 
 			newImage.S3Bucket = remoteEntry.Bucket
@@ -227,14 +159,13 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 
 			err = spiffy.DefaultDb().Create(newImage)
 			if err != nil {
-				return ctx.InternalError(err)
+				return nil, err
 			}
 
-			images = append(images, newImage)
+			images = append(images, *newImage)
 		}
 	}
-
-	return ctx.JSON(images)
+	return images, nil
 }
 
 func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -250,6 +181,58 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 		return ctx.InternalError(err)
 	}
 	return ctx.JSON(tag)
+}
+
+func deleteImage(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	currentUser, err := model.GetUserByID(session.UserID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	imageUUID := ctx.RouteParameter("image_id")
+
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.NotFound()
+	}
+	if !currentUser.IsModerator && image.CreatedBy != currentUser.ID {
+		return ctx.NotAuthorized()
+	}
+
+	err = model.DeleteImageByID(image.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.OK()
+}
+
+func deleteTag(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	currentUser, err := model.GetUserByID(session.UserID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	tagUUID := ctx.RouteParameter("tag_id")
+
+	tag, err := model.GetTagByUUID(tagUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if tag.IsZero() {
+		return ctx.NotFound()
+	}
+	if !currentUser.IsModerator && tag.CreatedBy != currentUser.ID {
+		return ctx.NotAuthorized()
+	}
+
+	err = model.DeleteTagByID(tag.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.OK()
 }
 
 func upvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -318,16 +301,6 @@ func searchAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(results)
 }
 
-func getGoogleProfile(accessToken string) (*googleProfile, error) {
-	var profile googleProfile
-	err := core.NewExternalRequest().AsGet().
-		WithURL("https://www.googleapis.com/oauth2/v1/userinfo").
-		WithQueryString("alt", "json").
-		WithQueryString("access_token", accessToken).
-		FetchJSONToObject(&profile)
-	return &profile, err
-}
-
 func oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	if session != nil {
 		return ctx.Redirect("/")
@@ -338,19 +311,19 @@ func oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResu
 		return ctx.BadRequest("`code` parameter missing, cannot continue")
 	}
 
-	var oa oauthResponse
+	var oa external.GoogleOAuthResponse
 	err := core.NewExternalRequest().AsPost().WithScheme("https").WithHost("accounts.google.com").WithPath("o/oauth2/token").
 		WithPostData("client_id", core.ConfigGoogleClientID()).
 		WithPostData("client_secret", core.ConfigGoogleSecret()).
 		WithPostData("grant_type", "authorization_code").
-		WithPostData("redirect_uri", oauthRedirectURI(ctx.Request)).
+		WithPostData("redirect_uri", viewmodel.OAuthRedirectURI(ctx.Request)).
 		WithPostData("code", code).FetchJSONToObject(&oa)
 
 	if err != nil {
 		return ctx.InternalError(err)
 	}
 
-	profile, err := getGoogleProfile(oa.AccessToken)
+	profile, err := external.FetchGoogleProfile(oa.AccessToken)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -382,6 +355,7 @@ func oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResu
 
 	//save the credentials
 	newCredentials := model.NewUserAuth(userID, oa.AccessToken, oa.IDToken)
+	newCredentials.Provider = "google"
 	err = spiffy.DefaultDb().Create(newCredentials)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -397,25 +371,33 @@ func oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResu
 	sessionID = userSession.SessionID
 
 	auth.SessionState().Add(userID, sessionID)
-	ctx.SetCookie(SessionParamName, sessionID, nil, "/")
+	ctx.SetCookie(auth.SessionParamName, sessionID, nil, "/")
 	return ctx.Redirect("/")
+}
+
+func uploadImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	return ctx.View("upload_image", nil)
+}
+
+func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	files, filesErr := ctx.PostedFiles()
+	if filesErr != nil {
+		return ctx.BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
+	}
+
+	if len(files) == 0 {
+		return ctx.BadRequest("No files posted.")
+	}
+
+	images, err := createImages(session.UserID, files)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.View("upload_image_complete", images[0])
 }
 
 func indexAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.Static("server/_static/index.html")
-}
-
-func loginAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	if session != nil {
-		return ctx.Redirect("/")
-	}
-
-	return ctx.View("login", viewmodel.Login{
-		Title:            "Login",
-		ClientID:         core.ConfigGoogleClientID(),
-		Secret:           core.ConfigGoogleSecret(),
-		OAUTHRedirectURI: oauthRedirectURI(ctx.Request),
-	})
 }
 
 func logoutAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -423,20 +405,27 @@ func logoutAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerRes
 	if err != nil {
 		return ctx.InternalError(err)
 	}
-	ctx.ExpireCookie(SessionParamName)
+	ctx.ExpireCookie(auth.SessionParamName)
 
 	return ctx.Redirect("/")
 }
 
 func getCurrentUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	cu := &viewmodel.CurrentUser{}
+	if session == nil {
+		cu.SetLoggedOut(ctx)
+		return ctx.JSON(cu)
+	}
 	user, userErr := model.GetUserByID(session.UserID, nil)
 	if userErr != nil {
 		return ctx.InternalError(userErr)
 	}
-	return ctx.JSON(user)
+
+	cu.SetFromUser(user)
+	return ctx.JSON(cu)
 }
 
-func getSessionKey(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func getSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	key := ctx.RouteParameter("key")
 	value, hasValue := session.State[key]
 	if !hasValue {
@@ -445,7 +434,7 @@ func getSessionKey(session *auth.Session, ctx *web.HTTPContext) web.ControllerRe
 	return ctx.JSON(value)
 }
 
-func setSessionKey(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func setSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	key := ctx.RouteParameter("key")
 	session.State[key] = ctx.PostBodyAsString()
 	return ctx.OK()
@@ -457,37 +446,44 @@ func main() {
 	web.InitViewCache(
 		"server/_views/header.html",
 		"server/_views/footer.html",
-		"server/_views/login.html",
+		"server/_views/upload_image.html",
+		"server/_views/upload_image_complete.html",
 	)
 
 	router := httprouter.New()
 
-	router.GET("/", web.ActionHandler(SessionAwareAction(indexAction)))
+	router.GET("/", web.ActionHandler(auth.SessionAwareAction(indexAction)))
 
 	//api endpoints
+	router.GET("/api/image/:image_id", web.ActionHandler(getImageAction))
 	router.GET("/api/images", web.ActionHandler(getImagesAction))
-	router.POST("/api/images", web.ActionHandler(AuthRequiredAction(createImageAction)))
+	router.POST("/api/images", web.ActionHandler(auth.SessionRequiredAction(createImageAction)))
 
-	router.GET("/api/tag/images/:tag_id", web.ActionHandler(getImagesForTagAction))
-	router.GET("/api/image/tags/:image_id", web.ActionHandler(getTagsForImageAction))
+	router.GET("/api/images/tags/:image_id", web.ActionHandler(getTagsForImageAction))
+	router.GET("/api/tags/images/:tag_id", web.ActionHandler(getImagesForTagAction))
 
+	router.GET("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageAction)))
+	router.POST("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageCompleteAction)))
+
+	router.GET("/api/tag/:tag_id", web.ActionHandler(getTagAction))
 	router.GET("/api/tags", web.ActionHandler(getTagsAction))
-	router.POST("/api/tags", web.ActionHandler(AuthRequiredAction(createTagAction)))
+	router.POST("/api/tags", web.ActionHandler(auth.SessionRequiredAction(createTagAction)))
+	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteTag)))
+
 	router.GET("/api/users", web.ActionHandler(getUsersAction))
-	router.POST("/api/upvote/:image_id/:tag_id", web.ActionHandler(AuthRequiredAction(upvoteAction)))
-	router.POST("/api/downvote/:image_id/:tag_id", web.ActionHandler(AuthRequiredAction(downvoteAction)))
+	router.POST("/api/upvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(upvoteAction)))
+	router.POST("/api/downvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(downvoteAction)))
 	router.GET("/api/search", web.ActionHandler(searchAction))
 
 	//session endpoints
-	router.GET("/api/current_user", web.ActionHandler(AuthRequiredAction(getCurrentUserAction)))
-	router.GET("/api/session/:key", web.ActionHandler(AuthRequiredAction(getSessionKey)))
-	router.POST("/api/session/:key", web.ActionHandler(AuthRequiredAction(setSessionKey)))
+	router.GET("/api/current_user", web.ActionHandler(auth.SessionAwareAction(getCurrentUserAction)))
+	router.GET("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(getSessionKeyAction)))
+	router.POST("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(setSessionKeyAction)))
 
 	//auth endpoints
-	router.GET("/login", web.ActionHandler(SessionAwareAction(loginAction)))
-	router.GET("/oauth", web.ActionHandler(SessionAwareAction(oauthAction)))
-	router.GET("/logout", web.ActionHandler(AuthRequiredAction(logoutAction)))
-	router.POST("/logout", web.ActionHandler(AuthRequiredAction(logoutAction)))
+	router.GET("/oauth", web.ActionHandler(auth.SessionAwareAction(oauthAction)))
+	router.GET("/logout", web.ActionHandler(auth.SessionRequiredAction(logoutAction)))
+	router.POST("/logout", web.ActionHandler(auth.SessionRequiredAction(logoutAction)))
 
 	//static files
 	router.ServeFiles("/static/*filepath", http.Dir("server/_static"))

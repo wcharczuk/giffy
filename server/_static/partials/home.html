@@ -1,15 +1,11 @@
-<div id="home-header" class="giffy-header row">
-    <div class="col-md-2 col-md-offset-2">{{current_user.username}}</div>
-    <div class="col-md-4 align-center"><h1>GIFFY</h1></div>
-    <div class="col-md-2 align-right"><button type="button" class="btn btn-primary">Add Image</button><button type="button" class="btn btn-secondary">Add Tag</button></div>
-</div>
+<div ng-include="'/static/partials/header.html'"/>
 <div class="row" id="search-bar">
-    <div class="col-xs-12 col-sm-12 col-md-8 col-md-offset-2 col-lg-8 col-lg-offset-2">
+    <div class="col-xs-12 col-sm-12 col-md-12 col-lg-8 col-lg-offset-2">
         <input id="giffy-search-bar" type="text" class="form-control form-control-lg" placeholder="Search For Images" ng-keydown="searchImages()" ng-model="searchQuery" required/>
     </div>
 </div>
-<div class="row" id="giffy-images">
+<div id="giffy-images" class="row">
     <div class="giffy-image-grid row">
-        <div ng-repeat="image in images" ng-include="'/static/partials/image.html'"></div>
+        <div class="giffy-image-wrapper col-md-12" ng-repeat="image in images" ng-include="'/static/partials/image.html'"></div>
     </div>
 </div>

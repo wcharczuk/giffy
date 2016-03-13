@@ -1,0 +1,8 @@
+<div id="giffy-header" class="row">
+    <div class="col-xs-4 col-sm-4 col-md-4 col-lg-2 col-lg-offset-2" ng-if="current_user.is_logged_in">{{current_user.username}} (<a href="/logout">Logout</a>)</div>
+    <div class="col-xs-4 col-sm-4 col-md-4 col-lg-2 col-lg-offset-2" ng-if="!current_user.is_logged_in"><a class="btn btn-danger" href="{{current_user.login_url}}">Login with Google</a> </div>
+    <div class="col-xs-4 col-sm-4 col-md-4 col-lg-4 align-center"><h1><a href="/#/">GIFFY</a></h1></div>
+    <div class="col-xs-4 col-sm-4 col-md-4 col-lg-2 align-right">
+        <a id="add-image" href="/#/add_image" class="btn btn-primary" ng-if="current_user.is_logged_in">Add Image</a>
+    </div>
+</div>

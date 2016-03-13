@@ -30,6 +30,5 @@ type ViewResult struct {
 func (vr *ViewResult) Render(ctx *HTTPContext) error {
 	ctx.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	ctx.Response.WriteHeader(vr.StatusCode)
-	viewErr := exception.Wrap(viewCache.ExecuteTemplate(ctx.Response, vr.Template, vr.ViewModel))
-	return viewErr
+	return exception.Wrap(viewCache.ExecuteTemplate(ctx.Response, vr.Template, vr.ViewModel))
 }

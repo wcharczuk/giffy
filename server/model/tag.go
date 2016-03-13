@@ -66,3 +66,16 @@ func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 		QueryInTransaction(`select * from tag where uuid = $1`, tx, uuid).Out(&imageTag)
 	return &imageTag, err
 }
+
+// DeleteTagByID deletes an tag fully.
+func DeleteTagByID(tagID int64, tx *sql.Tx) error {
+	err := spiffy.DefaultDb().ExecInTransaction(`delete from image_tag_votes where tag_id = $1`, tx, tagID)
+	if err != nil {
+		return err
+	}
+	err = spiffy.DefaultDb().ExecInTransaction(`delete from vote_log where tag_id = $1`, tx, tagID)
+	if err != nil {
+		return err
+	}
+	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
+}

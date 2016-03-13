@@ -32,7 +32,7 @@ func APINotFoundHandler(w http.ResponseWriter, r *http.Request) {
 // APIPanicHandler is a handler for panics.
 func APIPanicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
 	Render(func(ctx *HTTPContext) ControllerResult {
-		return ctx.InternalError(exception.Newf("%v", err))
+		return ctx.InternalError(exception.Newf("panic: %v", err))
 	})
 }
 

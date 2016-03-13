@@ -1,0 +1,8 @@
+{{define "upload_image_complete"}}
+{{template "header"}}
+<H1>SUCCESS</H1>
+<script type="text/javascript">
+    window.parent.location = "/#/image/{{.UUID}}"
+</script>
+{{template "footer"}}
+{{end}}

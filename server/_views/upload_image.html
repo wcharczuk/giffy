@@ -1,0 +1,29 @@
+{{define "upload_image"}}
+{{template "header"}}
+<div class="row">
+    <div class="col-md-8 col-md-offset-2">
+        <div id="add-image" class="add-image">
+            <form method="POST" action="/images/upload" enctype="multipart/form-data">
+                <div class="form-group row">
+                    <label for="displayName" class="form-control-label col-sm-4 col-md-4 align-right">Give it a name</label>
+                    <div class="col-sm-8 col-md-8">
+                        <input id="displayName" type="text" class="form-control" placeholder="A gif for all occasions."/>
+                    </div>
+                </div>
+                
+                <div class="form-group row">
+                    <label for="imageFile" class="form-control-label col-sm-4 col-md-4 align-right">Image File</label>
+                    <div class="col-sm-8 col-md-8">
+                        <input id="imageFile" name="imageFile" type="file" name="new-image"/>
+                    </div>
+                </div>
+             
+                <div class="form-group row align-right">
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{template "footer"}}
+{{end}}

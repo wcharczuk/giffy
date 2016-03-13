@@ -1,13 +1,4 @@
-<div id="add-image" class="add-image">
-    <form>
-        <fieldset class="form-group">
-            <label for="imageFile" class="form-control-label">Image File</label>
-            <input type="file" name="new-image"/>
-        </fieldset>
-        
-        <fieldset class="form-group">
-            <label for="imageFile" class="form-control-label">Give it a name</label>
-            <input type="text" class="form-control" placeholder="A gif for all occasions."/>
-        </fieldset>
-    </form>
+<div ng-include="'/static/partials/header.html'"/>
+<div class="row">
+    <iframe src="/images/upload" class="col-md-8 col-md-offset-2" height="250px" frameBorder="0"/>
 </div>

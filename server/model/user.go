@@ -19,6 +19,9 @@ type User struct {
 
 	EmailAddress    string `json:"email_address" db:"email_address"`
 	IsEmailVerified bool   `json:"is_email_verified" db:"is_email_verified"`
+
+	IsAdmin     bool `json:"is_admin" db:"is_admin"`
+	IsModerator bool `json:"is_moderator" db:"is_moderator"`
 }
 
 // TableName is the table name.
@@ -33,7 +36,7 @@ func (u User) IsZero() bool {
 
 // Populate scans the rows into the struct.
 func (u *User) Populate(r *sql.Rows) error {
-	return r.Scan(&u.ID, &u.UUID, &u.CreatedUTC, &u.Username, &u.FirstName, &u.LastName, &u.EmailAddress, &u.IsEmailVerified)
+	return r.Scan(&u.ID, &u.UUID, &u.CreatedUTC, &u.Username, &u.FirstName, &u.LastName, &u.EmailAddress, &u.IsEmailVerified, &u.IsAdmin, &u.IsModerator)
 }
 
 // NewUser returns a new user.
