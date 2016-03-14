@@ -19,10 +19,10 @@ func TestQueryImages(t *testing.T) {
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTag(u.ID, i.ID, "test", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, "test", tx)
 	assert.Nil(err)
 
-	_, err = createTestTag(u.ID, i.ID, "foo", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, "foo", tx)
 	assert.Nil(err)
 
 	images, err := QueryImages("test", tx)
@@ -53,19 +53,19 @@ func TestGetImagesByID(t *testing.T) {
 	_, err = createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTag(u.ID, i.ID, "test", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, "test", tx)
 	assert.Nil(err)
 
-	_, err = createTestTag(u.ID, i.ID, "foo", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, "foo", tx)
 	assert.Nil(err)
 
-	_, err = createTestTag(u.ID, i.ID, "bar", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, "bar", tx)
 	assert.Nil(err)
 
-	baz, err := createTestTag(u.ID, i.ID, "baz", tx)
+	baz, err := createTestTagForImage(u.ID, i.ID, "baz", tx)
 	assert.Nil(err)
 
-	biz, err := createTestTag(u.ID, i.ID, "biz", tx)
+	biz, err := createTestTagForImage(u.ID, i.ID, "biz", tx)
 	assert.Nil(err)
 
 	err = SetTagVotes(i.ID, baz.ID, 100, 3, tx)

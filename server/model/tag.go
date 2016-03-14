@@ -67,6 +67,14 @@ func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 	return &imageTag, err
 }
 
+// GetTagByValue returns a tag for a uuid.
+func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
+	var tag Tag
+	err := spiffy.DefaultDb().
+		QueryInTransaction(`select * from tag where tag_value ilike $1`, tx, tagValue).Out(&tag)
+	return &tag, err
+}
+
 // DeleteTagByID deletes an tag fully.
 func DeleteTagByID(tagID int64, tx *sql.Tx) error {
 	err := spiffy.DefaultDb().ExecInTransaction(`delete from image_tag_votes where tag_id = $1`, tx, tagID)

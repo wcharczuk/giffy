@@ -116,58 +116,6 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 	return ctx.JSON(images)
 }
 
-func createImages(userID int64, files []web.PostedFile) ([]model.Image, error) {
-	images := []model.Image{}
-
-	//upload file to s3, save it etc.
-	for _, f := range files {
-		buf := bytes.NewBuffer(f.Contents)
-
-		md5sum := model.ConvertMD5(md5.Sum(f.Contents))
-		existing, err := model.ImageMD5Check(md5sum, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		if !existing.IsZero() {
-			images = append(images, *existing)
-		} else {
-			newImage := model.NewImage()
-			newImage.MD5 = md5sum
-			newImage.CreatedBy = userID
-
-			imageBuf := bytes.NewBuffer(f.Contents)
-
-			imageMeta, _, err := image.DecodeConfig(imageBuf)
-			if err != nil {
-				return nil, exception.Wrap(err)
-			}
-
-			newImage.DisplayName = f.Key
-			newImage.Extension = filepath.Ext(f.Filename)
-			newImage.Height = imageMeta.Height
-			newImage.Width = imageMeta.Width
-
-			remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(f.Contents)})
-			if err != nil {
-				return nil, err
-			}
-
-			newImage.S3Bucket = remoteEntry.Bucket
-			newImage.S3Key = remoteEntry.Key
-			newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
-
-			err = spiffy.DefaultDb().Create(newImage)
-			if err != nil {
-				return nil, err
-			}
-
-			images = append(images, *newImage)
-		}
-	}
-	return images, nil
-}
-
 func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	tag := model.NewTag()
 	err := ctx.PostBodyAsJSON(tag)
@@ -175,6 +123,15 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 		return ctx.BadRequest(err.Error())
 	}
 	tag.CreatedBy = session.UserID
+
+	//check if the tag exists first
+	existingTag, err := model.GetTagByValue(tag.TagValue, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if !existingTag.IsZero() {
+		return ctx.JSON(existingTag)
+	}
 
 	err = spiffy.DefaultDb().Create(tag)
 	if err != nil {
@@ -438,6 +395,59 @@ func setSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.Contro
 	key := ctx.RouteParameter("key")
 	session.State[key] = ctx.PostBodyAsString()
 	return ctx.OK()
+}
+
+// createImagesFromFiles creates and uploads files from posted files.
+func createImagesFromFiles(userID int64, files []web.PostedFile) ([]model.Image, error) {
+	images := []model.Image{}
+
+	//upload file to s3, save it etc.
+	for _, f := range files {
+		buf := bytes.NewBuffer(f.Contents)
+
+		md5sum := model.ConvertMD5(md5.Sum(f.Contents))
+		existing, err := model.ImageMD5Check(md5sum, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		if !existing.IsZero() {
+			images = append(images, *existing)
+		} else {
+			newImage := model.NewImage()
+			newImage.MD5 = md5sum
+			newImage.CreatedBy = userID
+
+			imageBuf := bytes.NewBuffer(f.Contents)
+
+			imageMeta, _, err := image.DecodeConfig(imageBuf)
+			if err != nil {
+				return nil, exception.Wrap(err)
+			}
+
+			newImage.DisplayName = f.Key
+			newImage.Extension = filepath.Ext(f.Filename)
+			newImage.Height = imageMeta.Height
+			newImage.Width = imageMeta.Width
+
+			remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(f.Contents)})
+			if err != nil {
+				return nil, err
+			}
+
+			newImage.S3Bucket = remoteEntry.Bucket
+			newImage.S3Key = remoteEntry.Key
+			newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
+
+			err = spiffy.DefaultDb().Create(newImage)
+			if err != nil {
+				return nil, err
+			}
+
+			images = append(images, *newImage)
+		}
+	}
+	return images, nil
 }
 
 func main() {

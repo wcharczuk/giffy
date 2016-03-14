@@ -20,7 +20,7 @@ func TestVote(t *testing.T) {
 	assert.Nil(err)
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTag(u.ID, i.ID, "winning", tx)
+	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	voteErr := Vote(votingUser.ID, i.ID, tag.ID, false, tx)
@@ -42,7 +42,7 @@ func TestGetImagesForTagID(t *testing.T) {
 	assert.Nil(err)
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTag(u.ID, i.ID, "winning", tx)
+	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	imagesForTag, err := GetImagesForTagID(tag.ID, tx)
@@ -60,7 +60,7 @@ func TestGetTagsForImageID(t *testing.T) {
 	assert.Nil(err)
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
-	_, err = createTestTag(u.ID, i.ID, "winning", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	tagsForImage, err := GetTagsForImageID(i.ID, tx)
