@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blendlabs/go-util/linq"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -70,6 +71,19 @@ func (i *Image) Populate(r *sql.Rows) error {
 	)
 }
 
+// ImagePredicate is used in linq queries
+type ImagePredicate func(i Image) bool
+
+// NewImagePredicate creates a new ImagePredicate that resolves to a linq.Predicate
+func NewImagePredicate(predicate ImagePredicate) linq.Predicate {
+	return func(item interface{}) bool {
+		if typed, isTyped := item.(Image); isTyped {
+			return predicate(typed)
+		}
+		return false
+	}
+}
+
 // NewImage returns a new instance of an image.
 func NewImage() *Image {
 	return &Image{
@@ -89,6 +103,9 @@ func GetImageByID(id int64, tx *sql.Tx) (*Image, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(images) == 0 {
+		return &Image{}, nil
+	}
 	return &images[0], err
 }
 
@@ -105,6 +122,14 @@ func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 	return &images[0], err
 }
 
+// GetImageByMD5 returns an image by uuid.
+func GetImageByMD5(md5sum []byte, tx *sql.Tx) (*Image, error) {
+	image := Image{}
+	err := spiffy.DefaultDb().
+		QueryInTransaction(`select * from image where md5 = $1`, tx, md5sum).Out(&image)
+	return &image, err
+}
+
 // DeleteImageByID deletes an image fully.
 func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 	err := spiffy.DefaultDb().ExecInTransaction(`delete from image_tag_votes where image_id = $1`, tx, imageID)
@@ -116,14 +141,6 @@ func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 		return err
 	}
 	return spiffy.DefaultDb().ExecInTransaction(`delete from image where id = $1`, tx, imageID)
-}
-
-// ImageMD5Check returns an image by uuid.
-func ImageMD5Check(md5sum []byte, tx *sql.Tx) (*Image, error) {
-	var image Image
-	err := spiffy.DefaultDb().
-		QueryInTransaction(`select * from image where md5 = $1`, tx, md5sum).Out(&image)
-	return &image, err
 }
 
 // QueryImages searches for an image.

@@ -109,7 +109,7 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 		return ctx.BadRequest("No files posted.")
 	}
 
-	images, err := createImages(session.UserID, files)
+	images, err := createImagesFromFiles(session.UserID, files)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -346,7 +346,7 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.BadRequest("No files posted.")
 	}
 
-	images, err := createImages(session.UserID, files)
+	images, err := createImagesFromFiles(session.UserID, files)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -406,7 +406,7 @@ func createImagesFromFiles(userID int64, files []web.PostedFile) ([]model.Image,
 		buf := bytes.NewBuffer(f.Contents)
 
 		md5sum := model.ConvertMD5(md5.Sum(f.Contents))
-		existing, err := model.ImageMD5Check(md5sum, nil)
+		existing, err := model.GetImageByMD5(md5sum, nil)
 		if err != nil {
 			return nil, err
 		}

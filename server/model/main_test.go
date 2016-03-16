@@ -16,17 +16,16 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func createTestTag(userID int, tagValue string, tx *sql.Tx) error {
+func createTestTag(userID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
 	tag := NewTag()
 	tag.CreatedBy = userID
 	tag.TagValue = tagValue
 	err := spiffy.DefaultDb().CreateInTransaction(tag, tx)
-
-	return tag, nil
+	return tag, err
 }
 
 func createTestTagForImage(userID, imageID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
-	err := createTestTag(userID, tagValue, tx)
+	tag, err := createTestTag(userID, tagValue, tx)
 	if err != nil {
 		return nil, err
 	}

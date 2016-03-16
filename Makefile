@@ -12,12 +12,12 @@ run:
 
 test:
 	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
-	@bash ./_util/test.bash --root="./server" --package=$(package) --short --filter=${filter}
+	@bash ./_util/test.bash --root="./server/" --package=$(package) --short --filter=${filter} ${flags}
 	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
 
 cover:
 	@echo "$(OK_COLOR)==> Coverage$(NO_COLOR)"
-	@sh ./_util/coverage.sh --root="./server"
+	@sh ./_util/coverage.sh --root="./server/"
 	@echo "$(OK_COLOR)==> Coverage Done!$(NO_COLOR)"
 
 db:

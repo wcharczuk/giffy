@@ -59,12 +59,20 @@ func GetAllTags(tx *sql.Tx) ([]Tag, error) {
 	return all, err
 }
 
+// GetTagByID returns a tag for a id.
+func GetTagByID(id int64, tx *sql.Tx) (*Tag, error) {
+	var tag Tag
+	err := spiffy.DefaultDb().
+		QueryInTransaction(`select * from tag where id = $1`, tx, id).Out(&tag)
+	return &tag, err
+}
+
 // GetTagByUUID returns a tag for a uuid.
 func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
-	var imageTag Tag
+	var tag Tag
 	err := spiffy.DefaultDb().
-		QueryInTransaction(`select * from tag where uuid = $1`, tx, uuid).Out(&imageTag)
-	return &imageTag, err
+		QueryInTransaction(`select * from tag where uuid = $1`, tx, uuid).Out(&tag)
+	return &tag, err
 }
 
 // GetTagByValue returns a tag for a uuid.

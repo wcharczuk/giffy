@@ -7,6 +7,31 @@ import (
 	"github.com/blendlabs/spiffy"
 )
 
+func TestSetTagVotes(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	assert.Nil(err)
+
+	err = SetTagVotes(i.ID, tag.ID, 101, 100, tx)
+	assert.Nil(err)
+
+	itv, err := GetImageTagVote(i.ID, tag.ID, tx)
+	assert.Nil(err)
+	assert.False(itv.IsZero())
+
+	assert.Equal(101, itv.VotesFor)
+	assert.Equal(100, itv.VotesAgainst)
+	assert.Equal(1, itv.VotesTotal)
+}
+
 func TestVote(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()

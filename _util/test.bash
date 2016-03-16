@@ -48,4 +48,4 @@ if [ ! -z "$ARG_FILTER" ]; then
     TEST_FILTER="-run ${ARG_FILTER}"
 fi
 
-GOGC=off genv -f="./_config/config.json" go test $TEST_VERBOSITY $TEST_FILTER "${TEST_ROOT}..."
+genv -f="./_config/config.json" go test $TEST_VERBOSITY $TEST_FILTER "${TEST_ROOT}..."
