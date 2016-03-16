@@ -33,9 +33,9 @@ CREATE TABLE image (
 );
 ALTER TABLE image ADD CONSTRAINT pk_image_id PRIMARY KEY (id);
 ALTER TABLE image ADD CONSTRAINT uk_image_uuid UNIQUE (uuid);
+ALTER TABLE image ADD CONSTRAINT uk_image_md5 UNIQUE (md5);
 ALTER TABLE image ADD CONSTRAINT fk_image_created_by_user_id 
 	FOREIGN KEY (created_by) REFERENCES users(id);
-CREATE INDEX ix_image_md5 ON image(md5);
 
 CREATE TABLE tag (
 	id serial not null,
@@ -45,7 +45,8 @@ CREATE TABLE tag (
 	tag_value varchar(32) not null
 );
 ALTER TABLE tag ADD CONSTRAINT pk_tag_id PRIMARY KEY (id);
-ALTER TABLE tag ADD CONSTRAINT uk_tag_uuid_uuid UNIQUE (uuid);
+ALTER TABLE tag ADD CONSTRAINT uk_tag_uuid UNIQUE (uuid);
+ALTER TABLE tag ADD CONSTRAINT uk_tag_tag_value UNIQUE (tag_value);
 ALTER TABLE tag ADD CONSTRAINT fk_tag_created_by_user_id 
 	FOREIGN KEY (created_by) REFERENCES users(id);
 
@@ -92,9 +93,9 @@ ALTER TABLE user_auth ADD CONSTRAINT fk_user_auth_user_id FOREIGN KEY (user_id) 
 CREATE INDEX ix_user_auth_auth_token_hash ON user_auth(auth_token_hash);
 
 CREATE TABLE user_session (
+	session_id varchar(32) not null,
     user_id bigint not null,
     timestamp_utc timestamp not null,
-    session_id varchar(32) not null
 );
 ALTER TABLE user_session ADD CONSTRAINT pk_user_session_session_id PRIMARY KEY (session_id);
 ALTER TABLE user_session ADD CONSTRAINT fk_user_session_user_id FOREIGN KEY (user_id) REFERENCES users(id);
