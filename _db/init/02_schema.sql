@@ -95,7 +95,7 @@ CREATE INDEX ix_user_auth_auth_token_hash ON user_auth(auth_token_hash);
 CREATE TABLE user_session (
 	session_id varchar(32) not null,
     user_id bigint not null,
-    timestamp_utc timestamp not null,
+    timestamp_utc timestamp not null
 );
 ALTER TABLE user_session ADD CONSTRAINT pk_user_session_session_id PRIMARY KEY (session_id);
 ALTER TABLE user_session ADD CONSTRAINT fk_user_session_user_id FOREIGN KEY (user_id) REFERENCES users(id);
