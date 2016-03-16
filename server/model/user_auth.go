@@ -69,27 +69,6 @@ func GetUserAuthByToken(token string, tx *sql.Tx) (*UserAuth, error) {
 	return &auth, err
 }
 
-// GetUserAuthByTokenAndSecret returns an auth entry for the given credentials.
-func GetUserAuthByTokenAndSecret(token, secret string, tx *sql.Tx) (*UserAuth, error) {
-	if len(core.ConfigKey()) == 0 {
-		return nil, exception.New("`ENCRYPTION_KEY` is not set, cannot continue.")
-	}
-
-	authToken, err := core.Encrypt(core.ConfigKey(), token)
-	if err != nil {
-		return nil, err
-	}
-
-	authSecret, err := core.Encrypt(core.ConfigKey(), token)
-	if err != nil {
-		return nil, err
-	}
-
-	var auth UserAuth
-	err = spiffy.DefaultDb().QueryInTransaction("SELECT * FROM user_auth where auth_token = $1 and auth_secret = $2", tx, authToken, authSecret).Out(&auth)
-	return &auth, err
-}
-
 // DeleteUserAuthForProvider deletes auth entries for a provider for a user.
 func DeleteUserAuthForProvider(userID int64, provider string, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction("DELETE FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider)

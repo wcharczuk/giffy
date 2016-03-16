@@ -14,28 +14,6 @@ const (
 	StateKeySession = "__session__"
 )
 
-// Login authenticates a session.
-func Login(token, secret string) (*Session, error) {
-	userAuth, userAuthErr := model.GetUserAuthByTokenAndSecret(token, secret, nil)
-	if userAuthErr != nil {
-		return nil, userAuthErr
-	}
-
-	if userAuth.IsZero() { // not authorized ...
-		return nil, nil
-	}
-
-	userSession := model.NewUserSession(userAuth.UserID)
-	err := spiffy.DefaultDb().Create(userSession)
-	if err != nil {
-		return nil, err
-	}
-
-	session := NewSession(userAuth.UserID, userSession.SessionID)
-
-	return session, nil
-}
-
 // Logout un-authenticates a session.
 func Logout(userID int64, sessionID string) error {
 	SessionState().Expire(sessionID)

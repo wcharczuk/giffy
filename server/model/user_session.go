@@ -36,5 +36,5 @@ func NewUserSession(userID int64) *UserSession {
 
 // DeleteUserSession removes a session from the db.
 func DeleteUserSession(userID int64, sessionID string, tx *sql.Tx) error {
-	return spiffy.DefaultDb().Exec("DELETE FROM user_session where user_id = $1 and session_id = $2", userID, sessionID)
+	return spiffy.DefaultDb().ExecInTransaction("DELETE FROM user_session where user_id = $1 and session_id = $2", tx, userID, sessionID)
 }

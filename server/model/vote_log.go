@@ -1,6 +1,11 @@
 package model
 
-import "time"
+import (
+	"database/sql"
+	"time"
+
+	"github.com/blendlabs/spiffy"
+)
 
 // VoteLog is a log of votes by a user.
 type VoteLog struct {
@@ -25,4 +30,11 @@ func NewVoteLog(userID, imageID, tagID int64, isUpvote bool) *VoteLog {
 		TimestampUTC: time.Now().UTC(),
 		IsUpvote:     isUpvote,
 	}
+}
+
+// GetVoteLogsForUserID gets all the vote log entries for a user.
+func GetVoteLogsForUserID(userID int64, tx *sql.Tx) ([]VoteLog, error) {
+	logEntries := []VoteLog{}
+	err := spiffy.DefaultDb().QueryInTransaction("select * from vote_log where user_id = $1 order by timestamp_utc desc", tx, userID).OutMany(&logEntries)
+	return logEntries, err
 }

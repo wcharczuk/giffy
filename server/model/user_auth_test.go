@@ -26,3 +26,23 @@ func TestGetUserAuthByToken(t *testing.T) {
 	assert.Equal(u.ID, verify.UserID)
 	assert.Equal("test", verify.Provider)
 }
+
+func TestDeleteUserAuthForProvider(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+
+	_, err = createTestUserAuth(u.ID, "test", "password", tx)
+	assert.Nil(err)
+
+	err = DeleteUserAuthForProvider(u.ID, "test", tx)
+	assert.Nil(err)
+
+	verify, err := GetUserAuthByToken("test", tx)
+	assert.Nil(err)
+	assert.True(verify.IsZero())
+}
