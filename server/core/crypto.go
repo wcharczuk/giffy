@@ -3,7 +3,9 @@ package core
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha512"
 	"fmt"
 	"io"
 
@@ -31,6 +33,13 @@ func Encrypt(key []byte, text string) ([]byte, error) {
 	cfb := cipher.NewCFBEncrypter(block, iv)
 	cfb.XORKeyStream(ciphertext[aes.BlockSize:], []byte(text))
 	return ciphertext, nil
+}
+
+// Hash hashes a string with the given key using HMAC.
+func Hash(key []byte, text string) []byte {
+	mac := hmac.New(sha512.New, key)
+	mac.Write([]byte(text))
+	return mac.Sum(nil)
 }
 
 // Decrypt decrypts the given data with the given key.

@@ -11,11 +11,12 @@ import (
 
 // UserAuth is what we use to store auth credentials.
 type UserAuth struct {
-	UserID       int64     `json:"user_id" db:"user_id,pk"`
-	TimestampUTC time.Time `json:"timestamp_utc" db:"timestamp_utc"`
-	Provider     string    `json:"provider" db:"provider"`
-	AuthToken    []byte    `json:"auth_token" db:"auth_token"`
-	AuthSecret   []byte    `json:"auth_secret" db:"auth_secret"`
+	UserID        int64     `json:"user_id" db:"user_id,pk"`
+	TimestampUTC  time.Time `json:"timestamp_utc" db:"timestamp_utc"`
+	Provider      string    `json:"provider" db:"provider"`
+	AuthToken     []byte    `json:"auth_token" db:"auth_token"`
+	AuthTokenHash []byte    `json:"auth_token_hash" db:"auth_token_hash"`
+	AuthSecret    []byte    `json:"auth_secret" db:"auth_secret"`
 }
 
 // TableName returns the table name.
@@ -35,14 +36,16 @@ func NewUserAuth(userID int64, authToken, authSecret string) *UserAuth {
 		TimestampUTC: time.Now().UTC(),
 	}
 
-	token, tokenErr := core.Encrypt(core.ConfigKey(), authToken)
+	key := core.ConfigKey()
+	token, tokenErr := core.Encrypt(key, authToken)
 	if tokenErr != nil {
 		return auth
 	}
 	auth.AuthToken = token
+	auth.AuthTokenHash = core.Hash(key, authToken)
 
 	if len(authSecret) != 0 {
-		secret, secretErr := core.Encrypt(core.ConfigKey(), authSecret)
+		secret, secretErr := core.Encrypt(key, authSecret)
 		if secretErr != nil {
 			return auth
 		}
@@ -58,13 +61,11 @@ func GetUserAuthByToken(token string, tx *sql.Tx) (*UserAuth, error) {
 		return nil, exception.New("`ENCRYPTION_KEY` is not set, cannot continue.")
 	}
 
-	authToken, err := core.Encrypt(core.ConfigKey(), token)
-	if err != nil {
-		return nil, err
-	}
+	key := core.ConfigKey()
+	authTokenHash := core.Hash(key, token)
 
 	var auth UserAuth
-	err = spiffy.DefaultDb().QueryInTransaction("SELECT * FROM user_auth where auth_token = $1", tx, authToken).Out(&auth)
+	err := spiffy.DefaultDb().QueryInTransaction("SELECT * FROM user_auth where auth_token_hash = $1", tx, authTokenHash).Out(&auth)
 	return &auth, err
 }
 

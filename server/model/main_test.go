@@ -64,3 +64,16 @@ func createTestUser(tx *sql.Tx) (*User, error) {
 	err := spiffy.DefaultDb().CreateInTransaction(u, tx)
 	return u, err
 }
+
+func createTestUserAuth(userID int64, token, secret string, tx *sql.Tx) (*UserAuth, error) {
+	ua := NewUserAuth(userID, token, secret)
+	ua.Provider = "test"
+	err := spiffy.DefaultDb().CreateInTransaction(ua, tx)
+	return ua, err
+}
+
+func createTestUserSession(userID int64, tx *sql.Tx) (*UserSession, error) {
+	us := NewUserSession(userID)
+	err := spiffy.DefaultDb().CreateInTransaction(us, tx)
+	return us, err
+}
