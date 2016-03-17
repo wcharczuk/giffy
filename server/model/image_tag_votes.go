@@ -25,7 +25,7 @@ func (itv ImageTagVotes) IsZero() bool {
 
 // TableName returns the tablename for an object.
 func (itv ImageTagVotes) TableName() string {
-	return "image_tag_votes"
+	return "vote_summary"
 }
 
 // NewImageTagVote returns a new instance for an ImageTagVotes.
@@ -41,7 +41,7 @@ func NewImageTagVote(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time) *I
 // SetTagVotes updates the votes for a tag to an image.
 func SetTagVotes(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) error {
 	votesTotal := votesFor - votesAgainst
-	return spiffy.DefaultDb().ExecInTransaction(`update image_tag_votes set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
+	return spiffy.DefaultDb().ExecInTransaction(`update vote_summary vs set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
 }
 
 // CreateOrIncrementVote votes for a tag for an image in the db.
@@ -83,14 +83,14 @@ func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.
 		}
 	}
 
-	logEntry := NewVoteLog(userID, imageID, tagID, isUpvote)
+	logEntry := NewVote(userID, imageID, tagID, isUpvote)
 	return spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
 }
 
 // GetImageTagVote fetches an ImageTagVotes by constituent pks.
 func GetImageTagVote(imageID, tagID int64, tx *sql.Tx) (*ImageTagVotes, error) {
 	var imv ImageTagVotes
-	query := `select * from image_tag_votes where image_id = $1 and tag_id = $2`
+	query := `select * from vote_summary where image_id = $1 and tag_id = $2`
 	err := spiffy.DefaultDb().QueryInTransaction(query, tx, imageID, tagID).Out(&imv)
 	return &imv, err
 }
@@ -99,7 +99,7 @@ func GetImageTagVote(imageID, tagID int64, tx *sql.Tx) (*ImageTagVotes, error) {
 func GetImagesForTagID(tagID int64, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	err := spiffy.DefaultDb().
-		QueryInTransaction(`select image_id as id from image_tag_votes itv where tag_id = $1`, tx, tagID).OutMany(&imageIDs)
+		QueryInTransaction(`select image_id as id from vote_summary vs where tag_id = $1`, tx, tagID).OutMany(&imageIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -114,19 +114,19 @@ func GetTagsForImageID(imageID int64, tx *sql.Tx) ([]Tag, error) {
 select 
 	t.*
     , u.uuid as created_by_uuid
-	, itv.image_id
-	, itv.votes_for
-	, itv.votes_against
-	, itv.votes_total
-    , row_number() over (partition by itv.image_id order by itv.votes_total desc) as vote_rank
+	, vs.image_id
+	, vs.votes_for
+	, vs.votes_against
+	, vs.votes_total
+    , row_number() over (partition by vs.image_id order by vs.votes_total desc) as vote_rank
 from 
 	tag t 
-	join image_tag_votes itv on t.id = itv.tag_id
+	join vote_summary vs on t.id = vs.tag_id
     join users u on u.id = t.created_by 
 where 
-	itv.image_id = $1
+	vs.image_id = $1
 order by
-	itv.votes_total desc;
+	vs.votes_total desc;
 `
 	err := spiffy.DefaultDb().QueryInTransaction(query, tx, imageID).Each(func(r *sql.Rows) error {
 		t := &Tag{}

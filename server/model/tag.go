@@ -87,11 +87,11 @@ func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
 
 // DeleteTagByID deletes an tag fully.
 func DeleteTagByID(tagID int64, tx *sql.Tx) error {
-	err := spiffy.DefaultDb().ExecInTransaction(`delete from image_tag_votes where tag_id = $1`, tx, tagID)
+	err := spiffy.DefaultDb().ExecInTransaction(`delete from vote_summary where tag_id = $1`, tx, tagID)
 	if err != nil {
 		return err
 	}
-	err = spiffy.DefaultDb().ExecInTransaction(`delete from vote_log where tag_id = $1`, tx, tagID)
+	err = spiffy.DefaultDb().ExecInTransaction(`delete from vote where tag_id = $1`, tx, tagID)
 	if err != nil {
 		return err
 	}

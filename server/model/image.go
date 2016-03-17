@@ -180,11 +180,11 @@ func UpdateImageDisplayName(imageID int64, displayName string, tx *sql.Tx) error
 
 // DeleteImageByID deletes an image fully.
 func DeleteImageByID(imageID int64, tx *sql.Tx) error {
-	err := spiffy.DefaultDb().ExecInTransaction(`delete from image_tag_votes where image_id = $1`, tx, imageID)
+	err := spiffy.DefaultDb().ExecInTransaction(`delete from vote_summary where image_id = $1`, tx, imageID)
 	if err != nil {
 		return err
 	}
-	err = spiffy.DefaultDb().ExecInTransaction(`delete from vote_log where image_id = $1`, tx, imageID)
+	err = spiffy.DefaultDb().ExecInTransaction(`delete from vote where image_id = $1`, tx, imageID)
 	if err != nil {
 		return err
 	}
@@ -201,8 +201,8 @@ select
 	i.id
 from 
 	image i
-	join image_tag_votes itv on i.id = itv.image_id
-	join tag t on t.id = itv.tag_id
+	join vote_summary vs on i.id = vs.image_id
+	join tag t on t.id = vs.tag_id
 where
 	t.tag_value ilike $1;
 `
@@ -229,9 +229,22 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	imageQuerySingle := fmt.Sprintf(`%s where id = $1`, imageQueryAll)
 	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[])`, imageQueryAll)
 
-	tagQueryAll := `select t.*, u.uuid as created_by_uuid, itv.image_id, itv.votes_for, itv.votes_against, itv.votes_total, row_number() over (partition by image_id order by itv.votes_total desc) as vote_rank from tag t join image_tag_votes itv on itv.tag_id = t.id join users u on u.id = t.created_by`
-	tagQuerySingle := fmt.Sprintf(`%s where itv.image_id = $1`, tagQueryAll)
-	tagQueryMany := fmt.Sprintf(`%s where itv.image_id = ANY($1::bigint[])`, tagQueryAll)
+	tagQueryAll := `
+select 
+	t.*
+	, u.uuid as created_by_uuid
+	, vs.image_id
+	, vs.votes_for
+	, vs.votes_against
+	, vs.votes_total
+	, row_number() over (partition by image_id order by vs.votes_total desc) as vote_rank 
+from 
+			tag t 
+	join 	vote_summary 	vs 	on vs.tag_id = t.id 
+	join 	users 			u 	on u.id = t.created_by
+`
+	tagQuerySingle := fmt.Sprintf(`%s where vs.image_id = $1`, tagQueryAll)
+	tagQueryMany := fmt.Sprintf(`%s where vs.image_id = ANY($1::bigint[])`, tagQueryAll)
 
 	tagQueryOuter := `
 select * from (

@@ -70,7 +70,7 @@ ALTER TABLE tag ADD CONSTRAINT uk_tag_tag_value UNIQUE (tag_value);
 ALTER TABLE tag ADD CONSTRAINT fk_tag_created_by_user_id 
 	FOREIGN KEY (created_by) REFERENCES users(id);
 
-CREATE TABLE image_tag_votes (
+CREATE TABLE vote_summary (
 	image_id bigint not null,
 	tag_id bigint not null,
 	last_vote_by bigint not null,
@@ -79,23 +79,23 @@ CREATE TABLE image_tag_votes (
 	votes_against int not null,
 	votes_total int not null
 );
-ALTER TABLE image_tag_votes ADD CONSTRAINT pk_image_tag_votes_image_id_tag_id PRIMARY KEY (image_id, tag_id);
-ALTER TABLE image_tag_votes ADD CONSTRAINT fk_image_tag_votes_image_id
+ALTER TABLE vote_summary ADD CONSTRAINT pk_vote_summary_image_id_tag_id PRIMARY KEY (image_id, tag_id);
+ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_image_id
 	FOREIGN KEY (image_id) REFERENCES image(id);
-ALTER TABLE image_tag_votes ADD CONSTRAINT fk_image_tag_votes_tag_id 
+ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_tag_id 
 	FOREIGN KEY (tag_id) REFERENCES tag(id);
 
-CREATE TABLE vote_log (
+CREATE TABLE vote (
 	user_id bigint not null,
 	image_id bigint not null,
 	tag_id bigint not null,
 	timestamp_utc timestamp not null,
 	is_upvote bool not null
 );
-ALTER TABLE vote_log ADD CONSTRAINT pk_vote_log_image_id_tag_id PRIMARY KEY (image_id, tag_id);
-ALTER TABLE vote_log ADD CONSTRAINT fk_vote_log_user_id
+ALTER TABLE vote ADD CONSTRAINT pk_vote_user_id_image_id_tag_id PRIMARY KEY (user_id, image_id, tag_id);
+ALTER TABLE vote ADD CONSTRAINT fk_vote_user_id
 	FOREIGN KEY (user_id) REFERENCES users(id);
-ALTER TABLE vote_log ADD CONSTRAINT fk_vote_log_image_id
+ALTER TABLE vote ADD CONSTRAINT fk_vote_image_id
 	FOREIGN KEY (image_id) REFERENCES image(id);
-ALTER TABLE vote_log ADD CONSTRAINT fk_vote_log_tag_id
+ALTER TABLE vote ADD CONSTRAINT fk_vote_tag_id
 	FOREIGN KEY (tag_id) REFERENCES tag(id);
