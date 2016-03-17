@@ -34,7 +34,10 @@ func createTestTagForImage(userID, imageID int64, tagValue string, tx *sql.Tx) (
 	}
 
 	if existing.IsZero() {
-		v := NewImageTagVote(imageID, tag.ID, userID, time.Now().UTC(), 1, 0)
+		v := NewImageTagVote(imageID, tag.ID, userID, time.Now().UTC())
+		v.VotesFor = 1
+		v.VotesAgainst = 0
+		v.VotesTotal = 1
 		err = spiffy.DefaultDb().CreateInTransaction(v, tx)
 	}
 	return tag, err
