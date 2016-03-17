@@ -117,7 +117,7 @@ func ConfigKey() []byte {
 
 // ConfigEnvironment returns the current environment.
 func ConfigEnvironment() string {
-	env := os.Getenv("ENV")
+	env := os.Getenv("GIFFY_ENV")
 	if len(env) != 0 {
 		return env
 	}
