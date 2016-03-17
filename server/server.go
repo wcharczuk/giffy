@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net/http"
@@ -128,8 +129,10 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 		return ctx.BadRequest("`tag_value` must be set.")
 	}
 
+	tagValue := strings.ToLower(tag.TagValue)
+
 	//check if the tag exists first
-	existingTag, err := model.GetTagByValue(tag.TagValue, nil)
+	existingTag, err := model.GetTagByValue(tagValue, nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -217,8 +220,16 @@ func voteResult(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.NotFound()
 	} else if statusCode == http.StatusInternalServerError && err != nil {
 		return ctx.InternalError(err)
+	} else if statusCode == http.StatusBadRequest {
+		if err != nil {
+			if ex := exception.AsException(err); ex != nil {
+				return ctx.BadRequest(ex.Message())
+			}
+			return ctx.BadRequest(err.Error())
+		}
+		return ctx.BadRequest("There was an issue voting.")
 	}
-	return ctx.BadRequest("There was an issue voting.")
+	return ctx.InternalError(exception.New("There was an issue voting."))
 }
 
 func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, error) {
@@ -250,7 +261,16 @@ func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, erro
 		return http.StatusNotFound, exception.New("`image_id` not found.")
 	}
 
-	err = model.Vote(userID, image.ID, tag.ID, isUpvote, tx)
+	existingUserVote, err := model.GetUserVoteForImageAndTag(userID, image.ID, tag.ID, tx)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	if !existingUserVote.IsZero() {
+		return http.StatusBadRequest, exception.New("Already voted for this image and tag.")
+	}
+
+	err = model.CreateOrIncrementVote(userID, image.ID, tag.ID, isUpvote, tx)
 	if err != nil {
 		return http.StatusInternalServerError, exception.WrapMany(err, spiffy.DefaultDb().Rollback(tx))
 	}
@@ -360,16 +380,17 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.BadRequest("No files posted.")
 	}
 
-	images, err := createImagesFromFiles(session.UserID, files)
+	if len(files) > 1 {
+		return ctx.BadRequest("Too many files posted.")
+	}
+
+	image, err := createImageFromFile(session.UserID, files[0])
 	if err != nil {
 		return ctx.InternalError(err)
 	}
-
-	if len(images) == 0 {
-		return ctx.InternalError(exception.New("No images created."))
+	if image == nil {
+		return ctx.InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
-
-	firstImage := images[0]
 	tagValue := strings.ToLower(ctx.Param("tag_value"))
 
 	existingTag, err := model.GetTagByValue(tagValue, nil)
@@ -386,7 +407,7 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		}
 		tagID = newTag.ID
 
-		err = model.UpdateImageDisplayName(firstImage.ID, tagValue, nil)
+		err = model.UpdateImageDisplayName(image.ID, tagValue, nil)
 		if err != nil {
 			return ctx.InternalError(err)
 		}
@@ -394,13 +415,13 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		tagID = existingTag.ID
 	}
 
-	// vote for the tag <==> image
-	err = model.Vote(session.UserID, firstImage.ID, tagID, true, nil)
+	// automatically vote for the tag <==> image
+	err = model.CreateOrIncrementVote(session.UserID, image.ID, tagID, true, nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
 
-	return ctx.View("upload_image_complete", firstImage)
+	return ctx.View("upload_image_complete", image)
 }
 
 func indexAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -449,8 +470,13 @@ func setSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.Contro
 
 // createImageFromFile creates and uploads an image from a posted file.
 func createImageFromFile(userID int64, file web.PostedFile) (*model.Image, error) {
-	newImage := model.NewImageFromPostedFile(userID, file)
-	remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(f.Contents)})
+	newImage, err := model.NewImageFromPostedFile(userID, file)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(file.Contents)
+	remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(file.Contents)})
 	if err != nil {
 		return nil, err
 	}

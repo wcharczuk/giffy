@@ -32,7 +32,7 @@ func TestSetTagVotes(t *testing.T) {
 	assert.Equal(1, itv.VotesTotal)
 }
 
-func TestVote(t *testing.T) {
+func TestCreateOrIncrementVote(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
@@ -48,7 +48,7 @@ func TestVote(t *testing.T) {
 	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	voteErr := Vote(votingUser.ID, i.ID, tag.ID, false, tx)
+	voteErr := CreateOrIncrementVote(votingUser.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(voteErr)
 
 	voteRecord, voteRecordErr := GetImageTagVote(i.ID, tag.ID, tx)

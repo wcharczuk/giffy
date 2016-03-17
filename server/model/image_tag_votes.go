@@ -29,15 +29,12 @@ func (itv ImageTagVotes) TableName() string {
 }
 
 // NewImageTagVote returns a new instance for an ImageTagVotes.
-func NewImageTagVote(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time, votesFor, votesAgainst int) *ImageTagVotes {
+func NewImageTagVote(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time) *ImageTagVotes {
 	return &ImageTagVotes{
-		ImageID:      imageID,
-		TagID:        tagID,
-		LastVoteUTC:  lastVoteUTC,
-		LastVoteBy:   lastVoteBy,
-		VotesFor:     votesFor,
-		VotesAgainst: votesAgainst,
-		VotesTotal:   votesFor - votesAgainst,
+		ImageID:     imageID,
+		TagID:       tagID,
+		LastVoteUTC: lastVoteUTC,
+		LastVoteBy:  lastVoteBy,
 	}
 }
 
@@ -47,25 +44,30 @@ func SetTagVotes(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) e
 	return spiffy.DefaultDb().ExecInTransaction(`update image_tag_votes set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
 }
 
-// Vote votes for a tag for an image in the db.
-func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
+// CreateOrIncrementVote votes for a tag for an image in the db.
+func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 	existing, existingErr := GetImageTagVote(imageID, tagID, tx)
 	if existingErr != nil {
 		return existingErr
 	}
 
 	if existing.IsZero() {
-		var itv *ImageTagVotes
+		itv := NewImageTagVote(imageID, tagID, userID, time.Now().UTC())
 		if isUpvote {
-			itv = NewImageTagVote(imageID, tagID, userID, time.Now().UTC(), 1, 0)
+			itv.VotesFor = 1
+			itv.VotesAgainst = 0
+			itv.VotesTotal = 1
 		} else {
-			itv = NewImageTagVote(imageID, tagID, userID, time.Now().UTC(), 0, 1)
+			itv.VotesFor = 0
+			itv.VotesAgainst = 1
+			itv.VotesTotal = -1
 		}
 		err := spiffy.DefaultDb().CreateInTransaction(itv, tx)
 		if err != nil {
 			return err
 		}
 	} else {
+		//check if user has already voted for this image ...
 		if isUpvote {
 			existing.VotesFor = existing.VotesFor + 1
 		} else {
@@ -80,6 +82,7 @@ func Vote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
 			return updateErr
 		}
 	}
+
 	logEntry := NewVoteLog(userID, imageID, tagID, isUpvote)
 	return spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
 }

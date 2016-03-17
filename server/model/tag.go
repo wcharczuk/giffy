@@ -56,14 +56,14 @@ func (t *Tag) IsZero() bool {
 
 // GetAllTags returns all the tags in the db.
 func GetAllTags(tx *sql.Tx) ([]Tag, error) {
-	var all []Tag
+	all := []Tag{}
 	err := spiffy.DefaultDb().GetAllInTransaction(&all, tx)
 	return all, err
 }
 
 // GetTagByID returns a tag for a id.
 func GetTagByID(id int64, tx *sql.Tx) (*Tag, error) {
-	var tag Tag
+	tag := Tag{}
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from tag where id = $1`, tx, id).Out(&tag)
 	return &tag, err
@@ -71,7 +71,7 @@ func GetTagByID(id int64, tx *sql.Tx) (*Tag, error) {
 
 // GetTagByUUID returns a tag for a uuid.
 func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
-	var tag Tag
+	tag := Tag{}
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from tag where uuid = $1`, tx, uuid).Out(&tag)
 	return &tag, err
@@ -79,7 +79,7 @@ func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 
 // GetTagByValue returns a tag for a uuid.
 func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
-	var tag Tag
+	tag := Tag{}
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from tag where tag_value ilike $1`, tx, tagValue).Out(&tag)
 	return &tag, err
