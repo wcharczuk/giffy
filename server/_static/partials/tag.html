@@ -1,6 +1,6 @@
-<div class="tag" ng-repeat="tag in image.tags">
-    <div class="tag-detail-link"><a href="#/tag/{{tag.uuid}}">{{tag.tag_value}}</a></div>
-    <div class="tag-vote-count">({{tag.votes_total}})</a></div>
-    <div class="tag-upvote" ng-if="current_user">up</div>
-    <div class="tag-downvote" ng-if="current_user">down</div>
+<div ng-include="'/static/partials/header.html'"/>
+<div class="row">
+    <div class="col-md-6 col-md-offset-3 align-center">
+        <span>{{tag.tag_value}}</span>
+    </div>
 </div>

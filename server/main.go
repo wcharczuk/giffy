@@ -10,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
@@ -117,12 +119,20 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 }
 
 func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	tag := model.NewTag()
+	tag := &model.Tag{}
 	err := ctx.PostBodyAsJSON(tag)
 	if err != nil {
 		return ctx.BadRequest(err.Error())
 	}
+
+	if len(tag.TagValue) == 0 {
+		return ctx.BadRequest("`tag_value` must be set.")
+	}
+
+	tag.UUID = core.UUIDv4().ToShortString()
+	tag.CreatedUTC = time.Now().UTC()
 	tag.CreatedBy = session.UserID
+	tag.TagValue = strings.ToLower(tag.TagValue)
 
 	//check if the tag exists first
 	existingTag, err := model.GetTagByValue(tag.TagValue, nil)
@@ -350,7 +360,43 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 	if err != nil {
 		return ctx.InternalError(err)
 	}
-	return ctx.View("upload_image_complete", images[0])
+
+	if len(images) == 0 {
+		return ctx.InternalError(exception.New("No images created."))
+	}
+
+	firstImage := images[0]
+	tagValue := strings.ToLower(ctx.Param("tag_value"))
+
+	existingTag, err := model.GetTagByValue(tagValue, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	var tagID int64
+	if existingTag.IsZero() {
+		newTag := model.NewTag(session.UserID, tagValue)
+		err = spiffy.DefaultDb().Create(newTag)
+		if err != nil {
+			return ctx.InternalError(err)
+		}
+		tagID = newTag.ID
+
+		err = spiffy.DefaultDb().Exec("update image set display_name = $1", tagValue)
+		if err != nil {
+			return ctx.InternalError(err)
+		}
+	} else {
+		tagID = existingTag.ID
+	}
+
+	// vote for the tag <==> image
+	err = model.Vote(session.UserID, firstImage.ID, tagID, true, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	return ctx.View("upload_image_complete", firstImage)
 }
 
 func indexAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -425,7 +471,7 @@ func createImagesFromFiles(userID int64, files []web.PostedFile) ([]model.Image,
 				return nil, exception.Wrap(err)
 			}
 
-			newImage.DisplayName = f.Key
+			newImage.DisplayName = f.Filename
 			newImage.Extension = filepath.Ext(f.Filename)
 			newImage.Height = imageMeta.Height
 			newImage.Width = imageMeta.Width
@@ -469,8 +515,8 @@ func main() {
 	router.GET("/api/images", web.ActionHandler(getImagesAction))
 	router.POST("/api/images", web.ActionHandler(auth.SessionRequiredAction(createImageAction)))
 
-	router.GET("/api/images/tags/:image_id", web.ActionHandler(getTagsForImageAction))
-	router.GET("/api/tags/images/:tag_id", web.ActionHandler(getImagesForTagAction))
+	router.GET("/api/images/tag/:tag_id", web.ActionHandler(getImagesForTagAction))
+	router.GET("/api/tags/image/:image_id", web.ActionHandler(getTagsForImageAction))
 
 	router.GET("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageAction)))
 	router.POST("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageCompleteAction)))

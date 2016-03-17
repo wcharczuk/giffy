@@ -21,10 +21,48 @@ body {
     margin-right: 3px;
 }
 
+.tag-detail-link {
+    padding-top:2px;
+    padding-bottom:2px;
+}
+
+.tag-detail-link a {
+    color: #FFF;
+    display:inline-block;
+    margin-right:10px;
+}
+
 .align-center {
     text-align: center;
 }
 
 .align-right {
     text-align: right;
+}
+
+.giffy-image-display-name {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    font-size: 32px;
+}
+
+.giffy-tags {
+    margin-top: 25px;
+}
+
+.giffy-tags li {
+    list-style: none;
+    display:inline-block;
+}
+
+.tag {
+    display: inline-block;
+}
+
+.tag .tag-part {
+    display: inline-block;
+}
+
+.tag .tag-upvote::after {
+    content: " /";
 }

@@ -9,10 +9,12 @@ import (
 )
 
 // NewTag returns a new tag.
-func NewTag() *Tag {
+func NewTag(createdBy int64, tagValue string) *Tag {
 	return &Tag{
 		UUID:       core.UUIDv4().ToShortString(),
 		CreatedUTC: time.Now().UTC(),
+		CreatedBy:  createdBy,
+		TagValue:   tagValue,
 	}
 }
 

@@ -14,10 +14,10 @@ giffyApp.config(["$routeProvider",
             templateUrl: '/static/partials/add_tag.html',
             controller: 'addTagController'
         }).when("/image/:image_id", {
-            templateUrl: '/static/partials/image_detail.html',
+            templateUrl: '/static/partials/image.html',
             controller: 'imageController'
         }).when("/tag/:tag_id", {
-            templateUrl: '/static/partials/tag_detail.html',
+            templateUrl: '/static/partials/tag.html',
             controller: 'tagController'
         }).otherwise({ 
             templateUrl: '/static/partials/home.html',

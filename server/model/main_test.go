@@ -17,9 +17,7 @@ func TestMain(m *testing.M) {
 }
 
 func createTestTag(userID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
-	tag := NewTag()
-	tag.CreatedBy = userID
-	tag.TagValue = tagValue
+	tag := NewTag(userID, tagValue)
 	err := spiffy.DefaultDb().CreateInTransaction(tag, tx)
 	return tag, err
 }

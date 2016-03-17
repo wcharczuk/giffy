@@ -1,0 +1,5 @@
+{
+	"ImportPath": "github.com/wcharczuk/giffy",
+	"GoVersion": "go1.6",
+	"Deps": []
+}
