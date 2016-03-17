@@ -20,24 +20,39 @@ type DBConfig struct {
 	Schema   string
 	User     string
 	Password string
+
+	dsn string
 }
 
 // InitFromEnvironment initializes the db config from environment variables.
 func (db *DBConfig) InitFromEnvironment() {
-	db.Server = os.Getenv("DB_HOST")
-	db.Schema = os.Getenv("DB_SCHEMA")
-	db.User = os.Getenv("DB_USER")
-	db.Password = os.Getenv("DB_PASSWORD")
+	dsn := os.Getenv("DB")
+	if len(dsn) != 0 {
+		db.InitFromDSN(dsn)
+	} else {
+		db.Server = os.Getenv("DB_HOST")
+		db.Schema = os.Getenv("DB_SCHEMA")
+		db.User = os.Getenv("DB_USER")
+		db.Password = os.Getenv("DB_PASSWORD")
+	}
 }
 
-// AsPostgresDSN returns the config as a postgres dsn.
-func (db DBConfig) AsPostgresDSN() string {
+// InitFromDSN initializes the db config from a dsn.
+func (db *DBConfig) InitFromDSN(dsn string) {
+	db.dsn = dsn
+}
+
+// DSN returns the config as a postgres dsn.
+func (db DBConfig) DSN() string {
+	if len(db.dsn) != 0 {
+		return db.dsn
+	}
 	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", db.User, db.Password, db.Server, db.Schema)
 }
 
 // SetupDatabaseContext writes the config to spiffy.
 func SetupDatabaseContext(config *DBConfig) error {
-	spiffy.CreateDbAlias("main", spiffy.NewDbConnection(config.Server, config.Schema, config.User, config.Password))
+	spiffy.CreateDbAlias("main", spiffy.NewDbConnectionFromDSN(config.DSN()))
 	spiffy.SetDefaultAlias("main")
 
 	_, dbError := spiffy.DefaultDb().Open()

@@ -8,7 +8,7 @@ all: test-bot test-server
 
 run:
 	@echo "$(OK_COLOR)==> Running$(NO_COLOR)"
-	@genv -f="./_config/config.json" go run ./server/main.go
+	@genv -f="./_config/config.json" go run main.go
 
 test:
 	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
