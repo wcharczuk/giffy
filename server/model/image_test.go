@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
@@ -80,6 +81,26 @@ func TestGetImageByIDNotFound(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(verify)
 	assert.True(verify.IsZero())
+}
+
+func TestUpdateImageDisplayName(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	err = UpdateImageDisplayName(i.ID, fmt.Sprintf("not %s", i.DisplayName), tx)
+	assert.Nil(err)
+
+	verify, err := GetImageByID(i.ID, tx)
+	assert.Nil(err)
+	assert.Equal(fmt.Sprintf("not %s", i.DisplayName), verify.DisplayName)
 }
 
 func TestDeleteImageByID(t *testing.T) {

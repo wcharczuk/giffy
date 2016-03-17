@@ -1,14 +1,25 @@
 package model
 
 import (
+	"bytes"
+	"crypto/md5"
 	"database/sql"
 	"fmt"
+	"image"
+	"path/filepath"
 	"strings"
 	"time"
 
+	// for image processing
+	_ "image/gif"
+	// for image processing
+	_ "image/jpeg"
+
+	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-util/linq"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/core/web"
 )
 
 // ConvertMD5 takes a fixed buffer and turns it into a byte slice.
@@ -92,6 +103,38 @@ func NewImage() *Image {
 	}
 }
 
+// NewImageFromPostedFile creates an image and parses the meta data for an image from a posted file.
+func NewImageFromPostedFile(userID int64, postedFile web.PostedFile) (*Image, error) {
+	md5sum := ConvertMD5(md5.Sum(postedFile.Contents))
+	existing, err := GetImageByMD5(md5sum, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if !existing.IsZero() {
+		return existing, nil
+	}
+
+	newImage := NewImage()
+	newImage.MD5 = md5sum
+	newImage.CreatedBy = userID
+
+	imageBuf := bytes.NewBuffer(postedFile.Contents)
+
+	// read the image metadata
+	// this relies on the `image/*` imports.
+	imageMeta, _, err := image.DecodeConfig(imageBuf)
+	if err != nil {
+		return nil, exception.Wrap(err)
+	}
+
+	newImage.DisplayName = postedFile.Filename
+	newImage.Extension = filepath.Ext(postedFile.Filename)
+	newImage.Height = imageMeta.Height
+	newImage.Width = imageMeta.Width
+	return newImage, nil
+}
+
 // GetAllImages returns all the images in the database.
 func GetAllImages(tx *sql.Tx) ([]Image, error) {
 	return GetImagesByID(nil, tx)
@@ -128,6 +171,11 @@ func GetImageByMD5(md5sum []byte, tx *sql.Tx) (*Image, error) {
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from image where md5 = $1`, tx, md5sum).Out(&image)
 	return &image, err
+}
+
+// UpdateImageDisplayName sets just the display name for an image.
+func UpdateImageDisplayName(imageID int64, displayName string, tx *sql.Tx) error {
+	return spiffy.DefaultDb().ExecInTransaction("update image set display_name = $2 where id = $1", tx, imageID, displayName)
 }
 
 // DeleteImageByID deletes an image fully.
