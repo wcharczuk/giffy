@@ -382,7 +382,7 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		}
 		tagID = newTag.ID
 
-		err = spiffy.DefaultDb().Exec("update image set display_name = $1", tagValue)
+		err = spiffy.DefaultDb().Exec("update image set display_name = $1 where id = $2", tagValue, firstImage.ID)
 		if err != nil {
 			return ctx.InternalError(err)
 		}
