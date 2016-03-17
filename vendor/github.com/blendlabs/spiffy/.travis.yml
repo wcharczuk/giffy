@@ -1,0 +1,25 @@
+language: go
+sudo: false
+
+notifications:
+  slack:
+    rooms:
+      secure: "BuXaGr+lGdIbjXXn6b7hr9B62Ls62ZL41H4ZbleYQeKYGCyEyi2okW1/QGJiyRk3YHe3wheuCog7g6t3X9vRsCcG6K314aMN3x4m+z/xUxhPoHo47h2fiA/l/GZ0V+HSaKHB6V5aZaxcEaqNkn4P5yBYq8kLlheW1IkvoGsv2rI5bRWj+9kvWM5pF7DIDRv4bidX8B2Saag4PI+of24eH088p1zCr4yL+AMmin2HHnjzazUXgD2FBHEoZztuwkR3Jfn8udiogllWPez2rr8F+omLlxwHsOadPLuyz663W2V5wCUqdJv/nvwFovro4/h6XqU1EHugA3WjtxOwQsR5zcPjOUIiJE5j8NM5DtUxCQxjzR9XUhLD9whLpWltWaOdxgtJ7GNx5cPizN/3XOCHdKoFx7fffQ7rcAFIowHZ++1IUFO+cP9yge84jN8RRNBXy0td6ErCxnjTCdFmK5YFrrnj6SLPqTLLJ4cCi+xZbazGQX9BYAudtJXxhVpv0ixIf2cvrAVyZe14DldtURe1/1pq4/qj6xz8nUL8VvQMnsrlDQrWiOWwL03KSoPbIt0vsuoEdUfRLNDN4NymPl53yMyYfCqHQE8oaNMBODCe78VxWNSeb5WaS4rM32FW6Zqct9GKJY4MmBM0ANGAe1jI9t0XAecFFCbz2WspEsQIjl8="
+    on_success: always
+    on_failure: always
+    template:
+      - "%{repository_slug} %{message} %{duration}"
+      - "%{author} : (<%{compare_url}|%{commit}>) %{commit_message}"
+      - "Build Details: %{build_url}"
+
+services:
+  - postgresql
+
+before_script:
+  - psql -c 'create database travis_ci_test;' -U postgres
+  - go get -u github.com/lib/pq
+  - go get -u github.com/blendlabs/go-assert
+  - go get -u github.com/blendlabs/go-exception
+
+script: 
+  - DB_SCHEMA=travis_ci_test go test
