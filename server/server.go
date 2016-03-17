@@ -220,6 +220,22 @@ func getVotesForImageAction(session *auth.Session, ctx *web.HTTPContext) web.Con
 	return ctx.JSON(votes)
 }
 
+func getVotesForTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	tagUUID := ctx.RouteParameter("tag_id")
+	tag, err := model.GetTagByUUID(tagUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if tag.IsZero() {
+		return ctx.NotFound()
+	}
+	votes, err := model.GetVotesForUserForTag(session.UserID, tag.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(votes)
+}
+
 func upvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	return voteResult(true, session, ctx)
 }
@@ -541,6 +557,8 @@ func Start() {
 	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteTag)))
 
 	router.GET("/api/users", web.ActionHandler(getUsersAction))
+	router.GET("/api/votes/image/:image_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForImageAction)))
+	router.GET("/api/votes/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForTagAction)))
 	router.POST("/api/upvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(upvoteAction)))
 	router.POST("/api/downvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(downvoteAction)))
 	router.GET("/api/search", web.ActionHandler(searchAction))
