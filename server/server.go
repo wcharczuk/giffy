@@ -204,6 +204,22 @@ func deleteTag(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult
 	return ctx.OK()
 }
 
+func getVotesForImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	imageUUID := ctx.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.NotFound()
+	}
+	votes, err := model.GetVotesForUserForImage(session.UserID, image.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(votes)
+}
+
 func upvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	return voteResult(true, session, ctx)
 }
@@ -261,7 +277,7 @@ func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, erro
 		return http.StatusNotFound, exception.New("`image_id` not found.")
 	}
 
-	existingUserVote, err := model.GetUserVoteForImageAndTag(userID, image.ID, tag.ID, tx)
+	existingUserVote, err := model.GetVote(userID, image.ID, tag.ID, tx)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
