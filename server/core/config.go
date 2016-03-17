@@ -26,7 +26,7 @@ type DBConfig struct {
 
 // InitFromEnvironment initializes the db config from environment variables.
 func (db *DBConfig) InitFromEnvironment() {
-	dsn := os.Getenv("DB")
+	dsn := os.Getenv("DATABASE_URL")
 	if len(dsn) != 0 {
 		db.InitFromDSN(dsn)
 	} else {
