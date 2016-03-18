@@ -16,7 +16,9 @@ giffyControllers.controller("homeController", ["$scope", "$http",
                     $scope.images = datums.response; 
                 });
             } else {
-                $scope.images = [];
+                $http.get("/api/images/random/5").success(function(datums) {
+                    $scope.images = datums.response; 
+                });
             }
         };
     }
