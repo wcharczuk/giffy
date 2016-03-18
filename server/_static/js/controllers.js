@@ -24,18 +24,6 @@ giffyControllers.controller("homeController", ["$scope", "$http",
     }
 ]);
 
-giffyControllers.controller("addTagController", ["$scope", "$http",
-    function($scope, $http) {
-         $http.get("/api/current_user").success(function(datums) {
-            if (datums.response.is_logged_in) {
-                $scope.current_user = datums.response;
-            } else {
-                window.location = "#/";    
-            }
-        });
-    }
-]);
-
 giffyControllers.controller("addImageController", ["$scope", "$http", 
     function($scope, $http) {
         $http.get("/api/current_user").success(function(datums) {
@@ -71,16 +59,17 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         
         var fetchImageData = function() {
             delete $scope.image;
-            delete $scope.tags;
-            delete $scope.votes;
-            delete $scope.voteLookup;
-            
+
             $http.get("/api/image/" + $routeParams.image_id).success(function(datums) {
                 $scope.image = datums.response;
             });
         };
         
         var fetchTagData = function() {
+            delete $scope.tags;
+            delete $scope.votes;
+            delete $scope.voteLookup;
+            
             $http.get("/api/tags/image/"+ $routeParams.image_id).success(function(datums) {
                 $scope.tags = datums.response;
             });
@@ -146,5 +135,77 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         
         fetchImageData();
         fetchTagData();
+    }
+]);
+
+giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams", 
+    function($scope, $http, $routeParams) {
+        $http.get("/api/current_user").success(function(datums) {
+            $scope.current_user = datums.response;
+        });
+        
+        $http.get("/api/tag/" + $routeParams.tag_id).success(function(datums) {
+            $scope.tag = datums.response;
+        });
+        
+        var fetchImageData = function() {
+            $http.get("/api/images/tag/" + $routeParams.tag_id).success(function(datums) {
+                $scope.images = datums.response;
+            });
+            
+            $http.get("/api/votes/tag/" + $routeParams.tag_id).then(function(res) {
+                var voteLookup = {};
+                for (var x = 0; x < res.data.response.length; x++) {
+                    var vote = res.data.response[x];
+                    voteLookup[vote.tag_uuid] = vote; 
+                }
+                $scope.votes = res.data.response;
+                $scope.voteLookup = voteLookup;
+            }, function(res) {});
+        }
+        
+        $scope.vote = function(tagUUID, isUpvote) {
+            if (!$scope.hasVote(tagUUID)) {
+                if (isUpvote) {
+                    $http.post("/api/upvote/" + $routeParams.image_id + "/" + tagUUID, null).success(function(res) {
+                        fetchImageData(); 
+                    });
+                } else {
+                    $http.post("/api/downvote/" + $routeParams.image_id + "/" + tagUUID, null).success(function(res) {
+                        fetchImageData();
+                    });
+                }
+            } else {
+                $http.delete("/api/vote/" + $routeParams.image_id + "/" + tagUUID).success(function() {
+                   fetchImageData(); 
+                });
+            }
+        };
+        
+        $scope.hasVote = function(tagUUID) {
+            if ($scope.voteLookup) {
+                return $scope.voteLookup[tagUUID]; //is this "truthy"??
+            } else {
+                return false;
+            }
+        };
+        
+        $scope.didUpvote = function(tagUUID) {
+            if ($scope.voteLookup && $scope.voteLookup[tagUUID])  {
+                return $scope.voteLookup[tagUUID].is_upvote;
+            } else {
+                return false;
+            }
+        };
+        
+        $scope.didDownvote = function(tagUUID) {
+            if ($scope.voteLookup && $scope.voteLookup[tagUUID])  {
+                return !$scope.voteLookup[tagUUID].is_upvote;
+            } else {
+                return false;
+            }
+        };
+        
+        fetchImageData();
     }
 ]);

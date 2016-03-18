@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/blendlabs/spiffy"
@@ -9,13 +10,16 @@ import (
 
 // VoteSummary is the link between an image and a tag.
 type VoteSummary struct {
-	ImageID      int64     `json:"image_id" db:"image_id,pk"`
-	TagID        int64     `json:"tag_id" db:"tag_id,pk"`
-	LastVoteUTC  time.Time `json:"last_vote_utc" db:"last_vote_utc"`
-	LastVoteBy   int64     `json:"last_vote_by" db:"last_vote_by"`
-	VotesFor     int       `json:"votes_for" db:"votes_for"`
-	VotesAgainst int       `json:"votes_against" db:"votes_against"`
-	VotesTotal   int       `json:"votes_total" db:"votes_total"`
+	ImageID        int64     `json:"-" db:"image_id,pk"`
+	ImageUUID      string    `json:"image_uuid" db:"image_uuid,readonly"`
+	TagID          int64     `json:"-" db:"tag_id,pk"`
+	TagUUID        string    `json:"tag_uuid" db:"tag_uuid,readonly"`
+	LastVoteUTC    time.Time `json:"last_vote_utc" db:"last_vote_utc"`
+	LastVoteBy     int64     `json:"-" db:"last_vote_by"`
+	LastVoteByUUID string    `json:"last_vote_by_uuid" db:"last_vote_by_uuid,readonly"`
+	VotesFor       int       `json:"votes_for" db:"votes_for"`
+	VotesAgainst   int       `json:"votes_against" db:"votes_against"`
+	VotesTotal     int       `json:"votes_total" db:"votes_total"`
 }
 
 // IsZero returns if an image has been set.
@@ -85,6 +89,36 @@ func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.
 
 	logEntry := NewVote(userID, imageID, tagID, isUpvote)
 	return spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
+}
+
+func getVoteSummaryQuery(whereClause string) string {
+	return fmt.Sprintf(`
+select 
+	vs.*
+	, i.uuid as image_uuid
+	, t.uuid as tag_uuid
+	, u.uuid as last_vote_by_uuid
+from 
+	vote_summary vs
+	join image i on i.id = vs.image_id
+	join tag t on t.id = vs.tag_id
+	join users u on u.id = vs.last_vote_by
+%s
+`, whereClause)
+}
+
+// GetVoteSummariesForImage grabs all vote counts for an image (i.e. for all the tags).
+func GetVoteSummariesForImage(imageID int64, tx *sql.Tx) ([]VoteSummary, error) {
+	summaries := []VoteSummary{}
+	err := spiffy.DefaultDb().QueryInTransaction(getVoteSummaryQuery("where image_id = $1"), tx, imageID).OutMany(&summaries)
+	return summaries, err
+}
+
+// GetVoteSummariesForTag grabs all vote counts for an image (i.e. for all the tags).
+func GetVoteSummariesForTag(tagID int64, tx *sql.Tx) ([]VoteSummary, error) {
+	summaries := []VoteSummary{}
+	err := spiffy.DefaultDb().QueryInTransaction(getVoteSummaryQuery("where tag_id = $1"), tx, tagID).OutMany(&summaries)
+	return summaries, err
 }
 
 // GetVoteSummary fetches an VoteSummary by constituent pks.

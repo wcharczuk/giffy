@@ -92,3 +92,45 @@ func TestGetTagsForImageID(t *testing.T) {
 	assert.Nil(err)
 	assert.NotEmpty(tagsForImage)
 }
+
+func TestGetSummariesForImage(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	assert.Nil(err)
+
+	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
+	assert.Nil(err)
+
+	summaries, err := GetVoteSummariesForImage(i.ID, tx)
+	assert.Nil(err)
+	assert.NotEmpty(summaries)
+}
+
+func TestGetSummariesForTag(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	assert.Nil(err)
+
+	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
+	assert.Nil(err)
+
+	summaries, err := GetVoteSummariesForTag(tag.ID, tx)
+	assert.Nil(err)
+	assert.NotEmpty(summaries)
+}

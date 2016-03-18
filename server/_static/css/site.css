@@ -150,3 +150,8 @@ body {
 .tag-remove:active {
     background-color: rgb(70, 171, 201);
 }
+
+.giffy-tag-detail-name {
+    font-size: 30px;
+    margin: 20px;
+}

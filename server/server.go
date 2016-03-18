@@ -214,7 +214,27 @@ func deleteTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 	return ctx.OK()
 }
 
-func getVotesForImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func getVotesForImageAction(ctx *web.HTTPContext) web.ControllerResult {
+	imageUUID := ctx.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.NotFound()
+	}
+	voteSummaries, err := model.GetVotesForImage(image.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(voteSummaries)
+}
+
+func getVotesForTagAction(ctx *web.HTTPContext) web.ControllerResult {
+
+}
+
+func getVotesForUserForImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
@@ -230,7 +250,7 @@ func getVotesForImageAction(session *auth.Session, ctx *web.HTTPContext) web.Con
 	return ctx.JSON(votes)
 }
 
-func getVotesForTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func getVotesForUserForTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	tagUUID := ctx.RouteParameter("tag_id")
 	tag, err := model.GetTagByUUID(tagUUID, nil)
 	if err != nil {
@@ -669,8 +689,8 @@ func Start() {
 	router.GET("/api/tag/:tag_id", web.ActionHandler(getTagAction))
 	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteTagAction)))
 
-	router.GET("/api/votes/image/:image_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForImageAction)))
-	router.GET("/api/votes/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForTagAction)))
+	router.GET("/api/votes/user/image/:image_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForImageAction)))
+	router.GET("/api/votes/user/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForTagAction)))
 
 	router.DELETE("/api/vote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteVoteAction)))
 
