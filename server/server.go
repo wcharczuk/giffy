@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-exception"
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
@@ -25,6 +26,76 @@ const (
 	// OAuthProviderGoogle is the only auth provider we use right now.
 	OAuthProviderGoogle = "google"
 )
+
+func searchUsersAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	query := ctx.Param("query")
+	users, err := model.SearchUsers(query, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(users)
+}
+
+func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	userUUID := ctx.RouteParameter("user_id")
+
+	if session.User.IsAdmin {
+		return ctx.NotAuthorized()
+	}
+
+	user, err := model.GetUserByUUID(userUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if user.IsZero() {
+		return ctx.NotFound()
+	}
+
+	var postedUser model.User
+	err = ctx.PostBodyAsJSON(&postedUser)
+	if err != nil {
+		return ctx.BadRequest("Post body was not properly formatted.")
+	}
+
+	postedUser.ID = user.ID
+	postedUser.UUID = user.UUID
+	postedUser.CreatedUTC = user.CreatedUTC
+
+	if !user.IsAdmin && postedUser.IsAdmin {
+		return ctx.BadRequest("Cannot promote user to admin through the UI; this must be done in the db directly.")
+	}
+
+	if user.IsAdmin && !postedUser.IsAdmin {
+		return ctx.BadRequest("Cannot demote user from admin through the UI; this must be done in the db directly.")
+	}
+
+	if postedUser.IsAdmin && postedUser.IsBanned {
+		return ctx.BadRequest("Cannot ban admins.")
+	}
+
+	if !user.IsModerator && postedUser.IsModerator {
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbPromoteAsModerator, model.ModerationObjectUser, postedUser.UUID)
+	} else if user.IsModerator && !postedUser.IsModerator {
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbDemoteAsModerator, model.ModerationObjectUser, postedUser.UUID)
+	}
+
+	if !user.IsBanned && postedUser.IsBanned {
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbBan, model.ModerationObjectUser, postedUser.UUID)
+	} else if user.IsBanned && !postedUser.IsBanned {
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbUnban, model.ModerationObjectUser, postedUser.UUID)
+	}
+
+	err = spiffy.DefaultDb().Update(&postedUser)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	return ctx.OK()
+}
+
+func getModerationForUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+
+}
 
 func getImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
@@ -149,6 +220,9 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 	if err != nil {
 		return ctx.InternalError(err)
 	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
+
 	return ctx.JSON(image)
 }
 
@@ -183,6 +257,8 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 	if err != nil {
 		return ctx.InternalError(err)
 	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
 	return ctx.JSON(tag)
 }
 
@@ -241,6 +317,9 @@ func deleteTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 	if err != nil {
 		return ctx.InternalError(err)
 	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID)
+
 	return ctx.OK()
 }
 
@@ -477,6 +556,9 @@ func deleteLinkAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 	if err != nil {
 		return ctx.InternalError(err)
 	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, fmt.Sprintf("image: %s tag: %s", imageUUID, tagUUID))
+
 	return ctx.OK()
 }
 
@@ -635,6 +717,7 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.InternalError(err)
 	}
 
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
 	return ctx.View("upload_image_complete", image)
 }
 
@@ -658,12 +741,7 @@ func getCurrentUserAction(session *auth.Session, ctx *web.HTTPContext) web.Contr
 		cu.SetLoggedOut(ctx)
 		return ctx.JSON(cu)
 	}
-	user, userErr := model.GetUserByID(session.UserID, nil)
-	if userErr != nil {
-		return ctx.InternalError(userErr)
-	}
-
-	cu.SetFromUser(user)
+	cu.SetFromUser(session.User)
 	return ctx.JSON(cu)
 }
 
@@ -710,6 +788,8 @@ func createImageFromFile(userID int64, file web.PostedFile) (*model.Image, error
 // Start starts the app.
 func Start() {
 	core.DBInit()
+
+	util.StartProcessQueueDispatchers(1)
 
 	web.InitViewCache(
 		"server/_views/header.html",

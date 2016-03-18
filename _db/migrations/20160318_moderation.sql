@@ -10,3 +10,5 @@ select create_table('moderation', 'CREATE TABLE moderation (
 );
 ALTER TABLE moderation ADD CONSTRAINT pk_moderation_uuid PRIMARY KEY (uuid);
 ALTER TABLE moderation add CONSTRAINT fk_moderation_user_id FOREIGN KEY (user_id) REFERENCES users(id);');
+
+commit;

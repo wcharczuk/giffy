@@ -3,6 +3,8 @@ package auth
 import (
 	"sync"
 	"time"
+
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 // NewSessionCache returns a new session cache.
@@ -18,10 +20,18 @@ type SessionCache struct {
 }
 
 // Add a session to the cache.
-func (sc *SessionCache) Add(userID int64, sessionID string) *Session {
+func (sc *SessionCache) Add(userID int64, sessionID string) (*Session, error) {
 	session := NewSession(userID, sessionID)
 	sc.Sessions[sessionID] = session
-	return session
+
+	user, err := model.GetUserByID(session.UserID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	session.User = user
+
+	return session, nil
 }
 
 // Expire removes a session from the cache.
@@ -43,18 +53,20 @@ func (sc *SessionCache) Get(sessionID string) *Session {
 // NewSession returns a new session object.
 func NewSession(userID int64, sessionID string) *Session {
 	return &Session{
-		UserID:    userID,
-		SessionID: sessionID,
-		State:     map[string]interface{}{},
+		UserID:     userID,
+		SessionID:  sessionID,
+		CreatedUTC: time.Now().UTC(),
+		State:      map[string]interface{}{},
 	}
 }
 
 // Session is an active session
 type Session struct {
-	UserID       int64     `json:"user_id"`
-	SessionID    string    `json:"session_id"`
-	TimestampUTC time.Time `json:"timestamp_utc"`
-	State        map[string]interface{}
+	UserID     int64                  `json:"user_id"`
+	SessionID  string                 `json:"session_id"`
+	CreatedUTC time.Time              `json:"created_utc"`
+	User       *model.User            `json:"user"`
+	State      map[string]interface{} `json:"-"`
 }
 
 var (

@@ -21,5 +21,3 @@ CREATE DATABASE :schema_name WITH OWNER :db_user;
 
 GRANT ALL PRIVILEGES ON ALL TABLES in SCHEMA public TO :db_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES in SCHEMA public TO :db_user;
-
-create extension if not exists pgcrypto;

@@ -198,8 +198,8 @@ func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction(`delete from image where id = $1`, tx, imageID)
 }
 
-// QueryImages searches for an image.
-func QueryImages(query string, tx *sql.Tx) ([]Image, error) {
+// SearchImages searches for an image.
+func SearchImages(query string, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	queryFormat := fmt.Sprintf("%%%s%%", query)
 

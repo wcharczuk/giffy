@@ -26,7 +26,7 @@ func VerifySession(sessionID string) (*Session, error) {
 		return SessionState().Sessions[sessionID], nil
 	}
 
-	var session model.UserSession
+	session := model.UserSession{}
 	sessionErr := spiffy.DefaultDb().GetByID(&session, sessionID)
 
 	if sessionErr != nil {
@@ -37,7 +37,7 @@ func VerifySession(sessionID string) (*Session, error) {
 		return nil, nil
 	}
 
-	return SessionState().Add(session.UserID, session.SessionID), nil
+	return SessionState().Add(session.UserID, session.SessionID)
 }
 
 // SessionAwareControllerAction is an controller action that also gets the session passed in.

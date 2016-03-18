@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/blendlabs/spiffy"
@@ -22,6 +23,7 @@ type User struct {
 
 	IsAdmin     bool `json:"is_admin" db:"is_admin"`
 	IsModerator bool `json:"is_moderator" db:"is_moderator"`
+	IsBanned    bool `json:"is_banned" db:"is_banned"`
 }
 
 // TableName is the table name.
@@ -36,7 +38,19 @@ func (u User) IsZero() bool {
 
 // Populate scans the rows into the struct.
 func (u *User) Populate(r *sql.Rows) error {
-	return r.Scan(&u.ID, &u.UUID, &u.CreatedUTC, &u.Username, &u.FirstName, &u.LastName, &u.EmailAddress, &u.IsEmailVerified, &u.IsAdmin, &u.IsModerator)
+	return r.Scan(
+		&u.ID,
+		&u.UUID,
+		&u.CreatedUTC,
+		&u.Username,
+		&u.FirstName,
+		&u.LastName,
+		&u.EmailAddress,
+		&u.IsEmailVerified,
+		&u.IsAdmin,
+		&u.IsModerator,
+		&u.IsBanned,
+	)
 }
 
 // NewUser returns a new user.
@@ -72,10 +86,11 @@ func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
 }
 
 // SearchUsers searches users by searchString.
-func SearchUsers(searchString string, tx *sql.Tx) ([]User, error) {
+func SearchUsers(query string, tx *sql.Tx) ([]User, error) {
 	var users []User
-	query := `select * from users where username ilike $1 or first_name ilike $1 or last_name ilike $1 or email_address ilike $1`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, searchString).OutMany(&users)
+	queryFormat := fmt.Sprintf("%%%s%%", query)
+	sqlQuery := `select * from users where username ilike $1 or first_name ilike $1 or last_name ilike $1 or email_address ilike $1`
+	err := spiffy.DefaultDb().QueryInTransaction(sqlQuery, tx, queryFormat).OutMany(&users)
 	return users, err
 }
 

@@ -163,7 +163,7 @@ func TestImageMD5Check(t *testing.T) {
 	assert.False(verify.IsZero())
 }
 
-func TestQueryImages(t *testing.T) {
+func TestSearchImages(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
@@ -181,7 +181,7 @@ func TestQueryImages(t *testing.T) {
 	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	images, err := QueryImages("test", tx)
+	images, err := SearchImages("test", tx)
 	assert.Nil(err)
 	assert.NotEmpty(images)
 

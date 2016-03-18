@@ -1,3 +1,5 @@
+create extension if not exists pgcrypto;
+
 CREATE TABLE users (
 	id serial not null,
 	uuid varchar(32) not null,
@@ -8,7 +10,8 @@ CREATE TABLE users (
     email_address varchar(255),
     is_email_verified boolean not null,
     is_admin boolean not null default false,
-    is_moderator boolean not null default false
+    is_moderator boolean not null default false,
+	is_banned boolean not null default false
 );
 ALTER TABLE users ADD CONSTRAINT pk_users_id PRIMARY KEY (id);
 ALTER TABLE users ADD CONSTRAINT uk_users_uuid UNIQUE (uuid);

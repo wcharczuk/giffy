@@ -17,6 +17,7 @@ type CurrentUser struct {
 	Username    string `json:"username"`
 	IsAdmin     bool   `json:"is_admin"`
 	IsModerator bool   `json:"is_moderator"`
+	IsBanned    bool   `json:"is_banned"`
 	LoginURL    string `json:"login_url,ommitempty"`
 }
 
@@ -28,6 +29,7 @@ func (cu *CurrentUser) SetFromUser(u *model.User) {
 	cu.Username = u.Username
 	cu.IsAdmin = u.IsAdmin
 	cu.IsModerator = u.IsModerator
+	cu.IsBanned = u.IsBanned
 }
 
 // SetLoggedOut does things.
