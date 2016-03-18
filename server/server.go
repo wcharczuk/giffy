@@ -93,6 +93,17 @@ func getTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	if err != nil {
 		return ctx.InternalError(err)
 	}
+
+	if tag.IsZero() {
+		tag, err = model.GetTagByValue(tagUUID, nil)
+		if err != nil {
+			return ctx.InternalError(err)
+		}
+		if tag.IsZero() {
+			return ctx.NotFound()
+		}
+	}
+
 	return ctx.JSON(tag)
 }
 

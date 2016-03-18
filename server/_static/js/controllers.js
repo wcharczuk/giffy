@@ -156,16 +156,17 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
         // tag information
         $http.get("/api/tag/" + $routeParams.tag_id).success(function(datums) {
             $scope.tag = datums.response;
+            
+            fetchImageData();
         });
         
         // fetch data about images that are linked to the tag
         var fetchImageData = function() {
-            
-            $http.get("/api/images_for_tag/" + $routeParams.tag_id).success(function(datums) {
+            $http.get("/api/images_for_tag/" + $scope.tag.uuid).success(function(datums) {
                $scope.images = datums.response; 
             });
             
-            $http.get("/api/links/tag/" + $routeParams.tag_id).success(function(datums) {
+            $http.get("/api/links/tag/" + $scope.tag.uuid).success(function(datums) {
                 var votesLookup = {};
                 for (var x = 0; x < datums.response.length; x++) {
                     var summary = datums.response[x];
@@ -177,7 +178,7 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
             });
             
             // get user vote info
-            $http.get("/api/votes/user/tag/" + $routeParams.tag_id).success(function(datums) {
+            $http.get("/api/votes/user/tag/" + $scope.tag.uuid).success(function(datums) {
                 var userVotesLookup = {};
                 for (var x = 0; x < datums.response.length; x++) {
                     var vote = datums.response[x];
@@ -191,17 +192,17 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
         $scope.vote = function(imageUUID, isUpvote) {
             if (!$scope.hasVote(imageUUID)) {
                 if (isUpvote) {
-                    $http.post("/api/upvote/" + imageUUID + "/" + $routeParams.tag_id, null).success(function(res) {
+                    $http.post("/api/upvote/" + imageUUID + "/" + $scope.tag.uuid, null).success(function(res) {
                         fetchImageData(); 
                     });
                 } else {
-                    $http.post("/api/downvote/" + imageUUID + "/" + $routeParams.tag_id, null).success(function(res) {
+                    $http.post("/api/downvote/" + imageUUID + "/" + $scope.tag.uuid, null).success(function(res) {
                         fetchImageData();
                     });
                 }
             } else {
                 // delete a specific vote by a user for an image and a tag
-                $http.delete("/api/votes/user/" + imageUUID + "/" + $routeParams.tag_id).success(function() {
+                $http.delete("/api/votes/user/" + imageUUID + "/" + $scope.tag.uuid).success(function() {
                    fetchImageData(); 
                 });
             }
@@ -233,12 +234,9 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
         
         $scope.deleteLink = function(imageUUID) {
             //delete the link whole hog
-            $http.delete("/api/link/" + imageUUID + "/" + $route.tag_id).success(function(res) {
+            $http.delete("/api/link/" + imageUUID + "/" + $scope.tag.uuid).success(function(res) {
                 fetchTagData(); 
             });
         }
-        
-        
-        fetchImageData();
     }
 ]);
