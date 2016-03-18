@@ -6,6 +6,10 @@ giffyControllers.controller("homeController", ["$scope", "$http",
             $scope.current_user = datums.response;
         });
         
+        $http.get("/api/images/random/5").success(function(datums) {
+            $scope.images = datums.response; 
+        });
+        
         $scope.searchImages = function() {
             if ($scope.searchQuery) {
                 $http.get("/api/search?query=" + $scope.searchQuery).success(function(datums) {
