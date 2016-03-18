@@ -6,12 +6,8 @@
 </div>
 <div id="giffy-images" class="row">
     <div class="giffy-image-grid row">
-        <div class="giffy-image-wrapper col-md-12" ng-repeat="image in images" ng-include="'/static/partials/image_element.html'"></div>
-    </div>
-</div>
-
-<div id="giffy-tags" class="row">
-    <div class="giffy-tags-grid row">
-        <div class="giffy-tag-wrapper col-md-12" ng-repeat="tag in tags" ng-include="'/static/partials/image_element.html'"></div>
+        <div class="col-md-8 col-md-offset-2 align-center">
+            <div class="giffy-image-wrapper" ng-repeat="image in images" ng-include="'/static/partials/image_element.html'"></div>
+        </div>
     </div>
 </div>

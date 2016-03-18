@@ -31,10 +31,12 @@ body {
     text-align: right;
 }
 
-.giffy-image-display-name {
-    margin-top: 10px;
-    margin-bottom: 10px;
-    font-size: 32px;
+.giffy-image-wrapper, .giffy-image {
+    display: inline-block;
+}
+
+.giffy-image-element {
+    max-height: 200px;
 }
 
 .giffy-tags {
