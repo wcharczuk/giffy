@@ -7,6 +7,7 @@ import (
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-util/linq"
 	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 func TestGetAllImages(t *testing.T) {
@@ -21,10 +22,10 @@ func TestGetAllImages(t *testing.T) {
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "test", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "foo", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	allImages, err := GetAllImages(tx)
@@ -45,6 +46,25 @@ func TestGetAllImages(t *testing.T) {
 	assert.NotEmpty(firstImage.Tags)
 }
 
+func TestGetRandomImages(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+
+	for x := 0; x < 10; x++ {
+		_, err = createTestImage(u.ID, tx)
+		assert.Nil(err)
+	}
+
+	images, err := GetRandomImages(5, tx)
+	assert.Nil(err)
+	assert.Len(images, 5)
+}
+
 func TestGetImageByID(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
@@ -57,7 +77,7 @@ func TestGetImageByID(t *testing.T) {
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "foo", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	verify, err := GetImageByID(i.ID, tx)
@@ -115,7 +135,7 @@ func TestDeleteImageByID(t *testing.T) {
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "foo", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	err = DeleteImageByID(i.ID, tx)
@@ -155,10 +175,10 @@ func TestQueryImages(t *testing.T) {
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "test", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, "__test__", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "foo", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	images, err := QueryImages("test", tx)
@@ -197,25 +217,25 @@ func TestGetImagesByID(t *testing.T) {
 	_, err = createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "test", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "foo", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "bar", tx)
+	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	baz, err := createTestTagForImage(u.ID, i.ID, "baz", tx)
+	baz, err := createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	biz, err := createTestTagForImage(u.ID, i.ID, "biz", tx)
+	biz, err := createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	err = SetTagVotes(i.ID, baz.ID, 100, 3, tx)
+	err = SetVoteCount(i.ID, baz.ID, 100, 3, tx)
 	assert.Nil(err)
 
-	err = SetTagVotes(i.ID, biz.ID, 1000, 30, tx)
+	err = SetVoteCount(i.ID, biz.ID, 1000, 30, tx)
 	assert.Nil(err)
 
 	images, err := GetAllImages(tx)

@@ -9,9 +9,11 @@ import (
 	"github.com/wcharczuk/giffy/server/model"
 )
 
+// CurrentUser is the response for the current user api service.
 type CurrentUser struct {
 	IsLoggedIn  bool   `json:"is_logged_in"`
-	UserID      int64  `json:"user_id"`
+	UserID      int64  `json:"-"`
+	UserUUID    string `json:"user_uuid"`
 	Username    string `json:"username"`
 	IsAdmin     bool   `json:"is_admin"`
 	IsModerator bool   `json:"is_moderator"`
@@ -22,6 +24,7 @@ type CurrentUser struct {
 func (cu *CurrentUser) SetFromUser(u *model.User) {
 	cu.IsLoggedIn = true
 	cu.UserID = u.ID
+	cu.UserUUID = u.UUID
 	cu.Username = u.Username
 	cu.IsAdmin = u.IsAdmin
 	cu.IsModerator = u.IsModerator

@@ -20,10 +20,10 @@ func TestSetTagVotes(t *testing.T) {
 	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	err = SetTagVotes(i.ID, tag.ID, 101, 100, tx)
+	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
 	assert.Nil(err)
 
-	itv, err := GetImageTagVote(i.ID, tag.ID, tx)
+	itv, err := GetVoteSummary(i.ID, tag.ID, tx)
 	assert.Nil(err)
 	assert.False(itv.IsZero())
 
@@ -51,7 +51,7 @@ func TestCreateOrIncrementVote(t *testing.T) {
 	voteErr := CreateOrIncrementVote(votingUser.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(voteErr)
 
-	voteRecord, voteRecordErr := GetImageTagVote(i.ID, tag.ID, tx)
+	voteRecord, voteRecordErr := GetVoteSummary(i.ID, tag.ID, tx)
 	assert.Nil(voteRecordErr)
 	assert.NotNil(voteRecord)
 	assert.Zero(voteRecord.VotesTotal)

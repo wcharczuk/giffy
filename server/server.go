@@ -42,6 +42,16 @@ func getImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(images)
 }
 
+func getRandomImagesAction(ctx *web.HTTPContext) web.ControllerResult {
+	count := ctx.RouteParameterInt("count")
+
+	images, err := model.GetRandomImages(count, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(images)
+}
+
 func getImagesForTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	tagUUID := ctx.RouteParameter("tag_id")
 	tag, err := model.GetTagByUUID(tagUUID, nil)
@@ -152,7 +162,7 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 	return ctx.JSON(tag)
 }
 
-func deleteImage(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func deleteImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -178,7 +188,7 @@ func deleteImage(session *auth.Session, ctx *web.HTTPContext) web.ControllerResu
 	return ctx.OK()
 }
 
-func deleteTag(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func deleteTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -279,7 +289,6 @@ func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, erro
 		spiffy.DefaultDb().Rollback(tx)
 		return http.StatusInternalServerError, err
 	}
-
 	if tag.IsZero() {
 		return http.StatusNotFound, exception.New("`tag_id` not found.")
 	}
@@ -288,7 +297,6 @@ func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, erro
 	if err != nil {
 		return http.StatusInternalServerError, exception.WrapMany(err, spiffy.DefaultDb().Rollback(tx))
 	}
-
 	if image.IsZero() {
 		return http.StatusNotFound, exception.New("`image_id` not found.")
 	}
@@ -308,6 +316,106 @@ func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, erro
 	}
 
 	return http.StatusOK, spiffy.DefaultDb().Commit(tx)
+}
+
+func deleteVoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	imageUUID := ctx.RouteParameter("image_id")
+	tagUUID := ctx.RouteParameter("tag_id")
+	userID := session.UserID
+
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.NotFound()
+	}
+
+	tag, err := model.GetTagByUUID(tagUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if tag.IsZero() {
+		return ctx.NotFound()
+	}
+
+	tx, err := spiffy.DefaultDb().Begin()
+
+	vote, err := model.GetVote(userID, image.ID, tag.ID, tx)
+	if err != nil {
+		spiffy.DefaultDb().Rollback(tx)
+		return ctx.InternalError(err)
+	}
+	if vote.IsZero() {
+		spiffy.DefaultDb().Rollback(tx)
+		return ctx.NotFound()
+	}
+
+	// was it an upvote or downvote
+	wasUpvote := vote.IsUpvote
+
+	// adjust the vote summary ...
+	voteSummary, err := model.GetVoteSummary(image.ID, tag.ID, tx)
+	if err != nil {
+		spiffy.DefaultDb().Rollback(tx)
+		return ctx.InternalError(err)
+	}
+
+	if wasUpvote {
+		voteSummary.VotesFor--
+	} else {
+		voteSummary.VotesAgainst--
+	}
+
+	err = model.SetVoteCount(image.ID, tag.ID, voteSummary.VotesFor, voteSummary.VotesAgainst, tx)
+	if err != nil {
+		spiffy.DefaultDb().Rollback(tx)
+		return ctx.InternalError(err)
+	}
+
+	err = model.DeleteVote(userID, image.ID, tag.ID, nil)
+	if err != nil {
+		spiffy.DefaultDb().Rollback(tx)
+		return ctx.InternalError(err)
+	}
+
+	spiffy.DefaultDb().Commit(tx)
+	return ctx.OK()
+}
+
+func deleteVoteSummaryAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	currentUser, err := model.GetUserByID(session.UserID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	imageUUID := ctx.RouteParameter("image_id")
+	tagUUID := ctx.RouteParameter("tag_id")
+
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.NotFound()
+	}
+
+	tag, err := model.GetTagByUUID(tagUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if tag.IsZero() {
+		return ctx.NotFound()
+	}
+	if !currentUser.IsModerator && tag.CreatedBy != currentUser.ID {
+		return ctx.NotAuthorized()
+	}
+
+	err = model.DeleteVoteSummary(image.ID, tag.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.OK()
 }
 
 func searchAction(ctx *web.HTTPContext) web.ControllerResult {
@@ -541,9 +649,14 @@ func Start() {
 	router.GET("/", web.ActionHandler(auth.SessionAwareAction(indexAction)))
 
 	//api endpoints
-	router.GET("/api/image/:image_id", web.ActionHandler(getImageAction))
+	router.GET("/api/users", web.ActionHandler(getUsersAction))
+
 	router.GET("/api/images", web.ActionHandler(getImagesAction))
 	router.POST("/api/images", web.ActionHandler(auth.SessionRequiredAction(createImageAction)))
+	router.GET("/api/images/random/:count", web.ActionHandler(getRandomImagesAction))
+
+	router.GET("/api/image/:image_id", web.ActionHandler(getImageAction))
+	router.DELETE("/api/images/:image_id", web.ActionHandler(auth.SessionRequiredAction(deleteImageAction)))
 
 	router.GET("/api/images/tag/:tag_id", web.ActionHandler(getImagesForTagAction))
 	router.GET("/api/tags/image/:image_id", web.ActionHandler(getTagsForImageAction))
@@ -551,16 +664,19 @@ func Start() {
 	router.GET("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageAction)))
 	router.POST("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageCompleteAction)))
 
-	router.GET("/api/tag/:tag_id", web.ActionHandler(getTagAction))
 	router.GET("/api/tags", web.ActionHandler(getTagsAction))
 	router.POST("/api/tags", web.ActionHandler(auth.SessionRequiredAction(createTagAction)))
-	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteTag)))
+	router.GET("/api/tag/:tag_id", web.ActionHandler(getTagAction))
+	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteTagAction)))
 
-	router.GET("/api/users", web.ActionHandler(getUsersAction))
 	router.GET("/api/votes/image/:image_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForImageAction)))
 	router.GET("/api/votes/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForTagAction)))
+
+	router.DELETE("/api/vote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteVoteAction)))
+
 	router.POST("/api/upvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(upvoteAction)))
 	router.POST("/api/downvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(downvoteAction)))
+
 	router.GET("/api/search", web.ActionHandler(searchAction))
 
 	//session endpoints

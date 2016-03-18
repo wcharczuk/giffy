@@ -28,13 +28,13 @@ func createTestTagForImage(userID, imageID int64, tagValue string, tx *sql.Tx) (
 		return nil, err
 	}
 
-	existing, existingErr := GetImageTagVote(imageID, tag.ID, tx)
+	existing, existingErr := GetVoteSummary(imageID, tag.ID, tx)
 	if existingErr != nil {
 		return nil, existingErr
 	}
 
 	if existing.IsZero() {
-		v := NewImageTagVote(imageID, tag.ID, userID, time.Now().UTC())
+		v := NewVoteSummary(imageID, tag.ID, userID, time.Now().UTC())
 		v.VotesFor = 1
 		v.VotesAgainst = 0
 		v.VotesTotal = 1

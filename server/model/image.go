@@ -140,6 +140,23 @@ func GetAllImages(tx *sql.Tx) ([]Image, error) {
 	return GetImagesByID(nil, tx)
 }
 
+// GetRandomImages returns an image by uuid.
+func GetRandomImages(count int, tx *sql.Tx) ([]Image, error) {
+	var imageIDs []imageSignature
+	err := spiffy.DefaultDb().
+		QueryInTransaction(`select id from (select id, row_number() over (order by gen_random_uuid()) as rank from image) data where rank <= $1`, tx, count).OutMany(&imageIDs)
+
+	if err != nil {
+		return nil, err
+	}
+
+	images, err := GetImagesByID(imageSignatures(imageIDs).AsInt64s(), tx)
+	if err != nil {
+		return nil, err
+	}
+	return images, err
+}
+
 // GetImageByID returns an image for an id.
 func GetImageByID(id int64, tx *sql.Tx) (*Image, error) {
 	images, err := GetImagesByID([]int64{id}, tx)

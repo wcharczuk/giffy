@@ -12,6 +12,13 @@ body {
     margin-left: 3px;
 }
 
+#giffy-header-name a {
+    text-decoration:none;
+}
+#giffy-header-name a:hover {
+    text-decoration:none;
+}
+
 #giffy-images {
     margin-top:25px;
 }
@@ -90,6 +97,7 @@ body {
 
 .tag-vote {
     padding: 0;
+    cursor: pointer;
     border-right: 1px solid rgb(80, 181, 211);
 }
 
@@ -100,10 +108,6 @@ body {
 
 .tag-vote .voted {
     background-color: rgb(80, 181, 211);
-}
-
-.tag-vote .can-vote {
-    cursor: pointer;
 }
 
 .tag-vote .can-vote:hover {
@@ -126,4 +130,17 @@ body {
     padding-left: 6px;
     padding-right: 6px;
     padding-bottom: 4px;
+}
+
+.tag-remove {
+    cursor: pointer;
+    border-left: 1px solid rgb(80, 181, 211);
+}
+
+.tag-remove:hover {
+    background-color: rgb(80, 181, 211);
+}
+
+.tag-remove:active {
+    background-color: rgb(70, 171, 201);
 }

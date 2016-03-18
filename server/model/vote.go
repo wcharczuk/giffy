@@ -91,3 +91,8 @@ func GetVote(userID, imageID, tagID int64, tx *sql.Tx) (*Vote, error) {
 	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.image_id = $2 and v.tag_id = $3"), tx, userID, imageID, tagID).Out(&voteLog)
 	return &voteLog, err
 }
+
+// DeleteVote deletes a vote.
+func DeleteVote(userID, imageID, tagID int64, tx *sql.Tx) error {
+	return spiffy.DefaultDb().ExecInTransaction(`DELETE from vote where user_id = $1 and image_id = $2 and tag_id = $3`, tx, userID, imageID, tagID)
+}

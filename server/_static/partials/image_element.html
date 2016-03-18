@@ -2,9 +2,4 @@
     <a href="/#/image/{{image.uuid}}">
         <img src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
     </a>
-    <ul class="giffy-tags">
-        <li ng-repeat="tag in image.tags">
-            <div ng-include="'/static/partials/tag_element.html'"/>
-        </li>
-    </ul>
 </div>
