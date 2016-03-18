@@ -71,6 +71,14 @@ func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
 	return &user, err
 }
 
+// SearchUsers searches users by searchString.
+func SearchUsers(searchString string, tx *sql.Tx) ([]User, error) {
+	var users []User
+	query := `select * from users where username ilike $1 or first_name ilike $1 or last_name ilike $1 or email_address ilike $1`
+	err := spiffy.DefaultDb().QueryInTransaction(query, tx, searchString).OutMany(&users)
+	return users, err
+}
+
 // GetUserByUsername returns a user for a uuid.
 func GetUserByUsername(username string, tx *sql.Tx) (*User, error) {
 	var user User

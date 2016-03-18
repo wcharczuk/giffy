@@ -1,12 +1,17 @@
 #! /bin/sh
 
-: ${DB_MIGRATE_MODE:?"DB_MIGRATE_MODE is required"}
-: ${DB_SCHEMA:?"DB_SCHEMA is required"}
-
-for file in $(find ./_db/migrations -not -path '*/_*' -name "*.sql" -type f);
-do
-    psql $DB_SCHEMA -f ${file};
-    if [ "$DB_MIGRATE_MODE" = "release" ]; then
-        mv $file ${file}.run_$(date +"%Y")_$(date +"%M")_$(date +"%d");
-    fi
-done
+if [ ! -z "$GIFFY_APP" ]; then 
+    : ${GIFFY_HOST:?"GIFFY_HOST is requried"}
+    
+    for file in $(find ./_db/migrations -name "*.sql" -type f);
+    do
+        ssh dokku@${GIFFY_HOST} postgres:connect ${GIFFY_APP} < ${file}  
+    done
+else
+    : ${DB_SCHEMA:?"DB_SCHEMA is required"}
+    
+    for file in $(find ./_db/migrations -name "*.sql" -type f);
+    do
+        psql $DB_SCHEMA -f ${file};
+    done
+fi
