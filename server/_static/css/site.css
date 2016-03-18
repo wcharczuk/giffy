@@ -164,3 +164,7 @@ body {
     margin-top: 10px;
     margin-bottom: 10px;
 }
+
+img.giffy-image-detail {
+    min-height: 250px;
+}
