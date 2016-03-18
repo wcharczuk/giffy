@@ -16,22 +16,6 @@ body {
     margin-top:25px;
 }
 
-.tag {
-    margin-left: 3px;
-    margin-right: 3px;
-}
-
-.tag-detail-link {
-    padding-top:2px;
-    padding-bottom:2px;
-}
-
-.tag-detail-link a {
-    color: #FFF;
-    display:inline-block;
-    margin-right:10px;
-}
-
 .align-center {
     text-align: center;
 }
@@ -47,6 +31,7 @@ body {
 }
 
 .giffy-tags {
+    padding-left: 0;
     margin-top: 25px;
 }
 
@@ -56,13 +41,89 @@ body {
 }
 
 .tag {
-    display: inline-block;
+    display: inline-block;  
+    
+    margin: 5px;
+    
+    background-color: rgb(91,192,222);
+    border-color: rgb(91,192,222);
+    border-radius: 4px;
 }
 
-.tag .tag-part {
-    display: inline-block;
+.tag-part {
+    display:inline-block;
+    margin:0;
+    padding:6px;
+    
+    color: #fff;
+    font-size: 16px;
+    
+    line-height: 24px;
+
+    text-align: center;
+    vertical-align: middle;   
+    
+    vertical-align: middle;
+    line-height: 24px;
 }
 
-.tag .tag-upvote::after {
-    content: " /";
+.tag-vote-count {
+    padding-left:13px;
+    padding-right: 9px;
+    border-right: 1px solid rgb(80, 181, 211);
+}
+
+.tag-detail-link {
+    padding-top: 5px;
+    padding-bottom: 7px;
+    padding-right: 16px;
+    text-transform: lowercase;
+}
+
+.tag-detail-link a {
+    color: #fff;
+}
+
+.tag-detail-link a:hover {
+    text-decoration: none;
+}
+
+.tag-vote {
+    padding: 0;
+    border-right: 1px solid rgb(80, 181, 211);
+}
+
+.tag-upvote, .tag-downvote {
+    padding: 0;
+    line-height: 12px;
+}
+
+.tag-vote .voted {
+    background-color: rgb(80, 181, 211);
+}
+
+.tag-vote .can-vote {
+    cursor: pointer;
+}
+
+.tag-vote .can-vote:hover {
+    background-color: rgb(80, 181, 211);
+}
+
+.tag-vote .can-vote:active {
+    background-color: rgb(70, 171, 201);
+}
+
+.tag-upvote {
+    padding-top: 4px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-bottom: 3px;
+    border-bottom:  1px solid rgb(80, 181, 211);
+}
+.tag-downvote {
+    padding-top: 1px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-bottom: 4px;
 }

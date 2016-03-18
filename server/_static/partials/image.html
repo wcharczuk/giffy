@@ -5,24 +5,15 @@
             <img src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
         </div>
     </div>
-
-    <div class="row">
-        <div class="col-md-10 col-md-offset-1 align-center">
-            <div class="giffy-image-display-name">{{image.display_name}}</div>
-        </div>
-    </div>
-
-    <div class="row" ng-if="current_user.is_logged_in">
-        <div class="col-md-12 align-center">
-            <button class="btn btn-secondary btn-small" data-toggle="modal" data-target="#add-tag-modal">Add Tag</button>
-        </div>
-    </div>
-
+    
     <div class="row">
         <div class="col-md-10 col-md-offset-1 align-center">
             <ul class="giffy-tags">
                 <li ng-repeat="tag in tags">
-                    <div ng-include="'/static/partials/tag_element.html'"/>
+<div class="tag"><div class="tag-part tag-vote-count">{{tag.votes_total}}</div><div class="tag-part tag-vote" ng-if="current_user.is_logged_in"><div class="tag-upvote" ng-class="{voted: didUpvote(tag.uuid), 'can-vote': !hasVote(tag.uuid)}" ng-click="vote(tag.uuid, true)">+</div><div class="tag-downvote" ng-class="{voted: didDownvote(tag.uuid), 'can-vote': !hasVote(tag.uuid)}" ng-click="vote(tag.uuid, false)">-</div></div><div class="tag-part tag-detail-link"><a href="#/tag/{{tag.uuid}}">{{tag.tag_value}}</a></div></div>
+                </li>
+                <li ng-if="current_user.is_logged_in">
+                    <button class="btn btn-secondary btn-xs" data-toggle="modal" data-target="#add-tag-modal">+</button>
                 </li>
             </ul>
         </div>

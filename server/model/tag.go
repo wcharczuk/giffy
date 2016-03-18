@@ -30,7 +30,7 @@ type Tag struct {
 	ImageID       int64  `json:"-" db:"image_uuid,readonly"`
 	VotesFor      int    `json:"votes_for,omitempty" db:"votes_for,readonly"`
 	VotesAgainst  int    `json:"votes_against,omitempty" db:"votes_against,readonly"`
-	VotesTotal    int    `json:"votes_total,omitempty" db:"votes_total,readonly"`
+	VotesTotal    int    `json:"votes_total" db:"votes_total,readonly"`
 	VoteRank      int    `json:"vote_rank,omitempty" db:"vote_rank,readonly"`
 }
 

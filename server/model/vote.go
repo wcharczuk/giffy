@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/blendlabs/spiffy"
@@ -9,9 +10,12 @@ import (
 
 // Vote is a vote by a user for an image and tag.
 type Vote struct {
-	UserID       int64     `json:"user_id" db:"user_id"`
-	ImageID      int64     `json:"image_id" db:"image_id"`
-	TagID        int64     `json:"tag_id" db:"tag_id"`
+	UserID       int64     `json:"-" db:"user_id"`
+	UserUUID     string    `json:"user_uuid" db:"user_uuid,readonly"`
+	ImageID      int64     `json:"-" db:"image_id"`
+	ImageUUID    string    `json:"image_uuid" db:"image_uuid,readonly"`
+	TagID        int64     `json:"-" db:"tag_id"`
+	TagUUID      string    `json:"tag_uuid" db:"tag_uuid,readonly"`
 	TimestampUTC time.Time `json:"timestamp_utc" db:"timestamp_utc"`
 	IsUpvote     bool      `json:"is_upvote" db:"is_upvote"`
 }
@@ -26,6 +30,11 @@ func (v Vote) IsZero() bool {
 	return v.UserID == 0
 }
 
+// Populate skips spiffy struct parsing.
+func (v *Vote) Populate(r *sql.Rows) error {
+	return r.Scan(&v.UserID, &v.ImageID, &v.TagID, &v.TimestampUTC, &v.IsUpvote, &v.UserUUID, &v.ImageUUID, &v.TagUUID)
+}
+
 // NewVote returns a new vote log entry.
 func NewVote(userID, imageID, tagID int64, isUpvote bool) *Vote {
 	return &Vote{
@@ -37,30 +46,48 @@ func NewVote(userID, imageID, tagID int64, isUpvote bool) *Vote {
 	}
 }
 
+func getVotesQuery(whereClause string) string {
+	return fmt.Sprintf(`
+select 
+	v.* 
+	, u.uuid as user_uuid
+	, i.uuid as image_uuid
+	, t.uuid as tag_uuid
+from 
+	vote v
+	join users u on v.user_id = u.id
+	join image i on v.image_id = i.id
+	join tag t on v.tag_id = t.id
+%s
+order by 
+	v.timestamp_utc desc;
+`, whereClause)
+}
+
 // GetVotesForUser gets all the vote log entries for a user.
 func GetVotesForUser(userID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction("select * from vote where user_id = $1 order by timestamp_utc desc", tx, userID).OutMany(&votes)
+	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1"), tx, userID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVotesForUserForImage gets the votes for an image by a user.
 func GetVotesForUserForImage(userID, imageID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction("select * from vote where user_id = $1 and image_id = $2 order by timestamp_utc desc", tx, userID, imageID).OutMany(&votes)
+	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.image_id = $2"), tx, userID, imageID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVotesForUserForTag gets the votes for an image by a user.
 func GetVotesForUserForTag(userID, tagID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction("select * from vote where user_id = $1 and tag_id = $2 order by timestamp_utc desc", tx, userID, tagID).OutMany(&votes)
+	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.tag_id = $2"), tx, userID, tagID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVote gets a user's vote for an image and a tag.
 func GetVote(userID, imageID, tagID int64, tx *sql.Tx) (*Vote, error) {
 	voteLog := Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction("select * from vote where user_id = $1 and tag_id = $2 and image_id = $3", tx, userID, tagID, imageID).Out(&voteLog)
+	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.image_id = $2 and v.tag_id = $3"), tx, userID, imageID, tagID).Out(&voteLog)
 	return &voteLog, err
 }

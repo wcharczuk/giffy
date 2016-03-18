@@ -66,6 +66,8 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         var fetchImageData = function() {
             delete $scope.image;
             delete $scope.tags;
+            delete $scope.votes;
+            delete $scope.voteLookup;
             
             $http.get("/api/image/" + $routeParams.image_id).success(function(datums) {
                 $scope.image = datums.response;
@@ -74,6 +76,54 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
             $http.get("/api/tags/image/"+ $routeParams.image_id).success(function(datums) {
                 $scope.tags = datums.response;
             });
+            
+            $http.get("/api/votes/image/" + $routeParams.image_id).then(function(res) {
+                var voteLookup = {};
+                for (var x = 0; x < res.data.response.length; x++) {
+                    var vote = res.data.response[x];
+                    voteLookup[vote.tag_uuid] = vote; 
+                }
+                $scope.votes = res.data.response;
+                $scope.voteLookup = voteLookup;
+            }, function(res) {});
+        };
+        
+        $scope.vote = function(tagUUID, isUpvote) {
+            if (!$scope.hasVote(tagUUID)) {
+                if (isUpvote) {
+                    $http.post("/api/upvote/" + $routeParams.image_id + "/" + tagUUID, null).success(function(res) {
+                    fetchImageData(); 
+                    });
+                } else {
+                    $http.post("/api/downvote/" + $routeParams.image_id + "/" + tagUUID, null).success(function(res) {
+                    fetchImageData(); 
+                    });
+                }
+            }
+        };
+        
+        $scope.hasVote = function(tagUUID) {
+            if ($scope.voteLookup) {
+                return $scope.voteLookup[tagUUID]; //is this "truthy"??
+            } else {
+                return false;
+            }
+        };
+        
+        $scope.didUpvote = function(tagUUID) {
+            if ($scope.voteLookup && $scope.voteLookup[tagUUID])  {
+                return $scope.voteLookup[tagUUID].is_upvote;
+            } else {
+                return false;
+            }
+        };
+        
+        $scope.didDownvote = function(tagUUID) {
+            if ($scope.voteLookup && $scope.voteLookup[tagUUID])  {
+                return !$scope.voteLookup[tagUUID].is_upvote;
+            } else {
+                return false;
+            }
         };
         
         fetchImageData();
