@@ -35,6 +35,10 @@ body {
     display: inline-block;
 }
 
+.giffy-image-wrapper {
+    margin:10px;
+}
+
 .giffy-image-element {
     max-height: 200px;
 }
