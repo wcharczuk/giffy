@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"crypto/md5"
 	"fmt"
 	"log"
 	"net/http"
@@ -562,7 +563,19 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.BadRequest("Too many files posted.")
 	}
 
-	image, err := createImageFromFile(session.UserID, files[0])
+	postedFile := files[0]
+
+	md5sum := model.ConvertMD5(md5.Sum(postedFile.Contents))
+	existing, err := model.GetImageByMD5(md5sum, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	if !existing.IsZero() {
+		return ctx.JSON(existing)
+	}
+
+	image, err := createImageFromFile(session.UserID, postedFile)
 	if err != nil {
 		return ctx.InternalError(err)
 	}

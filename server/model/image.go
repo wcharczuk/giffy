@@ -105,18 +105,8 @@ func NewImage() *Image {
 
 // NewImageFromPostedFile creates an image and parses the meta data for an image from a posted file.
 func NewImageFromPostedFile(userID int64, postedFile web.PostedFile) (*Image, error) {
-	md5sum := ConvertMD5(md5.Sum(postedFile.Contents))
-	existing, err := GetImageByMD5(md5sum, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if !existing.IsZero() {
-		return existing, nil
-	}
-
 	newImage := NewImage()
-	newImage.MD5 = md5sum
+	newImage.MD5 = ConvertMD5(md5.Sum(postedFile.Contents))
 	newImage.CreatedBy = userID
 
 	imageBuf := bytes.NewBuffer(postedFile.Contents)
