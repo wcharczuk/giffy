@@ -6,7 +6,9 @@
 </div>
 <div class="row" ng-repeat="image in images">
     <div class="col-md-10 col-md-offset-1 align-center">
-        <img src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
-        <div class="tag"><div class="tag-part tag-vote-count">{{tag.votes_total}}</div><div class="tag-part tag-vote" ng-if="current_user.is_logged_in"><div class="tag-upvote" ng-class="{voted: didUpvote(tag.uuid)}" ng-click="vote(tag.uuid, true)">+</div><div class="tag-downvote" ng-class="{voted: didDownvote(tag.uuid)}" ng-click="vote(tag.uuid, false)">-</div></div><div class="tag-part tag-remove" ng-if="current_user.is_moderator || tag.created_by == current_user.user_uuid" ng-click="deleteTag(tag.uuid)">x</div></div>
+        <div class="giffy-image-for-tag">
+            <img src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
+            <div class="tag"><div class="tag-part tag-vote-count">{{votesLookup[image.uuid].votes_total}}</div><div class="tag-part tag-vote" ng-if="current_user.is_logged_in"><div class="tag-upvote" ng-class="{voted: didUpvote(image.uuid)}" ng-click="vote(image.uuid, true)">+</div><div class="tag-downvote" ng-class="{voted: didDownvote(image.uuid)}" ng-click="vote(image.uuid, false)">-</div></div><div class="tag-part tag-remove" ng-if="current_user.is_moderator || image.created_by == current_user.user_uuid" ng-click="deleteLink(image.uuid)">x</div></div>
+        </div>
     </div>
 </div>

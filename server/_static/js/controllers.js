@@ -70,11 +70,11 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
             delete $scope.votes;
             delete $scope.voteLookup;
             
-            $http.get("/api/tags/image/"+ $routeParams.image_id).success(function(datums) {
+            $http.get("/api/tags_for_image/"+ $routeParams.image_id).success(function(datums) {
                 $scope.tags = datums.response;
             });
             
-            $http.get("/api/votes/image/" + $routeParams.image_id).then(function(res) {
+            $http.get("/api/votes/user/image/" + $routeParams.image_id).then(function(res) {
                 var voteLookup = {};
                 for (var x = 0; x < res.data.response.length; x++) {
                     var vote = res.data.response[x];
@@ -83,6 +83,14 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
                 $scope.votes = res.data.response;
                 $scope.voteLookup = voteLookup;
             }, function(res) {});
+        }
+        
+        $scope.deleteImage = function() {
+            if (confirm("Are you sure?")) {
+                $http.delete("/api/image/" + $routeParams.image_id).success(function(res) {
+                    window.location = "/#/";
+                });
+            }
         }
         
         $scope.deleteTag = function(tagUUID) {
@@ -103,7 +111,7 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
                     });
                 }
             } else {
-                $http.delete("/api/vote/" + $routeParams.image_id + "/" + tagUUID).success(function() {
+                $http.delete("/api/votes/user/" + $routeParams.image_id + "/" + tagUUID).success(function() {
                    fetchTagData(); 
                 });
             }
@@ -140,71 +148,96 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
 
 giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams", 
     function($scope, $http, $routeParams) {
+        // current user
         $http.get("/api/current_user").success(function(datums) {
             $scope.current_user = datums.response;
         });
         
+        // tag information
         $http.get("/api/tag/" + $routeParams.tag_id).success(function(datums) {
             $scope.tag = datums.response;
         });
         
+        // fetch data about images that are linked to the tag
         var fetchImageData = function() {
-            $http.get("/api/images/tag/" + $routeParams.tag_id).success(function(datums) {
-                $scope.images = datums.response;
+            
+            $http.get("/api/images_for_tag/" + $routeParams.tag_id).success(function(datums) {
+               $scope.images = datums.response; 
             });
             
-            $http.get("/api/votes/tag/" + $routeParams.tag_id).then(function(res) {
-                var voteLookup = {};
-                for (var x = 0; x < res.data.response.length; x++) {
-                    var vote = res.data.response[x];
-                    voteLookup[vote.tag_uuid] = vote; 
+            $http.get("/api/links/tag/" + $routeParams.tag_id).success(function(datums) {
+                var votesLookup = {};
+                for (var x = 0; x < datums.response.length; x++) {
+                    var summary = datums.response[x];
+                    votesLookup[summary.image_uuid] = summary; 
                 }
-                $scope.votes = res.data.response;
-                $scope.voteLookup = voteLookup;
-            }, function(res) {});
+                
+                $scope.votes = datums.response;
+                $scope.votesLookup = votesLookup
+            });
+            
+            // get user vote info
+            $http.get("/api/votes/user/tag/" + $routeParams.tag_id).success(function(datums) {
+                var userVotesLookup = {};
+                for (var x = 0; x < datums.response.length; x++) {
+                    var vote = datums.response[x];
+                    userVotesLookup[vote.image_uuid] = vote; 
+                }
+                $scope.userVotes = datums.response;
+                $scope.userVotesLookup = userVotesLookup;
+            });
         }
         
-        $scope.vote = function(tagUUID, isUpvote) {
-            if (!$scope.hasVote(tagUUID)) {
+        $scope.vote = function(imageUUID, isUpvote) {
+            if (!$scope.hasVote(imageUUID)) {
                 if (isUpvote) {
-                    $http.post("/api/upvote/" + $routeParams.image_id + "/" + tagUUID, null).success(function(res) {
+                    $http.post("/api/upvote/" + imageUUID + "/" + $routeParams.tag_id, null).success(function(res) {
                         fetchImageData(); 
                     });
                 } else {
-                    $http.post("/api/downvote/" + $routeParams.image_id + "/" + tagUUID, null).success(function(res) {
+                    $http.post("/api/downvote/" + imageUUID + "/" + $routeParams.tag_id, null).success(function(res) {
                         fetchImageData();
                     });
                 }
             } else {
-                $http.delete("/api/vote/" + $routeParams.image_id + "/" + tagUUID).success(function() {
+                // delete a specific vote by a user for an image and a tag
+                $http.delete("/api/votes/user/" + imageUUID + "/" + $routeParams.tag_id).success(function() {
                    fetchImageData(); 
                 });
             }
         };
         
-        $scope.hasVote = function(tagUUID) {
-            if ($scope.voteLookup) {
-                return $scope.voteLookup[tagUUID]; //is this "truthy"??
+        $scope.hasVote = function(imageUUID) {
+            if ($scope.userVotesLookup) {
+                return $scope.userVotesLookup[imageUUID]; //is this "truthy"??
             } else {
                 return false;
             }
         };
         
-        $scope.didUpvote = function(tagUUID) {
-            if ($scope.voteLookup && $scope.voteLookup[tagUUID])  {
-                return $scope.voteLookup[tagUUID].is_upvote;
+        $scope.didUpvote = function(imageUUID) {
+            if ($scope.userVotesLookup && $scope.userVotesLookup[imageUUID])  {
+                return $scope.userVotesLookup[imageUUID].is_upvote;
             } else {
                 return false;
             }
         };
         
-        $scope.didDownvote = function(tagUUID) {
-            if ($scope.voteLookup && $scope.voteLookup[tagUUID])  {
-                return !$scope.voteLookup[tagUUID].is_upvote;
+        $scope.didDownvote = function(imageUUID) {
+            if ($scope.userVotesLookup && $scope.userVotesLookup[imageUUID])  {
+                return !$scope.userVotesLookup[imageUUID].is_upvote;
             } else {
                 return false;
             }
         };
+        
+        $scope.deleteLink = function(imageUUID) {
+            //delete the link whole hog
+            $http.delete("/api/link/" + imageUUID + "/" + $route.tag_id).success(function(res) {
+                fetchTagData(); 
+            });
+        }
+        
         
         fetchImageData();
     }

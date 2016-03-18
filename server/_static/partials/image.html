@@ -6,6 +6,12 @@
         </div>
     </div>
 
+     <div class="row giffy-delete-image-row">
+        <div class="col-md-10 col-md-offset-1 align-center" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by_uuid">
+            <button class="btn btn-danger" ng-click="deleteImage()">Delete Image</button>
+        </div>
+     </div>
+
     <div class="row">
         <div class="col-md-10 col-md-offset-1 align-center">
             <ul class="giffy-tags">
