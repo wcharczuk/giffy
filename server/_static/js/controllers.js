@@ -149,14 +149,16 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
                 $scope.linkLookup = linkLookup;
             }, function(res) {});
             
-            $http.get("/api/user.votes.tag/" + $scope.tag.uuid).then(function(res) {
-                var userVoteLookup = {};
-                for (var x = 0; x < res.data.response.length; x++) {
-                    var vote = res.data.response[x];
-                    userVoteLookup[vote.image_uuid] = vote; 
-                }
-                $scope.userVoteLookup = userVoteLookup;
-            }, function(res) {});
+            if ($scope.current_user.is_logged_in) {
+                $http.get("/api/user.votes.tag/" + $scope.tag.uuid).then(function(res) {
+                    var userVoteLookup = {};
+                    for (var x = 0; x < res.data.response.length; x++) {
+                        var vote = res.data.response[x];
+                        userVoteLookup[vote.image_uuid] = vote; 
+                    }
+                    $scope.userVoteLookup = userVoteLookup;
+                }, function(res) {});
+            }
         }
 
         $scope.$on("voted", function() {

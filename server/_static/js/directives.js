@@ -93,6 +93,15 @@ giffyDirectives.controller('VoteButtonController', ["$scope", "voteAPI", functio
     $scope.delete = function() {
       voteAPI.deleteLink($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
     }
+
+    $scope.isOnlyVoteCount = function() {
+      if ($scope.type === "tag") {
+        if (!$scope.user.is_logged_in) {
+          return true;
+        }
+      }
+      return false;
+    }
     
     $scope.userIsLoggedIn = function() {
       return $scope.user.is_logged_in;

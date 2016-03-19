@@ -1,16 +1,19 @@
 <div ng-include="'/static/partials/header.html'"/>
-<div class="row">
+
+<div class="tag-value-row row">
     <div class="col-md-6 col-md-offset-3 align-center">
-        <div class="giffy-tag-detail-name">{{tag.tag_value}}</div>
+        <div class="tag-value">{{tag.tag_value}}</div>
     </div>
 </div>
 <div class="row" ng-repeat="image in images">
     <div class="col-md-10 col-md-offset-1 align-center">
-        <div class="giffy-image-for-tag">
+        <div class="image-for-tag">
             <a href="/#/image/{{image.uuid}}">
-                <img src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
+                <img ng-src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
                 <vote-button type="'image'" user="current_user" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
             </a>
         </div>
     </div>
 </div>
+
+<div ng-include="'/static/partials/footer.html'"/>

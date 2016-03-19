@@ -14,7 +14,11 @@
 					<td>{{entry.timestamp_utc}}</td>
 					<td>{{entry.verb}}</td>
 					<td>{{entry.noun}}</td>
-					<td>{{entry.name}}</td>
+					<td>
+						<a href="/#/image/{{entry.name}}" ng-if="entry.noun === 'image'">{{entry.name}}</a>
+						<a href="/#/tag/{{entry.name}}" ng-if="entry.noun === 'tag'">{{entry.name}}</a>
+						<span ng-if="entry.noun !== 'image' && entry.noun !== 'tag'">{{entry.name}}</span>
+					</td>
 				</tr>
 			</tbody>
 		</table>

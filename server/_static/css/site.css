@@ -241,3 +241,20 @@ body {
 }
 
 /* end user-detail */
+
+/* begin tag page */
+
+.tag-value-row {
+    margin-top:25px;
+    margin-bottom:25px;
+}
+
+.tag-value {
+    font-size:30px;
+}
+
+.image-for-tag img {
+    max-height: 300px;
+}
+
+/* end tag page */
