@@ -2,12 +2,15 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 const (
@@ -65,6 +68,8 @@ type Moderation struct {
 	Verb          string    `json:"verb" db:"verb"`
 	Noun          string    `json:"noun" db:"noun"`
 	SecondaryNoun string    `json:"name" db:"secondary_noun"`
+
+	User *User `json:"user" db:"-"`
 }
 
 // TableName returns the table
@@ -90,26 +95,57 @@ func QueueModerationEntry(userID int64, verb, object, name string) {
 	util.QueueWorkItem(writeModerationLogEntry, m)
 }
 
+func getModerationQuery(whereClause string) string {
+	userColumnNames := spiffy.NewColumnCollectionFromInstance(model.User{}).
+		NotReadOnly().
+		PrefixWith("user_").
+		ColumnNamesFromAlias("u")
+
+	userColumnsCSV := strings.Join(userColumnNames, ",")
+
+	return fmt.Sprintf(`
+select
+m.*,
+%s
+from
+moderation m
+join users u on m.user_id = u.id
+%s
+order by timestamp_utc desc
+`, userColumnsCSV, whereClause)
+}
+
 // GetModerationsForUser gets all the moderation entries for a user.
 func GetModerationsForUser(userID int64, tx *sql.Tx) ([]Moderation, error) {
+
+	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
+	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).PrefixWith("user_")
+
 	var moderation []Moderation
-	query := `select * from moderation where user_id = $1 order by timestamp_utc desc`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, userID).OutMany(&moderation)
+	whereClause := `where user_id = $1`
+	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(func(r *sql.Rows) error {
+		var m Moderation
+		var u User
+
+		spiffy.PopulateByName(&m, r, moderatorColumns)
+
+	})
 	return moderation, err
 }
 
 // GetModerationsByTime returns all moderation entries after a specific time.
 func GetModerationsByTime(after time.Time, tx *sql.Tx) ([]Moderation, error) {
 	var moderation []Moderation
-	query := `select * from moderation where timestamp_utc > $1 order by timestamp_utc desc`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, after).OutMany(&moderation)
+	whereClause := `where timestamp_utc > $1`
+	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, after).OutMany(&moderation)
 	return moderation, err
 }
 
 // GetModerationsByCountAndOffset returns all moderation entries after a specific time.
 func GetModerationsByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderation, error) {
 	var moderation []Moderation
-	query := `select * from moderation where order by timestamp_utc desc limit $1 offset $2`
+	query := getModerationQuery("")
+	query = query + `limit $1 offset $2`
 	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).OutMany(&moderation)
 	return moderation, err
 }

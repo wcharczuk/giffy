@@ -111,12 +111,8 @@ func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 	return ctx.OK()
 }
 
-func getRecentModerationLog(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	if !session.User.IsModerator {
-		return ctx.NotAuthorized()
-	}
-
-	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -7), nil)
+func getRecentModerationLog(ctx *web.HTTPContext) web.ControllerResult {
+	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -1), nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -801,6 +797,18 @@ func createImageFromFile(userID int64, file web.PostedFile) (*model.Image, error
 	return newImage, nil
 }
 
+func getModerationLogByCountAndOffsetAction(ctx *web.HTTPContext) web.ControllerResult {
+	count := ctx.RouteParameterInt("count")
+	offset := ctx.RouteParameterInt("offset")
+
+	log, err := model.GetModerationsByCountAndOffset(count, offset, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	return ctx.JSON(log)
+}
+
 // Init inits the app.
 func Init() *httprouter.Router {
 	core.DBInit()
@@ -856,6 +864,9 @@ func Init() *httprouter.Router {
 	router.GET("/api/users.search", web.ActionHandler(searchUsersAction))
 	router.GET("/api/images.search", web.ActionHandler(searchImagesAction))
 	router.GET("/api/tags.search", web.ActionHandler(searchTagsAction))
+
+	router.GET("/api/moderation.log/recent", web.ActionHandler(getRecentModerationLog))
+	router.GET("/api/moderation.log/pages/:count/:offset", web.ActionHandler(getModerationLogByCountAndOffsetAction))
 
 	//session endpoints
 	router.GET("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(getSessionKeyAction)))

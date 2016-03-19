@@ -162,3 +162,17 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
         });
     }
 ]);
+
+giffyControllers.controller("moderationLogController", ["$scope", "$http", "$routeParams", 
+    function($scope, $http, $routeParams) {
+        // current user
+        $http.get("/api/user.current").success(function(datums) {
+            $scope.current_user = datums.response;
+        });
+        
+        // info
+        $http.get("/api/moderation.log/").success(function(datums) {
+            $scope.log = datums.response;
+        });
+    }
+]);
