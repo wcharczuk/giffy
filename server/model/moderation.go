@@ -116,67 +116,33 @@ order by timestamp_utc desc
 
 // GetModerationsForUser gets all the moderation entries for a user.
 func GetModerationsForUser(userID int64, tx *sql.Tx) ([]Moderation, error) {
-
-	var moderation []Moderation
+	var moderationLog []Moderation
 	whereClause := `where user_id = $1`
-
-	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
-	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("user_")
-	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(func(r *sql.Rows) error {
-		var m Moderation
-		var u User
-
-		err := spiffy.PopulateByName(&m, r, moderatorColumns)
-		if err != nil {
-			return err
-		}
-		err = spiffy.PopulateByName(&u, r, userColumns)
-		if err != nil {
-			return err
-		}
-
-		m.User = &u
-		moderation = append(moderation, m)
-		return nil
-	})
-	return moderation, err
+	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(moderationConsumer(&moderationLog))
+	return moderationLog, err
 }
 
 // GetModerationsByTime returns all moderation entries after a specific time.
 func GetModerationsByTime(after time.Time, tx *sql.Tx) ([]Moderation, error) {
-	var moderation []Moderation
+	var moderationLog []Moderation
 	whereClause := `where timestamp_utc > $1`
-
-	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
-	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("user_")
-	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, after).Each(func(r *sql.Rows) error {
-		var m Moderation
-		var u User
-
-		err := spiffy.PopulateByName(&m, r, moderatorColumns)
-		if err != nil {
-			return err
-		}
-		err = spiffy.PopulateByName(&u, r, userColumns)
-		if err != nil {
-			return err
-		}
-
-		m.User = &u
-		moderation = append(moderation, m)
-		return nil
-	})
-	return moderation, err
+	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, after).Each(moderationConsumer(&moderationLog))
+	return moderationLog, err
 }
 
 // GetModerationLogByCountAndOffset returns all moderation entries after a specific time.
 func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderation, error) {
-	var moderation []Moderation
+	var moderationLog []Moderation
 	query := getModerationQuery("")
 	query = query + `limit $1 offset $2`
+	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).Each(moderationConsumer(&moderationLog))
+	return moderationLog, err
+}
+
+func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
 	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
 	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("user_")
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).Each(func(r *sql.Rows) error {
+	return func(r *sql.Rows) error {
 		var m Moderation
 		var u User
 
@@ -190,8 +156,7 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 		}
 
 		m.User = &u
-		moderation = append(moderation, m)
+		*moderationLog = append(*moderationLog, m)
 		return nil
-	})
-	return moderation, err
+	}
 }
