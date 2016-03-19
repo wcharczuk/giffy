@@ -6,7 +6,7 @@ giffyControllers.controller("homeController", ["$scope", "$http",
             $scope.current_user = datums.response;
         });
         
-        $http.get("/api/images/random/5").success(function(datums) {
+        $http.get("/api/images/random/9").success(function(datums) {
             $scope.images = datums.response; 
             delete $scope.searchedQuery;
         });
