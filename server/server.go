@@ -505,11 +505,11 @@ func deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext) web.Contr
 
 	vote, err := model.GetVote(userID, image.ID, tag.ID, tx)
 	if err != nil {
-		spiffy.DefaultDb().Rollback(tx)
+		tx.Rollback()
 		return ctx.InternalError(err)
 	}
 	if vote.IsZero() {
-		spiffy.DefaultDb().Rollback(tx)
+		tx.Rollback()
 		return ctx.NotFound()
 	}
 
@@ -519,7 +519,7 @@ func deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext) web.Contr
 	// adjust the vote summary ...
 	voteSummary, err := model.GetVoteSummary(image.ID, tag.ID, tx)
 	if err != nil {
-		spiffy.DefaultDb().Rollback(tx)
+		tx.Rollback()
 		return ctx.InternalError(err)
 	}
 
@@ -531,17 +531,17 @@ func deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext) web.Contr
 
 	err = model.SetVoteCount(image.ID, tag.ID, voteSummary.VotesFor, voteSummary.VotesAgainst, tx)
 	if err != nil {
-		spiffy.DefaultDb().Rollback(tx)
+		tx.Rollback()
 		return ctx.InternalError(err)
 	}
 
 	err = model.DeleteVote(userID, image.ID, tag.ID, nil)
 	if err != nil {
-		spiffy.DefaultDb().Rollback(tx)
+		tx.Rollback()
 		return ctx.InternalError(err)
 	}
 
-	spiffy.DefaultDb().Commit(tx)
+	tx.Commit()
 	return ctx.OK()
 }
 
@@ -801,7 +801,7 @@ func getModerationLogByCountAndOffsetAction(ctx *web.HTTPContext) web.Controller
 	count := ctx.RouteParameterInt("count")
 	offset := ctx.RouteParameterInt("offset")
 
-	log, err := model.GetModerationsByCountAndOffset(count, offset, nil)
+	log, err := model.GetModerationLogByCountAndOffset(count, offset, nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}

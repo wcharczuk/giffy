@@ -10,7 +10,6 @@ import (
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/model"
 )
 
 const (
@@ -96,9 +95,9 @@ func QueueModerationEntry(userID int64, verb, object, name string) {
 }
 
 func getModerationQuery(whereClause string) string {
-	userColumnNames := spiffy.NewColumnCollectionFromInstance(model.User{}).
+	userColumnNames := spiffy.NewColumnCollectionFromInstance(User{}).
 		NotReadOnly().
-		PrefixWith("user_").
+		WithColumnPrefix("user_").
 		ColumnNamesFromAlias("u")
 
 	userColumnsCSV := strings.Join(userColumnNames, ",")
@@ -118,17 +117,27 @@ order by timestamp_utc desc
 // GetModerationsForUser gets all the moderation entries for a user.
 func GetModerationsForUser(userID int64, tx *sql.Tx) ([]Moderation, error) {
 
-	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
-	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).PrefixWith("user_")
-
 	var moderation []Moderation
 	whereClause := `where user_id = $1`
+
+	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
+	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("user_")
 	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(func(r *sql.Rows) error {
 		var m Moderation
 		var u User
 
-		spiffy.PopulateByName(&m, r, moderatorColumns)
+		err := spiffy.PopulateByName(&m, r, moderatorColumns)
+		if err != nil {
+			return err
+		}
+		err = spiffy.PopulateByName(&u, r, userColumns)
+		if err != nil {
+			return err
+		}
 
+		m.User = &u
+		moderation = append(moderation, m)
+		return nil
 	})
 	return moderation, err
 }
@@ -137,15 +146,52 @@ func GetModerationsForUser(userID int64, tx *sql.Tx) ([]Moderation, error) {
 func GetModerationsByTime(after time.Time, tx *sql.Tx) ([]Moderation, error) {
 	var moderation []Moderation
 	whereClause := `where timestamp_utc > $1`
-	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, after).OutMany(&moderation)
+
+	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
+	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("user_")
+	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, after).Each(func(r *sql.Rows) error {
+		var m Moderation
+		var u User
+
+		err := spiffy.PopulateByName(&m, r, moderatorColumns)
+		if err != nil {
+			return err
+		}
+		err = spiffy.PopulateByName(&u, r, userColumns)
+		if err != nil {
+			return err
+		}
+
+		m.User = &u
+		moderation = append(moderation, m)
+		return nil
+	})
 	return moderation, err
 }
 
-// GetModerationsByCountAndOffset returns all moderation entries after a specific time.
-func GetModerationsByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderation, error) {
+// GetModerationLogByCountAndOffset returns all moderation entries after a specific time.
+func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderation, error) {
 	var moderation []Moderation
 	query := getModerationQuery("")
 	query = query + `limit $1 offset $2`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).OutMany(&moderation)
+	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
+	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("user_")
+	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).Each(func(r *sql.Rows) error {
+		var m Moderation
+		var u User
+
+		err := spiffy.PopulateByName(&m, r, moderatorColumns)
+		if err != nil {
+			return err
+		}
+		err = spiffy.PopulateByName(&u, r, userColumns)
+		if err != nil {
+			return err
+		}
+
+		m.User = &u
+		moderation = append(moderation, m)
+		return nil
+	})
 	return moderation, err
 }
