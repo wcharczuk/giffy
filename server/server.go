@@ -27,13 +27,31 @@ const (
 	OAuthProviderGoogle = "google"
 )
 
-func searchUsersAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func searchUsersAction(ctx *web.HTTPContext) web.ControllerResult {
 	query := ctx.Param("query")
 	users, err := model.SearchUsers(query, nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
 	return ctx.JSON(users)
+}
+
+func searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
+	query := ctx.Param("query")
+	results, err := model.SearchImages(query, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(results)
+}
+
+func searchTagsAction(ctx *web.HTTPContext) web.ControllerResult {
+	query := ctx.Param("query")
+	results, err := model.SearchTags(query, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(results)
 }
 
 func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -93,8 +111,39 @@ func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 	return ctx.OK()
 }
 
-func getModerationForUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func getRecentModerationLog(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if !session.User.IsModerator {
+		return ctx.NotAuthorized()
+	}
 
+	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -7), nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	return ctx.JSON(moderationLog)
+}
+
+func getModerationForUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if !session.User.IsModerator {
+		return ctx.NotAuthorized()
+	}
+
+	userUUID := ctx.RouteParameter("user_id")
+
+	user, err := model.GetUserByUUID(userUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	if user.IsZero() {
+		return ctx.NotFound()
+	}
+
+	actions, err := model.GetModerationsForUser(user.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+	return ctx.JSON(actions)
 }
 
 func getImageAction(ctx *web.HTTPContext) web.ControllerResult {
@@ -102,6 +151,9 @@ func getImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
 		return ctx.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.NotFound()
 	}
 	return ctx.JSON(image)
 }
@@ -388,75 +440,48 @@ func getVotesForUserForTagAction(session *auth.Session, ctx *web.HTTPContext) we
 }
 
 func upvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	return voteResult(true, session, ctx)
+	return voteAction(true, session, ctx)
 }
 
 func downvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	return voteResult(false, session, ctx)
+	return voteAction(false, session, ctx)
 }
 
-func voteResult(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	statusCode, err := vote(session, ctx, isUpvote)
-	if statusCode == http.StatusOK {
-		return ctx.OK()
-	} else if statusCode == http.StatusNotFound {
-		return ctx.NotFound()
-	} else if statusCode == http.StatusInternalServerError && err != nil {
-		return ctx.InternalError(err)
-	} else if statusCode == http.StatusBadRequest {
-		if err != nil {
-			if ex := exception.AsException(err); ex != nil {
-				return ctx.BadRequest(ex.Message())
-			}
-			return ctx.BadRequest(err.Error())
-		}
-		return ctx.BadRequest("There was an issue voting.")
-	}
-	return ctx.InternalError(exception.New("There was an issue voting."))
-}
-
-func vote(session *auth.Session, ctx *web.HTTPContext, isUpvote bool) (int, error) {
-	tx, err := spiffy.DefaultDb().Begin()
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-
+func voteAction(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	tagUUID := ctx.RouteParameter("tag_id")
 	userID := session.UserID
 
-	tag, err := model.GetTagByUUID(tagUUID, tx)
+	tag, err := model.GetTagByUUID(tagUUID, nil)
 	if err != nil {
-		spiffy.DefaultDb().Rollback(tx)
-		return http.StatusInternalServerError, err
+		return ctx.InternalError(err)
 	}
 	if tag.IsZero() {
-		return http.StatusNotFound, exception.New("`tag_id` not found.")
+		return ctx.NotFound()
 	}
 
-	image, err := model.GetImageByUUID(imageUUID, tx)
+	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
-		return http.StatusInternalServerError, exception.WrapMany(err, spiffy.DefaultDb().Rollback(tx))
+		return ctx.InternalError(err)
 	}
 	if image.IsZero() {
-		return http.StatusNotFound, exception.New("`image_id` not found.")
+		return ctx.NotFound()
 	}
 
-	existingUserVote, err := model.GetVote(userID, image.ID, tag.ID, tx)
+	existingUserVote, err := model.GetVote(userID, image.ID, tag.ID, nil)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return ctx.InternalError(err)
 	}
 
 	if !existingUserVote.IsZero() {
-		return http.StatusBadRequest, exception.New("Already voted for this image and tag.")
+		return ctx.OK()
 	}
 
-	err = model.CreateOrIncrementVote(userID, image.ID, tag.ID, isUpvote, tx)
+	err = model.CreateOrIncrementVote(userID, image.ID, tag.ID, isUpvote, nil)
 	if err != nil {
-		return http.StatusInternalServerError, exception.WrapMany(err, spiffy.DefaultDb().Rollback(tx))
+		return ctx.InternalError(err)
 	}
-
-	return http.StatusOK, spiffy.DefaultDb().Commit(tx)
+	return ctx.OK()
 }
 
 func deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -560,15 +585,6 @@ func deleteLinkAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, fmt.Sprintf("image: %s tag: %s", imageUUID, tagUUID))
 
 	return ctx.OK()
-}
-
-func searchAction(ctx *web.HTTPContext) web.ControllerResult {
-	query := ctx.Param("query")
-	results, err := model.QueryImages(query, nil)
-	if err != nil {
-		return ctx.InternalError(err)
-	}
-	return ctx.JSON(results)
 }
 
 func oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -785,8 +801,8 @@ func createImageFromFile(userID int64, file web.PostedFile) (*model.Image, error
 	return newImage, nil
 }
 
-// Start starts the app.
-func Start() {
+// Init inits the app.
+func Init() *httprouter.Router {
 	core.DBInit()
 
 	util.StartProcessQueueDispatchers(1)
@@ -805,6 +821,8 @@ func Start() {
 	//api endpoints
 	router.GET("/api/users", web.ActionHandler(getUsersAction))
 
+	router.GET("/api/user.current", web.ActionHandler(auth.SessionAwareAction(getCurrentUserAction)))
+
 	router.GET("/api/images", web.ActionHandler(getImagesAction))
 	router.POST("/api/images", web.ActionHandler(auth.SessionRequiredAction(createImageAction)))
 	router.GET("/api/images/random/:count", web.ActionHandler(getRandomImagesAction))
@@ -815,30 +833,31 @@ func Start() {
 	router.GET("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageAction)))
 	router.POST("/images/upload", web.ActionHandler(auth.SessionRequiredAction(uploadImageCompleteAction)))
 
-	router.GET("/api/images_for_tag/:tag_id", web.ActionHandler(getImagesForTagAction))
-	router.GET("/api/tags_for_image/:image_id", web.ActionHandler(getTagsForImageAction))
+	router.GET("/api/tag.images/:tag_id", web.ActionHandler(getImagesForTagAction))
+	router.GET("/api/image.tags/:image_id", web.ActionHandler(getTagsForImageAction))
 
 	router.GET("/api/tags", web.ActionHandler(getTagsAction))
 	router.POST("/api/tags", web.ActionHandler(auth.SessionRequiredAction(createTagAction)))
 	router.GET("/api/tag/:tag_id", web.ActionHandler(getTagAction))
 	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteTagAction)))
 
-	router.GET("/api/links/image/:image_id", web.ActionHandler(getLinksForImageAction))
-	router.GET("/api/links/tag/:tag_id", web.ActionHandler(getLinksForTagAction))
+	router.GET("/api/image.votes/:image_id", web.ActionHandler(getLinksForImageAction))
+	router.GET("/api/tag.votes/:tag_id", web.ActionHandler(getLinksForTagAction))
 
 	router.DELETE("/api/link/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteLinkAction)))
 
-	router.GET("/api/votes/user/image/:image_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForImageAction)))
-	router.GET("/api/votes/user/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForTagAction)))
-	router.DELETE("/api/votes/user/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteUserVoteAction)))
+	router.GET("/api/user.votes.image/:image_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForImageAction)))
+	router.GET("/api/user.votes.tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForTagAction)))
+	router.DELETE("/api/user.vote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteUserVoteAction)))
 
-	router.POST("/api/upvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(upvoteAction)))
-	router.POST("/api/downvote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(downvoteAction)))
+	router.POST("/api/vote.up/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(upvoteAction)))
+	router.POST("/api/vote.down/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(downvoteAction)))
 
-	router.GET("/api/search", web.ActionHandler(searchAction))
+	router.GET("/api/users.search", web.ActionHandler(searchUsersAction))
+	router.GET("/api/images.search", web.ActionHandler(searchImagesAction))
+	router.GET("/api/tags.search", web.ActionHandler(searchTagsAction))
 
 	//session endpoints
-	router.GET("/api/current_user", web.ActionHandler(auth.SessionAwareAction(getCurrentUserAction)))
 	router.GET("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(getSessionKeyAction)))
 	router.POST("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(setSessionKeyAction)))
 
@@ -850,9 +869,14 @@ func Start() {
 	//static files
 	router.ServeFiles("/static/*filepath", http.Dir("server/_static"))
 
-	router.NotFound = web.APINotFoundHandler
-	router.PanicHandler = web.APIPanicHandler
+	router.NotFound = web.NotFoundHandler
+	router.PanicHandler = web.PanicHandler
 
+	return router
+}
+
+// Start starts the app.
+func Start(router *httprouter.Router) {
 	bindAddr := fmt.Sprintf(":%s", core.ConfigPort())
 	server := &http.Server{
 		Addr:    bindAddr,

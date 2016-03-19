@@ -23,10 +23,11 @@ func Logout(userID int64, sessionID string) error {
 // VerifySession checks a sessionID to see if it's valid.
 func VerifySession(sessionID string) (*Session, error) {
 	if SessionState().IsActive(sessionID) {
-		return SessionState().Sessions[sessionID], nil
+		return SessionState().Get(sessionID), nil
 	}
 
 	session := model.UserSession{}
+	println("fetching session id:", sessionID)
 	sessionErr := spiffy.DefaultDb().GetByID(&session, sessionID)
 
 	if sessionErr != nil {
@@ -52,7 +53,6 @@ func SessionAwareAction(action SessionAwareControllerAction) web.ControllerActio
 			if err != nil {
 				return ctx.InternalError(err)
 			}
-			ctx.SetState(StateKeySession, session)
 			return action(session, ctx)
 		}
 		return action(nil, ctx)
@@ -76,7 +76,6 @@ func SessionRequiredAction(action SessionAwareControllerAction) web.ControllerAc
 			return ctx.NotAuthorized()
 		}
 
-		ctx.SetState(StateKeySession, session)
 		return action(session, ctx)
 	}
 }

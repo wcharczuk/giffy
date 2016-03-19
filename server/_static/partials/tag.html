@@ -9,8 +9,8 @@
         <div class="giffy-image-for-tag">
             <a href="/#/image/{{image.uuid}}">
                 <img src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
+                <vote-button type="'image'" user="current_user" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
             </a>
-            <div class="tag"><div class="tag-part tag-vote-count">{{votesLookup[image.uuid].votes_total}}</div><div class="tag-part tag-vote" ng-if="current_user.is_logged_in"><div class="tag-upvote" ng-class="{voted: didUpvote(image.uuid)}" ng-click="vote(image.uuid, true)">+</div><div class="tag-downvote" ng-class="{voted: didDownvote(image.uuid)}" ng-click="vote(image.uuid, false)">-</div></div><div class="tag-part tag-remove" ng-if="current_user.is_moderator || image.created_by == current_user.user_uuid" ng-click="deleteLink(image.uuid)">x</div></div>
         </div>
     </div>
 </div>

@@ -22,7 +22,6 @@ type SessionCache struct {
 // Add a session to the cache.
 func (sc *SessionCache) Add(userID int64, sessionID string) (*Session, error) {
 	session := NewSession(userID, sessionID)
-	sc.Sessions[sessionID] = session
 
 	user, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
@@ -30,7 +29,7 @@ func (sc *SessionCache) Add(userID int64, sessionID string) (*Session, error) {
 	}
 
 	session.User = user
-
+	sc.Sessions[sessionID] = session
 	return session, nil
 }
 

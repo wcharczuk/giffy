@@ -169,6 +169,10 @@ func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(images) == 0 {
+		return &Image{}, nil
+	}
+
 	return &images[0], err
 }
 

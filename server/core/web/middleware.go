@@ -22,18 +22,18 @@ func ActionHandler(action ControllerAction) httprouter.Handle {
 	return Render(action)
 }
 
-// APINotFoundHandler is a handler for panics.
-func APINotFoundHandler(w http.ResponseWriter, r *http.Request) {
+// NotFoundHandler is a handler for panics.
+func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	Render(func(ctx *HTTPContext) ControllerResult {
 		return ctx.NotFound()
-	})
+	})(w, r, httprouter.Params{})
 }
 
-// APIPanicHandler is a handler for panics.
-func APIPanicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
+// PanicHandler is a handler for panics.
+func PanicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
 	Render(func(ctx *HTTPContext) ControllerResult {
 		return ctx.InternalError(exception.Newf("panic: %v", err))
-	})
+	})(w, r, httprouter.Params{})
 }
 
 // Render is the translation step from APIControllerAction to httprouter.Handle.

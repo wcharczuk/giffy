@@ -1,25 +1,39 @@
+<div ng-include="'/static/partials/header.html'"/>
 <div id="giffy-image">
-    <div ng-include="'/static/partials/header.html'"/>
-    <div class="row">
-        <div class="col-md-10 col-md-offset-1 align-center">
+    <div class="row image">
+        <div class="col-md-4 col-md-offset-4 align-center">
             <img class="giffy-image-detail" src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
         </div>
     </div>
 
-     <div class="row giffy-delete-image-row">
-        <div class="col-md-10 col-md-offset-1 align-center" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by_uuid">
-            <button class="btn btn-danger" ng-click="deleteImage()">Delete Image</button>
+    <div class="row image-added-by-row" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by_uuid">
+        <div class="col-md-4 col-md-offset-4">
+            <div class="row">
+                <div class="col-md-4">Added By:</div>
+                <div class="col-md-8"><user-detail user="image.created_by"></user-detail></div>
+            </div>
         </div>
-     </div>
+    </div>
+
+    <div class="row image-delete-row">
+        <div class="col-md-4 col-md-offset-4" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by_uuid">
+            <div class="row">
+                <div class="col-md-4">Moderator Controls:</div>
+                <div class="col-md-8">
+                    <button class="btn btn-danger btn-xs" ng-click="deleteImage()">Delete Image</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="row">
         <div class="col-md-10 col-md-offset-1 align-center">
-            <ul class="giffy-tags">
+            <ul class="image-tags">
                 <li ng-repeat="tag in tags">
-                    <div class="tag"><div class="tag-part tag-vote-count">{{tag.votes_total}}</div><div class="tag-part tag-vote" ng-if="current_user.is_logged_in"><div class="tag-upvote" ng-class="{voted: didUpvote(tag.uuid)}" ng-click="vote(tag.uuid, true)">+</div><div class="tag-downvote" ng-class="{voted: didDownvote(tag.uuid)}" ng-click="vote(tag.uuid, false)">-</div></div><div class="tag-part tag-detail-link"><a href="#/tag/{{tag.tag_value}}">{{tag.tag_value}}</a></div><div class="tag-part tag-remove" ng-if="current_user.is_moderator || tag.created_by == current_user.user_uuid" ng-click="deleteTag(tag.uuid)">x</div></div>
+                    <vote-button type="'tag'" user="current_user" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
                 </li>
                 <li ng-if="current_user.is_logged_in">
-                    <button class="btn btn-secondary btn-xs" data-toggle="modal" data-target="#add-tag-modal">+</button>
+                    <button class="btn btn-default btn-lg" data-toggle="modal" data-target="#add-tag-modal">+</button>
                 </li>
             </ul>
         </div>
@@ -34,11 +48,12 @@
                 </div>
                 <div class="modal-body">
                     <div id="add-tag" class="add-tag">
-                        <form>                
+                        <!-- put validation here etc. -->
+                        <form ng-submit="addTag()">
                             <div class="form-group row">
                                 <label for="displayName" class="form-control-label col-sm-4 col-md-4 align-right">What is the tag?</label>
                                 <div class="col-sm-8 col-md-8">
-                                    <input type="text" class="form-control" placeholder="lolz" ng-model="tag_value"/>
+                                    <input tabindex="0" type="text" class="form-control" placeholder="lolz" ng-model="add_tag_value"/>
                                 </div>
                             </div>
                         </form>
@@ -52,3 +67,4 @@
         </div>
     </div>
 </div>
+<div ng-include="'/static/partials/footer.html'"/>

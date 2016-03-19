@@ -1,13 +1,18 @@
 <div ng-include="'/static/partials/header.html'"/>
-<div class="row" id="search-bar">
-    <div class="col-xs-12 col-sm-12 col-md-12 col-lg-8 col-lg-offset-2">
-        <input id="giffy-search-bar" type="text" class="form-control form-control-lg" placeholder="Search" ng-keydown="searchImages()" ng-model="searchQuery" required/>
+<div id="giffy-search-bar" class="row">
+    <div class="col-md-10 col-md-offset-1">
+        <form>
+            <input id="giffy-search-bar" type="text" tabindex="0" class="form-control input-lg" placeholder="Search" ng-model="searchQuery" ng-enter="searchImages()" required/>
+        </form>
     </div>
 </div>
-<div id="giffy-images" class="row">
-    <div class="giffy-image-grid row">
-        <div class="col-md-8 col-md-offset-2 align-center">
-            <div class="giffy-image-wrapper" ng-repeat="image in images" ng-include="'/static/partials/image_element.html'"></div>
-        </div>
+
+<div id="giffy-home-results" class="row">
+    <div class="col-md-10 col-md-offset-1">
+        <div ng-if="!!searchedQuery">Image Search Results For: <span class="giffy-search-query">{{searchedQuery}}</span></div>
+        <div ng-if="!searchedQuery">Here are some random images: </div>
+        <giffy-image image="image" user="current_user" ng-repeat="image in images"></giffy-image>
     </div>
 </div>
+
+<div ng-include="'/static/partials/footer.html'"/>

@@ -1,6 +1,8 @@
 local.giffy.charczuk.com:80 {
+	gzip
 	proxy / localhost:8080 {
-		policy round_robin
+		fail_timeout 60s
+		max_fails 99
 		proxy_header X-REAL-IP {remote}
 		proxy_header X-Forwarded-Proto {scheme}
 	}

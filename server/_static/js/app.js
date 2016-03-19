@@ -1,4 +1,4 @@
-var giffyApp = angular.module('giffyApp', [ 'ngRoute' , 'ngSanitize', 'giffyControllers' ]);
+var giffyApp = angular.module('giffyApp', [ 'ngRoute' , 'ngSanitize', 'giffy.controllers', 'giffy.directives' ]);
 
 
 giffyApp.config(["$routeProvider", 
@@ -19,6 +19,9 @@ giffyApp.config(["$routeProvider",
         }).when("/tag/:tag_id", {
             templateUrl: '/static/partials/tag.html',
             controller: 'tagController'
+        }).when("/user/:user_id", {
+            templateUrl: '/static/partials/user.html',
+            controller: 'userController'
         }).otherwise({ 
             templateUrl: '/static/partials/home.html',
             controller: 'homeController' 

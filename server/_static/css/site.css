@@ -1,7 +1,20 @@
 body {
     font-family: "Avenir Next", sans-serif;
     padding:10px;
+    padding-bottom:30px;
 }
+
+/* begin helper classes */
+
+.align-center {
+    text-align: center;
+}
+
+.align-right {
+    text-align: right;
+}
+
+/* end helper classes */
 
 #giffy-header {
     margin-top:25px;
@@ -12,64 +25,65 @@ body {
     margin-left: 3px;
 }
 
+#giffy-header .user-detail {
+    font-size: 18px;
+}
+
+#giffy-header .user-detail-badges {
+    display:block;
+}
+
+#giffy-footer {
+    background-color: #fff;
+    position:fixed;
+    bottom:0;
+    width: 100%;
+    height: 30px;
+    
+    font-size: 12px;
+    line-height: 30px;
+}
+
 #giffy-header-name a {
     text-decoration:none;
 }
+
 #giffy-header-name a:hover {
     text-decoration:none;
 }
 
-#giffy-images {
+#giffy-home-results {
     margin-top:25px;
+    margin-bottom:25px;
+    min-height:250px;
 }
 
-.align-center {
-    text-align: center;
+#giffy-search-bar {
+    margin-top:25px;
+    margin-bottom: 25px;
 }
 
-.align-right {
-    text-align: right;
-}
 
-.giffy-image-wrapper, .giffy-image {
-    display: inline-block;
-}
+/* begin vote-button */
 
-.giffy-image-wrapper {
-    margin:10px;
-}
-
-.giffy-image-element {
-    max-height: 200px;
-}
-
-.giffy-tags {
-    padding-left: 0;
-    margin-top: 25px;
-}
-
-.giffy-tags li {
-    list-style: none;
-    display:inline-block;
-}
-
-.tag {
+.vote-button {
     display: inline-block;  
     
     margin: 5px;
     
-    background-color: rgb(91,192,222);
-    border-color: rgb(91,192,222);
+    background-color: #337ab7;
+    border: 1px solid #2e6da4;
     border-radius: 4px;
 }
 
-.tag-part {
+.vote-button .vote-button-part {
+    font-size:18px;
+    
     display:inline-block;
     margin:0;
     padding:6px;
     
     color: #fff;
-    font-size: 16px;
     
     line-height: 24px;
 
@@ -80,91 +94,150 @@ body {
     line-height: 24px;
 }
 
-.tag-vote-count {
-    padding-left:13px;
+.vote-button .vote-count {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    padding-left:10px;
     padding-right: 9px;
-    border-right: 1px solid rgb(80, 181, 211);
+    border-right: 1px solid #2e6da4;
+    background-color: #fff;
+    color: black;
 }
 
-.tag-detail-link {
+
+.vote-button .vote-controls {
+    padding:0;
+}
+
+.vote-button .vote-arrow  {
+    padding: 0;
+    cursor: pointer;
+    border-right: 1px solid #2e6da4
+}
+
+.vote-button .vote-arrow {
+    padding: 0;
+    font-size: 12px;
+    line-height: 12px;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.vote-button .vote-arrow.voted {
+    background-color: #2e6da4
+}
+
+.vote-button .vote-arrow:hover {
+    background-color: #2e6da4
+}
+
+.vote-button .vote-arrow:active {
+    background-color: #286090
+}
+
+.vote-button .vote-upvote {
+    padding-top: 4px;
+    border-bottom:  1px solid #2e6da4;
+}
+
+.vote-button .vote-downvote {
+    padding-bottom: 5px;
+}
+
+.vote-button .vote-detail-link {
     padding-top: 5px;
     padding-bottom: 7px;
     padding-right: 16px;
     text-transform: lowercase;
 }
 
-.tag-detail-link a {
+.vote-button .vote-detail-link a {
     color: #fff;
 }
 
-.tag-detail-link a:hover {
+.vote-button .vote-detail-link a:hover {
     text-decoration: none;
 }
 
-.tag-vote {
-    padding: 0;
+.vote-button .vote-remove {
     cursor: pointer;
-    border-right: 1px solid rgb(80, 181, 211);
+    border-left: 1px solid #2e6da4
 }
 
-.tag-upvote, .tag-downvote {
-    padding: 0;
-    line-height: 12px;
+.vote-button .vote-remove:hover {
+    background-color: #2e6da4
 }
 
-.tag-vote .voted {
-    background-color: rgb(80, 181, 211);
+.vote-button .vote-remove:active {
+    background-color: #286090
 }
 
-.tag-vote .can-vote:hover {
-    background-color: rgb(80, 181, 211);
+/* end vote-button */
+
+/* begin homepage */
+
+#giffy-home-results .image-element {
+    overflow: hidden;
+    max-width: 400px;
 }
 
-.tag-vote .can-vote:active {
-    background-color: rgb(70, 171, 201);
+#giffy-home-results .image-element img {
+    max-width: unset;
+    max-height: 250px;
+    height: 250px;
 }
 
-.tag-upvote {
-    padding-top: 4px;
-    padding-left: 6px;
-    padding-right: 6px;
-    padding-bottom: 3px;
-    border-bottom:  1px solid rgb(80, 181, 211);
-}
-.tag-downvote {
-    padding-top: 1px;
-    padding-left: 6px;
-    padding-right: 6px;
-    padding-bottom: 4px;
+/* end homepage */
+
+/* begin image page */
+
+#giffy-image > .row {
+    margin-top: 10px;
 }
 
-.tag-remove {
-    cursor: pointer;
-    border-left: 1px solid rgb(80, 181, 211);
+#giffy-image .image img {
+    width:100%;
 }
 
-.tag-remove:hover {
-    background-color: rgb(80, 181, 211);
+#giffy-image .image-tags li {
+    list-style: none;
+    display:inline-block; 
 }
 
-.tag-remove:active {
-    background-color: rgb(70, 171, 201);
-}
+/* end image page */
 
-.giffy-tag-detail-name {
-    font-size: 30px;
-    margin: 20px;
-}
+/* begin image-element */
 
-.giffy-image-for-tag {
+.image-element {
+    display:inline-block;
     margin: 10px;
 }
 
-.giffy-delete-image-row {
-    margin-top: 10px;
-    margin-bottom: 10px;
+.image-element .image-added-by {
+    font-size:12px;
 }
 
-img.giffy-image-detail {
-    min-height: 250px;
+.image-added-by, .image-tags {
+    margin-top: 10px;
 }
+
+.image-tags .label {
+    margin-left: 3px;
+    margin-right: 3px;
+}
+
+/* end image-element */
+
+/* begin user-detail */
+
+.user-detail-badges {
+    display:inline-block;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.user-detail-badges .label {
+    font-size: 12px;
+}
+
+/* end user-detail */

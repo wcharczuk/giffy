@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/blendlabs/spiffy"
@@ -83,6 +84,14 @@ func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
 	err := spiffy.DefaultDb().
 		QueryInTransaction(`select * from tag where tag_value ilike $1`, tx, tagValue).Out(&tag)
 	return &tag, err
+}
+
+// SearchTags searches tags
+func SearchTags(query string, tx *sql.Tx) ([]Tag, error) {
+	queryFormat := fmt.Sprintf("%%%s%%", query)
+	tags := []Tag{}
+	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag where tag_value ilike $1`, tx, queryFormat).OutMany(&tags)
+	return tags, err
 }
 
 // DeleteTagByID deletes an tag fully.
