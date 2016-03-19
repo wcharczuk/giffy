@@ -22,6 +22,9 @@ giffyApp.config(["$routeProvider",
         }).when("/user/:user_id", {
             templateUrl: '/static/partials/user.html',
             controller: 'userController'
+        }).when("/moderation.log", {
+            templateUrl: '/static/partials/moderation_log.html',
+            controller: 'moderationLogController'
         }).otherwise({ 
             templateUrl: '/static/partials/home.html',
             controller: 'homeController' 

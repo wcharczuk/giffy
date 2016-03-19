@@ -171,7 +171,7 @@ giffyControllers.controller("moderationLogController", ["$scope", "$http", "$rou
         });
         
         // info
-        $http.get("/api/moderation.log/").success(function(datums) {
+        $http.get("/api/moderation.log/pages/50/0").success(function(datums) {
             $scope.log = datums.response;
         });
     }

@@ -1,0 +1,24 @@
+<div ng-include="'/static/partials/header.html'"/>
+
+<div class="row">
+	<div class="col-md-10 col-md-offset-1">
+		<table id="moderation-log">
+			<thead>
+				<tr>
+					<th>User</th><th>Time</th><th>Verb</th><th>Object</th><th>Noun</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr ng-repeat="entry in log">
+					<td><user-detail user="entry.user"/></td>
+					<td>{{entry.timestamp_utc}}</td>
+					<td>{{entry.verb}}</td>
+					<td>{{entry.noun}}</td>
+					<td>{{entry.name}}</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div ng-include="'/static/partials/footer.html'"/>
