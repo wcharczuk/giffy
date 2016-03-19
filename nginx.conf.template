@@ -5,7 +5,7 @@ server {
   access_log  /var/log/nginx/${APP}-access.log;
   error_log   /var/log/nginx/${APP}-error.log;
 
-  client_max_body_size 32M;
+  client_max_body_size 64M;
 
   # set a custom header for requests
   add_header X-Served-By github.com/wcharczuk/go-web;
