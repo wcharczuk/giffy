@@ -145,8 +145,8 @@
 		},
 		{
 			"ImportPath": "github.com/blendlabs/spiffy",
-			"Comment": "v1.0-80-g9721e9a",
-			"Rev": "9721e9ae0645abafee88d749069bed265575066c"
+			"Comment": "v1.0-83-g870db90",
+			"Rev": "870db901c019f95538f22d15636345bda6f8b882"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",

@@ -202,15 +202,22 @@ func (c Column) GetValue(object DatabaseMapped) interface{} {
 // Column Collection
 // --------------------------------------------------------------------------------
 
-// NewColumnCollection creates a column lookup for a slice of columns.
-func NewColumnCollection(columns []Column) *ColumnCollection {
-	cc := ColumnCollection{Columns: columns}
+// func NewColumnCollection() *ColumnCollection { return &ColumnCollection{lookup: map[string]*Column} }
+
+// NewColumnCollectionWithPrefix makes a new column collection with a column prefix.
+func NewColumnCollectionWithPrefix(columnPrefix string) *ColumnCollection {
+	return &ColumnCollection{lookup: map[string]*Column{}, columnPrefix: columnPrefix}
+}
+
+// NewColumnCollectionFromColumns creates a column lookup for a slice of columns.
+func NewColumnCollectionFromColumns(columns []Column) *ColumnCollection {
+	cc := ColumnCollection{columns: columns}
 	lookup := make(map[string]*Column)
 	for i := 0; i < len(columns); i++ {
 		col := &columns[i]
 		lookup[col.ColumnName] = col
 	}
-	cc.Lookup = lookup
+	cc.lookup = lookup
 	return &cc
 }
 
@@ -257,14 +264,19 @@ func GenerateColumnCollectionForType(t reflect.Type) *ColumnCollection {
 		}
 	}
 
-	return NewColumnCollection(cols)
+	return NewColumnCollectionFromColumns(cols)
 }
 
 // ColumnCollection represents the column metadata for a given struct.
 type ColumnCollection struct {
-	Columns      []Column
-	Lookup       map[string]*Column
+	columns      []Column
+	lookup       map[string]*Column
 	columnPrefix string
+}
+
+// Len returns the number of columns.
+func (cc *ColumnCollection) Len() int {
+	return len(cc.columns)
 }
 
 // WithColumnPrefix applies a column prefix to column names.
@@ -273,76 +285,95 @@ func (cc *ColumnCollection) WithColumnPrefix(prefix string) *ColumnCollection {
 	return cc
 }
 
+// Add adds a column.
+func (cc *ColumnCollection) Add(c Column) {
+	cc.columns = append(cc.columns, c)
+	cc.lookup[c.ColumnName] = &c
+}
+
 // PrimaryKeys are columns we use as where predicates and can't update.
 func (cc ColumnCollection) PrimaryKeys() *ColumnCollection {
-	var cols []Column
-	for _, c := range cc.Columns {
+	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
+	newCC.columnPrefix = cc.columnPrefix
+
+	for _, c := range cc.columns {
 		if c.IsPrimaryKey {
-			cols = append(cols, c)
+			newCC.Add(c)
 		}
 	}
-	return NewColumnCollection(cols)
+
+	return newCC
 }
 
 // NotPrimaryKeys are columns we can update.
 func (cc ColumnCollection) NotPrimaryKeys() *ColumnCollection {
-	var cols []Column
-	for _, c := range cc.Columns {
+	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
+
+	for _, c := range cc.columns {
 		if !c.IsPrimaryKey {
-			cols = append(cols, c)
+			newCC.Add(c)
 		}
 	}
-	return NewColumnCollection(cols)
+
+	return newCC
 }
 
 // Serials are columns we have to return the id of.
 func (cc ColumnCollection) Serials() *ColumnCollection {
-	var cols []Column
-	for _, c := range cc.Columns {
+	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
+
+	for _, c := range cc.columns {
 		if c.IsSerial {
-			cols = append(cols, c)
+			newCC.Add(c)
 		}
 	}
-	return NewColumnCollection(cols)
+
+	return newCC
 }
 
 // NotSerials are columns we don't have to return the id of.
 func (cc ColumnCollection) NotSerials() *ColumnCollection {
-	var cols []Column
-	for _, c := range cc.Columns {
+	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
+
+	for _, c := range cc.columns {
 		if !c.IsSerial {
-			cols = append(cols, c)
+			newCC.Add(c)
 		}
 	}
-	return NewColumnCollection(cols)
+
+	return newCC
 }
 
 // ReadOnly are columns that we don't have to insert upon Create().
 func (cc ColumnCollection) ReadOnly() *ColumnCollection {
-	var cols []Column
-	for _, c := range cc.Columns {
+	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
+
+	for _, c := range cc.columns {
 		if c.IsReadOnly {
-			cols = append(cols, c)
+			newCC.Add(c)
 		}
 	}
-	return NewColumnCollection(cols)
+
+	return newCC
 }
 
 // NotReadOnly are columns that we have to insert upon Create().
 func (cc ColumnCollection) NotReadOnly() *ColumnCollection {
-	var cols []Column
-	for _, c := range cc.Columns {
+	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
+
+	for _, c := range cc.columns {
 		if !c.IsReadOnly {
-			cols = append(cols, c)
+			newCC.Add(c)
 		}
 	}
-	return NewColumnCollection(cols)
+
+	return newCC
 }
 
 // ColumnNames returns the string names for all the columns in the collection.
 func (cc ColumnCollection) ColumnNames() []string {
 	var names []string
-	for _, c := range cc.Columns {
+	for _, c := range cc.columns {
 		if len(cc.columnPrefix) != 0 {
 			names = append(names, fmt.Sprintf("%s%s", cc.columnPrefix, c.ColumnName))
 		} else {
@@ -352,10 +383,27 @@ func (cc ColumnCollection) ColumnNames() []string {
 	return names
 }
 
+// Columns returns the colummns
+func (cc ColumnCollection) Columns() []Column {
+	return cc.columns
+}
+
+// Lookup gets the column name lookup.
+func (cc ColumnCollection) Lookup() map[string]*Column {
+	if len(cc.columnPrefix) != 0 {
+		lookup := map[string]*Column{}
+		for key, value := range cc.lookup {
+			lookup[fmt.Sprintf("%s%s", cc.columnPrefix, key)] = value
+		}
+		return lookup
+	}
+	return cc.lookup
+}
+
 // ColumnNamesFromAlias returns the string names for all the columns in the collection.
 func (cc ColumnCollection) ColumnNamesFromAlias(tableAlias string) []string {
 	var names []string
-	for _, c := range cc.Columns {
+	for _, c := range cc.columns {
 		if len(cc.columnPrefix) != 0 {
 			names = append(names, fmt.Sprintf("%s.%s as %s%s", tableAlias, c.ColumnName, cc.columnPrefix, c.ColumnName))
 		} else {
@@ -370,7 +418,7 @@ func (cc ColumnCollection) ColumnValues(instance interface{}) []interface{} {
 	value := reflectValue(instance)
 
 	var values []interface{}
-	for _, c := range cc.Columns {
+	for _, c := range cc.columns {
 		valueField := value.FieldByName(c.FieldName)
 		if c.IsJSON {
 			toSerialize := valueField.Interface()
@@ -386,8 +434,8 @@ func (cc ColumnCollection) ColumnValues(instance interface{}) []interface{} {
 
 // FirstOrDefault returns the first column in the collection or `nil` if the collection is empty.
 func (cc ColumnCollection) FirstOrDefault() *Column {
-	if len(cc.Columns) > 0 {
-		col := cc.Columns[0]
+	if len(cc.columns) > 0 {
+		col := cc.columns[0]
 		return &col
 	}
 	return nil
@@ -396,9 +444,9 @@ func (cc ColumnCollection) FirstOrDefault() *Column {
 // ConcatWith merges a collection with another collection.
 func (cc ColumnCollection) ConcatWith(other *ColumnCollection) *ColumnCollection {
 	var total []Column
-	total = append(total, cc.Columns...)
-	total = append(total, other.Columns...)
-	return NewColumnCollection(total)
+	total = append(total, cc.columns...)
+	total = append(total, other.columns...)
+	return NewColumnCollectionFromColumns(total)
 }
 
 // --------------------------------------------------------------------------------
@@ -547,10 +595,14 @@ func (q *QueryResult) Out(object DatabaseMapped) (err error) {
 		return
 	}
 
-	meta := NewColumnCollectionFromInstance(object)
-
+	columnMeta := NewColumnCollectionFromInstance(object)
+	var popErr error
 	if q.Rows.Next() {
-		popErr := PopulateByName(object, q.Rows, meta)
+		if populatable, isPopulatable := object.(Populatable); isPopulatable {
+			popErr = populatable.Populate(q.Rows)
+		} else {
+			popErr = PopulateByName(object, q.Rows, columnMeta)
+		}
 		if popErr != nil {
 			err = popErr
 			return
@@ -595,10 +647,20 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 
 	meta := NewColumnCollectionFromType(sliceInnerType)
 
+	v, _ := MakeNew(sliceInnerType)
+	isPopulatable := IsPopulatable(v)
+
+	var popErr error
 	didSetRows := false
 	for q.Rows.Next() {
 		newObj, _ := MakeNew(sliceInnerType)
-		popErr := PopulateByName(newObj, q.Rows, meta)
+
+		if isPopulatable {
+			popErr = (AsPopulatable(newObj)).Populate(q.Rows)
+		} else {
+			popErr = PopulateByName(newObj, q.Rows, meta)
+		}
+
 		if popErr != nil {
 			err = popErr
 			return
@@ -905,7 +967,7 @@ func (dbAlias *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql
 	tableName := object.TableName()
 	pks := standardCols.PrimaryKeys()
 
-	if len(pks.Columns) == 0 {
+	if pks.Len() == 0 {
 		err = exception.New("no primary key on object to get by.")
 		return
 	}
@@ -936,8 +998,15 @@ func (dbAlias *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql
 		}
 	}()
 
-	for rows.Next() {
-		if popErr := PopulateInOrder(object, rows, standardCols); popErr != nil {
+	var popErr error
+	if rows.Next() {
+		if IsPopulatable(object) {
+			popErr = (AsPopulatable(object)).Populate(rows)
+		} else {
+			popErr = PopulateInOrder(object, rows, standardCols)
+		}
+
+		if popErr != nil {
 			err = exception.Wrap(popErr)
 			return
 		}
@@ -993,12 +1062,21 @@ func (dbAlias *DbConnection) GetAllInTransaction(collection interface{}, tx *sql
 		}
 	}()
 
+	v, _ := MakeNew(t)
+	isPopulatable := IsPopulatable(v)
+
+	var popErr error
 	for rows.Next() {
 		newObj, _ := MakeNew(t)
-		popErr := PopulateInOrder(newObj, rows, meta)
-		if popErr != nil {
-			err = exception.Wrap(popErr)
-			return
+
+		if isPopulatable {
+			popErr = (AsPopulatable(newObj)).Populate(rows)
+		} else {
+			popErr = PopulateInOrder(newObj, rows, meta)
+			if popErr != nil {
+				err = exception.Wrap(popErr)
+				return
+			}
 		}
 		newObjValue := reflectValue(newObj)
 		collectionValue.Set(reflect.Append(collectionValue, newObjValue))
@@ -1030,10 +1108,10 @@ func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.
 	tableName := object.TableName()
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
-	tokens := makeCsvTokens(len(writeCols.Columns))
+	tokens := makeCsvTokens(writeCols.Len())
 
 	var sqlStmt string
-	if len(serials.Columns) == 0 {
+	if serials.Len() == 0 {
 		sqlStmt = fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s)",
 			tableName,
@@ -1041,7 +1119,7 @@ func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.
 			tokens,
 		)
 	} else {
-		serial := serials.Columns[0]
+		serial := serials.FirstOrDefault()
 		sqlStmt = fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s) RETURNING %s",
 			tableName,
@@ -1063,14 +1141,14 @@ func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.
 		}
 	}()
 
-	if len(serials.Columns) == 0 {
+	if serials.Len() == 0 {
 		_, execErr := stmt.Exec(colValues...)
 		if execErr != nil {
 			err = exception.Wrap(execErr)
 			return
 		}
 	} else {
-		serial := serials.Columns[0]
+		serial := serials.FirstOrDefault()
 
 		var id interface{}
 		execErr := stmt.QueryRow(colValues...).Scan(&id)
@@ -1108,10 +1186,10 @@ func (dbAlias *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.
 	pks := cols.PrimaryKeys()
 	allCols := writeCols.ConcatWith(pks)
 	totalValues := allCols.ColumnValues(object)
-	numColumns := len(writeCols.Columns)
+	numColumns := writeCols.Len()
 
 	sqlStmt := "UPDATE " + tableName + " SET "
-	for i, col := range writeCols.Columns {
+	for i, col := range writeCols.Columns() {
 		sqlStmt = sqlStmt + col.ColumnName + " = $" + strconv.Itoa(i+1)
 		if i != numColumns-1 {
 			sqlStmt = sqlStmt + ","
@@ -1160,7 +1238,7 @@ func (dbAlias *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.
 	cols := NewColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
-	if len(pks.Columns) == 0 {
+	if pks.Len() == 0 {
 		exists = false
 		err = exception.New("No primary key on object.")
 		return
@@ -1217,7 +1295,7 @@ func (dbAlias *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.
 	cols := NewColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
-	if len(pks.Columns) == 0 {
+	if len(pks.Columns()) == 0 {
 		err = exception.New("No primary key on object.")
 		return
 	}
@@ -1249,6 +1327,17 @@ func (dbAlias *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.
 // --------------------------------------------------------------------------------
 // Utility Methods
 // --------------------------------------------------------------------------------
+
+// AsPopulatable casts an object as populatable.
+func AsPopulatable(object DatabaseMapped) Populatable {
+	return object.(Populatable)
+}
+
+// IsPopulatable returns if an object is populatable
+func IsPopulatable(object DatabaseMapped) bool {
+	_, isPopulatable := object.(Populatable)
+	return isPopulatable
+}
 
 // reflectValue returns the reflect.Value for an object following pointers.
 func reflectValue(obj interface{}) reflect.Value {
@@ -1282,9 +1371,9 @@ func reflectSliceType(collection interface{}) reflect.Type {
 // makeWhereClause returns the sql `where` clause for a column collection, starting at a given index (used in sql $1 parameterization).
 func makeWhereClause(pks *ColumnCollection, startAt int) string {
 	whereClause := " WHERE "
-	for i, pk := range pks.Columns {
+	for i, pk := range pks.Columns() {
 		whereClause = whereClause + fmt.Sprintf("%s = %s", pk.ColumnName, "$"+strconv.Itoa(i+startAt))
-		if i < (len(pks.Columns) - 1) {
+		if i < (pks.Len() - 1) {
 			whereClause = whereClause + " AND "
 		}
 	}
@@ -1327,15 +1416,6 @@ func makeSliceOfType(t reflect.Type) interface{} {
 	return reflect.New(reflect.SliceOf(t)).Interface()
 }
 
-// Populate puts the contents of a sql.Rows object into a mapped object using magic reflection.
-func Populate(object DatabaseMapped, row *sql.Rows) error {
-	if populatable, isPopulatable := object.(Populatable); isPopulatable {
-		return populatable.Populate(row)
-	}
-
-	return PopulateByName(object, row, NewColumnCollectionFromInstance(object))
-}
-
 // PopulateByName sets the values of an object from the values of a sql.Rows object using column names.
 func PopulateByName(object DatabaseMapped, row *sql.Rows, cols *ColumnCollection) error {
 	rowColumns, rowColumnsErr := row.Columns()
@@ -1345,9 +1425,10 @@ func PopulateByName(object DatabaseMapped, row *sql.Rows, cols *ColumnCollection
 	}
 
 	var values = make([]interface{}, len(rowColumns))
+	var columnLookup = cols.Lookup()
 
 	for i, name := range rowColumns {
-		if col, ok := cols.Lookup[name]; ok {
+		if col, ok := columnLookup[name]; ok {
 			if col.IsJSON {
 				str := ""
 				values[i] = &str
@@ -1369,7 +1450,7 @@ func PopulateByName(object DatabaseMapped, row *sql.Rows, cols *ColumnCollection
 	for i, v := range values {
 		colName := rowColumns[i]
 
-		if field, ok := cols.Lookup[colName]; ok {
+		if field, ok := columnLookup[colName]; ok {
 			err := field.SetValue(object, v)
 			if err != nil {
 				return exception.Wrap(err)
@@ -1384,13 +1465,9 @@ func PopulateByName(object DatabaseMapped, row *sql.Rows, cols *ColumnCollection
 // Only use this method if you're certain of the column order. It is faster than populateByName.
 // Optionally if your object implements Populatable this process will be skipped completely, which is even faster.
 func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols *ColumnCollection) error {
-	if populatable, isPopulatable := object.(Populatable); isPopulatable {
-		return populatable.Populate(row)
-	}
+	var values = make([]interface{}, cols.Len())
 
-	var values = make([]interface{}, len(cols.Columns))
-
-	for i, col := range cols.Columns {
+	for i, col := range cols.Columns() {
 		if col.FieldType.Kind() == reflect.Ptr {
 			if col.IsJSON {
 				str := ""
@@ -1419,8 +1496,9 @@ func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols *ColumnCollectio
 		return exception.Wrap(scanErr)
 	}
 
+	columns := cols.Columns()
 	for i, v := range values {
-		field := cols.Columns[i]
+		field := columns[i]
 		err := field.SetValue(object, v)
 		if err != nil {
 			return exception.Wrap(err)
