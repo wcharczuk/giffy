@@ -52,7 +52,7 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
                     $scope.add_tag_value = "";
                     jQuery("#add-tag-modal").modal('hide');
                     fetchTagData();
-               }); 
+               });
             });
         };
         
@@ -95,16 +95,18 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
                     linkLookup[link.tag_uuid] = link; 
                 }
                 $scope.linkLookup = linkLookup;
-            }, function(res) {});
+            }, function(res) {}); 
             
-            $http.get("/api/user.votes.image/" + $routeParams.image_id).then(function(res) {
-                var userVoteLookup = {};
-                for (var x = 0; x < res.data.response.length; x++) {
-                    var vote = res.data.response[x];
-                    userVoteLookup[vote.tag_uuid] = vote; 
-                }
-                $scope.userVoteLookup = userVoteLookup;
-            }, function(res) {});
+            if ($scope.current_user.is_logged_in) {
+                $http.get("/api/user.votes.image/" + $routeParams.image_id).then(function(res) {
+                    var userVoteLookup = {};
+                    for (var x = 0; x < res.data.response.length; x++) {
+                        var vote = res.data.response[x];
+                        userVoteLookup[vote.tag_uuid] = vote; 
+                    }
+                    $scope.userVoteLookup = userVoteLookup;
+                }, function(res) {});
+            }
         }
         
         $scope.$on("voted", function() {

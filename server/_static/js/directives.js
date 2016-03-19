@@ -1,5 +1,25 @@
 var giffyDirectives = angular.module('giffy.directives', []);
 
+giffyDirectives.factory('voteAPI', function($http) {
+  this.upvote = function(imageUUID, tagUUID) {
+    return $http.post("/api/vote.up/" + imageUUID + "/" + tagUUID, null);
+  };
+
+  this.downvote = function(imageUUID, tagUUID) {
+    return $http.post("/api/vote.down/" + imageUUID + "/" + tagUUID, null);
+  };
+  
+  this.deleteUserVote = function(imageUUID, tagUUID) {
+    return $http.delete("/api/user.vote/" + imageUUID + "/" + tagUUID);
+  }
+  
+  this.deleteLink = function(imageUUID, tagUUID) {
+    return $http.delete("/api/link/" + imageUUID + "/" + tagUUID);
+  }
+  return this;
+});
+
+
 giffyDirectives.directive("giffyImage", function() {
   return {
     restrict: 'E',
@@ -57,25 +77,6 @@ giffyDirectives.directive('voteButton',
   }
 );
 
-giffyDirectives.factory('voteAPI', function($http) {
-  this.upvote = function(imageUUID, tagUUID) {
-    return $http.post("/api/vote.up/" + imageUUID + "/" + tagUUID, null);
-  };
-
-  this.downvote = function(imageUUID, tagUUID) {
-    return $http.post("/api/vote.down/" + imageUUID + "/" + tagUUID, null);
-  };
-  
-  this.deleteVote = function(imageUUID, tagUUID) {
-    return $http.delete("/api/user.vote/" + imageUUID + "/" + tagUUID);
-  }
-  
-  this.deleteLink = function(imageUUID, tagUUID) {
-    return $http.delete("/api/link/" + imageUUID + "/" + tagUUID);
-  }
-  return this;
-});
-
 giffyDirectives.controller('VoteButtonController', ["$scope", "voteAPI", function($scope, voteAPI) {
     $scope.vote = function(isUpvote) {
       if (!$scope.hasVote()) {
@@ -85,7 +86,7 @@ giffyDirectives.controller('VoteButtonController', ["$scope", "voteAPI", functio
           voteAPI.downvote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
         }
       } else {
-        voteAPI.deleteVote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+        voteAPI.deleteUserVote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
       }
     };
     
