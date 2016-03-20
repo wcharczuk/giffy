@@ -220,7 +220,8 @@ from
 where
 	t.tag_value % $1
 order by 
-	similarity(t.tag_value, $1)
+	similarity(t.tag_value, $1) desc
+	, vs.votes_total desc
 `
 	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query).OutMany(&imageIDs)
 
