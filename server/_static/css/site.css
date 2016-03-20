@@ -216,6 +216,8 @@ body {
     height:250px;
 
     overflow: hidden;
+    
+    text-align: left;
 }
 
 .image-element .image-element-img {

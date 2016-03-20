@@ -6,10 +6,8 @@
             <h1>{{tag.tag_value}}</h1>
         </div>
         <div class="image-for-tag align-center" ng-repeat="image in images">
-            <a href="/#/image/{{image.uuid}}">
-                <img ng-src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
-                <vote-button type="'image'" user="current_user" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
-            </a>
+            <giffy-image class="image-result" image="image" user="current_user" style="display:block"></giffy-image>
+            <vote-button type="'image'" user="current_user" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
         </div>
     </div>
 </div>
