@@ -320,6 +320,10 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 		return ctx.BadRequest("`tag_value` must be set.")
 	}
 
+	if len(strings.Trim(tag.TagValue, " \t")) == 0 {
+		return ctx.BadRequest("`tag_value` must be set.")
+	}
+
 	tagValue := strings.ToLower(tag.TagValue)
 
 	//check if the tag exists first
