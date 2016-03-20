@@ -200,6 +200,7 @@ func TestSearchImages(t *testing.T) {
 	images, err := SearchImages("__test", tx)
 	assert.Nil(err)
 	assert.NotEmpty(images)
+	assert.Len(images, 3)
 
 	firstImage := images[0]
 	assert.NotNil(firstImage)

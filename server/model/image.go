@@ -218,7 +218,6 @@ from
 (
 	select 
 		i.id
-		, row_number() over (partition by t.id order by similarity(t.tag_value, $1) desc, vs.votes_total desc) as rank
 		, similarity(t.tag_value, $1) as relevance
 		, vs.votes_total as votes_total
 	from 
@@ -228,8 +227,6 @@ from
 	where
 		t.tag_value % $1
 ) as results
-where
-	rank = 1
 order by
 	relevance desc,
 	votes_total desc
