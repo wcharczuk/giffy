@@ -218,6 +218,8 @@ from
 	select 
 		i.id
 		, row_number() over (partition by i.id order by similarity(t.tag_value, $1) desc, vs.votes_total desc) as rank
+		, similarity(t.tag_value, $1) as relevance
+		, vs.votes_total as votes_total
 	from 
 		image i
 		join vote_summary vs on i.id = vs.image_id
@@ -225,7 +227,11 @@ from
 	where
 		t.tag_value % $1
 ) as results
-where results.rank = 1
+where 
+	rank = 1
+order by 
+	relevance desc,
+	votes_total desc
 `
 	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query).OutMany(&imageIDs)
 
