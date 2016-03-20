@@ -182,8 +182,9 @@ func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 // GetImageByMD5 returns an image by uuid.
 func GetImageByMD5(md5sum []byte, tx *sql.Tx) (*Image, error) {
 	image := Image{}
+	imageColumns := spiffy.NewColumnCollectionFromInstance(Image{}).ColumnNames()
 	err := spiffy.DefaultDb().
-		QueryInTransaction(`select * from image where md5 = $1`, tx, md5sum).Out(&image)
+		QueryInTransaction(fmt.Sprintf(`select %s from image where md5 = $1`, strings.Join(imageColumns, ",")), tx, md5sum).Out(&image)
 	return &image, err
 }
 
@@ -256,7 +257,9 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	var err error
 	var populateErr error
 
-	imageQueryAll := `select * from image`
+	imageColumns := spiffy.NewColumnCollectionFromInstance(Image{}).ColumnNames()
+
+	imageQueryAll := fmt.Sprintf(`select %s from image`, strings.Join(imageColumns, ","))
 	imageQuerySingle := fmt.Sprintf(`%s where id = $1`, imageQueryAll)
 	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[])`, imageQueryAll)
 
