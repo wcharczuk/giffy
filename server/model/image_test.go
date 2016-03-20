@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
@@ -172,28 +173,39 @@ func TestSearchImages(t *testing.T) {
 	u, err := createTestUser(tx)
 	assert.Nil(err)
 
+	i4, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i3, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i2, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "__test__", tx)
+	_, err = createTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = createTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
 	assert.Nil(err)
 
-	images, err := SearchImages("test", tx)
+	_, err = createTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
+	assert.Nil(err)
+
+	_, err = createTestTagForImage(u.ID, i.ID, "__test", tx)
+	assert.Nil(err)
+
+	images, err := SearchImages("__test", tx)
 	assert.Nil(err)
 	assert.NotEmpty(images)
 
-	firstResult := linq.First(images, NewImagePredicate(func(image Image) bool {
-		return image.ID == i.ID
-	}))
-	assert.NotNil(firstResult)
-
-	firstImage, resultIsImage := firstResult.(Image)
-	assert.True(resultIsImage)
+	firstImage := images[0]
 	assert.NotNil(firstImage)
 	assert.False(firstImage.IsZero())
+
+	assert.Equal(i.ID, firstImage.ID)
 
 	assert.NotNil(firstImage.CreatedByUser)
 	assert.NotEmpty(firstImage.Tags)
@@ -249,4 +261,20 @@ func TestGetImagesByID(t *testing.T) {
 			assert.Len(returnedImage.Tags, 5)
 		}
 	}
+}
+
+func TestSortImagesByIndex(t *testing.T) {
+	assert := assert.New(t)
+
+	ids := []int64{4, 3, 2, 1}
+
+	images := []Image{
+		Image{ID: 1},
+		Image{ID: 2},
+		Image{ID: 3},
+		Image{ID: 4},
+	}
+	assert.Equal(1, images[0].ID)
+	sort.Sort(newImagesByIndex(&images, ids))
+	assert.Equal(4, images[0].ID)
 }

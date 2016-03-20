@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -217,7 +218,7 @@ from
 (
 	select 
 		i.id
-		, row_number() over (partition by i.id order by similarity(t.tag_value, $1) desc, vs.votes_total desc) as rank
+		, row_number() over (partition by t.id order by similarity(t.tag_value, $1) desc, vs.votes_total desc) as rank
 		, similarity(t.tag_value, $1) as relevance
 		, vs.votes_total as votes_total
 	from 
@@ -227,9 +228,9 @@ from
 	where
 		t.tag_value % $1
 ) as results
-where 
+where
 	rank = 1
-order by 
+order by
 	relevance desc,
 	votes_total desc
 `
@@ -303,7 +304,7 @@ where vote_rank <= 5
 	userQuerySingle := fmt.Sprintf(`%s where i.id = $1`, userQueryAll)
 	userQueryMany := fmt.Sprintf(`%s where i.id = ANY($1::bigint[])`, userQueryAll)
 
-	images := []*Image{}
+	intermediateImages := []*Image{}
 	imageLookup := map[int64]*Image{}
 	userLookup := map[int64]*User{}
 
@@ -313,7 +314,7 @@ where vote_rank <= 5
 		if populateErr != nil {
 			return populateErr
 		}
-		images = append(images, i)
+		intermediateImages = append(intermediateImages, i)
 		imageLookup[i.ID] = i
 		return nil
 	}
@@ -385,14 +386,18 @@ where vote_rank <= 5
 		}
 	}
 
-	finalImages := make([]Image, len(images))
-	for x := 0; x < len(images); x++ {
-		img := images[x]
+	finalImages := make([]Image, len(intermediateImages))
+	for x := 0; x < len(intermediateImages); x++ {
+		img := intermediateImages[x]
 		if u, ok := userLookup[img.CreatedBy]; ok {
 			img.CreatedByUser = u
 		}
 
 		finalImages[x] = *img
+	}
+
+	if len(ids) > 1 {
+		sort.Sort(newImagesByIndex(&finalImages, ids))
 	}
 
 	return finalImages, nil
@@ -401,6 +406,36 @@ where vote_rank <= 5
 // --------------------------------------------------------------------------------
 // Helper Functions / Types
 // --------------------------------------------------------------------------------
+
+func newImagesByIndex(images *[]Image, ids []int64) *imagesByIndex {
+	is := imagesByIndex{
+		images:  images,
+		indexes: map[int64]int{},
+	}
+	for i, id := range ids {
+		is.indexes[id] = i
+	}
+	return &is
+}
+
+type imagesByIndex struct {
+	images  *[]Image
+	indexes map[int64]int
+}
+
+func (is imagesByIndex) Len() int {
+	return len(*is.images)
+}
+
+func (is imagesByIndex) Less(i, j int) bool {
+	firstID := (*is.images)[i].ID
+	secondID := (*is.images)[j].ID
+	return is.indexes[firstID] < is.indexes[secondID]
+}
+
+func (is imagesByIndex) Swap(i, j int) {
+	(*is.images)[i], (*is.images)[j] = (*is.images)[j], (*is.images)[i]
+}
 
 func csvOfInt(input []int64) string {
 	outputStrings := []string{}
