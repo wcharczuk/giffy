@@ -209,7 +209,6 @@ func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 // SearchImages searches for an image.
 func SearchImages(query string, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
-	queryFormat := fmt.Sprintf("%%%s%%", query)
 
 	imageQuery := `
 select 
@@ -219,9 +218,11 @@ from
 	join vote_summary vs on i.id = vs.image_id
 	join tag t on t.id = vs.tag_id
 where
-	t.tag_value ilike $1;
+	t.tag_value % $1
+order by 
+	similarity(t.tag_value, $1)
 `
-	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, queryFormat).OutMany(&imageIDs)
+	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err
@@ -235,7 +236,7 @@ where
 	return GetImagesByID(ids, tx)
 }
 
-// GetImagesByID returns images with tags for a list of ids.
+// GetImagesForUserID returns images for a user.
 func GetImagesForUserID(userID int64, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	imageQuery := `select i.id from image i where created_by = $1`
