@@ -228,6 +228,12 @@ giffyControllers.controller("moderationLogController", ["$scope", "$http", "$rou
 
 giffyControllers.controller("userSearchController", ["$scope", "$http", 
     function($scope, $http) {
+        // current user
+        $http.get("/api/user.current").success(function(datums) {
+            $scope.current_user = datums.response;
+        });
+        
+        
         $scope.searchUsers = function() {
             if ($scope.searchQuery) {
                 $http.get("/api/users.search?query=" + $scope.searchQuery).success(function(datums) {
