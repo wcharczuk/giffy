@@ -70,6 +70,8 @@ func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.
 		if err != nil {
 			return err
 		}
+
+		QueueModerationEntry(userID, ModerationVerbCreate, ModerationObjectLink, fmt.Sprintf("imageID: %v tagID: %v", imageID, tagID))
 	} else {
 		//check if user has already voted for this image ...
 		if isUpvote {
