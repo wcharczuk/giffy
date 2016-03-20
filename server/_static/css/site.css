@@ -44,6 +44,10 @@ body {
     line-height: 30px;
 }
 
+#giffy-header-name {
+    font-size: 35px;
+}
+
 #giffy-header-name a {
     text-decoration:none;
 }
@@ -63,6 +67,11 @@ body {
     margin-bottom: 25px;
 }
 
+#giffy-footer .footer-section {
+    display: inline-block;
+    margin-left: 5px;
+    margin-right: 5px;
+}
 
 /* begin vote-button */
 
@@ -103,7 +112,6 @@ body {
     background-color: #fff;
     color: black;
 }
-
 
 .vote-button .vote-controls {
     padding:0;
@@ -176,16 +184,6 @@ body {
 
 /* begin homepage */
 
-#giffy-home-results .image-element {
-    overflow: hidden;
-    max-width: 400px;
-}
-
-#giffy-home-results .image-element img {
-    max-width: unset;
-    max-height: 250px;
-    height: 250px;
-}
 
 /* end homepage */
 
@@ -209,16 +207,69 @@ body {
 /* begin image-element */
 
 .image-element {
-    display:inline-block;
-    margin: 10px;
+    display:inline-block !important;
+
+    position: relative;
+    display:block;
+
+    width:33%;
+    height:250px;
+
+    overflow: hidden;
 }
 
-.image-element .image-added-by {
+.image-element .image-element-img {
+    position:absolute;
+    top: 0
+    left: 0;
+
+    min-height: 250px;
+    min-width: 100%;
+}
+
+.image-element-link {
+    position:absolute;
+    top:0;
+    left:0;
+    bottom:0;
+    right:0;
+}
+
+.image-element .image-tags {
+    position: absolute;
+    bottom:0;
+    left:0;
+    background: rgba(80,80,80,0.2);
+    width:100%;
+
+    height: 30px;
+    line-height: 25px;
+
+    text-align:center;
+}
+
+.image-element .image-info {
+    display:none;
+    position: absolute;
+    top:0;
+    left:0;
+
+    width:100%;
+    height: 30px;
+    line-height: 30px;
+
     font-size:12px;
+
+    background: rgba(80,80,80,0.2);
+    text-align:center;
 }
 
-.image-added-by, .image-tags {
-    margin-top: 10px;
+.image-element:hover .image-info {
+    display: block;
+}
+
+.image-element .image-info .user-detail a{
+    color: #FFF;
 }
 
 .image-tags .label {
@@ -258,3 +309,12 @@ body {
 }
 
 /* end tag page */
+
+/* begin user page */
+
+#giffy-user .info-row {
+    margin-top:5px;
+    margin-bottom:5px;
+}
+
+/* end user page */

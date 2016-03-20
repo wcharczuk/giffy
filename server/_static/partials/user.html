@@ -1,7 +1,43 @@
 <div ng-include="'/static/partials/header.html'"/>
-<div id="giffy-user" class="row">
-	<div class="col-md-10">
-		
+<div id="giffy-user">
+	<div class="row">
+		<div class="col-md-8 col-md-offset-2">
+			<div class="page-header">
+				<h1>{{user.username}}</h1>
+			</div>
+			<div class="info-row row">
+				<div class="col-md-2">Username:</div>
+				<div class="col-md-4">{{user.username}}</div>
+				<div class="col-md-2">Roles:</div>
+				<div class="col-md-4">
+					<span class="label label-info ng-scope" ng-if="user.is_admin">Admin</span>
+					<span class="label label-primary ng-scope" ng-if="user.is_moderator">Moderator</span>
+					<span class="label label-danger ng-scope" ng-if="user.is_banned">Banned</span>
+				</div>
+			</div>
+			<div class="info-row row">
+				<div class="col-md-2">Name:</div>
+				<div class="col-md-4">{{user.first_name}} {{user.last_name}}</div>
+
+				<div class="col-md-2">Joined:</div>
+				<div class="col-md-4">{{user.created_utc}}</div>
+			</div>
+			<div class="info-row row" ng-if="current_user.is_admin">
+				<div class="col-md-2">Admin Controls:</div>
+				<div class="col-md-10">
+					<button class="btn btn-primary btn-xs" ng-click="promote()" ng-disabled="user.is_admin">Moderator</button>
+					<button class="btn btn-danger btn-xs" ng-click="ban()" ng-disabled="user.is_admin">Ban</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-md-10 col-md-offset-1">
+			<div class="page-header">
+				<h4>Images they've added:</h4>
+			</div>
+			<giffy-image class="image-result" image="image" user="current_user" ng-repeat="image in images"></giffy-image>
+		</div>
 	</div>
 </div>
 <div ng-include="'/static/partials/footer.html'"/>

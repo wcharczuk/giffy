@@ -57,7 +57,7 @@ func searchTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	userUUID := ctx.RouteParameter("user_id")
 
-	if session.User.IsAdmin {
+	if !session.User.IsAdmin {
 		return ctx.NotAuthorized()
 	}
 
@@ -108,7 +108,7 @@ func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 		return ctx.InternalError(err)
 	}
 
-	return ctx.OK()
+	return ctx.JSON(postedUser)
 }
 
 func getRecentModerationLog(ctx *web.HTTPContext) web.ControllerResult {
@@ -240,6 +240,41 @@ func getUsersAction(ctx *web.HTTPContext) web.ControllerResult {
 		return ctx.InternalError(err)
 	}
 	return ctx.JSON(users)
+}
+
+func getUserAction(ctx *web.HTTPContext) web.ControllerResult {
+	userUUID := ctx.RouteParameter("user_id")
+
+	user, err := model.GetUserByUUID(userUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	if user.IsZero() {
+		return ctx.NotFound()
+	}
+
+	return ctx.JSON(user)
+}
+
+func getUserImagesAction(ctx *web.HTTPContext) web.ControllerResult {
+	userUUID := ctx.RouteParameter("user_id")
+
+	user, err := model.GetUserByUUID(userUUID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	if user.IsZero() {
+		return ctx.NotFound()
+	}
+
+	images, err := model.GetImagesForUserID(user.ID, nil)
+	if err != nil {
+		return ctx.InternalError(err)
+	}
+
+	return ctx.JSON(images)
 }
 
 func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
@@ -828,6 +863,10 @@ func Init() *httprouter.Router {
 
 	//api endpoints
 	router.GET("/api/users", web.ActionHandler(getUsersAction))
+	router.GET("/api/user/:user_id", web.ActionHandler(getUserAction))
+	router.PUT("/api/user/:user_id", web.ActionHandler(auth.SessionRequiredAction(updateUserAction)))
+
+	router.GET("/api/user.images/:user_id", web.ActionHandler(getUserImagesAction))
 
 	router.GET("/api/user.current", web.ActionHandler(auth.SessionAwareAction(getCurrentUserAction)))
 

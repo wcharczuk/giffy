@@ -109,12 +109,27 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
             }
         }
         
+        $scope.formatFileSize = function(fileSizeBytes) {
+            if (fileSizeBytes > (1<<30)) {
+                return (fileSizeBytes / (1<<30)).toFixed(2) + " GB";
+            } 
+
+            if (fileSizeBytes > (1 << 20)) {
+                return (fileSizeBytes / (1<<20)).toFixed(2) + " MB";
+            }
+
+            if (fileSizeBytes > (1 << 10)) {
+                return (fileSizeBytes / 1024).toFixed(2) + " KB";
+            }
+
+            return fileSizeBytes + " bytes"
+        };
+
         $scope.$on("voted", function() {
            fetchTagData(); 
         });
                 
         fetchImageData();
-        
     }
 ]);
 
@@ -167,6 +182,36 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
     }
 ]);
 
+giffyControllers.controller("userController", ["$scope", "$http", "$routeParams", 
+    function($scope, $http, $routeParams) {
+        // current user
+        $http.get("/api/user.current").success(function(datums) {
+            $scope.current_user = datums.response;
+
+            getUser();
+        });
+        
+        function getUser() {
+            // current user
+            $http.get("/api/user/" + $routeParams.user_id).success(function(datums) {
+                $scope.user = datums.response;
+
+                $http.get("/api/user.images/" + $routeParams.user_id).success(function(datums) {
+                    $scope.images = datums.response;
+                });
+            });
+        }
+
+        $scope.promote= function() {
+            var user = $scope.user;
+            user.is_moderator = !user.is_moderator;
+            $http.put("/api/user/" + $routeParams.user_id, user).success(function(datums) {
+                $scope.user = datums.response;
+            });
+        };
+    }
+]);
+
 giffyControllers.controller("moderationLogController", ["$scope", "$http", "$routeParams", 
     function($scope, $http, $routeParams) {
         // current user
@@ -178,5 +223,20 @@ giffyControllers.controller("moderationLogController", ["$scope", "$http", "$rou
         $http.get("/api/moderation.log/pages/50/0").success(function(datums) {
             $scope.log = datums.response;
         });
+    }
+]);
+
+giffyControllers.controller("userSearchController", ["$scope", "$http", 
+    function($scope, $http) {
+        $scope.searchUsers = function() {
+            if ($scope.searchQuery) {
+                $http.get("/api/users.search?query=" + $scope.searchQuery).success(function(datums) {
+                    $scope.users = datums.response;
+                    $scope.searchedQuery = $scope.searchQuery;
+                });
+            } else {
+                delete $scope.users;
+            }
+        };
     }
 ]);

@@ -2,7 +2,10 @@
 
 <div class="row">
 	<div class="col-md-10 col-md-offset-1">
-		<table id="moderation-log">
+		<div class="page-header">
+			<h1>Moderation Log</h1>
+		</div>
+		<table id="moderation-log" class="table">
 			<thead>
 				<tr>
 					<th>User</th><th>Time</th><th>Verb</th><th>Object</th><th>Noun</th>
@@ -17,7 +20,8 @@
 					<td>
 						<a href="/#/image/{{entry.name}}" ng-if="entry.noun === 'image'">{{entry.name}}</a>
 						<a href="/#/tag/{{entry.name}}" ng-if="entry.noun === 'tag'">{{entry.name}}</a>
-						<span ng-if="entry.noun !== 'image' && entry.noun !== 'tag'">{{entry.name}}</span>
+						<a href="/#/user/{{entry.name}}" ng-if="entry.noun === 'user'">{{entry.name}}</a>
+						<span ng-if="entry.noun !== 'image' && entry.noun !== 'tag' && entry.noun != 'user'">{{entry.name}}</span>
 					</td>
 				</tr>
 			</tbody>

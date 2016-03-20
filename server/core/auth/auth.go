@@ -27,7 +27,6 @@ func VerifySession(sessionID string) (*Session, error) {
 	}
 
 	session := model.UserSession{}
-	println("fetching session id:", sessionID)
 	sessionErr := spiffy.DefaultDb().GetByID(&session, sessionID)
 
 	if sessionErr != nil {

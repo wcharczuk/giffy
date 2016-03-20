@@ -49,6 +49,7 @@ type Image struct {
 	Width  int `json:"width" db:"width"`
 	Height int `json:"height" db:"height"`
 
+	FileSize  int    `json:"file_size" db:"file_size"`
 	Extension string `json:"extension" db:"extension"`
 
 	Tags []Tag `json:"tags,omitempty" db:"-"`
@@ -78,6 +79,7 @@ func (i *Image) Populate(r *sql.Rows) error {
 		&i.S3Key,
 		&i.Width,
 		&i.Height,
+		&i.FileSize,
 		&i.Extension,
 	)
 }
@@ -122,6 +124,7 @@ func NewImageFromPostedFile(userID int64, postedFile web.PostedFile) (*Image, er
 	newImage.Extension = filepath.Ext(postedFile.Filename)
 	newImage.Height = imageMeta.Height
 	newImage.Width = imageMeta.Width
+	newImage.FileSize = len(postedFile.Contents)
 	return newImage, nil
 }
 
@@ -219,6 +222,23 @@ where
 `
 	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, queryFormat).OutMany(&imageIDs)
 
+	if err != nil {
+		return nil, err
+	}
+
+	if len(imageIDs) == 0 {
+		return []Image{}, nil
+	}
+
+	ids := imageSignatures(imageIDs).AsInt64s()
+	return GetImagesByID(ids, tx)
+}
+
+// GetImagesByID returns images with tags for a list of ids.
+func GetImagesForUserID(userID int64, tx *sql.Tx) ([]Image, error) {
+	var imageIDs []imageSignature
+	imageQuery := `select i.id from image i where created_by = $1`
+	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, userID).OutMany(&imageIDs)
 	if err != nil {
 		return nil, err
 	}

@@ -52,6 +52,8 @@ CREATE TABLE image (
 
 	width int not null,
 	height int not null,
+	file_size int not null,
+	
 	extension varchar(8)
 );
 ALTER TABLE image ADD CONSTRAINT pk_image_id PRIMARY KEY (id);

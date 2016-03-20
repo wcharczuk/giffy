@@ -1,14 +1,7 @@
 <div class="image-element">
-    <a href="/#/image/{{image.uuid}}">
-        <img class="image-element" src="{{image.s3_read_url}}" alt="{{image.display_name}}"/>
-    </a>
-    <div class="image-delete" ng-if="canDelete()">
-        <span>Moderator Controls:</span><button class="btn btn-danger input-xs" ng-click="delete()">Delete</button>
-    </div>
-    <div class="image-added-by">
-        <span>Added By: <user-detail user="image.created_by"></user-detail></span>
-    </div>
+    <img class="image-element-img" ng-src="{{image.s3_read_url}}"/>
+    <a class="image-element-link" href="/#/image/{{image.uuid}}"></a>
     <div class="image-tags">
         <a class="label label-primary" href="/#/tag/{{tag.tag_value}}" ng-repeat="tag in image.tags">#{{tag.tag_value}}</a>
     </div>
-</div>
+</a>
