@@ -21,8 +21,6 @@
 						<a href="/#/user/{{entry.user.uuid}}" ng-if="entry.object === 'user'">{{entry.user.username}}</a>
 						<a href="/#/image/{{entry.image.uuid}}" ng-if="entry.object === 'image' || entry.object === 'link'">{{entry.image.display_name}}</a>
 						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'tag'">{{entry.tag.tag_value}}</a>
-						
-						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'tag'">{{entry.tag.tag_value}}</a>
 					</td>
 					<td>
 						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'link'">{{entry.tag.tag_value}}</a>
