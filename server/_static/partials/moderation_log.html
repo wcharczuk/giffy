@@ -8,7 +8,7 @@
 		<table id="moderation-log" class="table">
 			<thead>
 				<tr>
-					<th>User</th><th>Time</th><th>Verb</th><th>Object</th><th>Noun</th>
+					<th>User</th><th>Time</th><th>Verb</th><th>Object</th><th>Noun</th><th>Secondary Noun</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -23,6 +23,9 @@
 						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'tag'">{{entry.tag.tag_value}}</a>
 						
 						<span ng-if="entry.object !== 'image' && entry.object !== 'tag' && entry.object != 'user'">{{entry.noun}}</span>
+					</td>
+					<td>
+						{{entry.secondary_noun}}
 					</td>
 				</tr> 
 			</tbody>
