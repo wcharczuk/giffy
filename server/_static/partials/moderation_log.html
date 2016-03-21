@@ -19,13 +19,13 @@
 					<td>{{entry.object}}</td>
 					<td>
 						<a href="/#/user/{{entry.user.uuid}}" ng-if="entry.object === 'user'">{{entry.user.username}}</a>
-						<a href="/#/image/{{entry.image.uuid}}" ng-if="entry.object === 'image'">{{entry.image.display_name}}</a>
+						<a href="/#/image/{{entry.image.uuid}}" ng-if="entry.object === 'image' || entry.object === 'link'">{{entry.image.display_name}}</a>
 						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'tag'">{{entry.tag.tag_value}}</a>
 						
-						<span ng-if="entry.object !== 'image' && entry.object !== 'tag' && entry.object != 'user'">{{entry.noun}}</span>
+						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'tag'">{{entry.tag.tag_value}}</a>
 					</td>
 					<td>
-						{{entry.secondary_noun}}
+						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'link'">{{entry.tag.tag_value}}</a>
 					</td>
 				</tr> 
 			</tbody>
