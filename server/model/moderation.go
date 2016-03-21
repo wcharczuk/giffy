@@ -47,7 +47,7 @@ const (
 )
 
 // NewModeration returns a new moderation object
-func NewModeration(userID int64, verb, object, noun, secondary_noun string) *Moderation {
+func NewModeration(userID int64, verb, object, noun, secondaryNoun string) *Moderation {
 	return &Moderation{
 		UserID:        userID,
 		UUID:          core.UUIDv4().ToShortString(),
@@ -55,7 +55,7 @@ func NewModeration(userID int64, verb, object, noun, secondary_noun string) *Mod
 		Verb:          verb,
 		Object:        object,
 		Noun:          noun,
-		SecondaryNoun: noun,
+		SecondaryNoun: secondaryNoun,
 	}
 }
 
@@ -66,7 +66,7 @@ type Moderation struct {
 	TimestampUTC  time.Time `json:"timestamp_utc" db:"timestamp_utc"`
 	Verb          string    `json:"verb" db:"verb"`
 	Object        string    `json:"object" db:"object"`
-	Noun          string    `json:"name" db:"noun"`
+	Noun          string    `json:"noun" db:"noun"`
 	SecondaryNoun string    `json:"secondary_noun" db:"secondary_noun"`
 
 	Moderator *User `json:"moderator" db:"-"`
