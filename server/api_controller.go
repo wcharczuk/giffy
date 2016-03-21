@@ -1,26 +1,25 @@
 package server
 
 import (
-	"bytes"
 	"crypto/md5"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/blendlabs/connectivity/core/web"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/filecache"
+	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 )
 
+// APIController is the controller for api endpoints.
 type APIController struct{}
 
-func searchUsersAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) searchUsersAction(ctx *web.HTTPContext) web.ControllerResult {
 	query := ctx.Param("query")
 	users, err := model.SearchUsers(query, nil)
 	if err != nil {
@@ -29,7 +28,7 @@ func searchUsersAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(users)
 }
 
-func searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	query := ctx.Param("query")
 	results, err := model.SearchImages(query, nil)
 	if err != nil {
@@ -38,7 +37,7 @@ func searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(results)
 }
 
-func searchTagsAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) searchTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 	query := ctx.Param("query")
 	results, err := model.SearchTags(query, nil)
 	if err != nil {
@@ -47,7 +46,7 @@ func searchTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(results)
 }
 
-func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	userUUID := ctx.RouteParameter("user_id")
 
 	if !session.User.IsAdmin {
@@ -104,7 +103,7 @@ func updateUserAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 	return ctx.JSON(postedUser)
 }
 
-func getRecentModerationLog(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getRecentModerationLog(ctx *web.HTTPContext) web.ControllerResult {
 	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -1), nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -113,7 +112,7 @@ func getRecentModerationLog(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(moderationLog)
 }
 
-func getModerationForUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getModerationForUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	if !session.User.IsModerator {
 		return ctx.NotAuthorized()
 	}
@@ -135,7 +134,7 @@ func getModerationForUserAction(session *auth.Session, ctx *web.HTTPContext) web
 	return ctx.JSON(actions)
 }
 
-func getImageAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
@@ -147,7 +146,7 @@ func getImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(image)
 }
 
-func getImagesAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	images, err := model.GetAllImages(nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -155,7 +154,7 @@ func getImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(images)
 }
 
-func getRandomImagesAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getRandomImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	count := ctx.RouteParameterInt("count")
 
 	images, err := model.GetRandomImages(count, nil)
@@ -165,7 +164,7 @@ func getRandomImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(images)
 }
 
-func getImagesForTagAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getImagesForTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	tagUUID := ctx.RouteParameter("tag_id")
 	tag, err := model.GetTagByUUID(tagUUID, nil)
 	if err != nil {
@@ -182,7 +181,7 @@ func getImagesForTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(results)
 }
 
-func getTagsForImageAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getTagsForImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
@@ -199,7 +198,7 @@ func getTagsForImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(results)
 }
 
-func getTagAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	tagUUID := ctx.RouteParameter("tag_id")
 	tag, err := model.GetTagByUUID(tagUUID, nil)
 	if err != nil {
@@ -219,7 +218,7 @@ func getTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(tag)
 }
 
-func getTagsAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 	tags, err := model.GetAllTags(nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -227,7 +226,7 @@ func getTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(tags)
 }
 
-func getUsersAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getUsersAction(ctx *web.HTTPContext) web.ControllerResult {
 	users, err := model.GetAllUsers(nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -235,7 +234,7 @@ func getUsersAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(users)
 }
 
-func getUserAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getUserAction(ctx *web.HTTPContext) web.ControllerResult {
 	userUUID := ctx.RouteParameter("user_id")
 
 	user, err := model.GetUserByUUID(userUUID, nil)
@@ -250,7 +249,7 @@ func getUserAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(user)
 }
 
-func getUserImagesAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getUserImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	userUUID := ctx.RouteParameter("user_id")
 
 	user, err := model.GetUserByUUID(userUUID, nil)
@@ -270,7 +269,7 @@ func getUserImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(images)
 }
 
-func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) createImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	files, filesErr := ctx.PostedFiles()
 	if filesErr != nil {
 		return ctx.BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
@@ -292,7 +291,7 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 		return ctx.JSON(existing)
 	}
 
-	image, err := createImageFromFile(session.UserID, postedFile)
+	image, err := CreateImageFromFile(session.UserID, postedFile)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -302,7 +301,7 @@ func createImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 	return ctx.JSON(image)
 }
 
-func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	tag := &model.Tag{}
 	err := ctx.PostBodyAsJSON(tag)
 	if err != nil {
@@ -342,7 +341,7 @@ func createTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 	return ctx.JSON(tag)
 }
 
-func deleteImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) deleteImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -374,7 +373,7 @@ func deleteImageAction(session *auth.Session, ctx *web.HTTPContext) web.Controll
 	return ctx.OK()
 }
 
-func deleteTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) deleteTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -403,7 +402,7 @@ func deleteTagAction(session *auth.Session, ctx *web.HTTPContext) web.Controller
 	return ctx.OK()
 }
 
-func getLinksForImageAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getLinksForImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
@@ -419,7 +418,7 @@ func getLinksForImageAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(voteSummaries)
 }
 
-func getLinksForTagAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getLinksForTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	tagUUID := ctx.RouteParameter("tag_id")
 	tag, err := model.GetTagByUUID(tagUUID, nil)
 	if err != nil {
@@ -435,7 +434,7 @@ func getLinksForTagAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.JSON(voteSummaries)
 }
 
-func getVotesForUserForImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getVotesForUserForImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
@@ -451,7 +450,7 @@ func getVotesForUserForImageAction(session *auth.Session, ctx *web.HTTPContext) 
 	return ctx.JSON(votes)
 }
 
-func getVotesForUserForTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getVotesForUserForTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	tagUUID := ctx.RouteParameter("tag_id")
 	tag, err := model.GetTagByUUID(tagUUID, nil)
 	if err != nil {
@@ -467,15 +466,15 @@ func getVotesForUserForTagAction(session *auth.Session, ctx *web.HTTPContext) we
 	return ctx.JSON(votes)
 }
 
-func upvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	return voteAction(true, session, ctx)
+func (api APIController) upvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	return api.voteAction(true, session, ctx)
 }
 
-func downvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	return voteAction(false, session, ctx)
+func (api APIController) downvoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	return api.voteAction(false, session, ctx)
 }
 
-func voteAction(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) voteAction(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	tagUUID := ctx.RouteParameter("tag_id")
 	userID := session.UserID
@@ -517,7 +516,7 @@ func voteAction(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.
 	return ctx.OK()
 }
 
-func deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 	tagUUID := ctx.RouteParameter("tag_id")
 	userID := session.UserID
@@ -582,7 +581,7 @@ func deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext) web.Contr
 	return ctx.OK()
 }
 
-func deleteLinkAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) deleteLinkAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return ctx.InternalError(err)
@@ -620,7 +619,7 @@ func deleteLinkAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 	return ctx.OK()
 }
 
-func getCurrentUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getCurrentUserAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	cu := &viewmodel.CurrentUser{}
 	if session == nil {
 		cu.SetLoggedOut(ctx)
@@ -630,7 +629,7 @@ func getCurrentUserAction(session *auth.Session, ctx *web.HTTPContext) web.Contr
 	return ctx.JSON(cu)
 }
 
-func getSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	key := ctx.RouteParameter("key")
 	value, hasValue := session.State[key]
 	if !hasValue {
@@ -639,38 +638,13 @@ func getSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.Contro
 	return ctx.JSON(value)
 }
 
-func setSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) setSessionKeyAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	key := ctx.RouteParameter("key")
 	session.State[key] = ctx.PostBodyAsString()
 	return ctx.OK()
 }
 
-// createImageFromFile creates and uploads an image from a posted file.
-func createImageFromFile(userID int64, file web.PostedFile) (*model.Image, error) {
-	newImage, err := model.NewImageFromPostedFile(userID, file)
-	if err != nil {
-		return nil, err
-	}
-
-	buf := bytes.NewBuffer(file.Contents)
-	remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(file.Contents)})
-	if err != nil {
-		return nil, err
-	}
-
-	newImage.S3Bucket = remoteEntry.Bucket
-	newImage.S3Key = remoteEntry.Key
-	newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
-
-	err = spiffy.DefaultDb().Create(newImage)
-	if err != nil {
-		return nil, err
-	}
-
-	return newImage, nil
-}
-
-func getModerationLogByCountAndOffsetAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api APIController) getModerationLogByCountAndOffsetAction(ctx *web.HTTPContext) web.ControllerResult {
 	count := ctx.RouteParameterInt("count")
 	offset := ctx.RouteParameterInt("offset")
 
@@ -682,51 +656,52 @@ func getModerationLogByCountAndOffsetAction(ctx *web.HTTPContext) web.Controller
 	return ctx.JSON(log)
 }
 
+// Register adds the routes to the router.
 func (api APIController) Register(router *httprouter.Router) {
-	router.GET("/api/users", web.ActionHandler(getUsersAction))
-	router.GET("/api/user/:user_id", web.ActionHandler(getUserAction))
-	router.PUT("/api/user/:user_id", web.ActionHandler(auth.SessionRequiredAction(updateUserAction)))
+	router.GET("/api/users", web.ActionHandler(api.getUsersAction))
+	router.GET("/api/user/:user_id", web.ActionHandler(api.getUserAction))
+	router.PUT("/api/user/:user_id", web.ActionHandler(auth.SessionRequiredAction(api.updateUserAction)))
 
-	router.GET("/api/user.images/:user_id", web.ActionHandler(getUserImagesAction))
+	router.GET("/api/user.images/:user_id", web.ActionHandler(api.getUserImagesAction))
 
-	router.GET("/api/user.current", web.ActionHandler(auth.SessionAwareAction(getCurrentUserAction)))
+	router.GET("/api/user.current", web.ActionHandler(auth.SessionAwareAction(api.getCurrentUserAction)))
 
-	router.GET("/api/images", web.ActionHandler(getImagesAction))
-	router.POST("/api/images", web.ActionHandler(auth.SessionRequiredAction(createImageAction)))
-	router.GET("/api/images/random/:count", web.ActionHandler(getRandomImagesAction))
+	router.GET("/api/images", web.ActionHandler(api.getImagesAction))
+	router.POST("/api/images", web.ActionHandler(auth.SessionRequiredAction(api.createImageAction)))
+	router.GET("/api/images/random/:count", web.ActionHandler(api.getRandomImagesAction))
 
-	router.GET("/api/image/:image_id", web.ActionHandler(getImageAction))
-	router.DELETE("/api/image/:image_id", web.ActionHandler(auth.SessionRequiredAction(deleteImageAction)))
+	router.GET("/api/image/:image_id", web.ActionHandler(api.getImageAction))
+	router.DELETE("/api/image/:image_id", web.ActionHandler(auth.SessionRequiredAction(api.deleteImageAction)))
 
-	router.GET("/api/tag.images/:tag_id", web.ActionHandler(getImagesForTagAction))
-	router.GET("/api/image.tags/:image_id", web.ActionHandler(getTagsForImageAction))
+	router.GET("/api/tag.images/:tag_id", web.ActionHandler(api.getImagesForTagAction))
+	router.GET("/api/image.tags/:image_id", web.ActionHandler(api.getTagsForImageAction))
 
-	router.GET("/api/tags", web.ActionHandler(getTagsAction))
-	router.POST("/api/tags", web.ActionHandler(auth.SessionRequiredAction(createTagAction)))
-	router.GET("/api/tag/:tag_id", web.ActionHandler(getTagAction))
-	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteTagAction)))
+	router.GET("/api/tags", web.ActionHandler(api.getTagsAction))
+	router.POST("/api/tags", web.ActionHandler(auth.SessionRequiredAction(api.createTagAction)))
+	router.GET("/api/tag/:tag_id", web.ActionHandler(api.getTagAction))
+	router.DELETE("/api/tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(api.deleteTagAction)))
 
-	router.GET("/api/image.votes/:image_id", web.ActionHandler(getLinksForImageAction))
-	router.GET("/api/tag.votes/:tag_id", web.ActionHandler(getLinksForTagAction))
+	router.GET("/api/image.votes/:image_id", web.ActionHandler(api.getLinksForImageAction))
+	router.GET("/api/tag.votes/:tag_id", web.ActionHandler(api.getLinksForTagAction))
 
-	router.DELETE("/api/link/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteLinkAction)))
+	router.DELETE("/api/link/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(api.deleteLinkAction)))
 
-	router.GET("/api/user.votes.image/:image_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForImageAction)))
-	router.GET("/api/user.votes.tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(getVotesForUserForTagAction)))
-	router.DELETE("/api/user.vote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(deleteUserVoteAction)))
+	router.GET("/api/user.votes.image/:image_id", web.ActionHandler(auth.SessionRequiredAction(api.getVotesForUserForImageAction)))
+	router.GET("/api/user.votes.tag/:tag_id", web.ActionHandler(auth.SessionRequiredAction(api.getVotesForUserForTagAction)))
+	router.DELETE("/api/user.vote/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(api.deleteUserVoteAction)))
 
-	router.POST("/api/vote.up/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(upvoteAction)))
-	router.POST("/api/vote.down/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(downvoteAction)))
+	router.POST("/api/vote.up/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(api.upvoteAction)))
+	router.POST("/api/vote.down/:image_id/:tag_id", web.ActionHandler(auth.SessionRequiredAction(api.downvoteAction)))
 
-	router.GET("/api/users.search", web.ActionHandler(searchUsersAction))
-	router.GET("/api/images.search", web.ActionHandler(searchImagesAction))
-	router.GET("/api/tags.search", web.ActionHandler(searchTagsAction))
+	router.GET("/api/users.search", web.ActionHandler(api.searchUsersAction))
+	router.GET("/api/images.search", web.ActionHandler(api.searchImagesAction))
+	router.GET("/api/tags.search", web.ActionHandler(api.searchTagsAction))
 
-	router.GET("/api/moderation.log/recent", web.ActionHandler(getRecentModerationLog))
-	router.GET("/api/moderation.log/pages/:count/:offset", web.ActionHandler(getModerationLogByCountAndOffsetAction))
+	router.GET("/api/moderation.log/recent", web.ActionHandler(api.getRecentModerationLog))
+	router.GET("/api/moderation.log/pages/:count/:offset", web.ActionHandler(api.getModerationLogByCountAndOffsetAction))
 
 	//session endpoints
-	router.GET("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(getSessionKeyAction)))
-	router.POST("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(setSessionKeyAction)))
+	router.GET("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(api.getSessionKeyAction)))
+	router.POST("/api/session/:key", web.ActionHandler(auth.SessionRequiredAction(api.setSessionKeyAction)))
 
 }

@@ -1,15 +1,18 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
+	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/core/auth"
+	"github.com/wcharczuk/giffy/server/core/filecache"
 	"github.com/wcharczuk/giffy/server/core/web"
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 const (
@@ -17,7 +20,32 @@ const (
 	OAuthProviderGoogle = "google"
 )
 
-func indexAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+// CreateImageFromFile creates and uploads a new image.
+func CreateImageFromFile(userID int64, file web.PostedFile) (*model.Image, error) {
+	newImage, err := model.NewImageFromPostedFile(userID, file)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(file.Contents)
+	remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(file.Contents)})
+	if err != nil {
+		return nil, err
+	}
+
+	newImage.S3Bucket = remoteEntry.Bucket
+	newImage.S3Key = remoteEntry.Key
+	newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
+
+	err = spiffy.DefaultDb().Create(newImage)
+	if err != nil {
+		return nil, err
+	}
+
+	return newImage, nil
+}
+
+func indexAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.Static("server/_static/index.html")
 }
 
@@ -41,8 +69,6 @@ func Init() *httprouter.Router {
 	new(ImageController).Register(router)
 
 	router.GET("/", web.ActionHandler(indexAction))
-
-	//static files
 	router.ServeFiles("/static/*filepath", http.Dir("server/_static"))
 
 	router.NotFound = web.NotFoundHandler

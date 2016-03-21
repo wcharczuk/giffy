@@ -1,12 +1,12 @@
 package server
 
 import (
-	"github.com/blendlabs/connectivity/core/web"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/external"
+	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 )
@@ -104,8 +104,8 @@ func (ac AuthController) logoutAction(session *auth.Session, ctx *web.HTTPContex
 }
 
 // Register registers the controllers routes.
-func (ac HomeController) Register(router *httprouter.Router) {
-	router.GET("/oauth", web.ActionHandler(auth.SessionAwareAction(hc.oauthAction)))
-	router.GET("/logout", web.ActionHandler(auth.SessionRequiredAction(hc.logoutAction)))
-	router.POST("/logout", web.ActionHandler(auth.SessionRequiredAction(hc.logoutAction)))
+func (ac AuthController) Register(router *httprouter.Router) {
+	router.GET("/oauth", web.ActionHandler(auth.SessionAwareAction(ac.oauthAction)))
+	router.GET("/logout", web.ActionHandler(auth.SessionRequiredAction(ac.logoutAction)))
+	router.POST("/logout", web.ActionHandler(auth.SessionRequiredAction(ac.logoutAction)))
 }

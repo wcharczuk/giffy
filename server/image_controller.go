@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/blendlabs/connectivity/core/web"
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core/auth"
+	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -46,7 +46,7 @@ func (ic ImageController) uploadImageCompleteAction(session *auth.Session, ctx *
 		return ctx.View("upload_image_complete", existing)
 	}
 
-	image, err := createImageFromFile(session.UserID, postedFile)
+	image, err := CreateImageFromFile(session.UserID, postedFile)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
