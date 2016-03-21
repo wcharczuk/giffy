@@ -71,7 +71,7 @@ type Moderation struct {
 
 	Moderator *User `json:"moderator" db:"-"`
 
-	User  *User  `json:"moderator,omitempty" db:"-"`
+	User  *User  `json:"user,omitempty" db:"-"`
 	Image *Image `json:"image,omitempty" db:"-"`
 	Tag   *Tag   `json:"tag,omitempty" db:"-"`
 }
@@ -190,17 +190,17 @@ func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
 		m.Moderator = &mu
 
 		err = spiffy.PopulateByName(&u, r, userColumns)
-		if err == nil {
+		if err == nil && !u.IsZero() {
 			m.User = &u
 		}
 
 		err = spiffy.PopulateByName(&i, r, imageColumns)
-		if err == nil {
+		if err == nil && !i.IsZero() {
 			m.Image = &i
 		}
 
 		err = spiffy.PopulateByName(&t, r, tagColumns)
-		if err == nil {
+		if err == nil && !t.IsZero() {
 			m.Tag = &t
 		}
 
