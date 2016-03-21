@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 )
 
@@ -19,7 +20,7 @@ func TestModerationCreate(t *testing.T) {
 	i, err := createTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID)
+	m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
 	err = spiffy.DefaultDb().CreateInTransaction(m, tx)
 	assert.Nil(err)
 
@@ -42,7 +43,7 @@ func TestGetModerationsForUser(t *testing.T) {
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {
-		m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID)
+		m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
 		err = spiffy.DefaultDb().CreateInTransaction(m, tx)
 		assert.Nil(err)
 	}
@@ -70,7 +71,7 @@ func TestGetModerationLogByCountAndOffset(t *testing.T) {
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {
-		m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID)
+		m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
 		err = spiffy.DefaultDb().CreateInTransaction(m, tx)
 		assert.Nil(err)
 	}

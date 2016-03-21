@@ -751,6 +751,7 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 	}
 
 	var tagID int64
+	var tagUUID string
 	if existingTag.IsZero() {
 		newTag := model.NewTag(session.UserID, tagValue)
 		err = spiffy.DefaultDb().Create(newTag)
@@ -758,6 +759,7 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 			return ctx.InternalError(err)
 		}
 		tagID = newTag.ID
+		tagUUID = newTag.UUID
 
 		err = model.UpdateImageDisplayName(image.ID, tagValue, nil)
 		if err != nil {
@@ -765,15 +767,19 @@ func uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.
 		}
 	} else {
 		tagID = existingTag.ID
+		tagUUID = existingTag.UUID
 	}
 
 	// automatically vote for the tag <==> image
-	err = model.CreateOrIncrementVote(session.UserID, image.ID, tagID, true, nil)
+	didCreate, err := model.CreateOrIncrementVote(session.UserID, image.ID, tagID, true, nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
 
 	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
+	if didCreate {
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectLink, image.UUID, tagUUID)
+	}
 	return ctx.View("upload_image_complete", image)
 }
 

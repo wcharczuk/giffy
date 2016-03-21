@@ -48,7 +48,7 @@ func TestCreateOrIncrementVote(t *testing.T) {
 	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	voteErr := CreateOrIncrementVote(votingUser.ID, i.ID, tag.ID, false, tx)
+	_, voteErr := CreateOrIncrementVote(votingUser.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(voteErr)
 
 	voteRecord, voteRecordErr := GetVoteSummary(i.ID, tag.ID, tx)
