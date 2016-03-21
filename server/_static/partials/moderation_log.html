@@ -14,7 +14,7 @@
 			<tbody>
 				<tr ng-repeat="entry in log">
 					<td><user-detail user="entry.moderator"/></td>
-					<td>{{entry.timestamp_utc}}</td>
+					<td>{{entry.timestamp_utc | date:'short' }}</td>
 					<td>{{entry.verb}}</td>
 					<td>{{entry.object}}</td>
 					<td>

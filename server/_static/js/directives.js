@@ -1,5 +1,19 @@
 var giffyDirectives = angular.module('giffy.directives', []);
 
+giffyDirectives.factory('currentUser', ["$http", "localSession", function($http, localSession) {
+  return function(cb) { 
+    if (!localSession.has("__current_user__")) {
+      $http.get("/api/user.current").success(function(datums) {
+        localSession.set("__current_user__", datums.response);
+        cb(datums.response);
+      });
+    } else {
+      var storedSession = localSession.get("__current_user__");
+      cb(storedSession);  
+    }
+  }
+}]);
+
 giffyDirectives.factory('voteAPI', function($http) {
   this.upvote = function(imageUUID, tagUUID) {
     return $http.post("/api/vote.up/" + imageUUID + "/" + tagUUID, null);
@@ -18,7 +32,6 @@ giffyDirectives.factory('voteAPI', function($http) {
   }
   return this;
 });
-
 
 giffyDirectives.directive("giffyImage", function() {
   return {
@@ -77,7 +90,8 @@ giffyDirectives.directive('voteButton',
   }
 );
 
-giffyDirectives.controller('VoteButtonController', ["$scope", "voteAPI", function($scope, voteAPI) {
+giffyDirectives.controller('VoteButtonController', ["$scope", "voteAPI", 
+  function($scope, voteAPI) {
     $scope.vote = function(isUpvote) {
       if (!$scope.hasVote()) {
         if (isUpvote) {

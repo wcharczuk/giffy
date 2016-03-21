@@ -1,48 +1,63 @@
 var giffyControllers = angular.module("giffy.controllers", []);
 
-giffyControllers.controller("homeController", ["$scope", "$http", 
-    function($scope, $http) {
-        $http.get("/api/user.current").success(function(datums) {
-            $scope.current_user = datums.response;
+giffyControllers.controller("homeController", ["$scope", "$http", "$routeParams", "currentUser", 
+    function($scope, $http, $routeParams, currentUser) {
+        currentUser(function(user) {
+           $scope.current_user = user;
         });
         
         $http.get("/api/images/random/9").success(function(datums) {
             $scope.images = datums.response; 
-            delete $scope.searchedQuery;
         });
         
         $scope.searchImages = function() {
-            if ($scope.searchQuery) {
+            window.location = "/#/search/" + $scope.searchQuery;
+        };
+    }
+]);
+
+giffyControllers.controller("searchController", ["$scope", "$http", "$routeParams", "$location", "currentUser", 
+    function($scope, $http, $routeParams, $location, currentUser) {
+        currentUser(function(user) {
+           $scope.current_user = user;
+        });
+        
+        $http.get("/api/images.search?query=" + $routeParams.search_query).success(function(datums) {
+            $scope.images = datums.response;
+            $scope.searchQuery = $routeParams.search_query;
+            $scope.searchedQuery = $routeParams.search_query;
+        });
+        
+        $scope.searchImages = function() {
+            if ($scope.searchQuery && $scope.searchQuery.length > 0) {
                 $http.get("/api/images.search?query=" + $scope.searchQuery).success(function(datums) {
                     $scope.images = datums.response;
-                    $scope.searchedQuery = $scope.searchQuery;
+                    $scope.searchedQuery = $routeParams.search_query;
+                    $location.path("/search/" + $scope.searchQuery).replace();
                 });
             } else {
-                $http.get("/api/images/random/9").success(function(datums) {
-                    $scope.images = datums.response; 
-                    delete $scope.searchedQuery;
-                });
+                $scope.images = [];
             }
         };
     }
 ]);
 
-giffyControllers.controller("addImageController", ["$scope", "$http", 
-    function($scope, $http) {
-        $http.get("/api/user.current").success(function(datums) {
-            if (datums.response.is_logged_in) {
-                $scope.current_user = datums.response;
+giffyControllers.controller("addImageController", ["$scope", "$http", "currentUser",
+    function($scope, $http, currentUser) {
+        currentUser(function(user) {
+            if (user.is_logged_in) {
+                $scope.current_user = user;
             } else {
-                window.location = "#/";    
+                window.location = "/";  
             }
         });
     }
 ]);
 
-giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams", 
-    function($scope, $http, $routeParams) {
-        $http.get("/api/user.current").success(function(datums) {
-            $scope.current_user = datums.response;
+giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams", "currentUser", 
+    function($scope, $http, $routeParams, currentUser) {
+        currentUser(function(user) {
+           $scope.current_user = user;
         });
         
         $scope.addTag = function() {
@@ -133,12 +148,10 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
     }
 ]);
 
-giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams", 
-    function($scope, $http, $routeParams) {
-        
-        // current user
-        $http.get("/api/user.current").success(function(datums) {
-            $scope.current_user = datums.response;
+giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams", "currentUser",
+    function($scope, $http, $routeParams, currentUser) {
+        currentUser(function(user) {
+           $scope.current_user = user;
         });
         
         // tag information
@@ -182,17 +195,14 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
     }
 ]);
 
-giffyControllers.controller("userController", ["$scope", "$http", "$routeParams", 
-    function($scope, $http, $routeParams) {
-        // current user
-        $http.get("/api/user.current").success(function(datums) {
-            $scope.current_user = datums.response;
-
-            getUser();
+giffyControllers.controller("userController", ["$scope", "$http", "$routeParams", "currentUser", 
+    function($scope, $http, $routeParams, currentUser) {
+        currentUser(function(user) {
+           $scope.current_user = user;
+           getUser();
         });
         
         function getUser() {
-            // current user
             $http.get("/api/user/" + $routeParams.user_id).success(function(datums) {
                 $scope.user = datums.response;
 
@@ -212,27 +222,31 @@ giffyControllers.controller("userController", ["$scope", "$http", "$routeParams"
     }
 ]);
 
-giffyControllers.controller("moderationLogController", ["$scope", "$http", "$routeParams", 
-    function($scope, $http, $routeParams) {
-        // current user
-        $http.get("/api/user.current").success(function(datums) {
-            $scope.current_user = datums.response;
+giffyControllers.controller("moderationLogController", ["$scope", "$http", "$routeParams", "currentUser",  
+    function($scope, $http, $routeParams, currentUser) {
+        
+        var pageSize = 50;
+        
+        currentUser(function(user) {
+           $scope.current_user = user;
         });
         
         // info
-        $http.get("/api/moderation.log/pages/50/0").success(function(datums) {
+        $http.get("/api/moderation.log/pages/" + pageSize +"/0").success(function(datums) {
             $scope.log = datums.response;
         });
+        
+        $scope.nextPage = function() {
+            
+        };
     }
 ]);
 
-giffyControllers.controller("userSearchController", ["$scope", "$http", 
-    function($scope, $http) {
-        // current user
-        $http.get("/api/user.current").success(function(datums) {
-            $scope.current_user = datums.response;
+giffyControllers.controller("userSearchController", ["$scope", "$http", "currentUser", 
+    function($scope, $http, currentUser) {
+        currentUser(function(user) {
+           $scope.current_user = user;
         });
-        
         
         $scope.searchUsers = function() {
             if ($scope.searchQuery) {

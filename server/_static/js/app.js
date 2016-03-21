@@ -1,4 +1,4 @@
-var giffyApp = angular.module('giffyApp', [ 'ngRoute' , 'ngSanitize', 'giffy.controllers', 'giffy.directives' ]);
+var giffyApp = angular.module('giffyApp', [ 'ngRoute' , 'ngSanitize', 'giffy.controllers', 'giffy.directives', 'giffy.services' ]);
 
 
 giffyApp.config(["$routeProvider", 
@@ -10,6 +10,9 @@ giffyApp.config(["$routeProvider",
         }).when("/add_image", {
             templateUrl: '/static/partials/add_image.html',
             controller: 'addImageController'
+        }).when("/search/:search_query", {
+            templateUrl: '/static/partials/search.html',
+            controller: 'searchController'
         }).when("/add_tag", {
             templateUrl: '/static/partials/add_tag.html',
             controller: 'addTagController'
