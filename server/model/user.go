@@ -11,7 +11,7 @@ import (
 
 // User is a user in the app.
 type User struct {
-	ID         int64     `json:"-" db:"id,pk,serial"`
+	ID         int64     `json:"id" db:"id,pk,serial"`
 	UUID       string    `json:"uuid" db:"uuid"`
 	CreatedUTC time.Time `json:"created_utc" db:"created_utc"`
 	Username   string    `json:"username" db:"username"`
