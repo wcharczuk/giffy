@@ -622,7 +622,7 @@ func deleteLinkAction(session *auth.Session, ctx *web.HTTPContext) web.Controlle
 		return ctx.InternalError(err)
 	}
 
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, fmt.Sprintf("image: %s tag: %s", imageUUID, tagUUID))
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, imageUUID, tagUUID)
 
 	return ctx.OK()
 }
