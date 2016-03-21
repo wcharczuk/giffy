@@ -110,7 +110,7 @@ func QueueModerationEntry(userID int64, verb, object string, nouns ...string) {
 func getModerationQuery(whereClause string) string {
 	moderatorColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
 
-	userColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("user_").ColumnNamesFromAlias("u"))
+	userColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_").ColumnNamesFromAlias("u"))
 	imageColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_").ColumnNamesFromAlias("i"))
 	tagColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
 
@@ -166,7 +166,7 @@ func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
 	moderationColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
 	moderatorColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("moderator_")
 
-	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("user_")
+	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_")
 	imageColumns := spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_")
 	tagColumns := spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_")
 
