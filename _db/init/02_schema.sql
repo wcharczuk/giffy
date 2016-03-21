@@ -110,7 +110,8 @@ CREATE TABLE moderation (
 	uuid varchar(32) not null,
 	timestamp_utc timestamp not null,
 	verb varchar(32) not null,
-	noun varchar(255) not null,
+	object varchar(255) not null,
+	noun varchar(255),
 	secondary_noun varchar(255)
 );
 ALTER TABLE moderation ADD CONSTRAINT pk_moderation_uuid PRIMARY KEY (uuid);

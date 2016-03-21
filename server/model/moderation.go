@@ -3,7 +3,6 @@ package model
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/blendlabs/go-exception"
@@ -54,7 +53,7 @@ func NewModeration(userID int64, verb, object, name string) *Moderation {
 		UUID:          core.UUIDv4().ToShortString(),
 		TimestampUTC:  time.Now().UTC(),
 		Verb:          verb,
-		Noun:          object,
+		Object:        object,
 		SecondaryNoun: name,
 	}
 }
@@ -65,10 +64,15 @@ type Moderation struct {
 	UUID          string    `json:"uuid" db:"uuid,pk"`
 	TimestampUTC  time.Time `json:"timestamp_utc" db:"timestamp_utc"`
 	Verb          string    `json:"verb" db:"verb"`
-	Noun          string    `json:"noun" db:"noun"`
-	SecondaryNoun string    `json:"name" db:"secondary_noun"`
+	Object        string    `json:"object" db:"object"`
+	Noun          string    `json:"name" db:"noun"`
+	SecondaryNoun string    `json:"secondary_noun" db:"secondary_noun"`
 
-	User *User `json:"user" db:"-"`
+	Moderator *User `json:"moderator" db:"-"`
+
+	User  *User  `json:"moderator,omitempty" db:"-"`
+	Image *Image `json:"image,omitempty" db:"-"`
+	Tag   *Tag   `json:"tag,omitempty" db:"-"`
 }
 
 // TableName returns the table
@@ -95,27 +99,37 @@ func QueueModerationEntry(userID int64, verb, object, name string) {
 }
 
 func getModerationQuery(whereClause string) string {
-	userColumnNames := spiffy.NewColumnCollectionFromInstance(User{}).
-		NotReadOnly().
-		WithColumnPrefix("user_").
-		ColumnNamesFromAlias("u")
+	moderatorColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
 
-	userColumnsCSV := strings.Join(userColumnNames, ",")
+	userColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("user_").ColumnNamesFromAlias("u"))
+	imageColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_").ColumnNamesFromAlias("i"))
+	tagColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
 
 	return fmt.Sprintf(`
 select
 m.*,
+%s,
+%s,
+%s,
 %s
 from
 moderation m
-join users u on m.user_id = u.id
+join users mu on m.user_id = mu.id
+left join users u on m.noun = u.uuid or m.secondary_noun = u.uuid
+left join image i on m.noun = i.uuid or m.secondary_noun = i.uuid
+left join tag t on m.noun = t.uuid or m.secondary_noun = t.uuid
 %s
 order by timestamp_utc desc
-`, userColumnsCSV, whereClause)
+`,
+		moderatorColumns,
+		userColumns,
+		imageColumns,
+		tagColumns,
+		whereClause)
 }
 
-// GetModerationsForUser gets all the moderation entries for a user.
-func GetModerationsForUser(userID int64, tx *sql.Tx) ([]Moderation, error) {
+// GetModerationForUserID gets all the moderation entries for a user.
+func GetModerationForUserID(userID int64, tx *sql.Tx) ([]Moderation, error) {
 	var moderationLog []Moderation
 	whereClause := `where user_id = $1`
 	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(moderationConsumer(&moderationLog))
@@ -140,22 +154,23 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 }
 
 func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
-	moderatorColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
-	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("user_")
+	moderationColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
+	moderatorColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("moderator_")
+
 	return func(r *sql.Rows) error {
 		var m Moderation
-		var u User
+		var mu User
 
-		err := spiffy.PopulateByName(&m, r, moderatorColumns)
+		err := spiffy.PopulateByName(&m, r, moderationColumns)
 		if err != nil {
 			return err
 		}
-		err = spiffy.PopulateByName(&u, r, userColumns)
+		err = spiffy.PopulateByName(&mu, r, moderatorColumns)
 		if err != nil {
 			return err
 		}
 
-		m.User = &u
+		m.Moderator = &mu
 		*moderationLog = append(*moderationLog, m)
 		return nil
 	}

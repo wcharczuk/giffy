@@ -1108,7 +1108,7 @@ func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.
 	tableName := object.TableName()
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
-	tokens := makeCsvTokens(writeCols.Len())
+	tokens := ParamTokensCSV(writeCols.Len())
 
 	var sqlStmt string
 	if serials.Len() == 0 {
@@ -1381,8 +1381,8 @@ func makeWhereClause(pks *ColumnCollection, startAt int) string {
 	return whereClause
 }
 
-// makeCsvTokens returns a csv token string in the form "$1,$2,$3...$N"
-func makeCsvTokens(num int) string {
+// ParamTokensCSV returns a csv token string in the form "$1,$2,$3...$N"
+func ParamTokensCSV(num int) string {
 	str := ""
 	for i := 1; i <= num; i++ {
 		str = str + fmt.Sprintf("$%d", i)
@@ -1506,4 +1506,9 @@ func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols *ColumnCollectio
 	}
 
 	return nil
+}
+
+// CSV returns a csv from an array.
+func CSV(names []string) string {
+	return strings.Join(names, ",")
 }

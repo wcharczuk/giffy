@@ -29,6 +29,31 @@ func TestModerationCreate(t *testing.T) {
 	assert.False(verify.IsZero())
 }
 
+func TestGetModerationsForUser(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	for x := 0; x < 10; x++ {
+		m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID)
+		err = spiffy.DefaultDb().CreateInTransaction(m, tx)
+		assert.Nil(err)
+	}
+
+	moderationLog, err := GetModerationForUserID(u.ID, tx)
+	assert.Nil(err)
+	firstEntry := moderationLog[0]
+	assert.NotNil(firstEntry.User)
+	assert.False(firstEntry.Moderator.IsZero())
+}
+
 func TestGetModerationLogByCountAndOffset(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
