@@ -16,7 +16,7 @@
 					<td><user-detail user="entry.moderator"/></td>
 					<td>{{entry.timestamp_utc}}</td>
 					<td>{{entry.verb}}</td>
-					<td>{{entry.noun}}</td>
+					<td>{{entry.object}}</td>
 					<td>
 						<a href="/#/user/{{entry.name}}" ng-if="entry.noun === 'user'">{{entry.user.username}}</a>
 						<a href="/#/image/{{entry.name}}" ng-if="entry.noun === 'image'">{{entry.image.display_name}}</a>
