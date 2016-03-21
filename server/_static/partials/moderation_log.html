@@ -18,13 +18,13 @@
 					<td>{{entry.verb}}</td>
 					<td>{{entry.object}}</td>
 					<td>
-						<a href="/#/user/{{entry.name}}" ng-if="entry.noun === 'user'">{{entry.user.username}}</a>
-						<a href="/#/image/{{entry.name}}" ng-if="entry.noun === 'image'">{{entry.image.display_name}}</a>
-						<a href="/#/tag/{{entry.name}}" ng-if="entry.noun === 'tag'">{{entry.tag.tag_value}}</a>
+						<a href="/#/user/{{entry.name}}" ng-if="entry.object === 'user'">{{entry.user.username}}</a>
+						<a href="/#/image/{{entry.name}}" ng-if="entry.object === 'image'">{{entry.image.display_name}}</a>
+						<a href="/#/tag/{{entry.name}}" ng-if="entry.object === 'tag'">{{entry.tag.tag_value}}</a>
 						
-						<span ng-if="entry.noun !== 'image' && entry.noun !== 'tag' && entry.noun != 'user'">{{entry.noun}}</span>
+						<span ng-if="entry.object !== 'image' && entry.object !== 'tag' && entry.object != 'user'">{{entry.noun}}</span>
 					</td>
-				</tr>
+				</tr> 
 			</tbody>
 		</table>
 	</div>
