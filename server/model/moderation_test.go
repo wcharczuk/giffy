@@ -52,6 +52,9 @@ func TestGetModerationsForUser(t *testing.T) {
 	firstEntry := moderationLog[0]
 	assert.NotNil(firstEntry.User)
 	assert.False(firstEntry.Moderator.IsZero())
+
+	assert.NotNil(firstEntry.Image)
+	assert.False(firstEntry.Image.IsZero())
 }
 
 func TestGetModerationLogByCountAndOffset(t *testing.T) {
@@ -75,7 +78,11 @@ func TestGetModerationLogByCountAndOffset(t *testing.T) {
 	moderationLog, err := GetModerationLogByCountAndOffset(5, 0, tx)
 	assert.Nil(err)
 	assert.Len(moderationLog, 5)
+
 	firstEntry := moderationLog[0]
 	assert.NotNil(firstEntry.User)
 	assert.False(firstEntry.User.IsZero())
+
+	assert.NotNil(firstEntry.Image)
+	assert.False(firstEntry.Image.IsZero())
 }

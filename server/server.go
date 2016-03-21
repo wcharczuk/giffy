@@ -135,7 +135,7 @@ func getModerationForUserAction(session *auth.Session, ctx *web.HTTPContext) web
 		return ctx.NotFound()
 	}
 
-	actions, err := model.GetModerationsForUser(user.ID, nil)
+	actions, err := model.GetModerationForUserID(user.ID, nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
@@ -512,10 +512,15 @@ func voteAction(isUpvote bool, session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.OK()
 	}
 
-	err = model.CreateOrIncrementVote(userID, image.ID, tag.ID, isUpvote, nil)
+	didCreate, err := model.CreateOrIncrementVote(userID, image.ID, tag.ID, isUpvote, nil)
 	if err != nil {
 		return ctx.InternalError(err)
 	}
+
+	if didCreate {
+		model.QueueModerationEntry(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID)
+	}
+
 	return ctx.OK()
 }
 

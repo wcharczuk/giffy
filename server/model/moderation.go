@@ -47,14 +47,15 @@ const (
 )
 
 // NewModeration returns a new moderation object
-func NewModeration(userID int64, verb, object, name string) *Moderation {
+func NewModeration(userID int64, verb, object, noun, secondary_noun string) *Moderation {
 	return &Moderation{
 		UserID:        userID,
 		UUID:          core.UUIDv4().ToShortString(),
 		TimestampUTC:  time.Now().UTC(),
 		Verb:          verb,
 		Object:        object,
-		SecondaryNoun: name,
+		Noun:          noun,
+		SecondaryNoun: noun,
 	}
 }
 
@@ -93,8 +94,16 @@ func writeModerationLogEntry(state interface{}) error {
 }
 
 // QueueModerationEntry queues logging a new moderation log entry.
-func QueueModerationEntry(userID int64, verb, object, name string) {
-	m := NewModeration(userID, verb, object, name)
+func QueueModerationEntry(userID int64, verb, object string, nouns ...string) {
+	var m *Moderation
+	if len(nouns) == 2 {
+		m = NewModeration(userID, verb, object, nouns[0], nouns[1])
+	} else if len(nouns) == 1 {
+		m = NewModeration(userID, verb, object, nouns[0], util.StringEmpty)
+	} else {
+		m = NewModeration(userID, verb, object, util.StringEmpty, util.StringEmpty)
+	}
+
 	util.QueueWorkItem(writeModerationLogEntry, m)
 }
 
@@ -157,20 +166,44 @@ func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
 	moderationColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
 	moderatorColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("moderator_")
 
+	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("user_")
+	imageColumns := spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_")
+	tagColumns := spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_")
+
 	return func(r *sql.Rows) error {
 		var m Moderation
 		var mu User
+
+		var u User
+		var i Image
+		var t Tag
 
 		err := spiffy.PopulateByName(&m, r, moderationColumns)
 		if err != nil {
 			return err
 		}
+
 		err = spiffy.PopulateByName(&mu, r, moderatorColumns)
 		if err != nil {
 			return err
 		}
-
 		m.Moderator = &mu
+
+		err = spiffy.PopulateByName(&u, r, userColumns)
+		if err == nil {
+			m.User = &u
+		}
+
+		err = spiffy.PopulateByName(&i, r, imageColumns)
+		if err == nil {
+			m.Image = &i
+		}
+
+		err = spiffy.PopulateByName(&t, r, tagColumns)
+		if err == nil {
+			m.Tag = &t
+		}
+
 		*moderationLog = append(*moderationLog, m)
 		return nil
 	}

@@ -49,10 +49,10 @@ func SetVoteCount(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) 
 }
 
 // CreateOrIncrementVote votes for a tag for an image in the db.
-func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) error {
+func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) (bool, error) {
 	existing, existingErr := GetVoteSummary(imageID, tagID, tx)
 	if existingErr != nil {
-		return existingErr
+		return false, existingErr
 	}
 
 	if existing.IsZero() {
@@ -68,10 +68,8 @@ func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.
 		}
 		err := spiffy.DefaultDb().CreateInTransaction(itv, tx)
 		if err != nil {
-			return err
+			return true, err
 		}
-
-		QueueModerationEntry(userID, ModerationVerbCreate, ModerationObjectLink, fmt.Sprintf("imageID: %v tagID: %v", imageID, tagID))
 	} else {
 		//check if user has already voted for this image ...
 		if isUpvote {
@@ -85,12 +83,12 @@ func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.
 
 		updateErr := spiffy.DefaultDb().UpdateInTransaction(existing, tx)
 		if updateErr != nil {
-			return updateErr
+			return false, updateErr
 		}
 	}
 
 	logEntry := NewVote(userID, imageID, tagID, isUpvote)
-	return spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
+	return false, spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
 }
 
 func getVoteSummaryQuery(whereClause string) string {
