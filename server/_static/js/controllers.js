@@ -223,11 +223,13 @@ giffyControllers.controller("userController", ["$scope", "$http", "$routeParams"
         };
         
         $scope.ban= function() {
-            var user = $scope.user;
-            user.is_banned = !user.is_banned;
-            $http.put("/api/user/" + $routeParams.user_id, user).success(function(datums) {
-                $scope.user = datums.response;
-            });
+            if (confirm("Are you sure?")) {
+                var user = $scope.user;
+                user.is_banned = !user.is_banned;
+                $http.put("/api/user/" + $routeParams.user_id, user).success(function(datums) {
+                    $scope.user = datums.response;
+                });
+            }
         };
     }
 ]);
