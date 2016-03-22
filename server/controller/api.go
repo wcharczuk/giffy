@@ -37,6 +37,41 @@ func (api API) searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.API.JSON(results)
 }
 
+type slackResponseAttachment struct {
+	ImageURL string `json:"image_url"`
+	ThumbURL string `json:"thumb_url"`
+}
+
+type slackResponse struct {
+	ResponseType string                    `json:"response_type"`
+	Text         string                    `json:"text,omitempty"`
+	Attachments  []slackResponseAttachment `json:"attachments"`
+}
+
+func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResult {
+	token := ctx.Param("token")
+	if token != core.ConfigSlackVerificationToken() {
+		return ctx.API.NotAuthorized()
+	}
+
+	query := ctx.Param("text")
+	result, err := model.SearchImagesSlack(query, nil)
+	if err != nil {
+		return ctx.API.InternalError(err)
+	}
+	if result.IsZero() {
+		return ctx.API.NotFound()
+	}
+
+	res := slackResponse{}
+	res.ResponseType = "in_channel"
+	res.Attachments = []slackResponseAttachment{
+		slackResponseAttachment{ImageURL: result.S3ReadURL},
+	}
+
+	return ctx.API.JSON(res)
+}
+
 func (api API) searchTagsAction(ctx *web.HTTPContext) web.ControllerResult {
 	query := ctx.Param("query")
 	results, err := model.SearchTags(query, nil)
@@ -705,6 +740,7 @@ func (api API) Register(router *httprouter.Router) {
 
 	router.GET("/api/users.search", web.ActionHandler(api.searchUsersAction))
 	router.GET("/api/images.search", web.ActionHandler(api.searchImagesAction))
+	router.POST("/api/image.search/slack", web.ActionHandler(api.searchImagesSlackAction))
 	router.GET("/api/tags.search", web.ActionHandler(api.searchTagsAction))
 
 	router.GET("/api/moderation.log/recent", web.ActionHandler(api.getRecentModerationLog))

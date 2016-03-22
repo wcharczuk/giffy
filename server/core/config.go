@@ -146,3 +146,8 @@ func ConfigGoogleClientID() string {
 func ConfigGoogleSecret() string {
 	return os.Getenv("GOOGLE_CLIENT_SECRET")
 }
+
+// ConfigSlackVerificationToken is the verification token we use for slack requests.
+func ConfigSlackVerificationToken() string {
+	return os.Getenv("SLACK_VERIFICATION_TOKEN")
+}

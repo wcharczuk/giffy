@@ -245,6 +245,53 @@ order by
 	return GetImagesByID(ids, tx)
 }
 
+// SearchImagesSlack is the query we use for slack.
+func SearchImagesSlack(query string, tx *sql.Tx) (*Image, error) {
+	imageQuery := `
+select 
+	id
+from
+	(
+		select 
+			vs.image_id as id
+		from
+			(
+				select 
+					t.id as tag_id
+				from 
+					tag t 
+				where
+					t.tag_value % $1
+				order by 
+					similarity(t.tag_value, $1) desc
+				limit 1
+			) best_tag
+			join vote_summary vs on vs.tag_id = best_tag.tag_id
+		order by
+			gen_random_uuid()
+		limit 1
+	) results
+limit 1
+`
+	imageID := imageSignature{}
+	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query).Out(&imageID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if imageID.ID == 0 {
+		return &Image{}, nil
+	}
+
+	images, err := GetImagesByID([]int64{imageID.ID}, tx)
+	if err != nil {
+		return &Image{}, err
+	}
+
+	return &images[0], nil
+}
+
 // GetImagesForUserID returns images for a user.
 func GetImagesForUserID(userID int64, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature

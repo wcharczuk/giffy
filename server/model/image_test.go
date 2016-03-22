@@ -212,6 +212,48 @@ func TestSearchImages(t *testing.T) {
 	assert.NotEmpty(firstImage.Tags)
 }
 
+func TestSearchImagesSlack(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := createTestUser(tx)
+	assert.Nil(err)
+
+	i4, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i3, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i2, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i, err := createTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	_, err = createTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
+	assert.Nil(err)
+
+	_, err = createTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
+	assert.Nil(err)
+
+	_, err = createTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
+	assert.Nil(err)
+
+	_, err = createTestTagForImage(u.ID, i.ID, "__test", tx)
+	assert.Nil(err)
+
+	image, err := SearchImagesSlack("__test", tx)
+	assert.Nil(err)
+	assert.NotNil(image)
+	assert.False(image.IsZero())
+	assert.Equal(i.ID, image.ID)
+	assert.NotNil(image.CreatedByUser)
+	assert.NotEmpty(image.Tags)
+}
+
 func TestGetImagesByID(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
