@@ -50,6 +50,7 @@ func (ar *APIResultProvider) NotAuthorized() ControllerResult {
 
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) ControllerResult {
+	LogError(err)
 	if exPtr, isException := err.(*exception.Exception); isException {
 		return &APIResult{
 			Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: "An internal server error occurred.", Exception: exPtr},
@@ -114,6 +115,7 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
+	LogError(err)
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
