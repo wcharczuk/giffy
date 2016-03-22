@@ -2,6 +2,7 @@ package controller
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ func (api API) searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 
 type slackResponseAttachment struct {
 	ImageURL string `json:"image_url"`
-	ThumbURL string `json:"thumb_url"`
+	ThumbURL string `json:"thumb_url,omitempty"`
 }
 
 type slackResponse struct {
@@ -69,7 +70,11 @@ func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResul
 		slackResponseAttachment{ImageURL: result.S3ReadURL},
 	}
 
-	return ctx.API.JSON(res)
+	responseBytes, err := json.Marshal(res)
+	if err != nil {
+		return ctx.API.InternalError(err)
+	}
+	return ctx.Raw("application/json; charset=utf-8", responseBytes)
 }
 
 func (api API) searchTagsAction(ctx *web.HTTPContext) web.ControllerResult {

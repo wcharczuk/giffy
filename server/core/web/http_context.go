@@ -73,8 +73,28 @@ func (hc *HTTPContext) SetState(key string, value interface{}) {
 }
 
 // Param returns a parameter from the request.
-func (hc *HTTPContext) Param(paramName string) string {
-	return util.GetParamByName(hc.Request, paramName)
+func (hc *HTTPContext) Param(name string) string {
+	queryValue := hc.Request.URL.Query().Get(name)
+	if len(queryValue) != 0 {
+		return queryValue
+	}
+
+	headerValue := hc.Request.Header.Get(name)
+	if len(queryValue) != 0 {
+		return headerValue
+	}
+
+	formValue := hc.Request.FormValue(name)
+	if len(formValue) != 0 {
+		return formValue
+	}
+
+	cookie, cookieErr := hc.Request.Cookie(name)
+	if cookieErr == nil && len(cookie.Value) == 0 {
+		return cookie.Value
+	}
+
+	return util.StringEmpty
 }
 
 // PostBodyAsString is the string post body.
@@ -215,6 +235,10 @@ func (hc *HTTPContext) Render(result ControllerResult) {
 // --------------------------------------------------------------------------------
 // Basic result providers
 // --------------------------------------------------------------------------------
+
+func (hc *HTTPContext) Raw(contentType string, body []byte) *RawResult {
+	return &RawResult{ContentType: contentType, Body: body}
+}
 
 // NoContent returns a service response.
 func (hc *HTTPContext) NoContent() *NoContentResult {
