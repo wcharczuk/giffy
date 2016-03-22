@@ -217,15 +217,15 @@ select
 from
 (
 	select 
-		i.id
+		vs.image_id as id
 		, similarity(t.tag_value, $1) as relevance
 		, vs.votes_total as votes_total
 	from 
-		image i
-		join vote_summary vs on i.id = vs.image_id
-		join tag t on t.id = vs.tag_id
+		tag t
+		vote_summary on t.id = vs.tag_id
 	where
-		t.tag_value % $1
+		vs.votes_total > 0
+		and t.tag_value % $1
 ) as results
 order by
 	relevance desc,
@@ -267,6 +267,8 @@ from
 				limit 1
 			) best_tag
 			join vote_summary vs on vs.tag_id = best_tag.tag_id
+		where
+			vs.votes_total > 0
 		order by
 			gen_random_uuid()
 		limit 1
