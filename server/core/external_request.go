@@ -12,6 +12,6 @@ func NewExternalRequest() *request.HTTPRequest {
 	return request.NewHTTPRequest().OnResponse(func(meta *request.HTTPResponseMeta, body []byte) {
 		fmt.Printf("External Request Response -- %s\n", string(body))
 	}).OnRequest(func(verb string, url *url.URL) {
-		fmt.Printf("External Request: %s %s\n", verb, url.String())
+		fmt.Printf("External Request -- %s %s\n", verb, url.String())
 	})
 }
