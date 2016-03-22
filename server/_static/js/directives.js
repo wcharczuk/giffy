@@ -39,16 +39,16 @@ giffyDirectives.factory('currentUser', ["$http", "localSession", function($http,
     });
   };
   
-  var getUserFromLocalStorage = function(cb) {
-    var user = localSession.get("__current_user__");
-    cb(user);
-  };
-  
   return function(cb) { 
     if (!localSession.has("__current_user__")) {
       fetchUser(cb);
     } else {
-      getUserFromLocalStorage(cb);
+      var user = localSession.get("__current_user__");
+      if (user.is_logged_in) {
+        fetchuser(cb);
+      } else {
+        cb(user);
+      }
     }
   }
 }]);
