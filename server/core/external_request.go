@@ -1,8 +1,14 @@
 package core
 
-import "github.com/blendlabs/go-request"
+import (
+	"fmt"
+
+	"github.com/blendlabs/go-request"
+)
 
 // NewExternalRequest creates a new external request.
 func NewExternalRequest() *request.HTTPRequest {
-	return request.NewHTTPRequest()
+	return request.NewHTTPRequest().OnResponse(func(meta *request.HTTPResponseMeta, body []byte) {
+		fmt.Printf("External Response -- %s\n", string(body))
+	})
 }
