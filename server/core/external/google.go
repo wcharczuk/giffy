@@ -59,7 +59,7 @@ func GoogleOAuth(code string) (*GoogleOAuthResponse, error) {
 
 //GoogleAuthReturnURL formats an oauth return uri.
 func GoogleAuthReturnURL() string {
-	return fmt.Sprintf("https://%s/oauth/google", core.ConfigHostname())
+	return fmt.Sprintf("%s/oauth/google", core.ConfigURL())
 }
 
 // FetchGoogleProfile gets a google proflile for an access token.

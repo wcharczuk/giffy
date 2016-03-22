@@ -81,6 +81,12 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
             }
         }
         
+        jQuery("#slack-command-link").on('click', function() {
+            var slackLink = document.querySelector("#slack-command-link");
+            copyElement(slackLink);
+            return false;
+        });
+        
         jQuery('#add-tag-modal').on('shown.bs.modal', function () {
             jQuery('#add-tag-value').focus();
         });
@@ -114,6 +120,7 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
 
             $http.get("/api/image/" + $routeParams.image_id).then(function(res) {
                 $scope.image = res.data.response;
+                $scope.slackCommand = "/giffy img:" + $scope.image.uuid;
                 fetchTagData();
             }, function(res) {
                 window.location = "/";

@@ -9,6 +9,10 @@ import (
 
 // NewExternalRequest creates a new external request.
 func NewExternalRequest() *request.HTTPRequest {
+	if ConfigEnvironment() == "prod" {
+		return request.NewHTTPRequest()
+	}
+
 	return request.NewHTTPRequest().OnResponse(func(meta *request.HTTPResponseMeta, body []byte) {
 		fmt.Printf("External Request Response -- %s\n", string(body))
 	}).OnRequest(func(verb string, url *url.URL) {

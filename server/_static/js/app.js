@@ -45,3 +45,20 @@ giffyApp.config(["$routeProvider",
             controller: 'homeController' 
         });
 }]);
+
+var copyElement = function(element) {
+    var selection = window.getSelection();
+    var range = document.createRange();
+
+    range.selectNodeContents(element);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    //var selectedText = selection.toString();
+    var didSucceed = document.execCommand("copy");
+    if (!didSucceed) {
+        return false;
+    }
+    window.getSelection().removeAllRanges();
+    return true;
+}

@@ -137,6 +137,19 @@ func ConfigHostname() string {
 	return "giffy.charczuk.com"
 }
 
+// ConfigHTTPProto is the proto for the webserver.
+func ConfigHTTPProto() string {
+	if ConfigEnvironment() == "prod" {
+		return "https"
+	}
+	return "http"
+}
+
+// ConfigURL is the url root for the server.
+func ConfigURL() string {
+	return fmt.Sprintf("%s://%s", ConfigHTTPProto(), ConfigHostname())
+}
+
 // ConfigGoogleClientID returns the google client id.
 func ConfigGoogleClientID() string {
 	return os.Getenv("GOOGLE_CLIENT_ID")

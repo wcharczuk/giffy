@@ -38,32 +38,57 @@ func (api API) searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.API.JSON(results)
 }
 
-type slackResponseAttachment struct {
+type slackField struct {
+	Title string `json:"title"`
+	Value string `json:"value"`
+	Short bool   `json:"short"`
+}
+
+type slackMessageAttachment struct {
+	Text   string       `json:"text"`
+	Fields []slackField `json:"field"`
+}
+
+type slackImageAttachment struct {
 	Title    string `json:"title"`
 	ImageURL string `json:"image_url"`
 	ThumbURL string `json:"thumb_url,omitempty"`
 }
 
 type slackResponse struct {
-	ResponseType string                    `json:"response_type"`
-	Text         string                    `json:"text,omitempty"`
-	Attachments  []slackResponseAttachment `json:"attachments"`
+	ResponseType string        `json:"response_type"`
+	Text         string        `json:"text,omitempty"`
+	Attachments  []interface{} `json:"attachments"`
 }
 
 func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResult {
 	query := ctx.Param("text")
-	result, err := model.SearchImagesSlack(query, nil)
+
+	var result *model.Image
+	var err error
+	if strings.HasPrefix(query, "img:") {
+		uuid := strings.Replace(query, "img:", "", -1)
+		result, err = model.GetImageByUUID(uuid, nil)
+	} else {
+		result, err = model.SearchImagesSlack(query, nil)
+	}
 	if err != nil {
 		return ctx.API.InternalError(err)
 	}
 	if result.IsZero() {
-		return ctx.Raw("text/plaid; charset=utf-8", []byte("Giffy couldn't find what you were looking for; maybe add it here? https://giffy.charczuk.com/#/add_image"))
+		return ctx.Raw("text/plaid; charset=utf-8", []byte(fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())))
 	}
 
 	res := slackResponse{}
 	res.ResponseType = "in_channel"
-	res.Attachments = []slackResponseAttachment{
-		slackResponseAttachment{Title: query, ImageURL: result.S3ReadURL},
+	res.Attachments = []interface{}{
+		slackImageAttachment{Title: query, ImageURL: result.S3ReadURL},
+	}
+
+	if !strings.HasPrefix(query, "img:") {
+		res.Attachments = append(res.Attachments,
+			slackMessageAttachment{Text: fmt.Sprintf("Wasn't what you wanted? Improve it <here|%s/#/image/%s>.", core.ConfigURL(), result.UUID)},
+		)
 	}
 
 	responseBytes, err := json.Marshal(res)
