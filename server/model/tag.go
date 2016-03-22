@@ -2,7 +2,6 @@ package model
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/blendlabs/spiffy"
@@ -27,7 +26,7 @@ type Tag struct {
 	CreatedBy  int64     `json:"-" db:"created_by"`
 	TagValue   string    `json:"tag_value" db:"tag_value"`
 
-	CreatedByUUID string `json:"created_by" db:"created_by_uuid,readonly"`
+	CreatedByUUID string `json:"created_by,omitempty" db:"created_by_uuid,readonly"`
 	ImageID       int64  `json:"-" db:"image_uuid,readonly"`
 	VotesFor      int    `json:"votes_for,omitempty" db:"votes_for,readonly"`
 	VotesAgainst  int    `json:"votes_against,omitempty" db:"votes_against,readonly"`
@@ -88,9 +87,8 @@ func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
 
 // SearchTags searches tags
 func SearchTags(query string, tx *sql.Tx) ([]Tag, error) {
-	queryFormat := fmt.Sprintf("%%%s%%", query)
 	tags := []Tag{}
-	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag where tag_value ilike $1`, tx, queryFormat).OutMany(&tags)
+	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag where tag_value % $1`, tx, query).OutMany(&tags)
 	return tags, err
 }
 

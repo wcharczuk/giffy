@@ -82,7 +82,31 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         }
         
         jQuery('#add-tag-modal').on('shown.bs.modal', function () {
-            jQuery('#tag-value').focus();
+            jQuery('#add-tag-value').focus();
+        });
+        
+        jQuery('#add-tag-value').typeahead({
+            items: 10,
+            minLength: 2,
+            source: function(query, cb) {
+                $http.get('/api/tags.search/?query=' + query).success(function(datums) {
+                    if (typeof(datums.response) !== 'undefined' && typeof(datums.response.length) !== 'undefined' && datums.response.length > 0) {
+                        var values = [];
+                        for (var x = 0; x < datums.response.length; x++) {
+                            var tag = datums.response[x]
+                            if (!!tag && !!tag.tag_value && !typeof(tag.tag_value) !== 'undefined') {
+                                values.push(tag.tag_value);    
+                            }
+                        }
+                        if (values.length==0) {
+                            values = [""];
+                        }
+                        cb(values);
+                    } else {
+                        cb([""]);
+                    }
+                });
+            }
         });
         
         var fetchImageData = function() {
