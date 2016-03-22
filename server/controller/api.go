@@ -57,7 +57,7 @@ func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResul
 		return ctx.API.InternalError(err)
 	}
 	if result.IsZero() {
-		return ctx.API.NotFound()
+		return ctx.Raw("text/plaid; charset=utf-8", []byte("Giffy couldn't find what you were looking for; maybe add it here? https://giffy.charczuk.com/#/add_image"))
 	}
 
 	res := slackResponse{}
