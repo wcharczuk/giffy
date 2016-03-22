@@ -20,17 +20,12 @@ func (ac Auth) oauthSlackAction(session *auth.Session, ctx *web.HTTPContext) web
 		return ctx.View.BadRequest("`code` parameter missing, cannot continue")
 	}
 
-	oa, err := external.SlackOAuth(code)
+	_, err := external.SlackOAuth(code)
 	if err != nil {
 		return ctx.View.InternalError(err)
 	}
 
-	prototypeUser, err := external.FetchSlackProfile(oa.AccessToken)
-	if err != nil {
-		return ctx.View.InternalError(err)
-	}
-
-	return ac.finishOAuthLogin(ctx, auth.OAuthProviderSlack, oa.AccessToken, oa.Scope, prototypeUser)
+	return ctx.Redirect("/")
 }
 
 func (ac Auth) oauthGoogleAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
