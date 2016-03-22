@@ -73,9 +73,11 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         
         $scope.deleteImage = function() {
             if ($scope.current_user.is_moderator) {
-                $http.delete("/api/image/" + $scope.image.uuid).success(function() {
-                    window.location = "/";
-                });
+                if (confirm("are you sure?")) {
+                    $http.delete("/api/image/" + $scope.image.uuid).success(function() {
+                        window.location = "/";
+                    });    
+                }
             }
         }
         
@@ -231,14 +233,9 @@ giffyControllers.controller("moderationLogController", ["$scope", "$http", "$rou
            $scope.current_user = user;
         });
         
-        // info
         $http.get("/api/moderation.log/pages/" + pageSize +"/0").success(function(datums) {
             $scope.log = datums.response;
         });
-        
-        $scope.nextPage = function() {
-            
-        };
     }
 ]);
 
@@ -258,5 +255,15 @@ giffyControllers.controller("userSearchController", ["$scope", "$http", "current
                 delete $scope.users;
             }
         };
+    }
+]);
+
+giffyControllers.controller("logoutController", ["$scope", "$http", "localSession",
+    function($scope, $http, localSession) {
+        $http.post("/api/logout", null).success(function() {
+            console.log("did log out.")
+            localSession.purge("__current_user__");
+            window.location = "/"
+        });
     }
 ]);

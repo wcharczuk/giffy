@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
 	"github.com/wcharczuk/giffy/server/core"
@@ -30,18 +29,26 @@ type PostedFile struct {
 
 // NewHTTPContext returns a new hc context.
 func NewHTTPContext(w http.ResponseWriter, r *http.Request, p httprouter.Params) *HTTPContext {
-	return &HTTPContext{
+	ctx := &HTTPContext{
 		Request:         r,
 		Response:        w,
 		routeParameters: p,
 		state:           map[string]interface{}{},
 	}
+
+	ctx.API = ProviderAPI
+	ctx.View = ProviderView
+
+	return ctx
 }
 
 // HTTPContext is the struct that represents the context for an hc request.
 type HTTPContext struct {
 	Response http.ResponseWriter
 	Request  *http.Request
+
+	API  *APIResultProvider
+	View *ViewResultProvider
 
 	state           map[string]interface{}
 	routeParameters httprouter.Params
@@ -147,6 +154,15 @@ func (hc *HTTPContext) RouteParameter(key string) string {
 	return hc.routeParameters.ByName(key)
 }
 
+// GetCookie returns a named cookie from the request.
+func (hc *HTTPContext) GetCookie(name string) *http.Cookie {
+	cookie, err := hc.Request.Cookie(name)
+	if err != nil {
+		return nil
+	}
+	return cookie
+}
+
 // WriteCookie writes the cookie to the response.
 func (hc *HTTPContext) WriteCookie(cookie *http.Cookie) {
 	http.SetCookie(hc.Response, cookie)
@@ -166,6 +182,20 @@ func (hc *HTTPContext) SetCookie(name string, value string, expires *time.Time, 
 	hc.WriteCookie(&c)
 }
 
+// ExtendCookieByDuration extends a cookie by a time duration (on the order of nanoseconds to hours).
+func (hc *HTTPContext) ExtendCookieByDuration(name string, duration time.Duration) {
+	cookie := hc.GetCookie(name)
+	cookie.Expires = cookie.Expires.Add(duration)
+	hc.WriteCookie(cookie)
+}
+
+// ExtendCookie extends a cookie by years, months or days.
+func (hc HTTPContext) ExtendCookie(name string, years, months, days int) {
+	cookie := hc.GetCookie(name)
+	cookie.Expires.AddDate(years, months, days)
+	hc.WriteCookie(cookie)
+}
+
 // ExpireCookie expires a cookie.
 func (hc *HTTPContext) ExpireCookie(name string) {
 	c := http.Cookie{}
@@ -182,72 +212,13 @@ func (hc *HTTPContext) Render(result ControllerResult) {
 	}
 }
 
-// ----------------------------------------------------------------------
-// HTTPContext - API Responses
-// ----------------------------------------------------------------------
-
-// NotFound returns a service response.
-func (hc *HTTPContext) NotFound() *APIResult {
-	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusNotFound, Message: "Not Found."},
-	}
-}
-
-// NotAuthorized returns a service response.
-func (hc *HTTPContext) NotAuthorized() *APIResult {
-	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusForbidden, Message: "Not Authorized."},
-	}
-}
+// --------------------------------------------------------------------------------
+// Basic result providers
+// --------------------------------------------------------------------------------
 
 // NoContent returns a service response.
-func (hc *HTTPContext) NoContent() *APIResult {
-	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusNoContent},
-	}
-}
-
-// OK returns a service response.
-func (hc *HTTPContext) OK() *APIResult {
-	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusOK, Message: "OK!"},
-	}
-}
-
-// InternalError returns a service response.
-func (hc *HTTPContext) InternalError(err error) *APIResult {
-	if exPtr, isException := err.(*exception.Exception); isException {
-		return &APIResult{
-			Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: "An internal server error occurred.", Exception: exPtr},
-		}
-	}
-	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: err.Error()},
-	}
-}
-
-// BadRequest returns a service response.
-func (hc *HTTPContext) BadRequest(message string) *APIResult {
-	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusBadRequest, Message: message},
-	}
-}
-
-// JSON returns a service response.
-func (hc *HTTPContext) JSON(response interface{}) *APIResult {
-	return &APIResult{
-		Meta:     &APIResultMeta{HTTPCode: http.StatusOK, Message: "OK!"},
-		Response: response,
-	}
-}
-
-// View returns a view result.
-func (hc *HTTPContext) View(viewName string, viewModel interface{}) *ViewResult {
-	return &ViewResult{
-		StatusCode: http.StatusOK,
-		ViewModel:  viewModel,
-		Template:   viewName,
-	}
+func (hc *HTTPContext) NoContent() *NoContentResult {
+	return &NoContentResult{}
 }
 
 // Static returns a static result.

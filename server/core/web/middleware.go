@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -20,20 +19,6 @@ type ControllerAction func(*HTTPContext) ControllerResult
 // ActionHandler takes an APIControllerAction and makes it an httprouter.Handle.
 func ActionHandler(action ControllerAction) httprouter.Handle {
 	return Render(action)
-}
-
-// NotFoundHandler is a handler for panics.
-func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
-	Render(func(ctx *HTTPContext) ControllerResult {
-		return ctx.NotFound()
-	})(w, r, httprouter.Params{})
-}
-
-// PanicHandler is a handler for panics.
-func PanicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
-	Render(func(ctx *HTTPContext) ControllerResult {
-		return ctx.InternalError(exception.Newf("panic: %v", err))
-	})(w, r, httprouter.Params{})
 }
 
 // Render is the translation step from APIControllerAction to httprouter.Handle.

@@ -49,14 +49,13 @@ giffyServices.service("localSession", function() {
             }
         },
         purge: function(key) {
-            if(typeof(key) !== 'undefined') {
+            if(!!key) {
                 if(localStorage) {
                     localStorage.removeItem(key);
                 } else {
                     delete(localSession[key]);
                 }
-            }
-            else {
+            } else {
                 if(localStorage) {
                     localStorage.clear();
                 } else {

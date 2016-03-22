@@ -1,15 +1,50 @@
 var giffyDirectives = angular.module('giffy.directives', []);
 
+giffyDirectives.directive("giffyHeader", function() {
+  return {
+    restrict: 'E',
+    controller: "giffyHeaderController",
+    templateUrl: "/static/partials/controls/header.html"
+  }
+});
+
+giffyDirectives.controller('giffyHeaderController', ["$scope", "$http", "currentUser",
+  function($scope, $http, currentUser) {
+    currentUser(function(user) {
+      $scope.current_user = user;
+    });
+  }
+]);
+
+giffyDirectives.directive("giffyFooter", function() {
+  return {
+    restrict: 'E',
+    controller: "giffyFooterController",
+    templateUrl: "/static/partials/controls/footer.html"
+  }
+});
+
+giffyDirectives.controller('giffyFooterController', ["$scope", function($scope) {}]);
+
 giffyDirectives.factory('currentUser', ["$http", "localSession", function($http, localSession) {
+  var fetchUser = function(cb) {
+    $http.get("/api/session.user").success(function(datums) {
+      var user = datums.response;
+      localSession.set("__current_user__", user);
+      cb(user);
+    });
+  };
+  
+  var getUserFromLocalStorage = function(cb) {
+    var user = localSession.get("__current_user__");
+    cb(user);
+  };
+  
   return function(cb) { 
     if (!localSession.has("__current_user__")) {
-      $http.get("/api/user.current").success(function(datums) {
-        localSession.set("__current_user__", datums.response);
-        cb(datums.response);
-      });
+      fetchUser(cb);
     } else {
-      var storedSession = localSession.get("__current_user__");
-      cb(storedSession);  
+      getUserFromLocalStorage(cb);
     }
   }
 }]);
@@ -40,12 +75,12 @@ giffyDirectives.directive("giffyImage", function() {
       image: '=',
       user: '='
     },
-    controller: "GiffyImageController",
-    templateUrl: "/static/partials/image_element.html"
+    controller: "giffyImageController",
+    templateUrl: "/static/partials/controls/image.html"
   }
 });
 
-giffyDirectives.controller('GiffyImageController', ["$scope", 
+giffyDirectives.controller('giffyImageController', ["$scope", 
   function($scope) {
     $scope.deleteImage = function() {
       if (confirm("Are you sure?")) {
@@ -57,7 +92,6 @@ giffyDirectives.controller('GiffyImageController', ["$scope",
   }
 ]);
 
-
 giffyDirectives.directive("userDetail", function() {
   return {
     restrict: 'E',
@@ -65,7 +99,7 @@ giffyDirectives.directive("userDetail", function() {
       user: '='
     },
     controller: "UserDetailElementController",
-    templateUrl: "/static/partials/user_detail_element.html"
+    templateUrl: "/static/partials/controls/username.html"
   }
 });
 
@@ -84,13 +118,13 @@ giffyDirectives.directive('voteButton',
         userVote: '=',
         object: '='
       },
-      controller: 'VoteButtonController',
-      templateUrl: '/static/partials/vote_button.html'
+      controller: 'voteButtonController',
+      templateUrl: '/static/partials/controls/vote_button.html'
     };
   }
 );
 
-giffyDirectives.controller('VoteButtonController', ["$scope", "voteAPI", 
+giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI", 
   function($scope, voteAPI) {
     $scope.vote = function(isUpvote) {
       if (!$scope.hasVote()) {

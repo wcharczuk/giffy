@@ -1,6 +1,7 @@
-package server
+package controller
 
 import (
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
@@ -11,17 +12,19 @@ import (
 	"github.com/wcharczuk/giffy/server/viewmodel"
 )
 
-// AuthController is the main controller for the app.
-type AuthController struct{}
+// Auth is the main controller for the app.
+type Auth struct{}
 
-func (ac AuthController) oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (ac Auth) oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	if session != nil {
-		return ctx.Redirect("/")
+		cu := &viewmodel.CurrentUser{}
+		cu.SetFromUser(session.User)
+		return ctx.View.View("login_complete", loginCompleteArguments{CurrentUser: util.SerializeJSON(cu)})
 	}
 
 	code := ctx.Param("code")
 	if len(code) == 0 {
-		return ctx.BadRequest("`code` parameter missing, cannot continue")
+		return ctx.View.BadRequest("`code` parameter missing, cannot continue")
 	}
 
 	var oa external.GoogleOAuthResponse
@@ -37,17 +40,17 @@ func (ac AuthController) oauthAction(session *auth.Session, ctx *web.HTTPContext
 		WithPostData("code", code).FetchJSONToObject(&oa)
 
 	if err != nil {
-		return ctx.InternalError(err)
+		return ctx.View.InternalError(err)
 	}
 
 	profile, err := external.FetchGoogleProfile(oa.AccessToken)
 	if err != nil {
-		return ctx.InternalError(err)
+		return ctx.View.InternalError(err)
 	}
 
 	existingUser, err := model.GetUserByUsername(profile.Email, nil)
 	if err != nil {
-		return ctx.InternalError(err)
+		return ctx.View.InternalError(err)
 	}
 
 	var userID int64
@@ -58,31 +61,31 @@ func (ac AuthController) oauthAction(session *auth.Session, ctx *web.HTTPContext
 		user := profile.User()
 		err = spiffy.DefaultDb().Create(user)
 		if err != nil {
-			return ctx.InternalError(err)
+			return ctx.View.InternalError(err)
 		}
 		userID = user.ID
 	} else {
 		userID = existingUser.ID
 	}
 
-	err = model.DeleteUserAuthForProvider(userID, OAuthProviderGoogle, nil)
+	err = model.DeleteUserAuthForProvider(userID, auth.OAuthProviderGoogle, nil)
 	if err != nil {
-		return ctx.InternalError(err)
+		return ctx.View.InternalError(err)
 	}
 
 	//save the credentials
 	newCredentials := model.NewUserAuth(userID, oa.AccessToken, oa.IDToken)
-	newCredentials.Provider = OAuthProviderGoogle
+	newCredentials.Provider = auth.OAuthProviderGoogle
 	err = spiffy.DefaultDb().Create(newCredentials)
 	if err != nil {
-		return ctx.InternalError(err)
+		return ctx.View.InternalError(err)
 	}
 
 	// set up the session
 	userSession := model.NewUserSession(userID)
 	err = spiffy.DefaultDb().Create(userSession)
 	if err != nil {
-		return ctx.InternalError(err)
+		return ctx.View.InternalError(err)
 	}
 
 	sessionID = userSession.SessionID
@@ -90,13 +93,29 @@ func (ac AuthController) oauthAction(session *auth.Session, ctx *web.HTTPContext
 	auth.SessionState().Add(userID, sessionID)
 	ctx.SetCookie(auth.SessionParamName, sessionID, nil, "/")
 
-	return ctx.Redirect("/")
+	currentUser, err := model.GetUserByID(userID, nil)
+	if err != nil {
+		return ctx.View.InternalError(err)
+	}
+
+	cu := &viewmodel.CurrentUser{}
+	cu.SetFromUser(currentUser)
+
+	return ctx.View.View("login_complete", loginCompleteArguments{CurrentUser: util.SerializeJSON(cu)})
 }
 
-func (ac AuthController) logoutAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+type loginCompleteArguments struct {
+	CurrentUser string `json:"current_user"`
+}
+
+func (ac Auth) logoutAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if session == nil {
+		return ctx.Redirect("/")
+	}
+
 	err := auth.Logout(session.UserID, session.SessionID)
 	if err != nil {
-		return ctx.InternalError(err)
+		return ctx.View.InternalError(err)
 	}
 	ctx.ExpireCookie(auth.SessionParamName)
 
@@ -104,8 +123,8 @@ func (ac AuthController) logoutAction(session *auth.Session, ctx *web.HTTPContex
 }
 
 // Register registers the controllers routes.
-func (ac AuthController) Register(router *httprouter.Router) {
-	router.GET("/oauth", web.ActionHandler(auth.SessionAwareAction(ac.oauthAction)))
-	router.GET("/logout", web.ActionHandler(auth.SessionRequiredAction(ac.logoutAction)))
-	router.POST("/logout", web.ActionHandler(auth.SessionRequiredAction(ac.logoutAction)))
+func (ac Auth) Register(router *httprouter.Router) {
+	router.GET("/oauth", auth.ViewSessionAwareAction(ac.oauthAction))
+	router.GET("/logout", auth.ViewSessionAwareAction(ac.logoutAction))
+	router.POST("/logout", auth.ViewSessionAwareAction(ac.logoutAction))
 }
