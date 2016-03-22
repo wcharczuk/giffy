@@ -741,7 +741,7 @@ func (api API) Register(router *httprouter.Router) {
 
 	router.GET("/api/users.search", web.ActionHandler(api.searchUsersAction))
 	router.GET("/api/images.search", web.ActionHandler(api.searchImagesAction))
-	router.POST("/api/image.search/slack", web.ActionHandler(api.searchImagesSlackAction))
+	router.POST("/api/images.search/slack", web.ActionHandler(api.searchImagesSlackAction))
 	router.GET("/api/tags.search", web.ActionHandler(api.searchTagsAction))
 
 	router.GET("/api/moderation.log/recent", web.ActionHandler(api.getRecentModerationLog))
