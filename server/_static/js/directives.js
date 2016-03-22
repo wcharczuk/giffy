@@ -24,7 +24,11 @@ giffyDirectives.directive("giffyFooter", function() {
   }
 });
 
-giffyDirectives.controller('giffyFooterController', ["$scope", function($scope) {}]);
+giffyDirectives.controller('giffyFooterController', ["$scope", "currentUser", function($scope, currentUser) {
+  currentUser(function(user) {
+    $scope.current_user = user;
+  })
+}]);
 
 giffyDirectives.factory('currentUser', ["$http", "localSession", function($http, localSession) {
   var fetchUser = function(cb) {
