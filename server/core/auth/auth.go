@@ -16,7 +16,15 @@ const (
 
 	// OAuthProviderGoogle is the google auth provider.
 	OAuthProviderGoogle = "google"
+
+	// OAuthProviderSlack is the google auth provider.
+	OAuthProviderSlack = "slack"
 )
+
+// UserProvider is an object that returns a user.
+type UserProvider interface {
+	AsUser() *model.User
+}
 
 // Logout un-authenticates a session.
 func Logout(userID int64, sessionID string) error {

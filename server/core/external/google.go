@@ -1,6 +1,8 @@
 package external
 
 import (
+	"fmt"
+
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 )
@@ -27,14 +29,37 @@ type GoogleProfile struct {
 	PictureURL    string `json:"picture"`
 }
 
-// User returns a profile as a user.
-func (gp GoogleProfile) User() *model.User {
+// AsUser returns a profile as a user.
+func (gp GoogleProfile) AsUser() *model.User {
 	user := model.NewUser(gp.Email)
 	user.EmailAddress = gp.Email
 	user.IsEmailVerified = gp.VerifiedEmail
 	user.FirstName = gp.GivenName
 	user.LastName = gp.FamilyName
 	return user
+}
+
+// GoogleOAuth performs the second phase of the oauth 2.0 flow with google.
+func GoogleOAuth(code string) (*GoogleOAuthResponse, error) {
+	var oar GoogleOAuthResponse
+
+	err := core.NewExternalRequest().
+		AsPost().
+		WithScheme("https").
+		WithHost("accounts.google.com").
+		WithPath("o/oauth2/token").
+		WithPostData("client_id", core.ConfigGoogleClientID()).
+		WithPostData("client_secret", core.ConfigGoogleSecret()).
+		WithPostData("grant_type", "authorization_code").
+		WithPostData("redirect_uri", GoogleAuthReturnURL()).
+		WithPostData("code", code).
+		FetchJSONToObject(&oar)
+	return &oar, err
+}
+
+//GoogleAuthReturnURL formats an oauth return uri.
+func GoogleAuthReturnURL() string {
+	return fmt.Sprintf("http://%s/oauth/google", core.ConfigHostname())
 }
 
 // FetchGoogleProfile gets a google proflile for an access token.

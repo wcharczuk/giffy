@@ -4,7 +4,6 @@ import (
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/core/web"
@@ -15,30 +14,33 @@ import (
 // Auth is the main controller for the app.
 type Auth struct{}
 
-func (ac Auth) oauthAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	if session != nil {
-		cu := &viewmodel.CurrentUser{}
-		cu.SetFromUser(session.User)
-		return ctx.View.View("login_complete", loginCompleteArguments{CurrentUser: util.SerializeJSON(cu)})
-	}
-
+func (ac Auth) oauthSlackAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	code := ctx.Param("code")
 	if len(code) == 0 {
 		return ctx.View.BadRequest("`code` parameter missing, cannot continue")
 	}
 
-	var oa external.GoogleOAuthResponse
-	err := core.NewExternalRequest().
-		AsPost().
-		WithScheme("https").
-		WithHost("accounts.google.com").
-		WithPath("o/oauth2/token").
-		WithPostData("client_id", core.ConfigGoogleClientID()).
-		WithPostData("client_secret", core.ConfigGoogleSecret()).
-		WithPostData("grant_type", "authorization_code").
-		WithPostData("redirect_uri", viewmodel.OAuthRedirectURI(ctx.Request)).
-		WithPostData("code", code).FetchJSONToObject(&oa)
+	oa, err := external.SlackOAuth(code)
+	if err != nil {
+		return ctx.View.InternalError(err)
+	}
 
+	profile, err := external.FetchSlackProfile(oa.AccessToken)
+	if err != nil {
+		return ctx.View.InternalError(err)
+	}
+
+	prototypeUser := profile.AsUser()
+	return ac.finishOAuthLogin(ctx, auth.OAuthProviderSlack, oa.AccessToken, oa.Scope, prototypeUser)
+}
+
+func (ac Auth) oauthGoogleAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	code := ctx.Param("code")
+	if len(code) == 0 {
+		return ctx.View.BadRequest("`code` parameter missing, cannot continue")
+	}
+
+	oa, err := external.GoogleOAuth(code)
 	if err != nil {
 		return ctx.View.InternalError(err)
 	}
@@ -48,7 +50,12 @@ func (ac Auth) oauthAction(session *auth.Session, ctx *web.HTTPContext) web.Cont
 		return ctx.View.InternalError(err)
 	}
 
-	existingUser, err := model.GetUserByUsername(profile.Email, nil)
+	prototypeUser := profile.AsUser()
+	return ac.finishOAuthLogin(ctx, auth.OAuthProviderGoogle, oa.AccessToken, oa.IDToken, prototypeUser)
+}
+
+func (ac Auth) finishOAuthLogin(ctx *web.HTTPContext, provider, authToken, authSecret string, prototypeUser *model.User) web.ControllerResult {
+	existingUser, err := model.GetUserByUsername(prototypeUser.Username, nil)
 	if err != nil {
 		return ctx.View.InternalError(err)
 	}
@@ -58,24 +65,23 @@ func (ac Auth) oauthAction(session *auth.Session, ctx *web.HTTPContext) web.Cont
 
 	//create the user if it doesn't exist ...
 	if existingUser.IsZero() {
-		user := profile.User()
-		err = spiffy.DefaultDb().Create(user)
+		err = spiffy.DefaultDb().Create(prototypeUser)
 		if err != nil {
 			return ctx.View.InternalError(err)
 		}
-		userID = user.ID
+		userID = prototypeUser.ID
 	} else {
 		userID = existingUser.ID
 	}
 
-	err = model.DeleteUserAuthForProvider(userID, auth.OAuthProviderGoogle, nil)
+	err = model.DeleteUserAuthForProvider(userID, provider, nil)
 	if err != nil {
 		return ctx.View.InternalError(err)
 	}
 
 	//save the credentials
-	newCredentials := model.NewUserAuth(userID, oa.AccessToken, oa.IDToken)
-	newCredentials.Provider = auth.OAuthProviderGoogle
+	newCredentials := model.NewUserAuth(userID, authToken, authSecret)
+	newCredentials.Provider = provider
 	err = spiffy.DefaultDb().Create(newCredentials)
 	if err != nil {
 		return ctx.View.InternalError(err)
@@ -124,7 +130,8 @@ func (ac Auth) logoutAction(session *auth.Session, ctx *web.HTTPContext) web.Con
 
 // Register registers the controllers routes.
 func (ac Auth) Register(router *httprouter.Router) {
-	router.GET("/oauth", auth.ViewSessionAwareAction(ac.oauthAction))
+	router.GET("/oauth/google", auth.ViewSessionAwareAction(ac.oauthGoogleAction))
+	router.GET("/oauth/slack", auth.ViewSessionAwareAction(ac.oauthSlackAction))
 	router.GET("/logout", auth.ViewSessionAwareAction(ac.logoutAction))
 	router.POST("/logout", auth.ViewSessionAwareAction(ac.logoutAction))
 }

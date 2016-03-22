@@ -2,22 +2,22 @@ package viewmodel
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 // CurrentUser is the response for the current user api service.
 type CurrentUser struct {
-	IsLoggedIn  bool   `json:"is_logged_in"`
-	UUID        string `json:"uuid"`
-	Username    string `json:"username"`
-	IsAdmin     bool   `json:"is_admin"`
-	IsModerator bool   `json:"is_moderator"`
-	IsBanned    bool   `json:"is_banned"`
-	LoginURL    string `json:"login_url,ommitempty"`
+	IsLoggedIn     bool   `json:"is_logged_in"`
+	UUID           string `json:"uuid"`
+	Username       string `json:"username"`
+	IsAdmin        bool   `json:"is_admin"`
+	IsModerator    bool   `json:"is_moderator"`
+	IsBanned       bool   `json:"is_banned"`
+	GoogleLoginURL string `json:"google_login_url,ommitempty"`
 }
 
 // SetFromUser does things.
@@ -33,10 +33,9 @@ func (cu *CurrentUser) SetFromUser(u *model.User) {
 // SetLoggedOut does things.
 func (cu *CurrentUser) SetLoggedOut(ctx *web.HTTPContext) {
 	cu.IsLoggedIn = false
-	cu.LoginURL = fmt.Sprintf("https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=%s&redirect_uri=%s&scope=https://www.googleapis.com/auth/userinfo.email%%20https://www.googleapis.com/auth/userinfo.profile", core.ConfigGoogleClientID(), OAuthRedirectURI(ctx.Request))
-}
-
-//OAuthRedirectURI formats a uri.
-func OAuthRedirectURI(r *http.Request) string {
-	return fmt.Sprintf("http://%s/oauth", core.ConfigHostname())
+	cu.GoogleLoginURL = fmt.Sprintf(
+		"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=%s&redirect_uri=%s&scope=https://www.googleapis.com/auth/userinfo.email%%20https://www.googleapis.com/auth/userinfo.profile",
+		core.ConfigGoogleClientID(),
+		external.GoogleAuthReturnURL(),
+	)
 }
