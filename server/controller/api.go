@@ -51,11 +51,6 @@ type slackResponse struct {
 }
 
 func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResult {
-	token := ctx.Param("token")
-	if token != core.ConfigSlackVerificationToken() {
-		return ctx.API.NotAuthorized()
-	}
-
 	query := ctx.Param("text")
 	result, err := model.SearchImagesSlack(query, nil)
 	if err != nil {
