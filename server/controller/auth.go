@@ -25,12 +25,11 @@ func (ac Auth) oauthSlackAction(session *auth.Session, ctx *web.HTTPContext) web
 		return ctx.View.InternalError(err)
 	}
 
-	profile, err := external.FetchSlackProfile(oa.AccessToken)
+	prototypeUser, err := external.FetchSlackProfile(oa.AccessToken)
 	if err != nil {
 		return ctx.View.InternalError(err)
 	}
 
-	prototypeUser := profile.AsUser()
 	return ac.finishOAuthLogin(ctx, auth.OAuthProviderSlack, oa.AccessToken, oa.Scope, prototypeUser)
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/go-slack"
 )
 
 // SlackOAuthResponse is the response from the second phase of slack oauth 2.0
@@ -23,55 +24,27 @@ type SlackAuthTestResponse struct {
 	TeamID string `json:"team_id"`
 }
 
-// SlackUserProfile is a profile within a users.info response.
-type SlackUserProfile struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	RealName  string `json:"real_name"`
-	Email     string `json:"email"`
-}
-
-// SlackUserInfo is the response from the users.info service.
-type SlackUserInfo struct {
-	ID      string            `json:"id"`
-	Name    string            `json:"name"`
-	Team    string            `json:"team"`
-	Profile *SlackUserProfile `json:"profile"`
-}
-
-// AsUser returns the slack user as a model.User.
-func (sui SlackUserInfo) AsUser() *model.User {
-	return &model.User{
-		Username:        fmt.Sprintf("%s @ %s", sui.Name, sui.Team),
-		FirstName:       sui.Profile.FirstName,
-		LastName:        sui.Profile.LastName,
-		EmailAddress:    sui.Profile.Email,
-		IsEmailVerified: true,
-	}
-}
-
 // FetchSlackProfile returns the slack profile for an access token.
-func FetchSlackProfile(accessToken string) (*SlackUserInfo, error) {
-	var authTestResponse SlackAuthTestResponse
-	err := core.NewExternalRequest().AsGet().WithURL("https://slack.com/api/auth.test").WithQueryString("token", accessToken).FetchJSONToObject(&authTestResponse)
+func FetchSlackProfile(accessToken string) (*model.User, error) {
+	c := slack.NewClient(accessToken)
+
+	authTest, err := c.AuthTest()
 	if err != nil {
 		return nil, err
 	}
 
-	var userInfo SlackUserInfo
-
-	err = core.NewExternalRequest().AsGet().
-		WithURL("https://slack.com/api/users.info").
-		WithQueryString("token", accessToken).
-		WithQueryString("user", authTestResponse.UserID).
-		FetchJSONToObject(&userInfo)
-
+	userInfo, err := c.UsersInfo(authTest.UserID)
 	if err != nil {
 		return nil, err
 	}
 
-	userInfo.Team = authTestResponse.Team
-	return &userInfo, nil
+	return &model.User{
+		Username:        fmt.Sprintf("%s @ %s", userInfo.Name, authTest.Team),
+		FirstName:       userInfo.Profile.FirstName,
+		LastName:        userInfo.Profile.LastName,
+		EmailAddress:    userInfo.Profile.Email,
+		IsEmailVerified: true,
+	}, nil
 }
 
 // SlackLoginURL is the url to start the OAuth 2.0 process with slack.
