@@ -221,6 +221,14 @@ giffyControllers.controller("userController", ["$scope", "$http", "$routeParams"
                 $scope.user = datums.response;
             });
         };
+        
+        $scope.ban= function() {
+            var user = $scope.user;
+            user.is_banned = !user.is_banned;
+            $http.put("/api/user/" + $routeParams.user_id, user).success(function(datums) {
+                $scope.user = datums.response;
+            });
+        };
     }
 ]);
 
@@ -255,6 +263,8 @@ giffyControllers.controller("userSearchController", ["$scope", "$http", "current
                 delete $scope.users;
             }
         };
+        
+        jQuery("#giffy-user-search-bar").focus();
     }
 ]);
 
