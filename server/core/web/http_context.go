@@ -90,7 +90,7 @@ func (hc *HTTPContext) Param(name string) string {
 	}
 
 	cookie, cookieErr := hc.Request.Cookie(name)
-	if cookieErr == nil && len(cookie.Value) == 0 {
+	if cookieErr == nil && len(cookie.Value) != 0 {
 		return cookie.Value
 	}
 
