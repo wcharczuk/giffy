@@ -321,7 +321,28 @@ body {
 
 /* end user page */
 
+
+/* begin image upload page */
+
 #image-upload-frame {
     width: 100%;
     height: 350px;
 }
+
+/* end image upload page */
+
+/* begin image page */
+
+.image-details .row:first-child {
+    margin-top:25px;   
+}
+
+.image-details .row:last-child {
+    margin-bottom:25px;   
+}
+
+.image-details .row {
+    margin-top: 10px;
+}
+
+/* end image upload page */

@@ -7,47 +7,27 @@
         </div>
     </div>
 
-    <div class="row image-added-by-row">
-        <div class="col-md-6 col-md-offset-4">
+    <div class="row image-details">
+        <div class="col-sm-8 col-sm-offset-2 col-md-6 col-md-offset-3 col-lg-6 col-lg-offset-3 col-xl-4 col-xl-offset-4">
             <div class="row">
-                <div class="col-md-3">Giffy Slack Command:</div>
-                <div class="col-md-6 align-left"><a id="slack-command-link" href="#" title="Copy Code To Clipboard"><code>{{slackCommand}}</code></a></div>
+                <div class="col-sm-4 col-md-3">Slack Command:</div>
+                <div class="col-sm-8 col-md-9 align-left"><a id="slack-command-link" href="#" title="Copy Code To Clipboard"><code>{{slackCommand}}</code></a></div>
             </div>
-        </div>
-    </div>
-
-    <div class="row image-added-by-row">
-        <div class="col-md-6 col-md-offset-4">
             <div class="row">
-                <div class="col-md-3">Dimensions:</div>
-                <div class="col-md-6">{{image.width}}x{{image.height}} px</div>
+                <div class="col-sm-4 col-md-3">Dimensions:</div>
+                <div class="col-sm-8 col-md-9">{{image.width}}x{{image.height}} px</div>
             </div>
-        </div>
-    </div>
-
-    <div class="row image-added-by-row">
-        <div class="col-md-6 col-md-offset-4">
             <div class="row">
-                <div class="col-md-3">File Size:</div>
-                <div class="col-md-6">{{formatFileSize(image.file_size)}}</div>
+                <div class="col-sm-4 col-md-3">File Size:</div>
+                <div class="col-sm-8 col-md-9">{{formatFileSize(image.file_size)}}</div>
             </div>
-        </div>
-    </div>
-
-    <div class="row image-added-by-row">
-        <div class="col-md-4 col-md-offset-4">
             <div class="row">
-                <div class="col-md-4">Added By:</div>
-                <div class="col-md-8"><user-detail user="image.created_by"></user-detail></div>
+                <div class="col-sm-4 col-md-3">Added By:</div>
+                <div class="col-sm-8 col-md-9"><user-detail user="image.created_by"></user-detail></div>
             </div>
-        </div>
-    </div>
-
-    <div class="row image-delete-row" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by.uuid">
-        <div class="col-md-4 col-md-offset-4" >
-            <div class="row">
-                <div class="col-md-4">Moderator Controls:</div>
-                <div class="col-md-8">
+            <div class="row" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by.uuid">
+                <div class="col-sm-4 col-md-3">Moderator Controls:</div>
+                <div class="col-sm-8 col-md-9">
                     <button class="btn btn-danger btn-xs" ng-click="deleteImage()">Delete Image</button>
                 </div>
             </div>
@@ -56,6 +36,9 @@
 
     <div class="row">
         <div class="col-md-10 col-md-offset-1 align-center">
+            <div class="page-header">
+				<h1>Tags</h1>
+			</div>
             <ul class="image-tags">
                 <li ng-repeat="tag in tags">
                     <vote-button type="'tag'" user="current_user" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
