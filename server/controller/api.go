@@ -39,6 +39,7 @@ func (api API) searchImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 }
 
 type slackResponseAttachment struct {
+	Title    string `json:"title"`
 	ImageURL string `json:"image_url"`
 	ThumbURL string `json:"thumb_url,omitempty"`
 }
@@ -67,7 +68,7 @@ func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResul
 	res := slackResponse{}
 	res.ResponseType = "in_channel"
 	res.Attachments = []slackResponseAttachment{
-		slackResponseAttachment{ImageURL: result.S3ReadURL},
+		slackResponseAttachment{Title: query, ImageURL: result.S3ReadURL},
 	}
 
 	responseBytes, err := json.Marshal(res)
