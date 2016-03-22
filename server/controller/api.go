@@ -348,11 +348,10 @@ func (api API) createTagAction(session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.API.BadRequest("`tag_value` must be set.")
 	}
 
-	if len(strings.Trim(tag.TagValue, " \t")) == 0 {
+	tagValue := model.CleanTagValue(tag.TagValue)
+	if len(tagValue) == 0 {
 		return ctx.API.BadRequest("`tag_value` must be set.")
 	}
-
-	tagValue := strings.ToLower(tag.TagValue)
 
 	//check if the tag exists first
 	existingTag, err := model.GetTagByValue(tagValue, nil)

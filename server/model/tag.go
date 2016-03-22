@@ -2,7 +2,9 @@ package model
 
 import (
 	"database/sql"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
@@ -103,4 +105,19 @@ func DeleteTagByID(tagID int64, tx *sql.Tx) error {
 		return err
 	}
 	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
+}
+
+// CleanTagValue cleans a prospective tag value.
+func CleanTagValue(tagValue string) string {
+	tagValue = strings.ToLower(tagValue)
+	tagValue = strings.Trim(tagValue, " \t\n\r")
+
+	output := ""
+	for _, r := range tagValue {
+		if unicode.IsLetter(r) || unicode.IsSpace(r) || unicode.IsDigit(r) {
+			output = output + string(r)
+		}
+	}
+
+	return output
 }

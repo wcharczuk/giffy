@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
@@ -56,7 +55,7 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 	if image == nil {
 		return ctx.View.InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
-	tagValue := strings.ToLower(ctx.Param("tag_value"))
+	tagValue := model.CleanTagValue(ctx.Param("tag_value"))
 
 	existingTag, err := model.GetTagByValue(tagValue, nil)
 	if err != nil {
