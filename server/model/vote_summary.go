@@ -133,7 +133,7 @@ func GetVoteSummary(imageID, tagID int64, tx *sql.Tx) (*VoteSummary, error) {
 func GetImagesForTagID(tagID int64, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	err := spiffy.DefaultDb().
-		QueryInTransaction(`select image_id as id from vote_summary vs where tag_id = $1`, tx, tagID).OutMany(&imageIDs)
+		QueryInTransaction(`select image_id as id from vote_summary vs where tag_id = $1 order by vs.votes_total desc;`, tx, tagID).OutMany(&imageIDs)
 	if err != nil {
 		return nil, err
 	}
