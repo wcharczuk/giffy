@@ -63,7 +63,7 @@ func SlackOAuth(code string) (*SlackOAuthResponse, error) {
 
 	err := core.NewExternalRequest().
 		AsPost().
-		WithURL("https://slack.com/oauth/authorize").
+		WithURL("https://slack.com/api/oauth.access").
 		WithPostData("client_id", core.ConfigSlackClientID()).
 		WithPostData("client_secret", core.ConfigSlackClientSecret()).
 		WithPostData("code", code).
