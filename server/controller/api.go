@@ -740,6 +740,7 @@ func (api API) Register(router *httprouter.Router) {
 
 	router.GET("/api/users.search", web.ActionHandler(api.searchUsersAction))
 	router.GET("/api/images.search", web.ActionHandler(api.searchImagesAction))
+	router.GET("/api/images.search/slack", web.ActionHandler(api.searchImagesSlackAction))
 	router.POST("/api/images.search/slack", web.ActionHandler(api.searchImagesSlackAction))
 	router.GET("/api/tags.search", web.ActionHandler(api.searchTagsAction))
 
