@@ -268,6 +268,7 @@ giffyControllers.controller("logoutController", ["$scope", "$http", "localSessio
     }
 ]);
 
+giffyControllers.controller("slackCompleteController", ["$scope", function($scope) {}]);
 
 giffyControllers.controller("aboutController", ["$scope", "$http",
     function($scope, $http) {

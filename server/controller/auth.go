@@ -25,7 +25,7 @@ func (ac Auth) oauthSlackAction(session *auth.Session, ctx *web.HTTPContext) web
 		return ctx.View.InternalError(err)
 	}
 
-	return ctx.Redirect("/")
+	return ctx.Redirect("/#/slack/complete")
 }
 
 func (ac Auth) oauthGoogleAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
