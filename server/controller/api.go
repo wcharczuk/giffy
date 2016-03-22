@@ -85,7 +85,7 @@ func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResul
 	if !strings.HasPrefix(query, "img:") {
 		res.Attachments = []interface{}{
 			slackImageAttachment{Title: query, ImageURL: result.S3ReadURL},
-			slackMessageAttachment{Text: fmt.Sprintf("Wasn't what you wanted? Improve it <here|%s/#/image/%s>.", core.ConfigURL(), result.UUID)},
+			slackMessageAttachment{Text: fmt.Sprintf("Wasn't what you wanted? Improve it <%s/#/image/%s|here>.", core.ConfigURL(), result.UUID)},
 		}
 	} else {
 		res.Attachments = []interface{}{
