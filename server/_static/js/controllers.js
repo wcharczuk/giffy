@@ -267,3 +267,12 @@ giffyControllers.controller("logoutController", ["$scope", "$http", "localSessio
         });
     }
 ]);
+
+
+giffyControllers.controller("aboutController", ["$scope", "$http",
+    function($scope, $http) {
+        $http.get("/api/images/random/1").success(function(datums) {
+           $scope.image = datums.response[0]; 
+        });     
+    }
+]);
