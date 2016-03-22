@@ -45,7 +45,7 @@ giffyDirectives.factory('currentUser', ["$http", "localSession", function($http,
     } else {
       var user = localSession.get("__current_user__");
       if (user.is_logged_in) {
-        fetchuser(cb);
+        fetchUser(cb);
       } else {
         cb(user);
       }
