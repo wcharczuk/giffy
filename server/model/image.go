@@ -222,7 +222,7 @@ from
 		, vs.votes_total as votes_total
 	from 
 		tag t
-		join vote_summary on t.id = vs.tag_id
+		join vote_summary vs on t.id = vs.tag_id
 	where
 		vs.votes_total > 0
 		and t.tag_value % $1
