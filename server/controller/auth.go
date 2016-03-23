@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
@@ -91,7 +93,7 @@ func (ac Auth) finishOAuthLogin(ctx *web.HTTPContext, provider, authToken, authS
 	sessionID = userSession.SessionID
 
 	auth.SessionState().Add(userID, sessionID)
-	ctx.SetCookie(auth.SessionParamName, sessionID, nil, "/")
+	ctx.SetCookie(auth.SessionParamName, sessionID, util.OptionalTime(time.Now().UTC().AddDate(0, 1, 0)), "/")
 
 	currentUser, err := model.GetUserByID(userID, nil)
 	if err != nil {
