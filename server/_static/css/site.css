@@ -1,10 +1,8 @@
 body {
     font-family: "Avenir Next", sans-serif;
-    padding:10px;
 }
 
 #wrapper {
-    padding-top: 110px;
     padding-bottom:60px;
 }
 
@@ -37,13 +35,37 @@ body {
 
 /* end helper classes */
 
-#giffy-header {
-    position: fixed;
-    top: 0; 
-    left: 0;
-    right: 0;
-    height: 90px;
+@media (max-width: 767px) {
+    #giffy-header-search-cell {
+        text-align:center;
+    }
     
+    #giffy-header-logo-cell {
+        text-align:center;
+    }
+    #giffy-header-add-image-cell {
+        text-align:center;
+    }
+    #giffy-home-results .image-element {
+        min-width: unset;
+        width:100%;
+    }
+}
+
+@media (min-width: 767px) {
+    #giffy-header-search-cell {
+        text-align:left;
+    }
+    
+    #giffy-header-logo-cell {
+        text-align:center;
+    }
+    #giffy-header-add-image-cell {
+        text-align:right;
+    }
+}
+
+#giffy-header {
     padding-left: 10px;
     padding-right: 10px;
     
@@ -54,10 +76,6 @@ body {
 }
 
 #giffy-sub-header {
-    position: fixed;
-    top: 80px; 
-    left: 0;
-    right: 0;
     height: 40px;
     line-height: 35px;
     
@@ -299,22 +317,20 @@ giffy-image {
 /* begin image-element */
 
 .image-element {
-    display:inline-block !important;
-
     position: relative;
-    display:block;
-
+    
+    min-width:320px;
     width:33%;
     height:250px;
-
     overflow: hidden;
-    
     text-align: left;
+    
+    float:left;
 }
 
 .image-element .image-element-img {
     position:absolute;
-    top: 0
+    top: 0;
     left: 0;
 
     min-height: 250px;
