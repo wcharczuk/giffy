@@ -107,6 +107,15 @@ func DeleteTagByID(tagID int64, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
 }
 
+// DeleteOrphanedTags deletes tags that have no vote_summary link to an image.
+func DeleteOrphanedTags(tx *sql.Tx) error {
+	err := spiffy.DefaultDb().ExecInTransaction(`delete from vote where not exists (select 1 from vote_summary vs where vs.tag_id = vote.tag_id);`, tx)
+	if err != nil {
+		return err
+	}
+	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where not exists (select 1 from vote_summary vs where vs.tag_id = tag.id);`, tx)
+}
+
 // CleanTagValue cleans a prospective tag value.
 func CleanTagValue(tagValue string) string {
 	tagValue = strings.ToLower(tagValue)

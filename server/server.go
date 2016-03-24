@@ -5,11 +5,14 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/httprouter"
+
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/web"
+	"github.com/wcharczuk/giffy/server/jobs"
 )
 
 func indexAction(ctx *web.HTTPContext) web.ControllerResult {
@@ -21,6 +24,9 @@ func Init() *httprouter.Router {
 	core.DBInit()
 
 	util.StartProcessQueueDispatchers(1)
+
+	chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
+	chronometer.Default().LoadJob(jobs.FixImageSizes{})
 
 	web.InitViewCache(
 		"server/_views/header.html",
