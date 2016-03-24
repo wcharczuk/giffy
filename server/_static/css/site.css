@@ -46,7 +46,8 @@ body {
     #giffy-header-add-image-cell {
         text-align:center;
     }
-    #giffy-home-results .image-element {
+    
+    #giffy-home-results .image-element, #user-image-results .image-element, #tag-image-results .image-element {
         min-width: unset;
         width:100%;
     }

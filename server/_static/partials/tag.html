@@ -2,10 +2,10 @@
 
 <div class="tag-value-row row">
     <div class="col-md-10 col-md-offset-1">
-        <div class="page-header">
+        <div class="page-header align-center">
             <h1>{{tag.tag_value}}</h1>
         </div>
-        <div class="image-for-tag align-center" ng-repeat="image in images">
+        <div id="tag-image-results" class="image-for-tag align-center" ng-repeat="image in images">
             <giffy-image class="image-result" image="image" user="current_user" style="display:block"></giffy-image>
             <vote-button type="'image'" user="current_user" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
         </div>
