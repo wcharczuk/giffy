@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
@@ -780,6 +781,11 @@ func (api API) getSiteStatsAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.API.JSON(stats)
 }
 
+func (api API) getJobsStatusAction(ctx *web.HTTPContext) web.ControllerResult {
+	status := chronometer.Default().Status()
+	return ctx.API.JSON(status)
+}
+
 // Register adds the routes to the router.
 func (api API) Register(router *httprouter.Router) {
 	router.GET("/api/users", web.ActionHandler(api.getUsersAction))
@@ -831,6 +837,9 @@ func (api API) Register(router *httprouter.Router) {
 	router.GET("/api/session.user", auth.APISessionAwareAction(api.getCurrentUserAction))
 	router.GET("/api/session/:key", auth.APISessionRequiredAction(api.getSessionKeyAction))
 	router.POST("/api/session/:key", auth.APISessionRequiredAction(api.setSessionKeyAction))
+
+	//jobs
+	router.GET("/api/jobs", web.ActionHandler(api.getJobsStatusAction))
 
 	// auth endpoints
 	router.POST("/api/logout", auth.APISessionAwareAction(api.logoutAction))

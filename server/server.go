@@ -27,6 +27,7 @@ func Init() *httprouter.Router {
 
 	chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
 	chronometer.Default().LoadJob(jobs.FixImageSizes{})
+	chronometer.Default().Start()
 
 	web.InitViewCache(
 		"server/_views/header.html",
