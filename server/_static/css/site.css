@@ -100,6 +100,20 @@ body {
     font-size: 18px;
 }
 
+#giffy-search {
+    color: #fff;
+    font-size: 18px;
+}
+
+#giffy-search:hover {
+    color: #337ab7;
+    text-decoration: none;
+}
+
+#giffy-search .glyphicon {
+    padding-right: 5px;
+}
+
 #giffy-footer {
     background-color: #fff;
     position:fixed;

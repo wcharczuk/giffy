@@ -10,6 +10,9 @@ giffyApp.config(["$routeProvider",
         }).when("/add_image", {
             templateUrl: '/static/partials/add_image.html',
             controller: 'addImageController'
+        }).when("/search", {
+            templateUrl: '/static/partials/search.html',
+            controller: 'searchController'
         }).when("/search/:search_query", {
             templateUrl: '/static/partials/search.html',
             controller: 'searchController'

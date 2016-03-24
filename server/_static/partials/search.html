@@ -10,7 +10,7 @@
 
 <div id="giffy-home-results" class="row">
     <div class="col-md-10 col-md-offset-1">
-        <div>Image Search Results For: <span class="giffy-search-query">{{searchedQuery}}</span></div>
+        <div ng-if="!!searchedQuery">Image Search Results For: <span class="giffy-search-query">{{searchedQuery}}</span></div>
         <giffy-image class="image-result" image="image" user="current_user" ng-repeat="image in images"></giffy-image>
     </div>
 </div>
