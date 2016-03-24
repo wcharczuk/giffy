@@ -781,9 +781,25 @@ func (api API) getSiteStatsAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.API.JSON(stats)
 }
 
-func (api API) getJobsStatusAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api API) getJobsStatusAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if !session.User.IsAdmin {
+		return ctx.API.NotAuthorized()
+	}
 	status := chronometer.Default().Status()
 	return ctx.API.JSON(status)
+}
+
+func (api API) runJobAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if !session.User.IsAdmin {
+		return ctx.API.NotAuthorized()
+	}
+	jobID := ctx.RouteParameter("job_id")
+
+	err := chronometer.Default().RunJob(jobID)
+	if err != nil {
+		return ctx.API.InternalError(err)
+	}
+	return ctx.API.OK()
 }
 
 // Register adds the routes to the router.
@@ -839,7 +855,8 @@ func (api API) Register(router *httprouter.Router) {
 	router.POST("/api/session/:key", auth.APISessionRequiredAction(api.setSessionKeyAction))
 
 	//jobs
-	router.GET("/api/jobs", web.ActionHandler(api.getJobsStatusAction))
+	router.GET("/api/jobs", auth.APISessionRequiredAction(api.getJobsStatusAction))
+	router.POST("/api/job/:job_id", auth.APISessionRequiredAction(api.runJobAction))
 
 	// auth endpoints
 	router.POST("/api/logout", auth.APISessionAwareAction(api.logoutAction))
