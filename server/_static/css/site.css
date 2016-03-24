@@ -57,14 +57,15 @@ body {
 }
 
 #giffy-home-results {
-    margin-top:25px;
-    margin-bottom:25px;
+    margin-top:10px;
+    margin-bottom:10px;
     min-height:250px;
 }
 
 #giffy-search-bar {
-    margin-top:25px;
-    margin-bottom: 25px;
+    margin-top: 25px;
+    margin-bottom: 10px;
+    border-radius: 0;
 }
 
 #giffy-footer .footer-section {
@@ -72,6 +73,12 @@ body {
     margin-left: 5px;
     margin-right: 5px;
 }
+
+
+giffy-image {
+    display:inline-block;
+}
+
 
 /* begin vote-button */
 
@@ -188,6 +195,10 @@ body {
 /* end homepage */
 
 /* begin image page */
+
+#giffy-image {
+    margin-top: 50px;
+}
 
 #giffy-image > .row {
     margin-top: 10px;
