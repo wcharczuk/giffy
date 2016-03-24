@@ -33,6 +33,12 @@ const (
 	// ModerationVerbUnban = "unban"
 	ModerationVerbUnban = "unban"
 
+	// ModerationVerbCensor = "censor"
+	ModerationVerbCensor = "censor"
+
+	// ModerationVerbUncensor = "uncensor"
+	ModerationVerbUncensor = "uncensor"
+
 	// ModerationObjectImage = "image"
 	ModerationObjectImage = "image"
 

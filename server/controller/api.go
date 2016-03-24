@@ -132,6 +132,7 @@ func (api API) updateUserAction(session *auth.Session, ctx *web.HTTPContext) web
 	postedUser.ID = user.ID
 	postedUser.UUID = user.UUID
 	postedUser.CreatedUTC = user.CreatedUTC
+	postedUser.Username = user.Username
 
 	if !user.IsAdmin && postedUser.IsAdmin {
 		return ctx.API.BadRequest("Cannot promote user to admin through the UI; this must be done in the db directly.")
@@ -196,18 +197,6 @@ func (api API) getModerationForUserAction(session *auth.Session, ctx *web.HTTPCo
 	return ctx.API.JSON(actions)
 }
 
-func (api API) getImageAction(ctx *web.HTTPContext) web.ControllerResult {
-	imageUUID := ctx.RouteParameter("image_id")
-	image, err := model.GetImageByUUID(imageUUID, nil)
-	if err != nil {
-		return ctx.API.InternalError(err)
-	}
-	if image.IsZero() {
-		return ctx.API.NotFound()
-	}
-	return ctx.API.JSON(image)
-}
-
 func (api API) getImagesAction(ctx *web.HTTPContext) web.ControllerResult {
 	images, err := model.GetAllImages(nil)
 	if err != nil {
@@ -241,6 +230,58 @@ func (api API) getImagesForTagAction(ctx *web.HTTPContext) web.ControllerResult 
 		return ctx.API.InternalError(err)
 	}
 	return ctx.API.JSON(results)
+}
+
+func (api API) getImageAction(ctx *web.HTTPContext) web.ControllerResult {
+	imageUUID := ctx.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.API.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.API.NotFound()
+	}
+	return ctx.API.JSON(image)
+}
+
+func (api API) updateImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	imageUUID := ctx.RouteParameter("image_id")
+
+	if session.User.IsModerator {
+		return ctx.API.NotAuthorized()
+	}
+
+	image, err := model.GetImageByUUID(imageUUID, nil)
+	if err != nil {
+		return ctx.API.InternalError(err)
+	}
+	if image.IsZero() {
+		return ctx.API.NotFound()
+	}
+
+	updatedImage := model.Image{}
+	err = ctx.PostBodyAsJSON(&updatedImage)
+
+	if len(updatedImage.DisplayName) != 0 {
+		image.DisplayName = updatedImage.DisplayName
+	}
+
+	if updatedImage.IsCensored != image.IsCensored {
+		if updatedImage.IsCensored {
+			model.QueueModerationEntry(session.UserID, model.ModerationVerbCensor, model.ModerationObjectImage, image.UUID)
+		} else {
+			model.QueueModerationEntry(session.UserID, model.ModerationVerbUncensor, model.ModerationObjectImage, image.UUID)
+		}
+
+		image.IsCensored = updatedImage.IsCensored
+	}
+
+	err = spiffy.DefaultDb().Update(image)
+	if err != nil {
+		return ctx.API.InternalError(err)
+	}
+
+	return ctx.API.JSON(image)
 }
 
 func (api API) getTagsForImageAction(ctx *web.HTTPContext) web.ControllerResult {

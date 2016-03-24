@@ -41,6 +41,7 @@ type Image struct {
 	CreatedByUser *User     `json:"created_by,omitempty" db:"-"`
 
 	DisplayName string `json:"display_name" db:"display_name"`
+	IsCensored  bool   `json:"is_censored" db:"is_censored"`
 
 	MD5       []byte `json:"md5" db:"md5"`
 	S3ReadURL string `json:"s3_read_url" db:"s3_read_url"`
@@ -74,6 +75,7 @@ func (i *Image) Populate(r *sql.Rows) error {
 		&i.CreatedUTC,
 		&i.CreatedBy,
 		&i.DisplayName,
+		&i.IsCensored,
 		&i.MD5,
 		&i.S3ReadURL,
 		&i.S3Bucket,
@@ -138,7 +140,7 @@ func GetAllImages(tx *sql.Tx) ([]Image, error) {
 func GetRandomImages(count int, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	err := spiffy.DefaultDb().
-		QueryInTransaction(`select id from (select id, row_number() over (order by gen_random_uuid()) as rank from image) data where rank <= $1`, tx, count).OutMany(&imageIDs)
+		QueryInTransaction(`select id from (select id, row_number() over (order by gen_random_uuid()) as rank from image where is_censored = false) data where rank <= $1`, tx, count).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err
@@ -223,9 +225,11 @@ from
 	from 
 		tag t
 		join vote_summary vs on t.id = vs.tag_id
+		join image i on vs.image_id = i.id
 	where
 		vs.votes_total > 0
 		and t.tag_value % $1
+		and i.is_censored = false
 ) as results
 order by
 	relevance desc,
@@ -267,8 +271,10 @@ from
 				limit 1
 			) best_tag
 			join vote_summary vs on vs.tag_id = best_tag.tag_id
+			join image i on vs.image_id = i.id
 		where
 			vs.votes_total > 0
+			and i.is_censored = false
 		order by
 			gen_random_uuid()
 		limit 1

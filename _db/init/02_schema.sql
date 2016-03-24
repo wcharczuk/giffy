@@ -51,6 +51,8 @@ CREATE TABLE image (
 	s3_bucket varchar(64) not null,
 	s3_key varchar(64) not null,
 
+	is_censored boolean not null default false,
+	
 	width int not null,
 	height int not null,
 	file_size int not null,
