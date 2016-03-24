@@ -185,12 +185,6 @@ body {
     margin-right: 5px;
 }
 
-
-giffy-image {
-    /*display:inline-block;*/
-}
-
-
 /* begin vote-button */
 
 .vote-button {
@@ -424,6 +418,22 @@ giffy-image {
 
 .tag-value {
     font-size:30px;
+}
+
+.tag-image-result {
+    float: left;
+    width:33%;
+    min-width: 320px;
+    height: 350px;
+}
+
+.tag-image-result giffy-image {
+    float: none;
+    display: block;
+}
+
+.tag-image-result .image-element {
+    width: 100%;
 }
 
 .image-for-tag img {

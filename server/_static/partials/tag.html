@@ -1,13 +1,15 @@
 <giffy-header/>
 
 <div class="tag-value-row row">
-    <div class="col-md-10 col-md-offset-1">
-        <div class="page-header align-center">
+    <div class="col-md-10 col-md-offset-1 align-center">
+        <div class="page-header">
             <h1>{{tag.tag_value}}</h1>
         </div>
-        <div id="tag-image-results" class="image-for-tag align-center" ng-repeat="image in images">
-            <giffy-image class="image-result" image="image" user="current_user" style="display:block"></giffy-image>
-            <vote-button type="'image'" user="current_user" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
+        <div id="tag-image-results">
+            <div class="tag-image-result" ng-repeat="image in images">
+                <giffy-image image="image" user="current_user"></giffy-image>
+                <vote-button type="'image'" user="current_user" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
+            </div>
         </div>
     </div>
 </div>
