@@ -324,8 +324,7 @@ body {
 
 .image-element {
     position: relative;
-    
-    min-width:320px;
+   
     width:33%;
     height:250px;
     overflow: hidden;
