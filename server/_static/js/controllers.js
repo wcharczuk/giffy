@@ -79,7 +79,27 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
                     });    
                 }
             }
-        }
+        };
+        
+        $scope.censorImage = function() {
+            if ($scope.current_user.is_moderator) {
+                if (confirm("are you sure?")) {
+                    $http.put("/api/image/" + $scope.image.uuid, {is_censored: true}).success(function(datums){
+                        $scope.image = datums.response; 
+                    });
+                }
+            }
+        };
+        
+        $scope.uncensorImage = function() {
+            if ($scope.current_user.is_moderator) {
+                if (confirm("are you sure?")) {
+                    $http.put("/api/image/" + $scope.image.uuid, {is_censored: false}).success(function(datums){
+                        $scope.image = datums.response; 
+                    });
+                }
+            }
+        };
         
         jQuery("#slack-command-link").on('click', function() {
             var slackLink = document.querySelector("#slack-command-link");

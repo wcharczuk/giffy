@@ -247,7 +247,7 @@ func (api API) getImageAction(ctx *web.HTTPContext) web.ControllerResult {
 func (api API) updateImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
 	imageUUID := ctx.RouteParameter("image_id")
 
-	if session.User.IsModerator {
+	if !session.User.IsModerator {
 		return ctx.API.NotAuthorized()
 	}
 
@@ -783,6 +783,7 @@ func (api API) Register(router *httprouter.Router) {
 	router.GET("/api/images/random/:count", web.ActionHandler(api.getRandomImagesAction))
 
 	router.GET("/api/image/:image_id", web.ActionHandler(api.getImageAction))
+	router.PUT("/api/image/:image_id", auth.APISessionRequiredAction(api.updateImageAction))
 	router.DELETE("/api/image/:image_id", auth.APISessionRequiredAction(api.deleteImageAction))
 
 	router.GET("/api/tag.images/:tag_id", web.ActionHandler(api.getImagesForTagAction))
