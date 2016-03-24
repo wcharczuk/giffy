@@ -1,7 +1,28 @@
 body {
     font-family: "Avenir Next", sans-serif;
     padding:10px;
+}
+
+#wrapper {
+    padding-top: 110px;
     padding-bottom:60px;
+}
+
+.btn {
+    border-radius : 0;
+}
+
+.btn .glyphicon {
+    padding-top:2px;
+    padding-right: 6px;
+}
+
+.label {
+    border-radius : 0;
+}
+
+.input {
+    border-radius: 0;
 }
 
 /* begin helper classes */
@@ -17,8 +38,44 @@ body {
 /* end helper classes */
 
 #giffy-header {
-    margin-top:25px;
-    margin-bottom:10px;
+    position: fixed;
+    top: 0; 
+    left: 0;
+    right: 0;
+    height: 90px;
+    
+    z-index: 10;
+    
+    background-color: #222;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+#giffy-sub-header {
+    position: fixed;
+    top: 80px; 
+    left: 0;
+    right: 0;
+    height: 40px;
+    line-height: 35px;
+    
+    z-index: 10;
+    
+    background: #f7f8fa;
+    border-bottom: 1px solid #eeeff2;
+}
+
+#giffy-header img {
+    background: #fff;
+}
+
+#giffy-header .row {
+    height: 80px;
+    line-height: 80px;
+}
+
+#giffy-logo {
+    height: 64px;
+    width: 64px;
 }
 
 #giffy-header button {
@@ -29,8 +86,12 @@ body {
     font-size: 18px;
 }
 
-#giffy-header .user-detail-badges {
-    display:block;
+#giffy-header .user-detail a {
+    color: #fff;
+}
+
+#header-add-image {
+    font-size: 18px;
 }
 
 #giffy-footer {
