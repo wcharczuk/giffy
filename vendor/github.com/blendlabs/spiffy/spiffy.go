@@ -457,6 +457,7 @@ func (cc ColumnCollection) ConcatWith(other *ColumnCollection) *ColumnCollection
 type QueryResult struct {
 	Rows  *sql.Rows
 	Stmt  *sql.Stmt
+	Conn  *DbConnection
 	Error error
 }
 
@@ -474,6 +475,9 @@ func (q *QueryResult) Close() error {
 		q.Stmt = nil
 	}
 
+	//yes this is gross.
+	//release the tx lock on the connection for this query.
+	q.Conn.txUnlock()
 	return exception.WrapMany(rowsErr, stmtErr)
 }
 
@@ -766,6 +770,9 @@ type DbConnection struct {
 	DSN        string
 	Connection *sql.DB
 	MetaLock   sync.Mutex
+
+	Tx     *sql.Tx
+	TxLock sync.Mutex
 }
 
 // CreatePostgresConnectionString returns a sql connection string from a given set of DbConnection parameters.
@@ -791,6 +798,10 @@ func (dbAlias *DbConnection) CreatePostgresConnectionString() string {
 func (dbAlias *DbConnection) Begin() (*sql.Tx, error) {
 	if dbAlias == nil {
 		return nil, exception.New("`dbAlias` is uninitialized, cannot continue.")
+	}
+
+	if dbAlias.Tx != nil {
+		return dbAlias.Tx, nil
 	}
 
 	if dbAlias.Connection != nil {
@@ -832,6 +843,14 @@ func (dbAlias *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, e
 
 	if tx != nil {
 		stmt, stmtErr := tx.Prepare(statement)
+		if stmtErr != nil {
+			return nil, exception.Newf("Postgres Error: %v", stmtErr)
+		}
+		return stmt, nil
+	}
+
+	if dbAlias.Tx != nil {
+		stmt, stmtErr := dbAlias.Tx.Prepare(statement)
 		if stmtErr != nil {
 			return nil, exception.Newf("Postgres Error: %v", stmtErr)
 		}
@@ -890,6 +909,9 @@ func (dbAlias *DbConnection) ExecInTransaction(statement string, tx *sql.Tx, arg
 		}
 	}()
 
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
+
 	stmt, stmtErr := dbAlias.Prepare(statement, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
@@ -917,7 +939,8 @@ func (dbAlias *DbConnection) Query(statement string, args ...interface{}) *Query
 
 // QueryInTransaction runs the selected statement in a transaction and returns a QueryResult.
 func (dbAlias *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, args ...interface{}) (result *QueryResult) {
-	result = &QueryResult{}
+	dbAlias.txLock()
+	result = &QueryResult{Conn: dbAlias}
 
 	stmt, stmtErr := dbAlias.Prepare(statement, tx)
 	if stmtErr != nil {
@@ -928,6 +951,7 @@ func (dbAlias *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, ar
 		if r := recover(); r != nil {
 			closeErr := stmt.Close()
 			result.Error = exception.WrapMany(result.Error, exception.New(r), closeErr)
+			dbAlias.txUnlock()
 		}
 	}()
 
@@ -956,6 +980,9 @@ func (dbAlias *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql
 			err = exception.WrapMany(err, recoveryException)
 		}
 	}()
+
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
 
 	if ids == nil {
 		return exception.New("invalid `ids` parameter.")
@@ -1030,6 +1057,9 @@ func (dbAlias *DbConnection) GetAllInTransaction(collection interface{}, tx *sql
 		}
 	}()
 
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
+
 	collectionValue := reflectValue(collection)
 	t := reflectSliceType(collection)
 	tableName, _ := TableName(t)
@@ -1099,6 +1129,9 @@ func (dbAlias *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.
 			err = exception.WrapMany(err, recoveryException)
 		}
 	}()
+
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
 
 	cols := NewColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -1180,6 +1213,9 @@ func (dbAlias *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.
 		}
 	}()
 
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
+
 	tableName := object.TableName()
 	cols := NewColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
@@ -1233,6 +1269,9 @@ func (dbAlias *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.
 			err = exception.WrapMany(err, recoveryException)
 		}
 	}()
+
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
 
 	tableName := object.TableName()
 	cols := NewColumnCollectionFromInstance(object)
@@ -1291,6 +1330,9 @@ func (dbAlias *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.
 		}
 	}()
 
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
+
 	tableName := object.TableName()
 	cols := NewColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
@@ -1322,6 +1364,70 @@ func (dbAlias *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.
 		err = exception.Wrap(execErr)
 	}
 	return
+}
+
+// IsolateToTransaction causes all commands on the given connection to use a transaction.
+// NOTE: causes locking around the transaction.
+func (dbAlias *DbConnection) IsolateToTransaction(tx *sql.Tx) {
+	dbAlias.TxLock.Lock()
+	defer dbAlias.TxLock.Unlock()
+	dbAlias.Tx = tx
+}
+
+// ReleaseIsolation reverses `IsolateToTransaction`
+func (dbAlias *DbConnection) ReleaseIsolation() {
+	dbAlias.TxLock.Lock()
+	defer dbAlias.TxLock.Unlock()
+	dbAlias.Tx = nil
+}
+
+// IsIsolatedToTransaction returns if the connection is isolated to a transaction.
+func (dbAlias *DbConnection) IsIsolatedToTransaction() bool {
+	dbAlias.TxLock.Lock()
+	defer dbAlias.TxLock.Unlock()
+	return dbAlias.Tx != nil
+}
+
+// Commit commits a transaction if the connection is not currently isolated to one already.
+func (dbAlias *DbConnection) Commit(tx *sql.Tx) error {
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
+
+	if dbAlias.Tx != nil {
+		return nil
+	}
+	return tx.Commit()
+}
+
+// Rollback commits a transaction if the connection is not currently isolated to one already.
+func (dbAlias *DbConnection) Rollback(tx *sql.Tx) error {
+	dbAlias.txLock()
+	defer dbAlias.txUnlock()
+
+	if dbAlias.Tx != nil {
+		return nil
+	}
+	return tx.Rollback()
+}
+
+func (dbAlias *DbConnection) txLock() {
+	if dbAlias.Tx != nil {
+		dbAlias.TxLock.Lock()
+	}
+}
+
+func prefixLines(lines string, with string) string {
+	newLines := []string{}
+	for _, line := range strings.Split(lines, "\n") {
+		newLines = append(newLines, fmt.Sprintf("%s%s", with, line))
+	}
+	return strings.Join(newLines, "\n")
+}
+
+func (dbAlias *DbConnection) txUnlock() {
+	if dbAlias.Tx != nil {
+		dbAlias.TxLock.Unlock()
+	}
 }
 
 // --------------------------------------------------------------------------------

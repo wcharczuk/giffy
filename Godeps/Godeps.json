@@ -123,20 +123,28 @@
 			"Rev": "3f4f1c88d84f524dfefa4bb6980320d418e5a2b4"
 		},
 		{
+			"ImportPath": "github.com/blendlabs/go-chronometer",
+			"Rev": "4292c2f21077d3a5fe52a1527f87a0711cb2b58f"
+		},
+		{
 			"ImportPath": "github.com/blendlabs/go-exception",
-			"Rev": "f40503f4c1d8584d8d71eb078ec7925f191bb9dd"
+			"Rev": "4f8219ce4d9bf0a7074e988fb5dc8d71d536db13"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-request",
-			"Rev": "a37b726082682c1f35ae5292b2f8a69ef5f62eae"
+			"Rev": "5368c6d3530effa3ea8009f4dfaf4c62477f9b46"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-util",
-			"Rev": "d41eef312a09c0bccb52f06004cbe2578daa221f"
+			"Rev": "66b67f5a9e13b732e41525c44feb6d4c7a5d94bd"
+		},
+		{
+			"ImportPath": "github.com/blendlabs/go-util/collections",
+			"Rev": "66b67f5a9e13b732e41525c44feb6d4c7a5d94bd"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-util/linq",
-			"Rev": "d41eef312a09c0bccb52f06004cbe2578daa221f"
+			"Rev": "66b67f5a9e13b732e41525c44feb6d4c7a5d94bd"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/httprouter",
@@ -145,13 +153,17 @@
 		},
 		{
 			"ImportPath": "github.com/blendlabs/spiffy",
-			"Comment": "v1.0-84-g4160733",
-			"Rev": "41607337d7e1fce7fb325e94b60e76050d1aaa7e"
+			"Comment": "v1.0-92-g0aebc93",
+			"Rev": "0aebc933dae492014fa9354e0d384ff4202a501b"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",
 			"Comment": "v1.10.1",
 			"Rev": "776aa739ce9373377cd16f526cdf06cb4c89b40f"
+		},
+		{
+			"ImportPath": "github.com/gorilla/websocket",
+			"Rev": "4935ba31a2adbfcd9e08b86d2657659afbf1af9a"
 		},
 		{
 			"ImportPath": "github.com/jmespath/go-jmespath",
@@ -160,13 +172,17 @@
 		},
 		{
 			"ImportPath": "github.com/lib/pq",
-			"Comment": "go1.0-cutoff-83-g165a352",
-			"Rev": "165a3529e799da61ab10faed1fabff3662d6193f"
+			"Comment": "go1.0-cutoff-84-g3cd0097",
+			"Rev": "3cd0097429be7d611bb644ef85b42bfb102ceea4"
 		},
 		{
 			"ImportPath": "github.com/lib/pq/oid",
-			"Comment": "go1.0-cutoff-83-g165a352",
-			"Rev": "165a3529e799da61ab10faed1fabff3662d6193f"
+			"Comment": "go1.0-cutoff-84-g3cd0097",
+			"Rev": "3cd0097429be7d611bb644ef85b42bfb102ceea4"
+		},
+		{
+			"ImportPath": "github.com/wcharczuk/go-slack",
+			"Rev": "c30b8ba67a9cb6d04c9afc0b7996487950bef88e"
 		}
 	]
 }
