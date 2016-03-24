@@ -340,3 +340,11 @@ giffyControllers.controller("aboutController", ["$scope", "$http",
         });     
     }
 ]);
+
+giffyControllers.controller("statsController", ["$scope", "$http", 
+    function($scope, $http) {
+        $http.get("/api/stats").success(function(datums) {
+            $scope.stats = datums.response;
+        });
+    }
+]);

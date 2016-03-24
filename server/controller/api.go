@@ -429,6 +429,7 @@ func (api API) createTagAction(session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.API.JSON(existingTag)
 	}
 
+	tag.TagValue = tagValue
 	tag.UUID = core.UUIDv4().ToShortString()
 	tag.CreatedUTC = time.Now().UTC()
 	tag.CreatedBy = session.UserID
@@ -770,6 +771,15 @@ func (api API) logoutAction(session *auth.Session, ctx *web.HTTPContext) web.Con
 	return ctx.API.OK()
 }
 
+func (api API) getSiteStatsAction(ctx *web.HTTPContext) web.ControllerResult {
+	stats, err := viewmodel.GetSiteStats()
+	if err != nil {
+		return ctx.API.InternalError(err)
+	}
+
+	return ctx.API.JSON(stats)
+}
+
 // Register adds the routes to the router.
 func (api API) Register(router *httprouter.Router) {
 	router.GET("/api/users", web.ActionHandler(api.getUsersAction))
@@ -814,6 +824,8 @@ func (api API) Register(router *httprouter.Router) {
 
 	router.GET("/api/moderation.log/recent", web.ActionHandler(api.getRecentModerationLog))
 	router.GET("/api/moderation.log/pages/:count/:offset", web.ActionHandler(api.getModerationLogByCountAndOffsetAction))
+
+	router.GET("/api/stats", web.ActionHandler(api.getSiteStatsAction))
 
 	//session endpoints
 	router.GET("/api/session.user", auth.APISessionAwareAction(api.getCurrentUserAction))

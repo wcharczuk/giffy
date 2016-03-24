@@ -476,3 +476,16 @@ body {
 }
 
 /* end image upload page */
+
+/* begin stats page */
+
+#giffy-stats .page-header {
+    text-align:center;
+}
+
+.giffy-stat {
+    font-size: 32px;
+    text-align: center;
+}
+
+/* end stats page */

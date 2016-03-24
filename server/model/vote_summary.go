@@ -14,6 +14,7 @@ type VoteSummary struct {
 	ImageUUID      string    `json:"image_uuid" db:"image_uuid,readonly"`
 	TagID          int64     `json:"-" db:"tag_id,pk"`
 	TagUUID        string    `json:"tag_uuid" db:"tag_uuid,readonly"`
+	CreatedUTC     time.Time `json:"created_utc" db:"created_utc"`
 	LastVoteUTC    time.Time `json:"last_vote_utc" db:"last_vote_utc"`
 	LastVoteBy     int64     `json:"-" db:"last_vote_by"`
 	LastVoteByUUID string    `json:"last_vote_by_uuid" db:"last_vote_by_uuid,readonly"`
@@ -35,6 +36,7 @@ func (itv VoteSummary) TableName() string {
 // NewVoteSummary returns a new instance for an ImageTagVotes.
 func NewVoteSummary(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time) *VoteSummary {
 	return &VoteSummary{
+		CreatedUTC:  time.Now().UTC(),
 		ImageID:     imageID,
 		TagID:       tagID,
 		LastVoteUTC: lastVoteUTC,

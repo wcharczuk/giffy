@@ -81,6 +81,7 @@ ALTER TABLE tag ADD CONSTRAINT fk_tag_created_by_user_id
 CREATE TABLE vote_summary (
 	image_id bigint not null,
 	tag_id bigint not null,
+	created_utc timestamp not null,
 	last_vote_by bigint not null,
 	last_vote_utc timestamp not null,
 	votes_for int not null,
@@ -97,7 +98,7 @@ CREATE TABLE vote (
 	user_id bigint not null,
 	image_id bigint not null,
 	tag_id bigint not null,
-	timestamp_utc timestamp not null,
+	created_utc timestamp not null,
 	is_upvote bool not null
 );
 ALTER TABLE vote ADD CONSTRAINT pk_vote_user_id_image_id_tag_id PRIMARY KEY (user_id, image_id, tag_id);

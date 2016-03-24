@@ -43,6 +43,9 @@ giffyApp.config(["$routeProvider",
         }).when("/slack/complete", {
             templateUrl: '/static/partials/slack_complete.html',
             controller: 'slackCompleteController'
+        }).when("/stats", {
+            templateUrl: '/static/partials/stats.html',
+            controller: 'statsController'
         }).otherwise({ 
             templateUrl: '/static/partials/home.html',
             controller: 'homeController' 

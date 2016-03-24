@@ -10,14 +10,14 @@ import (
 
 // Vote is a vote by a user for an image and tag.
 type Vote struct {
-	UserID       int64     `json:"-" db:"user_id"`
-	UserUUID     string    `json:"user_uuid" db:"user_uuid,readonly"`
-	ImageID      int64     `json:"-" db:"image_id"`
-	ImageUUID    string    `json:"image_uuid" db:"image_uuid,readonly"`
-	TagID        int64     `json:"-" db:"tag_id"`
-	TagUUID      string    `json:"tag_uuid" db:"tag_uuid,readonly"`
-	TimestampUTC time.Time `json:"timestamp_utc" db:"timestamp_utc"`
-	IsUpvote     bool      `json:"is_upvote" db:"is_upvote"`
+	UserID     int64     `json:"-" db:"user_id"`
+	UserUUID   string    `json:"user_uuid" db:"user_uuid,readonly"`
+	ImageID    int64     `json:"-" db:"image_id"`
+	ImageUUID  string    `json:"image_uuid" db:"image_uuid,readonly"`
+	TagID      int64     `json:"-" db:"tag_id"`
+	TagUUID    string    `json:"tag_uuid" db:"tag_uuid,readonly"`
+	CreatedUTC time.Time `json:"created_utc" db:"created_utc"`
+	IsUpvote   bool      `json:"is_upvote" db:"is_upvote"`
 }
 
 // TableName returns the name of the table.
@@ -32,17 +32,17 @@ func (v Vote) IsZero() bool {
 
 // Populate skips spiffy struct parsing.
 func (v *Vote) Populate(r *sql.Rows) error {
-	return r.Scan(&v.UserID, &v.ImageID, &v.TagID, &v.TimestampUTC, &v.IsUpvote, &v.UserUUID, &v.ImageUUID, &v.TagUUID)
+	return r.Scan(&v.UserID, &v.ImageID, &v.TagID, &v.CreatedUTC, &v.IsUpvote, &v.UserUUID, &v.ImageUUID, &v.TagUUID)
 }
 
 // NewVote returns a new vote log entry.
 func NewVote(userID, imageID, tagID int64, isUpvote bool) *Vote {
 	return &Vote{
-		UserID:       userID,
-		ImageID:      imageID,
-		TagID:        tagID,
-		TimestampUTC: time.Now().UTC(),
-		IsUpvote:     isUpvote,
+		UserID:     userID,
+		ImageID:    imageID,
+		TagID:      tagID,
+		CreatedUTC: time.Now().UTC(),
+		IsUpvote:   isUpvote,
 	}
 }
 
@@ -60,7 +60,7 @@ from
 	join tag t on v.tag_id = t.id
 %s
 order by 
-	v.timestamp_utc desc;
+	v.created_utc desc;
 `, whereClause)
 }
 
