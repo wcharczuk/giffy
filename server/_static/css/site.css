@@ -36,6 +36,13 @@ body {
 
 /* end helper classes */
 
+@media(min-width:768px) and (max-width:991px) {
+    #giffy-home-results .image-element, #user-image-results .image-element, #tag-image-results .image-element {
+        min-width: unset;
+        width:50%;
+    }
+}
+
 @media (max-width: 767px) {
     #giffy-header-search-cell {
         text-align:center;
@@ -56,6 +63,7 @@ body {
     .image-details .align-right {
         text-align: center;
     }
+    
     .image-details .align-left {
         text-align: center;
     }
