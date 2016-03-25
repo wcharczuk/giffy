@@ -34,8 +34,11 @@ body {
     text-align: right;
 }
 
-/* end helper classes */
+#wrapper, #giffy-footer {
+    min-width: 640px;
+}
 
+/* end helper classes */
 @media(min-width:768px) and (max-width:991px) {
     #giffy-home-results .image-element, #user-image-results .image-element, #tag-image-results .image-element {
         min-width: unset;
@@ -51,6 +54,7 @@ body {
     #giffy-header-logo-cell {
         text-align:center;
     }
+    
     #giffy-header-add-image-cell {
         text-align:center;
     }
