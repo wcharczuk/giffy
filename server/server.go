@@ -19,6 +19,10 @@ func indexAction(ctx *web.HTTPContext) web.ControllerResult {
 	return ctx.Static("server/_static/index.html")
 }
 
+func faviconAction(ctx *web.HTTPContext) web.ControllerResult {
+	return ctx.Static("server/_static/images/favicon.ico")
+}
+
 // Init inits the app.
 func Init() *httprouter.Router {
 	core.DBInit()
@@ -48,6 +52,7 @@ func Init() *httprouter.Router {
 	new(controller.UploadImage).Register(router)
 
 	router.GET("/", web.ActionHandler(indexAction))
+	router.GET("/favicon.ico", web.ActionHandler(faviconAction))
 	router.ServeFiles("/static/*filepath", http.Dir("server/_static"))
 
 	return router

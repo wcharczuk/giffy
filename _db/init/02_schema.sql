@@ -77,6 +77,8 @@ ALTER TABLE tag ADD CONSTRAINT uk_tag_uuid UNIQUE (uuid);
 ALTER TABLE tag ADD CONSTRAINT uk_tag_tag_value UNIQUE (tag_value);
 ALTER TABLE tag ADD CONSTRAINT fk_tag_created_by_user_id 
 	FOREIGN KEY (created_by) REFERENCES users(id);
+CREATE INDEX idx_tag_tag_value_gin ON tag 
+	USING gin (tag_value gin_trgm_ops);
 
 CREATE TABLE vote_summary (
 	image_id bigint not null,
