@@ -287,7 +287,6 @@ giffyControllers.controller("userController", ["$scope", "$http", "$routeParams"
 
 giffyControllers.controller("moderationLogController", ["$scope", "$http", "$routeParams", "currentUser",  
     function($scope, $http, $routeParams, currentUser) {
-        
         var pageSize = 50;
         
         currentUser(function(user) {
@@ -295,8 +294,35 @@ giffyControllers.controller("moderationLogController", ["$scope", "$http", "$rou
         });
         
         $http.get("/api/moderation.log/pages/" + pageSize +"/0").success(function(datums) {
+            $scope.page = 0;
             $scope.log = datums.response;
         });
+        
+        $scope.hasPreviousPage = function() {
+            return $scope.page > 0;
+        };
+        
+        $scope.hasNextPage = function() {
+            return !!$scope.log && $scope.log.length >= pageSize;
+        };
+        
+        $scope.nextPage = function() {
+            if ($scope.hasNextPage()) {
+                $scope.page = $scope.page + 1;
+                $http.get("/api/moderation.log/pages/" + pageSize + "/" + ($scope.page * pageSize)).success(function(datums) {
+                    $scope.log = datums.response;
+                });
+            }
+        };
+        
+        $scope.previousPage = function() {
+            if ($scope.page > 0) {
+                $scope.page = $scope.page - 1;
+                $http.get("/api/moderation.log/pages/" + pageSize + "/" + ($scope.page * pageSize)).success(function(datums) {
+                    $scope.log = datums.response;
+                });
+            }
+        };
     }
 ]);
 

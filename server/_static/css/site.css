@@ -86,6 +86,15 @@ body {
     }
 }
 
+.pager li a {
+    cursor: pointer;
+}
+
+.pager li a.disabled {
+    cursor: default;
+    background: #efefef;
+}
+
 #giffy-header {
     padding-left: 10px;
     padding-right: 10px;
