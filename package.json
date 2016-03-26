@@ -1,0 +1,22 @@
+{
+  "name": "giffy",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/wcharczuk/giffy"
+  },
+  "description": "Giffy is a better way to search for gifs.",
+  "dependencies": {
+      "bower" : "*",
+      "grunt" : "*",
+      "grunt-cache-breaker": "*",
+      "grunt-contrib-clean": "*",
+      "grunt-contrib-concat": "*",
+      "grunt-contrib-copy": "*",
+      "grunt-contrib-cssmin" : "*",
+      "grunt-contrib-jshint" : "*",
+      "grunt-contrib-less" : "*",
+      "grunt-contrib-uglify" : "*",
+      "grunt-processhtml": "*"
+  }
+}
