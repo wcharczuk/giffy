@@ -16,11 +16,11 @@ import (
 )
 
 func indexAction(ctx *web.HTTPContext) web.ControllerResult {
-	return ctx.Static("server/_static/index.html")
+	return ctx.Static("_static/index.html")
 }
 
 func faviconAction(ctx *web.HTTPContext) web.ControllerResult {
-	return ctx.Static("server/_static/images/favicon.ico")
+	return ctx.Static("_static/images/favicon.ico")
 }
 
 // Init inits the app.
@@ -53,7 +53,8 @@ func Init() *httprouter.Router {
 
 	router.GET("/", web.ActionHandler(indexAction))
 	router.GET("/favicon.ico", web.ActionHandler(faviconAction))
-	router.ServeFiles("/static/*filepath", http.Dir("server/_static"))
+	router.ServeFiles("/static/*filepath", http.Dir("_static"))
+	router.ServeFiles("/_bower/*filepath", http.Dir("_bower"))
 
 	return router
 }

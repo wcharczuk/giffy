@@ -9,7 +9,6 @@
   "homepage": "https://github.com/wcharczuk/giffy",
   "moduleType": [],
   "private": true,
-  "directory": "_bower",
   "ignore": [
     "**/.*",
     "node_modules",
@@ -22,6 +21,7 @@
     "jquery": "^2.2.2",
     "bootstrap": "^3.3.6",
     "angular-route": "^1.5.3",
-    "less": "^2.6.1"
+    "less": "^2.6.1",
+    "angular-tags-input": "^0.0.3"
   }
 }
