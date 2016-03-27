@@ -1,0 +1,5 @@
+<div class="tag">
+    <div class="tag-part tag-detail-link btn btn-info btn-xs"><a href="#/tag/{{tag.uuid}}">{{tag.tag_value}}</a>({{tag.votes_total}})</div>
+    <div class="tag-part tag-vote tag-upvote" ng-if="current_user.is_logged_in" data-tag-id="{{tag.uuid}}" data-is-upvote="true">up</div>
+    <div class="tag-part tag-vote tag-downvote" ng-if="current_user.is_logged_in" data-tag-id="{{tag.uuid}}" data-is-upvote="true">down</div>
+</div>

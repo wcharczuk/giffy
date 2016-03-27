@@ -1,0 +1,42 @@
+<giffy-header/>
+
+<div class="row">
+	<div class="col-xs-10 col-xs-offset-1 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
+		<div class="page-header">
+			<h1>Moderation Log</h1>
+		</div>
+		<table id="moderation-log" class="table table-responsive">
+			<thead>
+				<tr>
+					<th>User</th><th>Time</th><th>Verb</th><th>Object</th><th>Noun</th><th>Secondary Noun</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr ng-repeat="entry in log">
+					<td><user-detail user="entry.moderator"/></td>
+					<td>{{entry.timestamp_utc | date:'short' }}</td>
+					<td>{{entry.verb}}</td>
+					<td>{{entry.object}}</td>
+					<td>
+						<a href="/#/user/{{entry.user.uuid}}" ng-if="entry.object === 'user'">{{entry.user.username}}</a>
+						<a href="/#/image/{{entry.image.uuid}}" ng-if="entry.object === 'image' || entry.object === 'link'">{{entry.image.display_name}}</a>
+						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'tag'">{{entry.tag.tag_value}}</a>
+					</td>
+					<td>
+						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'link'">{{entry.tag.tag_value}}</a>
+					</td>
+				</tr> 
+			</tbody>
+		</table>
+		<div class="row">
+			<div class="col-md-6 col-md-offset-3 align-center">
+				<ul class="pager">
+					<li><a ng-class="{disabled: !hasPreviousPage()}" ng-click="previousPage()">Previous</a></li>
+					<li><a ng-class="{disabled: !hasNextPage()}" ng-click="nextPage()">Next</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</div>
+
+<giffy-footer/>

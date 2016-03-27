@@ -16,7 +16,7 @@ import (
 )
 
 func indexAction(ctx *web.HTTPContext) web.ControllerResult {
-	if core.ConfigEnvironment() == "prod" {
+	if core.ConfigIsProduction() {
 		return ctx.Static("_dist/index.html")
 	}
 	return ctx.Static("_static/index.html")
@@ -56,7 +56,7 @@ func Init() *httprouter.Router {
 
 	router.GET("/", web.ActionHandler(indexAction))
 	router.GET("/favicon.ico", web.ActionHandler(faviconAction))
-	if core.ConfigEnvironment() == "prod" {
+	if core.ConfigIsProduction() {
 		router.ServeFiles("/static/*filepath", http.Dir("_dist"))
 	} else {
 		router.ServeFiles("/static/*filepath", http.Dir("_static"))

@@ -124,6 +124,11 @@ func ConfigEnvironment() string {
 	return "dev"
 }
 
+// ConfigIsProduction returns if the app is running in production mode.
+func ConfigIsProduction() bool {
+	return ConfigEnvironment() == "prod"
+}
+
 // ConfigHostname returns the hostname for the server.
 func ConfigHostname() string {
 	envHost := os.Getenv("HOSTNAME")
@@ -131,15 +136,16 @@ func ConfigHostname() string {
 		return envHost
 	}
 
-	if ConfigEnvironment() == "dev" {
-		return "dev.giffy.charczuk.com"
+	if ConfigIsProduction() {
+		return "giffy.charczuk.com"
 	}
-	return "giffy.charczuk.com"
+
+	return "dev.giffy.charczuk.com"
 }
 
 // ConfigHTTPProto is the proto for the webserver.
 func ConfigHTTPProto() string {
-	if ConfigEnvironment() == "prod" {
+	if ConfigIsProduction() {
 		return "https"
 	}
 	return "http"

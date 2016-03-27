@@ -69,9 +69,10 @@ module.exports = function(grunt) {
            files: [
                { src: "_bower/jquery/dist/jquery.min.js", dest: "_dist/js/jquery.min.js" },
                { src: "_bower/bootstrap/dist/js/bootstrap.min.js", dest: "_dist/js/bootstrap.min.js" },
-               { src: "_static/images/*", dest: "_dist/" },
-               { src: "_static/fonts/*", dest: "_dist/" },
-               { src: "_static/fonts/*", dest: "_dist/" }
+               { expand: true, flatten: true, src: "_static/images/*", dest: "_dist/images/" },
+               { expand: true, flatten: true, src: "_static/fonts/*", dest: "_dist/fonts/" },
+               { expand: true, flatten: true, src: "_static/partials/controls/*", dest: "_dist/partials/controls/" },
+               { expand: true, flatten: true, src: "_static/partials/*", dest: "_dist/partials/", filter: 'isFile' }
            ]
           }
         },
@@ -104,6 +105,11 @@ module.exports = function(grunt) {
                 src: [
                     "_dist/css/giffy.css",
                     "_dist/js/giffy.js",
+                ]
+            },
+            full : {
+                src: [
+                    "_dist/*"
                 ]
             }
         }

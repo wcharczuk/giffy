@@ -1,0 +1,28 @@
+<div id="giffy-header" class="row">
+    <div class="col-sm-12 col-md-10 col-md-offset-1">
+        <div class="row">
+            <div id="giffy-header-search-cell" class="col-xs-12 col-sm-5 col-md-5">
+                <a id="giffy-search" href="/#/search">
+                    <span class="glyphicon glyphicon-search"></span> Search
+                </a>
+            </div>
+            <div id="giffy-header-logo-cell" class="col-xs-12 col-sm-2 col-md-2">
+                <div id="giffy-header-logo">
+                    <a href="/#/"><img id="giffy-logo" src="/static/images/logo.png"/></a>
+                </div>
+            </div>
+            <div id="giffy-header-add-image-cell" class="col-xs-12 col-sm-5 col-md-5">
+                <a id="#giffy-header-add-image" class="btn btn-primary" ng-if="current_user.is_moderator" href="/#/add_image" >
+                    <span class="glyphicon glyphicon-upload" aria-hidden="true"></span>Add Image
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="giffy-sub-header" class="row">
+    <div class="col-sm-12 col-md-10 col-sm-offset-1 col-md-offset-1 align-right">
+        <user-detail user="current_user" ng-if="current_user.is_logged_in"></user-detail>
+        <a id="header-login" class="btn btn-danger btn-sm" href="{{current_user.google_login_url}}" ng-if="!current_user.is_logged_in">Login with Google</a>
+        <a id="header-logout" class="btn btn-default btn-sm" ng-if="current_user.is_logged_in" href="/#/logout">Log Out</a>
+    </div>
+</div>
