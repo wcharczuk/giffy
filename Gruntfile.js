@@ -10,7 +10,7 @@ module.exports = function(grunt) {
                     banner: '/*! <%= pkg.name %> <%= grunt.template.today("dd-mm-yyyy") %> */\n',
                 },
                 files : {
-                    "_static/js/giffy.min.js" : [ "_static/js/giffy.js" ]                        
+                    "_dist/js/giffy.min.js" : [ "_dist/js/giffy.js" ]                        
                 }
             },
         },
@@ -22,7 +22,7 @@ module.exports = function(grunt) {
             },
             target: {
                 files: {
-                    "_static/css/giffy.min.css" : ["_static/css/giffy.css"]
+                    "_dist/css/giffy.min.css" : ["_dist/css/giffy.css"]
                 }
             }
         },
@@ -42,7 +42,7 @@ module.exports = function(grunt) {
                     '_static/js/directives.js',
                     '_static/js/services.js',
                 ],
-                dest: "_static/js/giffy.js"
+                dest: "_dist/js/giffy.js"
             }
         },
         
