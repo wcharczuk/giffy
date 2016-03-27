@@ -13,14 +13,14 @@ func TestGetVotesForUser(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrIncrementVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	votes, err := GetVotesForUser(u.ID, tx)
@@ -34,14 +34,14 @@ func TestGetVotesForUserForImage(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrIncrementVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	votes, err := GetVotesForUserForImage(u.ID, i.ID, tx)
@@ -55,14 +55,14 @@ func TestGetVotesForUserForTag(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrIncrementVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	votes, err := GetVotesForUserForTag(u.ID, tag.ID, tx)
@@ -76,14 +76,14 @@ func TestGetVote(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrIncrementVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	vote, err := GetVote(u.ID, i.ID, tag.ID, tx)

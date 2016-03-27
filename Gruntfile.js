@@ -7,7 +7,7 @@ module.exports = function(grunt) {
         uglify: {
             app: {
                 options: {
-                    banner: '/*! <%= pkg.name %> <%= grunt.template.today("dd-mm-yyyy") %> */\n',
+                    banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n',
                 },
                 files : {
                     "_dist/js/giffy.min.js" : [ "_dist/js/giffy.js" ]                        
@@ -59,9 +59,19 @@ module.exports = function(grunt) {
                     ],
                 },
                 files: {
-                    "_static/css/giffy.css" : "_static/less/giffy.less"
+                    "_dist/css/giffy.css" : "_static/less/giffy.less"
                 }
             },
+        },
+        
+        copy: {
+          dist: {
+           files: [ 
+               { src: "_static/images/*", dest: "_dist" },
+               { src: "_static/fonts/*", dest: "_dist" },
+               { src: "_static/fonts/*", dest: "_dist" }
+           ]
+          }
         },
         
         processhtml : {
@@ -70,7 +80,7 @@ module.exports = function(grunt) {
                     process: true,
                 },
                 files : {
-                    '_static/index_compiled.html': ['_static/index.html']
+                    '_dist/index.html': ['_static/index.html']
                 }
             }
         },
@@ -82,7 +92,7 @@ module.exports = function(grunt) {
                     position: 'append'
                 },
                 files: {
-                    src: ['_static/index_compiled.html']
+                    src: ['_dist/index.html']
                 }
             }
         }
@@ -101,7 +111,8 @@ module.exports = function(grunt) {
         'build', 
         'Compiles all of the assets and copies the files to the build directory.', 
         [ 
-            'concat:app',  
+            'copy:dist',
+            'concat:app', 
             'uglify:app', 
             'less:compile', 
             'cssmin',

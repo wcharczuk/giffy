@@ -50,8 +50,8 @@ func SetVoteCount(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) 
 	return spiffy.DefaultDb().ExecInTransaction(`update vote_summary vs set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
 }
 
-// CreateOrIncrementVote votes for a tag for an image in the db.
-func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) (bool, error) {
+// CreateOrChangeVote votes for a tag for an image in the db.
+func CreateOrChangeVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) (bool, error) {
 	existing, existingErr := GetVoteSummary(imageID, tagID, tx)
 	if existingErr != nil {
 		return false, existingErr
@@ -89,18 +89,23 @@ func CreateOrIncrementVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.
 		}
 	}
 
+	err := DeleteVote(userID, imageID, tagID, tx)
+	if err != nil {
+		return false, err
+	}
+
 	logEntry := NewVote(userID, imageID, tagID, isUpvote)
 	return false, spiffy.DefaultDb().CreateInTransaction(logEntry, tx)
 }
 
 func getVoteSummaryQuery(whereClause string) string {
 	return fmt.Sprintf(`
-select 
+select
 	vs.*
 	, i.uuid as image_uuid
 	, t.uuid as tag_uuid
 	, u.uuid as last_vote_by_uuid
-from 
+from
 	vote_summary vs
 	join image i on i.id = vs.image_id
 	join tag t on t.id = vs.tag_id
@@ -147,7 +152,7 @@ func GetImagesForTagID(tagID int64, tx *sql.Tx) ([]Image, error) {
 func GetTagsForImageID(imageID int64, tx *sql.Tx) ([]Tag, error) {
 	var tags []Tag
 	query := `
-select 
+select
 	t.*
     , u.uuid as created_by_uuid
 	, vs.image_id
@@ -155,11 +160,11 @@ select
 	, vs.votes_against
 	, vs.votes_total
     , row_number() over (partition by vs.image_id order by vs.votes_total desc) as vote_rank
-from 
-	tag t 
+from
+	tag t
 	join vote_summary vs on t.id = vs.tag_id
-    join users u on u.id = t.created_by 
-where 
+    join users u on u.id = t.created_by
+where
 	vs.image_id = $1
 order by
 	vs.votes_total desc;

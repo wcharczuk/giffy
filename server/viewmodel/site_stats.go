@@ -28,7 +28,8 @@ type SiteStats struct {
 	KarmaTotalDaily []StatAtTime `json:"karma_total_daily"`
 }
 
-func GetSiteStats() (*SiteStats, error) {
+// GetSiteStats returns the stats for the site.
+func GetSiteStats(tx *sql.Tx) (*SiteStats, error) {
 	imageCountQuery := `select count(*) as value from image;`
 	tagCountQuery := `select count(*) as value from tag;`
 	userCountQuery := `select count(*) as value from users;`
@@ -36,65 +37,65 @@ func GetSiteStats() (*SiteStats, error) {
 	orphanedTagCountQuery := `select count(*) from tag t where not exists (select 1 from vote_summary vs where vs.tag_id = t.id);`
 
 	userCountDailyQuery := `
-select 
+select
     date_part('year', created_utc) as year,
     date_part('month', created_utc) as month,
     date_part('day', created_utc) as day,
     count(*) as value,
     'users' as label
 from users u
-group by 
-    date_part('year', created_utc), 
-    date_part('month', created_utc), 
+group by
+    date_part('year', created_utc),
+    date_part('month', created_utc),
     date_part('day', created_utc);`
 
 	imageCountDailyQuery := `
-select 
-    date_part('year', created_utc) as year, 
-    date_part('month', created_utc) as month, 
+select
+    date_part('year', created_utc) as year,
+    date_part('month', created_utc) as month,
     date_part('day', created_utc) as day,
     count(*) as value,
     'image' as label
 from image
-group by 
-    date_part('year', created_utc), 
-    date_part('month', created_utc), 
+group by
+    date_part('year', created_utc),
+    date_part('month', created_utc),
     date_part('day', created_utc);`
 
 	tagCountDailyQuery := `
-select 
-    date_part('year', created_utc) as year, 
-    date_part('month', created_utc) as month, 
+select
+    date_part('year', created_utc) as year,
+    date_part('month', created_utc) as month,
     date_part('day', created_utc) as day,
     count(*) as value,
     'tag' as label
 from tag
-group by 
-    date_part('year', created_utc), 
-    date_part('month', created_utc), 
+group by
+    date_part('year', created_utc),
+    date_part('month', created_utc),
     date_part('day', created_utc);`
 
 	karmaTotalDailyQuery := `
-select 
+select
     year,
     month,
     day,
     sum(votes_for) - sum(votes_against) as value,
     'karma_total' as label
-from 
+from
     (
         select
-            date_part('year', created_utc) as year, 
-            date_part('month', created_utc) as month, 
+            date_part('year', created_utc) as year,
+            date_part('month', created_utc) as month,
             date_part('day', created_utc) as day,
             v.image_id,
             v.tag_id,
             case when v.is_upvote = true then 1 else 0 end as votes_for,
             case when v.is_upvote = true then 0 else 1 end as votes_against
-        from 
+        from
             vote v
     ) votes
-group by 
+group by
     year,
     month,
     day,
@@ -112,23 +113,23 @@ group by
 	var tagDaily []StatAtTime
 	var karmaTotalDaily []StatAtTime
 
-	err := spiffy.DefaultDb().Query(userCountQuery).Scan(&userCount)
+	err := spiffy.DefaultDb().QueryInTransaction(userCountQuery, tx).Scan(&userCount)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().Query(imageCountQuery).Scan(&imageCount)
+	err = spiffy.DefaultDb().QueryInTransaction(imageCountQuery, tx).Scan(&imageCount)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().Query(tagCountQuery).Scan(&tagCount)
+	err = spiffy.DefaultDb().QueryInTransaction(tagCountQuery, tx).Scan(&tagCount)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().Query(karmaTotalQuery).Scan(&karmaTotal)
+	err = spiffy.DefaultDb().QueryInTransaction(karmaTotalQuery, tx).Scan(&karmaTotal)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().Query(orphanedTagCountQuery).Scan(&orphanedTagCount)
+	err = spiffy.DefaultDb().QueryInTransaction(orphanedTagCountQuery, tx).Scan(&orphanedTagCount)
 	if err != nil {
 		return nil, err
 	}
@@ -151,22 +152,22 @@ group by
 		}
 	}
 
-	err = spiffy.DefaultDb().Query(userCountDailyQuery).Each(makeDailyCollector(&userDaily))
+	err = spiffy.DefaultDb().QueryInTransaction(userCountDailyQuery, tx).Each(makeDailyCollector(&userDaily))
 	if err != nil {
 		return nil, err
 	}
 
-	err = spiffy.DefaultDb().Query(imageCountDailyQuery).Each(makeDailyCollector(&imageDaily))
+	err = spiffy.DefaultDb().QueryInTransaction(imageCountDailyQuery, tx).Each(makeDailyCollector(&imageDaily))
 	if err != nil {
 		return nil, err
 	}
 
-	err = spiffy.DefaultDb().Query(tagCountDailyQuery).Each(makeDailyCollector(&tagDaily))
+	err = spiffy.DefaultDb().QueryInTransaction(tagCountDailyQuery, tx).Each(makeDailyCollector(&tagDaily))
 	if err != nil {
 		return nil, err
 	}
 
-	err = spiffy.DefaultDb().Query(karmaTotalDailyQuery).Each(makeDailyCollector(&karmaTotalDaily))
+	err = spiffy.DefaultDb().QueryInTransaction(karmaTotalDailyQuery, tx).Each(makeDailyCollector(&karmaTotalDaily))
 	if err != nil {
 		return nil, err
 	}

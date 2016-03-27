@@ -13,11 +13,11 @@ func TestSetTagVotes(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
@@ -32,23 +32,23 @@ func TestSetTagVotes(t *testing.T) {
 	assert.Equal(1, itv.VotesTotal)
 }
 
-func TestCreateOrIncrementVote(t *testing.T) {
+func TestCreateOrChangeVote(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	votingUser, votingUserErr := createTestUser(tx)
+	votingUser, votingUserErr := CreateTestUser(tx)
 	assert.Nil(votingUserErr)
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, voteErr := CreateOrIncrementVote(votingUser.ID, i.ID, tag.ID, false, tx)
+	_, voteErr := CreateOrChangeVote(votingUser.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(voteErr)
 
 	voteRecord, voteRecordErr := GetVoteSummary(i.ID, tag.ID, tx)
@@ -63,11 +63,11 @@ func TestGetImagesForTagID(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	imagesForTag, err := GetImagesForTagID(tag.ID, tx)
@@ -81,11 +81,11 @@ func TestGetTagsForImageID(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	_, err = createTestTagForImage(u.ID, i.ID, "winning", tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	tagsForImage, err := GetTagsForImageID(i.ID, tx)
@@ -99,11 +99,11 @@ func TestGetSummariesForImage(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
@@ -120,11 +120,11 @@ func TestGetSummariesForTag(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := createTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
 	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)

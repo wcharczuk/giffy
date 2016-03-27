@@ -17,16 +17,16 @@ func TestGetAllImages(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	allImages, err := GetAllImages(tx)
@@ -53,11 +53,11 @@ func TestGetRandomImages(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {
-		_, err = createTestImage(u.ID, tx)
+		_, err = CreateTestImage(u.ID, tx)
 		assert.Nil(err)
 	}
 
@@ -72,13 +72,13 @@ func TestGetImageByID(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	verify, err := GetImageByID(i.ID, tx)
@@ -110,10 +110,10 @@ func TestUpdateImageDisplayName(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
 	err = UpdateImageDisplayName(i.ID, fmt.Sprintf("not %s", i.DisplayName), tx)
@@ -130,13 +130,13 @@ func TestDeleteImageByID(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	err = DeleteImageByID(i.ID, tx)
@@ -153,10 +153,10 @@ func TestImageMD5Check(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
 	verify, err := GetImageByMD5(i.MD5, tx)
@@ -170,31 +170,31 @@ func TestSearchImages(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i4, err := createTestImage(u.ID, tx)
+	i4, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i3, err := createTestImage(u.ID, tx)
+	i3, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i2, err := createTestImage(u.ID, tx)
+	i2, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
+	_, err = CreateTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
+	_, err = CreateTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
+	_, err = CreateTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "__test", tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
 	images, err := SearchImages("__test", tx)
@@ -218,31 +218,31 @@ func TestSearchImagesSlack(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i4, err := createTestImage(u.ID, tx)
+	i4, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i3, err := createTestImage(u.ID, tx)
+	i3, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i2, err := createTestImage(u.ID, tx)
+	i2, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
+	_, err = CreateTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
+	_, err = CreateTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
+	_, err = CreateTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, "__test", tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
 	image, err := SearchImagesSlack("__test", tx)
@@ -260,31 +260,31 @@ func TestGetImagesByID(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestImage(u.ID, tx)
+	_, err = CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestImage(u.ID, tx)
+	_, err = CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	baz, err := createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	baz, err := CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	biz, err := createTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	biz, err := CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	err = SetVoteCount(i.ID, baz.ID, 100, 3, tx)

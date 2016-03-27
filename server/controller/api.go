@@ -607,7 +607,7 @@ func (api API) voteAction(isUpvote bool, session *auth.Session, ctx *web.HTTPCon
 		return ctx.API.OK()
 	}
 
-	didCreate, err := model.CreateOrIncrementVote(userID, image.ID, tag.ID, isUpvote, nil)
+	didCreate, err := model.CreateOrChangeVote(userID, image.ID, tag.ID, isUpvote, nil)
 	if err != nil {
 		return ctx.API.InternalError(err)
 	}
@@ -773,7 +773,7 @@ func (api API) logoutAction(session *auth.Session, ctx *web.HTTPContext) web.Con
 }
 
 func (api API) getSiteStatsAction(ctx *web.HTTPContext) web.ControllerResult {
-	stats, err := viewmodel.GetSiteStats()
+	stats, err := viewmodel.GetSiteStats(nil)
 	if err != nil {
 		return ctx.API.InternalError(err)
 	}

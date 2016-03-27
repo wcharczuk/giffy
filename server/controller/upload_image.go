@@ -83,7 +83,7 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 	}
 
 	// automatically vote for the tag <==> image
-	didCreateLink, err := model.CreateOrIncrementVote(session.UserID, image.ID, tagID, true, nil)
+	didCreateLink, err := model.CreateOrChangeVote(session.UserID, image.ID, tagID, true, nil)
 	if err != nil {
 		return ctx.View.InternalError(err)
 	}

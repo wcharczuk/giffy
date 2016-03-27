@@ -13,10 +13,10 @@ func TestGetUserAuthByToken(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	_, err = createTestUserAuth(u.ID, "test", "password", tx)
+	_, err = CreateTestUserAuth(u.ID, "test", "password", tx)
 	assert.Nil(err)
 
 	verify, err := GetUserAuthByToken("test", tx)
@@ -33,10 +33,10 @@ func TestDeleteUserAuthForProvider(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	_, err = createTestUserAuth(u.ID, "test", "password", tx)
+	_, err = CreateTestUserAuth(u.ID, "test", "password", tx)
 	assert.Nil(err)
 
 	err = DeleteUserAuthForProvider(u.ID, "test", tx)

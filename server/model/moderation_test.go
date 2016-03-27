@@ -14,10 +14,10 @@ func TestModerationCreate(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
 	m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
@@ -36,10 +36,10 @@ func TestGetModerationsForUser(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {
@@ -64,10 +64,10 @@ func TestGetModerationLogByCountAndOffset(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	i, err := createTestImage(u.ID, tx)
+	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {

@@ -13,10 +13,10 @@ func TestDeleteUserSession(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
-	u, err := createTestUser(tx)
+	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	us, err := createTestUserSession(u.ID, tx)
+	us, err := CreateTestUserSession(u.ID, tx)
 	assert.Nil(err)
 
 	err = DeleteUserSession(u.ID, us.SessionID, tx)
