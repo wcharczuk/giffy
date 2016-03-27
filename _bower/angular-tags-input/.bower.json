@@ -1,0 +1,60 @@
+{
+  "name": "angular-tags-input",
+  "description": "This directive allows to type into input small tags and store their values in ng-model.",
+  "version": "0.0.3",
+  "keywords": [
+    "tags-input",
+    "tokenizer",
+    "selectize",
+    "select",
+    "select2"
+  ],
+  "authors": [
+    {
+      "name": "Umed Khudoiberdiev",
+      "email": "info@zar.tj"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/PLEEROCK/angular-tags-input.git"
+  },
+  "main": [
+    "./dist/angular-tags-input.js",
+    "./dist/angular-tags-input.css"
+  ],
+  "ignore": [
+    ".tmp",
+    ".gitignore",
+    ".jshintrc",
+    "package.json",
+    "gulpfile.js",
+    "node_modules",
+    "bower_components",
+    "src",
+    "reports",
+    "samples",
+    "test"
+  ],
+  "dependencies": {
+    "angular": ">= 1.0.8",
+    "angular-auto-grow-input": "latest",
+    "angular-select-options": "latest",
+    "angular-disable-all": "latest"
+  },
+  "devDependencies": {
+    "angular-mocks": ">= 1.0.8",
+    "angular-scenario": ">= 1.0.8"
+  },
+  "homepage": "https://github.com/PLEEROCK/angular-tags-input",
+  "_release": "0.0.3",
+  "_resolution": {
+    "type": "version",
+    "tag": "0.0.3",
+    "commit": "457e273afb9c7eab537360849e210179cb3dae4f"
+  },
+  "_source": "git://github.com/PLEEROCK/angular-tags-input.git",
+  "_target": "^0.0.3",
+  "_originalSource": "angular-tags-input",
+  "_direct": true
+}
