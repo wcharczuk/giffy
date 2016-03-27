@@ -10,11 +10,11 @@ module.exports = function(grunt) {
                     banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n',
                 },
                 files : {
-                    "_dist/js/giffy.min.js" : [ "_dist/js/giffy.js" ]                        
+                    "_dist/js/giffy.min.js" : [ "_dist/js/giffy.js" ]
                 }
             },
         },
-        
+
         cssmin: {
             options: {
                 shorthandCompacting: false,
@@ -26,11 +26,11 @@ module.exports = function(grunt) {
                 }
             }
         },
-        
+
         concat: {
             options: {
                 separator: ";"
-            }, 
+            },
             app: {
                 src: [
                     '_bower/jquery/dist/jquery.js',
@@ -45,15 +45,15 @@ module.exports = function(grunt) {
                 dest: "_dist/js/giffy.js"
             }
         },
-        
-        less: {            
+
+        less: {
             compile: {
                 options: {
                       strictMath: true,
                       outputSourceFiles: true,
                     paths: [
                         "./",
-                        "_static/less/", 
+                        "_static/less/",
                         "_bower/bootstrap/less/",
                         "_bower/bootstrap/less/mixins"
                     ],
@@ -63,17 +63,19 @@ module.exports = function(grunt) {
                 }
             },
         },
-        
+
         copy: {
           dist: {
-           files: [ 
-               { src: "_static/images/*", dest: "_dist" },
-               { src: "_static/fonts/*", dest: "_dist" },
-               { src: "_static/fonts/*", dest: "_dist" }
+           files: [
+               { src: "_bower/jquery/dist/jquery.min.js", dest: "_dist/js/jquery.min.js" },
+               { src: "_bower/bootstrap/dist/js/bootstrap.min.js", dest: "_dist/js/bootstrap.min.js" },
+               { src: "_static/images/*", dest: "_dist/" },
+               { src: "_static/fonts/*", dest: "_dist/" },
+               { src: "_static/fonts/*", dest: "_dist/" }
            ]
           }
         },
-        
+
         processhtml : {
             dist : {
                 options : {
@@ -84,7 +86,7 @@ module.exports = function(grunt) {
                 }
             }
         },
-        
+
         cachebreaker: {
             dist: {
                 options: {
@@ -94,6 +96,15 @@ module.exports = function(grunt) {
                 files: {
                     src: ['_dist/index.html']
                 }
+            }
+        },
+
+        clean: {
+            build: {
+                src: [
+                    "_dist/css/giffy.css",
+                    "_dist/js/giffy.js",
+                ]
             }
         }
     });
@@ -106,18 +117,19 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-cssmin');
     grunt.loadNpmTasks('grunt-processhtml');
     grunt.loadNpmTasks('grunt-cache-breaker');
-    
+
     grunt.registerTask(
-        'build', 
-        'Compiles all of the assets and copies the files to the build directory.', 
-        [ 
+        'build',
+        'Compiles all of the assets and copies the files to the build directory.',
+        [
             'copy:dist',
-            'concat:app', 
-            'uglify:app', 
-            'less:compile', 
+            'concat:app',
+            'uglify:app',
+            'less:compile',
             'cssmin',
-            'processhtml:dist', 
-            'cachebreaker:dist' 
+            'processhtml:dist',
+            'cachebreaker:dist',
+            'clean:build'
         ]
     );
 }
