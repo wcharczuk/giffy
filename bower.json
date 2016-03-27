@@ -22,6 +22,7 @@
     "bootstrap": "^3.3.6",
     "angular-route": "^1.5.3",
     "less": "^2.6.1",
-    "angular-tags-input": "^0.0.3"
+    "angular-sanitize": "^1.5.3",
+    "ng-tags-input": "^3.0.0"
   }
 }

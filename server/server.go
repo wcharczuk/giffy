@@ -36,8 +36,7 @@ func Init() *httprouter.Router {
 	//chronometer.Default().LoadJob(jobs.FixImageSizes{})
 	chronometer.Default().Start()
 
-	web.InitViewCache(
-		"server/_views/header.html",
+	paths := []string{
 		"server/_views/footer.html",
 		"server/_views/not_found.html",
 		"server/_views/error.html",
@@ -46,7 +45,15 @@ func Init() *httprouter.Router {
 		"server/_views/login_complete.html",
 		"server/_views/upload_image.html",
 		"server/_views/upload_image_complete.html",
-	)
+	}
+
+	if core.ConfigIsProduction() {
+		paths = append(paths, "server/_views/header_prod.html")
+	} else {
+		paths = append(paths, "server/_views/header_dev.html")
+	}
+
+	web.InitViewCache(paths...)
 
 	router := httprouter.New()
 

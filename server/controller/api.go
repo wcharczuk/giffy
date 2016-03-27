@@ -406,43 +406,67 @@ func (api API) createImageAction(session *auth.Session, ctx *web.HTTPContext) we
 }
 
 func (api API) createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	tag := &model.Tag{}
-	err := ctx.PostBodyAsJSON(tag)
+	args := &viewmodel.CreateTagArgs{}
+	err := ctx.PostBodyAsJSON(args)
 	if err != nil {
 		return ctx.API.BadRequest(err.Error())
 	}
 
-	if len(tag.TagValue) == 0 {
-		return ctx.API.BadRequest("`tag_value` must be set.")
+	if len(args.TagValue) == 0 && len(args.TagValues) == 0 {
+		return ctx.API.BadRequest("`tag_value` or `tag_values` must be set.")
 	}
 
-	tagValue := model.CleanTagValue(tag.TagValue)
-	if len(tagValue) == 0 {
-		return ctx.API.BadRequest("`tag_value` must be set.")
+	if len(args.TagValue) != 0 {
+		tagValue := model.CleanTagValue(args.TagValue)
+		if len(tagValue) == 0 {
+			return ctx.API.BadRequest("`tag_value` be in the form [a-z,A-Z,0-9]+")
+		}
+
+		existingTag, err := model.GetTagByValue(tagValue, nil)
+		if err != nil {
+			return ctx.API.InternalError(err)
+		}
+		if !existingTag.IsZero() {
+			return ctx.API.JSON(existingTag)
+		}
+
+		tag := model.NewTag(session.UserID, tagValue)
+
+		err = spiffy.DefaultDb().Create(tag)
+		if err != nil {
+			return ctx.API.InternalError(err)
+		}
+
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
+		return ctx.API.JSON(tag)
 	}
 
-	//check if the tag exists first
-	existingTag, err := model.GetTagByValue(tagValue, nil)
-	if err != nil {
-		return ctx.API.InternalError(err)
-	}
-	if !existingTag.IsZero() {
-		return ctx.API.JSON(existingTag)
+	tags := []*model.Tag{}
+	for _, value := range args.TagValues {
+		tagValue := model.CleanTagValue(value)
+		if len(tagValue) == 0 {
+			return ctx.API.BadRequest("`tag_value` be in the form [a-z,A-Z,0-9]+")
+		}
+
+		existingTag, err := model.GetTagByValue(tagValue, nil)
+		if err != nil {
+			return ctx.API.InternalError(err)
+		}
+		if !existingTag.IsZero() {
+			tags = append(tags, existingTag)
+			continue
+		}
+
+		tag := model.NewTag(session.UserID, tagValue)
+		err = spiffy.DefaultDb().Create(tag)
+		if err != nil {
+			return ctx.API.InternalError(err)
+		}
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
+		tags = append(tags, tag)
 	}
 
-	tag.TagValue = tagValue
-	tag.UUID = core.UUIDv4().ToShortString()
-	tag.CreatedUTC = time.Now().UTC()
-	tag.CreatedBy = session.UserID
-	tag.TagValue = strings.ToLower(tag.TagValue)
-
-	err = spiffy.DefaultDb().Create(tag)
-	if err != nil {
-		return ctx.API.InternalError(err)
-	}
-
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
-	return ctx.API.JSON(tag)
+	return ctx.API.JSON(tags)
 }
 
 func (api API) deleteImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {

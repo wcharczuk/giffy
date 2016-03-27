@@ -1,7 +1,6 @@
-var giffyApp = angular.module('giffyApp', [ 'ngRoute', 'giffy.controllers', 'giffy.directives', 'giffy.services' ]);
+var giffyApp = angular.module('giffyApp', [ 'ngRoute', 'ngSanitize', 'ngTagsInput', 'giffy.controllers', 'giffy.directives', 'giffy.services' ]);
 
-
-giffyApp.config(["$routeProvider", 
+giffyApp.config(["$routeProvider",
     function($routeProvider) {
         $routeProvider
         .when("/", {
@@ -46,9 +45,9 @@ giffyApp.config(["$routeProvider",
         }).when("/stats", {
             templateUrl: '/static/partials/stats.html',
             controller: 'statsController'
-        }).otherwise({ 
+        }).otherwise({
             templateUrl: '/static/partials/home.html',
-            controller: 'homeController' 
+            controller: 'homeController'
         });
 }]);
 
@@ -60,7 +59,6 @@ var copyElement = function(element) {
     selection.removeAllRanges();
     selection.addRange(range);
 
-    //var selectedText = selection.toString();
     var didSucceed = document.execCommand("copy");
     if (!didSucceed) {
         return false;

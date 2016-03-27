@@ -37,6 +37,7 @@ module.exports = function(grunt) {
                     '_bower/bootstrap/dist/js/bootstrap.js',
                     '_bower/angular/angular.js',
                     '_bower/angular-route/angular-route.js',
+                    '_bower/angular-tags-input/angular-tags-input.js',
                     '_static/js/app.js',
                     '_static/js/controllers.js',
                     '_static/js/directives.js',
