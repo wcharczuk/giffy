@@ -1,3 +1,4 @@
 .DS_Store
+_bower/*
 node_modules/*
 _config/*
