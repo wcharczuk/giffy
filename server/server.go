@@ -16,6 +16,9 @@ import (
 )
 
 func indexAction(ctx *web.HTTPContext) web.ControllerResult {
+	if core.ConfigEnvironment() == "prod" {
+		return ctx.Static("_static/index_compiled.html")
+	}
 	return ctx.Static("_static/index.html")
 }
 
@@ -30,7 +33,7 @@ func Init() *httprouter.Router {
 	util.StartProcessQueueDispatchers(1)
 
 	chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
-	chronometer.Default().LoadJob(jobs.FixImageSizes{})
+	//chronometer.Default().LoadJob(jobs.FixImageSizes{})
 	chronometer.Default().Start()
 
 	web.InitViewCache(

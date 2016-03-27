@@ -1,4 +1,4 @@
-var giffyApp = angular.module('giffyApp', [ 'ngRoute' , 'ngSanitize', 'giffy.controllers', 'giffy.directives', 'giffy.services' ]);
+var giffyApp = angular.module('giffyApp', [ 'ngRoute', 'giffy.controllers', 'giffy.directives', 'giffy.services' ]);
 
 
 giffyApp.config(["$routeProvider", 

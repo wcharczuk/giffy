@@ -1,6 +1,6 @@
 <giffy-header/>
 
-<div class="row">
+<div class="row page-body">
 	<div class="col-xs-10 col-xs-offset-1 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
 		<div class="page-header">
 			<h1>Search Users</h1>
@@ -8,11 +8,20 @@
 		<form>
             <input id="giffy-user-search-bar" type="text" tabindex="0" class="form-control input-lg" placeholder="Search" ng-model="searchQuery" ng-enter="searchUsers()" required/>
         </form>
-        <table class="table">
+        <table class="table table-responsive">
+			<thead>
+				<tr>
+					<th>Username</th>
+					<th>Created</th>
+					<th>First Name</th>
+					<th>Last Name</th>
+					<th>Roles / Status</th>
+				</tr>
+			</thead>
         	<tbody>
         		<tr ng-repeat="user in users">
         			<td><a href="/#/user/{{user.uuid}}">{{user.username}}</a></td>
-        			<td>{{user.created_utc}}</td>
+        			<td>{{user.created_utc | date:short}}</td>
         			<td>{{user.first_name}}</td>
         			<td>{{user.last_name}}</td>
         			<td>

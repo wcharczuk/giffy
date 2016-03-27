@@ -1,3 +1,53 @@
 @import "/_bower/bootstrap/less/bootstrap.less";
 @import "variables.less";
+@import "helper.less";
 @import "controls.less";
+
+@import "pages/about.less";
+@import "pages/add_image.less";
+@import "pages/home.less";
+@import "pages/image.less";
+@import "pages/moderation_log.less";
+@import "pages/search.less";
+@import "pages/slack_complete.less";
+@import "pages/stats.less";
+@import "pages/tag.less";
+@import "pages/user.less";
+@import "pages/user_search.less";
+
+@import "partials/footer.less";
+@import "partials/header.less";
+@import "partials/image_element.less";
+@import "partials/user_element.less";
+@import "partials/vote_button.less";
+
+body {
+    font-family: "Avenir Next", sans-serif;
+    overflow-x:hidden;
+}
+
+#wrapper {
+    padding-bottom:60px;
+}
+
+@media(min-width:768px) and (max-width:991px) {
+    #giffy-home-results .image-element, #user-image-results .image-element, #tag-image-results .image-element {
+        min-width: unset;
+        width:50%;
+    }
+}
+
+@media (max-width: 767px) {
+    #giffy-home-results .image-element, #user-image-results .image-element, #tag-image-results .image-element {
+        min-width: unset;
+        width:100%;
+    }
+    
+    .image-details .align-right {
+        text-align: center;
+    }
+    
+    .image-details .align-left {
+        text-align: center;
+    }
+}
