@@ -1,17 +1,17 @@
 <giffy-header/>
 
 <div class="row page-body">
-    <div class="col-md-10 col-md-offset-1 align-center">
-        <div class="page-header">
-            <h1>{{tag.tag_value}}</h1>
-        </div>
-        <div id="tag-image-results">
-            <div class="tag-image-result" ng-repeat="image in images">
-                <giffy-image image="image"></giffy-image>
-                <vote-button type="'image'" current-user="currentUser" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
-            </div>
-        </div>
-    </div>
+	<div class="col-md-10 col-md-offset-1 align-center">
+		<div class="page-header">
+			<h1>{{tag.tag_value}}</h1>
+		</div>
+		<div id="tag-image-results">
+			<div class="tag-image-result" ng-repeat="image in images">
+				<giffy-image image="image"></giffy-image>
+				<vote-button type="'image'" current-user="currentUser" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
+			</div>
+		</div>
+	</div>
 </div>
 
 <giffy-footer/>
