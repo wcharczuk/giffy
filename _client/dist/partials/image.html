@@ -37,6 +37,10 @@
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left"><a id="slack-command-link" href="#" title="Copy Code To Clipboard"><code>{{slackCommand}}</code></a></div>
             </div>
             <div class="row">
+                <div class="col-sm-6 col-md-6 col-lg-5 align-right">Created:</div>
+                <div class="col-sm-6 col-md-6 col-lg-7 align-left">{{image.created_utc | date:short}}</div>
+            </div>
+            <div class="row">
                 <div class="col-sm-6 col-md-6 col-lg-5 align-right">Dimensions:</div>
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left">{{image.width}}x{{image.height}} px</div>
             </div>
@@ -69,7 +73,7 @@
                 <div class="modal-body">
                     <div id="add-tag" class="add-tag">
                         <!-- put validation here etc. -->
-                        <form ng-submit="addTags()">
+                        <form ng-submit="addTags()" ng-enter="addTags()">
                             <div class="form-group row">
                                 <div class="col-md-10 col-md-offset-1">
                                     <tags-input id="tagsInput" tabindex="0" ng-model="newTags" spellcheck="false" replace-spaces-with-dashes="false" placeholder="lolz" on-tag-added="tagAddedHandler()">
