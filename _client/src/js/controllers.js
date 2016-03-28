@@ -339,7 +339,11 @@ giffyControllers.controller("logoutController",  ["$scope", "$http",
 	}
 ]);
 
-giffyControllers.controller("slackCompleteController", ["$scope", function($scope) {}]);
+giffyControllers.controller("slackCompleteController", ["$scope", "currentUser",
+	function($scope) {
+		currentUser($scope);
+	}
+]);
 
 giffyControllers.controller("aboutController",  ["$scope", "$http", "currentUser",
 	function($scope, $http, currentUser) {
@@ -351,8 +355,10 @@ giffyControllers.controller("aboutController",  ["$scope", "$http", "currentUser
 	}
 ]);
 
-giffyControllers.controller("statsController",  ["$scope", "$http",
-	function($scope, $http) {
+giffyControllers.controller("statsController",  ["$scope", "$http", "currentUser",
+	function($scope, $http, currentUser) {
+		currentUser($scope);
+
 		$http.get("/api/stats").success(function(datums) {
 			$scope.stats = datums.response;
 		});
