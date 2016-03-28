@@ -1,6 +1,6 @@
 var giffyServices = angular.module('giffy.services', []);
 
-giffyServices.service('currentUser',
+giffyServices.service('currentUser', ["$http",
 	function($http) {
 		return function($scope, cb) {
 			$http.get("/api/session.user").success(function(datums) {
@@ -11,7 +11,7 @@ giffyServices.service('currentUser',
 			});
 		}
 	}
-);
+]);
 
 giffyServices.service("storage", function() {
     var _toObject = function () {
