@@ -19,7 +19,7 @@ func (ot CleanTagValues) Name() string {
 
 // Schedule returns the job schedule.
 func (ot CleanTagValues) Schedule() chronometer.Schedule {
-	return nil //can only be run on demand.
+	return chronometer.EveryHour()
 }
 
 // Execute runs the job
