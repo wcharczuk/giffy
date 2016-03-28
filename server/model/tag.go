@@ -94,8 +94,18 @@ func SearchTags(query string, tx *sql.Tx) ([]Tag, error) {
 	return tags, err
 }
 
-// DeleteTagByID deletes an tag fully.
+// SetTagValue sets a tag value
+func SetTagValue(tagID int64, tagValue string, tx *sql.Tx) error {
+	return spiffy.DefaultDb().ExecInTransaction(`update tag set tag_value = $1 where id = $2`, tx, tagValue, tagID)
+}
+
+// DeleteTagByID deletes a tag.
 func DeleteTagByID(tagID int64, tx *sql.Tx) error {
+	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
+}
+
+// DeleteTagWithVotesByID deletes an tag fully.
+func DeleteTagWithVotesByID(tagID int64, tx *sql.Tx) error {
 	err := spiffy.DefaultDb().ExecInTransaction(`delete from vote_summary where tag_id = $1`, tx, tagID)
 	if err != nil {
 		return err
@@ -104,11 +114,35 @@ func DeleteTagByID(tagID int64, tx *sql.Tx) error {
 	if err != nil {
 		return err
 	}
-	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
+	return DeleteTagByID(tagID, tx)
 }
 
 // MergeTags merges the fromTagID into the toTagID, deleting the fromTagID.
 func MergeTags(fromTagID, toTagID int64, tx *sql.Tx) error {
+	votes, err := GetVotesForTag(fromTagID, tx)
+	if err != nil {
+		return err
+	}
+
+	for _, vote := range votes {
+		existingVote, err := GetVote(vote.UserID, vote.ImageID, toTagID, tx)
+		if err != nil {
+			return err
+		}
+
+		if existingVote.IsZero() {
+			err = SetVoteTagID(vote.UserID, vote.ImageID, fromTagID, toTagID, tx)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = DeleteVote(vote.UserID, vote.ImageID, fromTagID, tx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	links, err := GetVoteSummariesForTag(fromTagID, tx)
 	if err != nil {
 		return err
@@ -120,26 +154,22 @@ func MergeTags(fromTagID, toTagID int64, tx *sql.Tx) error {
 			return err
 		}
 
-		if !existingLink.IsZero() {
-			existingLink.VotesFor += link.VotesFor
-			existingLink.VotesAgainst += link.VotesAgainst
-			existingLink.VotesTotal = existingLink.VotesFor - existingLink.VotesAgainst
-			err = spiffy.DefaultDb().UpdateInTransaction(existingLink, tx)
+		if existingLink.IsZero() {
+			err = SetVoteSummaryTagID(link.ImageID, fromTagID, toTagID, tx)
 			if err != nil {
 				return err
 			}
 		} else {
-			link.TagID = toTagID
-			err = spiffy.DefaultDb().UpdateInTransaction(link, tx)
+			err = ReconcileVoteSummaryTotals(link.ImageID, toTagID, tx)
+			if err != nil {
+				return err
+			}
+
+			err = DeleteVoteSummary(link.ImageID, fromTagID, tx)
 			if err != nil {
 				return err
 			}
 		}
-	}
-
-	err = spiffy.DefaultDb().ExecInTransaction(`update vote set tag_id = $1 where tag_id = $2`, tx, toTagID, fromTagID)
-	if err != nil {
-		return err
 	}
 
 	return DeleteTagByID(fromTagID, tx)

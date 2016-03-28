@@ -19,10 +19,10 @@ func TestGetSiteStats(t *testing.T) {
 	assert.Nil(err)
 	i, err := model.CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	_, err = model.CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImage(u.ID, i.ID, "crushing it", tx)
+	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "crushing it", tx)
 	assert.Nil(err)
 
 	stats, err := GetSiteStats(tx)

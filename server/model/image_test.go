@@ -23,10 +23,10 @@ func TestGetAllImages(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	allImages, err := GetAllImages(tx)
@@ -78,7 +78,7 @@ func TestGetImageByID(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	verify, err := GetImageByID(i.ID, tx)
@@ -136,7 +136,7 @@ func TestDeleteImageByID(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	err = DeleteImageByID(i.ID, tx)
@@ -185,16 +185,16 @@ func TestSearchImages(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, "not__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i3.ID, "__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i2.ID, "__test_bar", tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, "__test", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
 	images, err := SearchImages("__test", tx)
@@ -233,16 +233,16 @@ func TestSearchImagesSlack(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i4.ID, "not__test_foo_bar", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, "not__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i3.ID, "__test_foo_bar", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i3.ID, "__test_foo_bar", tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i2.ID, "__test_bar", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i2.ID, "__test_bar", tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, "__test", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
 	image, err := SearchImagesSlack("__test", tx)
@@ -272,25 +272,25 @@ func TestGetImagesByID(t *testing.T) {
 	_, err = CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	baz, err := CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	baz, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	biz, err := CreateTestTagForImage(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	biz, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
-	err = SetVoteCount(i.ID, baz.ID, 100, 3, tx)
+	err = SetVoteSummaryVoteCounts(i.ID, baz.ID, 100, 3, tx)
 	assert.Nil(err)
 
-	err = SetVoteCount(i.ID, biz.ID, 1000, 30, tx)
+	err = SetVoteSummaryVoteCounts(i.ID, biz.ID, 1000, 30, tx)
 	assert.Nil(err)
 
 	images, err := GetAllImages(tx)

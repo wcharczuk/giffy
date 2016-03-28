@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/blendlabs/go-chronometer"
+	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/model"
 )
@@ -23,7 +24,15 @@ func (ot CleanTagValues) Schedule() chronometer.Schedule {
 
 // Execute runs the job
 func (ot CleanTagValues) Execute(ct *chronometer.CancellationToken) error {
-	return ot.ExecuteInTransaction(ct, nil)
+	tx, err := spiffy.DefaultDb().Begin()
+	if err != nil {
+		return err
+	}
+	err = ot.ExecuteInTransaction(ct, tx)
+	if err != nil {
+		return exception.Wrap(tx.Rollback())
+	}
+	return exception.Wrap(tx.Commit())
 }
 
 // ExecuteInTransaction runs the job in a transaction
@@ -38,24 +47,24 @@ func (ot CleanTagValues) ExecuteInTransaction(ct *chronometer.CancellationToken,
 			return ct.Cancel()
 		}
 
-		tag.TagValue = model.CleanTagValue(tag.TagValue)
-
-		existingTag, err := model.GetTagByValue(tag.TagValue, tx)
-		if err != nil {
-			return err
-		}
-		if existingTag.IsZero() {
-			err = spiffy.DefaultDb().UpdateInTransaction(&tag, tx)
+		newTagValue := model.CleanTagValue(tag.TagValue)
+		if newTagValue != tag.TagValue {
+			existingTag, err := model.GetTagByValue(newTagValue, tx)
 			if err != nil {
 				return err
 			}
-		} else {
-			err = model.MergeTags(tag.ID, existingTag.ID, tx)
-			if err != nil {
-				return err
+			if existingTag.IsZero() {
+				err = model.SetTagValue(tag.ID, newTagValue, tx)
+				if err != nil {
+					return err
+				}
+			} else {
+				err = model.MergeTags(tag.ID, existingTag.ID, tx)
+				if err != nil {
+					return err
+				}
 			}
 		}
-
 	}
 	return nil
 }

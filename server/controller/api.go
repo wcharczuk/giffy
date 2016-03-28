@@ -21,7 +21,11 @@ import (
 // API is the controller for api endpoints.
 type API struct{}
 
-func (api API) searchUsersAction(ctx *web.HTTPContext) web.ControllerResult {
+func (api API) searchUsersAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if !session.User.IsAdmin {
+		return ctx.API.NotAuthorized()
+	}
+
 	query := ctx.Param("query")
 	users, err := model.SearchUsers(query, nil)
 	if err != nil {
@@ -500,7 +504,7 @@ func (api API) deleteTagAction(session *auth.Session, ctx *web.HTTPContext) web.
 		return ctx.API.NotAuthorized()
 	}
 
-	err = model.DeleteTagByID(tag.ID, nil)
+	err = model.DeleteTagWithVotesByID(tag.ID, nil)
 	if err != nil {
 		return ctx.API.InternalError(err)
 	}
@@ -611,7 +615,7 @@ func (api API) voteAction(isUpvote bool, session *auth.Session, ctx *web.HTTPCon
 		return ctx.API.OK()
 	}
 
-	didCreate, err := model.CreateOrChangeVote(userID, image.ID, tag.ID, isUpvote, nil)
+	didCreate, err := model.CreateOrUpdateVote(userID, image.ID, tag.ID, isUpvote, nil)
 	if err != nil {
 		return ctx.API.InternalError(err)
 	}
@@ -672,7 +676,7 @@ func (api API) deleteUserVoteAction(session *auth.Session, ctx *web.HTTPContext)
 		voteSummary.VotesAgainst--
 	}
 
-	err = model.SetVoteCount(image.ID, tag.ID, voteSummary.VotesFor, voteSummary.VotesAgainst, tx)
+	err = model.SetVoteSummaryVoteCounts(image.ID, tag.ID, voteSummary.VotesFor, voteSummary.VotesAgainst, tx)
 	if err != nil {
 		tx.Rollback()
 		return ctx.API.InternalError(err)
@@ -809,7 +813,7 @@ func (api API) runJobAction(session *auth.Session, ctx *web.HTTPContext) web.Con
 // Register adds the routes to the router.
 func (api API) Register(router *httprouter.Router) {
 	router.GET("/api/users", web.ActionHandler(api.getUsersAction))
-	router.GET("/api/users.search", web.ActionHandler(api.searchUsersAction))
+	router.GET("/api/users.search", auth.APISessionRequiredAction(api.searchUsersAction))
 
 	router.GET("/api/user/:user_id", web.ActionHandler(api.getUserAction))
 	router.PUT("/api/user/:user_id", auth.APISessionRequiredAction(api.updateUserAction))

@@ -17,13 +17,55 @@ func TestGetVotesForUser(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	votes, err := GetVotesForUser(u.ID, tx)
+	assert.Nil(err)
+	assert.NotEmpty(votes)
+}
+
+func TestGetVotesForImage(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := CreateTestUser(tx)
+	assert.Nil(err)
+	i, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	assert.Nil(err)
+
+	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	assert.Nil(err)
+
+	votes, err := GetVotesForImage(i.ID, tx)
+	assert.Nil(err)
+	assert.NotEmpty(votes)
+}
+
+func TestGetVotesForTag(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := CreateTestUser(tx)
+	assert.Nil(err)
+	i, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	assert.Nil(err)
+
+	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	assert.Nil(err)
+
+	votes, err := GetVotesForTag(tag.ID, tx)
 	assert.Nil(err)
 	assert.NotEmpty(votes)
 }
@@ -38,10 +80,10 @@ func TestGetVotesForUserForImage(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	votes, err := GetVotesForUserForImage(u.ID, i.ID, tx)
@@ -59,10 +101,10 @@ func TestGetVotesForUserForTag(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	votes, err := GetVotesForUserForTag(u.ID, tag.ID, tx)
@@ -80,10 +122,10 @@ func TestGetVote(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
 	assert.Nil(err)
 
-	_, err = CreateOrChangeVote(u.ID, i.ID, tag.ID, false, tx)
+	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(err)
 
 	vote, err := GetVote(u.ID, i.ID, tag.ID, tx)

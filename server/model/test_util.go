@@ -16,8 +16,8 @@ func CreateTestTag(userID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
 	return tag, err
 }
 
-// CreateTestTagForImage creates a test tag for an image and seeds the vote summary for it.
-func CreateTestTagForImage(userID, imageID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
+// CreateTestTagForImageWithVote creates a test tag for an image and seeds the vote summary for it.
+func CreateTestTagForImageWithVote(userID, imageID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
 	tag, err := CreateTestTag(userID, tagValue, tx)
 	if err != nil {
 		return nil, err
@@ -66,6 +66,32 @@ func CreateTestImage(userID int64, tx *sql.Tx) (*Image, error) {
 	i.DisplayName = "Test Image"
 	err := spiffy.DefaultDb().CreateInTransaction(i, tx)
 	return i, err
+}
+
+// CreatTestVoteSummaryWithVote creates a test vote summary with an accopanying vote.
+func CreatTestVoteSummaryWithVote(imageID, tagID, userID int64, votesFor, votesAgainst int, tx *sql.Tx) (*VoteSummary, error) {
+	newLink := NewVoteSummary(imageID, tagID, userID, time.Now().UTC())
+	newLink.VotesFor = votesFor
+	newLink.VotesTotal = votesAgainst
+	newLink.VotesTotal = votesFor - votesAgainst
+	err := spiffy.DefaultDb().CreateInTransaction(newLink, tx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = DeleteVote(userID, imageID, tagID, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	v := NewVote(userID, imageID, tagID, true)
+	err = spiffy.DefaultDb().CreateInTransaction(v, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return newLink, nil
 }
 
 // CreateTestUser creates a test user.

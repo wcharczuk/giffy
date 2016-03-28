@@ -20,18 +20,37 @@ func TestCleanTagValues(t *testing.T) {
 	i, err := model.CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImage(u.ID, i.ID, "winning's", tx)
+	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "winning's", tx)
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImage(u.ID, i.ID, "they're", tx)
+	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "they're", tx)
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImage(u.ID, i.ID, "theyre", tx)
+	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "theyre", tx)
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImage(u.ID, i.ID, "crushing it", tx)
+	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "crushing it", tx)
 	assert.Nil(err)
 
+	ct := chronometer.NewCancellationToken()
 	job := &CleanTagValues{}
-	err := job.ExecuteInTransaction(chronometer.NewCancellationToken(), tx)
+	err = job.ExecuteInTransaction(ct, tx)
+
+	assert.Nil(err)
+
+	verify, err := model.GetTagByValue("winning's", tx)
+	assert.Nil(err)
+	assert.True(verify.IsZero())
+
+	verify, err = model.GetTagByValue("they're", tx)
+	assert.Nil(err)
+	assert.True(verify.IsZero())
+
+	verify, err = model.GetTagByValue("theyre", tx)
+	assert.Nil(err)
+	assert.False(verify.IsZero())
+
+	verify, err = model.GetTagByValue("crushing it", tx)
+	assert.Nil(err)
+	assert.False(verify.IsZero())
 }

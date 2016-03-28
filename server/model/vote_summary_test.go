@@ -7,7 +7,7 @@ import (
 	"github.com/blendlabs/spiffy"
 )
 
-func TestSetTagVotes(t *testing.T) {
+func TestSetVoteSummaryVoteCounts(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
@@ -17,10 +17,10 @@ func TestSetTagVotes(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
 	assert.Nil(err)
 
-	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
+	err = SetVoteSummaryVoteCounts(i.ID, tag.ID, 101, 100, tx)
 	assert.Nil(err)
 
 	itv, err := GetVoteSummary(i.ID, tag.ID, tx)
@@ -32,7 +32,35 @@ func TestSetTagVotes(t *testing.T) {
 	assert.Equal(1, itv.VotesTotal)
 }
 
-func TestCreateOrChangeVote(t *testing.T) {
+func TestSetVoteSummaryTagID(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := CreateTestUser(tx)
+	assert.Nil(err)
+	i, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
+	assert.Nil(err)
+
+	tag2, err := CreateTestTag(u.ID, "__test_winning_two", tx)
+	assert.Nil(err)
+
+	err = SetVoteSummaryTagID(i.ID, tag.ID, tag2.ID, tx)
+	assert.Nil(err)
+
+	votesForOldTag, err := GetVoteSummariesForTag(tag.ID, tx)
+	assert.Nil(err)
+	assert.Empty(votesForOldTag)
+
+	votesForNewTag, err := GetVoteSummariesForTag(tag2.ID, tx)
+	assert.Nil(err)
+	assert.NotEmpty(votesForNewTag)
+}
+
+func TestCreateOrUpdateVote(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
@@ -45,10 +73,10 @@ func TestCreateOrChangeVote(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
 	assert.Nil(err)
 
-	_, voteErr := CreateOrChangeVote(votingUser.ID, i.ID, tag.ID, false, tx)
+	_, voteErr := CreateOrUpdateVote(votingUser.ID, i.ID, tag.ID, false, tx)
 	assert.Nil(voteErr)
 
 	voteRecord, voteRecordErr := GetVoteSummary(i.ID, tag.ID, tx)
@@ -67,7 +95,7 @@ func TestGetImagesForTagID(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
 	assert.Nil(err)
 
 	imagesForTag, err := GetImagesForTagID(tag.ID, tx)
@@ -85,7 +113,7 @@ func TestGetTagsForImageID(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	_, err = CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
 	assert.Nil(err)
 
 	tagsForImage, err := GetTagsForImageID(i.ID, tx)
@@ -103,10 +131,10 @@ func TestGetSummariesForImage(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
 	assert.Nil(err)
 
-	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
+	err = SetVoteSummaryVoteCounts(i.ID, tag.ID, 101, 100, tx)
 	assert.Nil(err)
 
 	summaries, err := GetVoteSummariesForImage(i.ID, tx)
@@ -124,13 +152,70 @@ func TestGetSummariesForTag(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImage(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
 	assert.Nil(err)
 
-	err = SetVoteCount(i.ID, tag.ID, 101, 100, tx)
+	err = SetVoteSummaryVoteCounts(i.ID, tag.ID, 101, 100, tx)
 	assert.Nil(err)
 
 	summaries, err := GetVoteSummariesForTag(tag.ID, tx)
 	assert.Nil(err)
 	assert.NotEmpty(summaries)
+}
+
+func TestReconcileVoteSummaryTotals(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := CreateTestUser(tx)
+	assert.Nil(err)
+	i, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_winning", tx)
+	assert.Nil(err)
+
+	u2, err := CreateTestUser(tx)
+	assert.Nil(err)
+
+	_, err = CreateOrUpdateVote(u2.ID, i.ID, tag.ID, true, tx)
+	assert.Nil(err)
+
+	verify, err := GetVoteSummary(i.ID, tag.ID, tx)
+	assert.Nil(err)
+	assert.False(verify.IsZero())
+
+	err = ReconcileVoteSummaryTotals(i.ID, tag.ID, tx)
+	assert.Nil(err)
+
+	verify2, err := GetVoteSummary(i.ID, tag.ID, tx)
+	assert.Nil(err)
+	assert.False(verify2.IsZero())
+
+	assert.Equal(verify.VotesFor, verify2.VotesFor)
+	assert.Equal(verify.VotesAgainst, verify2.VotesAgainst)
+	assert.Equal(verify.VotesTotal, verify2.VotesTotal)
+
+	err = SetVoteSummaryVoteCounts(i.ID, tag.ID, 0, 0, tx)
+	assert.Nil(err)
+
+	verify3, err := GetVoteSummary(i.ID, tag.ID, tx)
+	assert.Nil(err)
+	assert.False(verify3.IsZero())
+
+	assert.Zero(verify3.VotesFor)
+	assert.Zero(verify3.VotesAgainst)
+	assert.Zero(verify3.VotesTotal)
+
+	err = ReconcileVoteSummaryTotals(i.ID, tag.ID, tx)
+	assert.Nil(err)
+
+	verify2, err = GetVoteSummary(i.ID, tag.ID, tx)
+	assert.Nil(err)
+	assert.False(verify2.IsZero())
+
+	assert.Equal(verify.VotesFor, verify2.VotesFor)
+	assert.Equal(verify.VotesAgainst, verify2.VotesAgainst)
+	assert.Equal(verify.VotesTotal, verify2.VotesTotal)
 }

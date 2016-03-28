@@ -10,13 +10,13 @@ import (
 
 // VoteSummary is the link between an image and a tag.
 type VoteSummary struct {
-	ImageID        int64     `json:"-" db:"image_id,pk"`
+	ImageID        int64     `json:"image_id" db:"image_id,pk"`
 	ImageUUID      string    `json:"image_uuid" db:"image_uuid,readonly"`
-	TagID          int64     `json:"-" db:"tag_id,pk"`
+	TagID          int64     `json:"tag_id" db:"tag_id,pk"`
 	TagUUID        string    `json:"tag_uuid" db:"tag_uuid,readonly"`
 	CreatedUTC     time.Time `json:"created_utc" db:"created_utc"`
 	LastVoteUTC    time.Time `json:"last_vote_utc" db:"last_vote_utc"`
-	LastVoteBy     int64     `json:"-" db:"last_vote_by"`
+	LastVoteBy     int64     `json:"last_vote_by" db:"last_vote_by"`
 	LastVoteByUUID string    `json:"last_vote_by_uuid" db:"last_vote_by_uuid,readonly"`
 	VotesFor       int       `json:"votes_for" db:"votes_for"`
 	VotesAgainst   int       `json:"votes_against" db:"votes_against"`
@@ -44,14 +44,19 @@ func NewVoteSummary(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time) *Vo
 	}
 }
 
-// SetVoteCount updates the votes for a tag to an image.
-func SetVoteCount(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) error {
+// SetVoteSummaryVoteCounts updates the votes for a tag to an image.
+func SetVoteSummaryVoteCounts(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) error {
 	votesTotal := votesFor - votesAgainst
 	return spiffy.DefaultDb().ExecInTransaction(`update vote_summary vs set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
 }
 
-// CreateOrChangeVote votes for a tag for an image in the db.
-func CreateOrChangeVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) (bool, error) {
+// SetVoteSummaryTagID re-assigns a vote summary's tag.
+func SetVoteSummaryTagID(imageID, oldTagID, newTagID int64, tx *sql.Tx) error {
+	return spiffy.DefaultDb().ExecInTransaction(`update vote_summary set tag_id = $1 where image_id = $2 and tag_id = $3`, tx, newTagID, imageID, oldTagID)
+}
+
+// CreateOrUpdateVote votes for a tag for an image in the db.
+func CreateOrUpdateVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx) (bool, error) {
 	existing, existingErr := GetVoteSummary(imageID, tagID, tx)
 	if existingErr != nil {
 		return false, existingErr
@@ -179,6 +184,39 @@ order by
 		return nil
 	})
 	return tags, err
+}
+
+// ReconcileVoteSummaryTotals queries the `vote` table to fill the vote count aggregate columns on `vote_summary`.
+func ReconcileVoteSummaryTotals(imageID, tagID int64, tx *sql.Tx) error {
+	query := `
+update
+	vote_summary
+set
+	votes_for = data.votes_for
+	, votes_against = data.votes_against
+	, votes_total = data.votes_total
+from
+(
+	select
+		coalesce(sum(votes_for), 0) as votes_for
+		, coalesce(sum(votes_against), 0) as votes_against
+		, coalesce(sum(votes_for), 0) - coalesce(sum(votes_against),0) as votes_total
+	from (
+		select
+			case when is_upvote = true then 1 else 0 end as votes_for
+			, case when is_upvote = true then 0 else 1 end as votes_against
+		from
+			vote v
+		where
+			v.image_id = $1
+			and v.tag_id = $2
+	) as data_inner
+) data
+where
+	vote_summary.image_id = $1
+	and vote_summary.tag_id = $2
+`
+	return spiffy.DefaultDb().ExecInTransaction(query, tx, imageID, tagID)
 }
 
 // DeleteVoteSummary deletes an association between an image and a tag.

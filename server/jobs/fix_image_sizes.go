@@ -43,6 +43,11 @@ func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
 
 	var image model.Image
 	for _, id := range imageIDs {
+
+		if ct.ShouldCancel() {
+			return ct.Cancel()
+		}
+
 		err = spiffy.DefaultDb().GetByID(&image, id)
 		if err != nil {
 			return err
@@ -52,6 +57,11 @@ func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
 		if err != nil {
 			return err
 		}
+
+		if ct.ShouldCancel() {
+			return ct.Cancel()
+		}
+
 		image.FileSize = size
 		err = spiffy.DefaultDb().Update(&image)
 		if err != nil {
