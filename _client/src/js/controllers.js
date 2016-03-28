@@ -1,6 +1,6 @@
 var giffyControllers = angular.module("giffy.controllers", []);
 
-giffyControllers.controller("homeController", ["$scope", "$http", "$routeParams", "currentUser",
+giffyControllers.controller("homeController",
     function($scope, $http, $routeParams, currentUser) {
         currentUser($scope);
 
@@ -12,9 +12,9 @@ giffyControllers.controller("homeController", ["$scope", "$http", "$routeParams"
             window.location = "/#/search/" + $scope.searchQuery;
         };
     }
-]);
+);
 
-giffyControllers.controller("searchController", ["$scope", "$http", "$routeParams", "$location", "currentUser",
+giffyControllers.controller("searchController",
     function($scope, $http, $routeParams, $location, currentUser) {
 		currentUser($scope);
 
@@ -36,9 +36,9 @@ giffyControllers.controller("searchController", ["$scope", "$http", "$routeParam
             }
         };
     }
-]);
+);
 
-giffyControllers.controller("addImageController", ["$scope", "$http", "currentUser",
+giffyControllers.controller("addImageController",
     function($scope, $http, currentUser) {
         currentUser($scope, function() {
 			if (!$scope.currentUser.is_logged_in) {
@@ -46,9 +46,9 @@ giffyControllers.controller("addImageController", ["$scope", "$http", "currentUs
 			}
 		});
     }
-]);
+);
 
-giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams", "$q", "currentUser",
+giffyControllers.controller("imageController",
     function($scope, $http, $routeParams, $q, currentUser) {
         currentUser($scope, function() {
 			fetchImageData();
@@ -189,9 +189,9 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
            fetchTagData();
         });
     }
-]);
+);
 
-giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams", "currentUser",
+giffyControllers.controller("tagController",
     function($scope, $http, $routeParams, currentUser) {
         currentUser($scope);
 
@@ -234,9 +234,9 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
            fetchVoteData();
         });
     }
-]);
+);
 
-giffyControllers.controller("userController", ["$scope", "$http", "$routeParams", "currentUser",
+giffyControllers.controller("userController",
     function($scope, $http, $routeParams, currentUser) {
         currentUser($scope, function() {
             $http.get("/api/user/" + $routeParams.user_id).success(function(datums) {
@@ -266,9 +266,9 @@ giffyControllers.controller("userController", ["$scope", "$http", "$routeParams"
             }
         };
     }
-]);
+);
 
-giffyControllers.controller("moderationLogController", ["$scope", "$http", "$routeParams", "currentUser",
+giffyControllers.controller("moderationLogController",
     function($scope, $http, $routeParams, currentUser) {
         currentUser($scope);
 
@@ -305,9 +305,9 @@ giffyControllers.controller("moderationLogController", ["$scope", "$http", "$rou
             }
         };
     }
-]);
+);
 
-giffyControllers.controller("userSearchController", ["$scope", "$http", "currentUser",
+giffyControllers.controller("userSearchController",
     function($scope, $http, currentUser) {
         currentUser($scope);
 
@@ -324,30 +324,30 @@ giffyControllers.controller("userSearchController", ["$scope", "$http", "current
 
         jQuery("#giffy-user-search-bar").focus();
     }
-]);
+);
 
-giffyControllers.controller("logoutController", ["$scope", "$http",
+giffyControllers.controller("logoutController",
     function($scope, $http, localSession) {
         $http.post("/api/logout", null).success(function() {
             window.location = "/"
         });
     }
-]);
+);
 
-giffyControllers.controller("slackCompleteController", ["$scope", function($scope) {}]);
+giffyControllers.controller("slackCompleteController", function($scope) {});
 
-giffyControllers.controller("aboutController", ["$scope", "$http",
+giffyControllers.controller("aboutController",
     function($scope, $http) {
         $http.get("/api/images/random/1").success(function(datums) {
            $scope.image = datums.response[0];
         });
     }
-]);
+);
 
-giffyControllers.controller("statsController", ["$scope", "$http",
+giffyControllers.controller("statsController",
     function($scope, $http) {
         $http.get("/api/stats").success(function(datums) {
             $scope.stats = datums.response;
         });
     }
-]);
+);

@@ -34,7 +34,7 @@ giffyDirectives.directive("giffyHeader", function() {
     templateUrl: "/static/partials/controls/header.html"
   }
 });
-giffyDirectives.controller('giffyHeaderController', ["$scope", "$http", function($scope, $http) {} ]);
+giffyDirectives.controller('giffyHeaderController', function($scope, $http) {});
 
 // --------------------------------------------------------------------------------
 // Footer
@@ -47,7 +47,7 @@ giffyDirectives.directive("giffyFooter", function() {
     templateUrl: "/static/partials/controls/footer.html"
   }
 });
-giffyDirectives.controller('giffyFooterController', ["$scope", function($scope) {}]);
+giffyDirectives.controller('giffyFooterController', function($scope) {});
 
 // --------------------------------------------------------------------------------
 // Image
@@ -63,7 +63,7 @@ giffyDirectives.directive("giffyImage", function() {
     templateUrl: "/static/partials/controls/image.html"
   }
 });
-giffyDirectives.controller('giffyImageController', ["$scope",
+giffyDirectives.controller('giffyImageController',
   function($scope) {
     $scope.deleteImage = function() {
       if (confirm("Are you sure?")) {
@@ -73,7 +73,7 @@ giffyDirectives.controller('giffyImageController', ["$scope",
       }
     }
   }
-]);
+);
 
 // --------------------------------------------------------------------------------
 // Username
@@ -89,7 +89,7 @@ giffyDirectives.directive("userDetail", function() {
     templateUrl: "/static/partials/controls/username.html"
   }
 });
-giffyDirectives.controller('UserDetailElementController', ["$scope", function($scope) {}]);
+giffyDirectives.controller('UserDetailElementController', function($scope) {});
 
 // --------------------------------------------------------------------------------
 // Vote Button
@@ -111,7 +111,7 @@ giffyDirectives.directive('voteButton',
     };
   }
 );
-giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
+giffyDirectives.controller('voteButtonController',
   function($scope, voteAPI) {
     $scope.vote = function(isUpvote) {
       if (!$scope.hasVote()) {
@@ -178,7 +178,7 @@ giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
       return $scope.userVote && !$scope.userVote.is_upvote;
     };
   }
-]);
+);
 
 giffyDirectives.directive('ngEnter', function() {
     return function(scope, element, attrs) {
