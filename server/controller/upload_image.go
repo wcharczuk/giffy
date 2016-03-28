@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"net/url"
+	"path"
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/filecache"
 	"github.com/wcharczuk/giffy/server/core/web"
@@ -23,22 +27,53 @@ func (ic UploadImage) uploadImageAction(session *auth.Session, ctx *web.HTTPCont
 }
 
 func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	files, filesErr := ctx.PostedFiles()
-	if filesErr != nil {
-		return ctx.View.BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
+	var fileContents []byte
+	var fileName string
+
+	imageURL := ctx.Param("image_url")
+	if len(imageURL) != 0 {
+
+		_, urlErr := url.Parse(imageURL)
+		if urlErr != nil {
+			return ctx.View.BadRequest("`image_url` was malformed.")
+		}
+
+		res, err := core.NewExternalRequest().AsGet().WithURL(imageURL).FetchRawResponse()
+		if err != nil {
+			return ctx.View.InternalError(err)
+		}
+
+		if res.StatusCode != http.StatusOK {
+			return ctx.View.BadRequest("Non 200 returned from `image_url` host.")
+		}
+		defer res.Body.Close()
+		bytes, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return ctx.View.InternalError(err)
+		}
+
+		resURL, _ := res.Location()
+		fileName = path.Base(resURL.Path)
+		fileContents = bytes
+	} else {
+		files, filesErr := ctx.PostedFiles()
+		if filesErr != nil {
+			return ctx.View.BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
+		}
+
+		if len(files) == 0 {
+			return ctx.View.BadRequest("No files posted.")
+		}
+
+		if len(files) > 1 {
+			return ctx.View.BadRequest("Too many files posted.")
+		}
+
+		fileName = files[0].Filename
+		fileContents = files[0].Contents
 	}
 
-	if len(files) == 0 {
-		return ctx.View.BadRequest("No files posted.")
-	}
-
-	if len(files) > 1 {
-		return ctx.View.BadRequest("Too many files posted.")
-	}
-
-	postedFile := files[0]
-
-	md5sum := model.ConvertMD5(md5.Sum(postedFile.Contents))
+	md5sum := model.ConvertMD5(md5.Sum(fileContents))
 	existing, err := model.GetImageByMD5(md5sum, nil)
 	if err != nil {
 		return ctx.View.InternalError(err)
@@ -48,50 +83,15 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 		return ctx.View.View("upload_image_complete", existing)
 	}
 
-	image, err := CreateImageFromFile(session.UserID, postedFile)
+	image, err := CreateImageFromFile(session.UserID, fileContents, fileName)
 	if err != nil {
 		return ctx.View.InternalError(err)
 	}
 	if image == nil {
 		return ctx.View.InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
-	tagValue := model.CleanTagValue(ctx.Param("tag_value"))
-
-	existingTag, err := model.GetTagByValue(tagValue, nil)
-	if err != nil {
-		return ctx.View.InternalError(err)
-	}
-
-	var tagID int64
-	var tagUUID string
-	if existingTag.IsZero() {
-		newTag := model.NewTag(session.UserID, tagValue)
-		err = spiffy.DefaultDb().Create(newTag)
-		if err != nil {
-			return ctx.View.InternalError(err)
-		}
-		tagID = newTag.ID
-		tagUUID = newTag.UUID
-
-		err = model.UpdateImageDisplayName(image.ID, tagValue, nil)
-		if err != nil {
-			return ctx.View.InternalError(err)
-		}
-	} else {
-		tagID = existingTag.ID
-		tagUUID = existingTag.UUID
-	}
-
-	// automatically vote for the tag <==> image
-	didCreateLink, err := model.CreateOrChangeVote(session.UserID, image.ID, tagID, true, nil)
-	if err != nil {
-		return ctx.View.InternalError(err)
-	}
 
 	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
-	if didCreateLink {
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectLink, image.UUID, tagUUID)
-	}
 	return ctx.View.View("upload_image_complete", image)
 }
 
@@ -102,14 +102,14 @@ func (ic UploadImage) Register(router *httprouter.Router) {
 }
 
 // CreateImageFromFile creates and uploads a new image.
-func CreateImageFromFile(userID int64, file web.PostedFile) (*model.Image, error) {
-	newImage, err := model.NewImageFromPostedFile(userID, file)
+func CreateImageFromFile(userID int64, fileContents []byte, fileName string) (*model.Image, error) {
+	newImage, err := model.NewImageFromPostedFile(userID, fileContents, fileName)
 	if err != nil {
 		return nil, err
 	}
 
-	buf := bytes.NewBuffer(file.Contents)
-	remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(file.Contents)})
+	buf := bytes.NewBuffer(fileContents)
+	remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(fileContents)})
 	if err != nil {
 		return nil, err
 	}

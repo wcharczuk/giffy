@@ -2,9 +2,7 @@ var giffyControllers = angular.module("giffy.controllers", []);
 
 giffyControllers.controller("homeController", ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
-        currentUser(function(user) {
-           $scope.current_user = user;
-        });
+        currentUser($scope);
 
         $http.get("/api/images/random/9").success(function(datums) {
             $scope.images = datums.response;
@@ -18,9 +16,7 @@ giffyControllers.controller("homeController", ["$scope", "$http", "$routeParams"
 
 giffyControllers.controller("searchController", ["$scope", "$http", "$routeParams", "$location", "currentUser",
     function($scope, $http, $routeParams, $location, currentUser) {
-        currentUser(function(user) {
-           $scope.current_user = user;
-        });
+		currentUser($scope);
 
         $http.get("/api/images.search?query=" + $routeParams.search_query).success(function(datums) {
             $scope.images = datums.response;
@@ -44,21 +40,17 @@ giffyControllers.controller("searchController", ["$scope", "$http", "$routeParam
 
 giffyControllers.controller("addImageController", ["$scope", "$http", "currentUser",
     function($scope, $http, currentUser) {
-        currentUser(function(user) {
-            if (user.is_logged_in) {
-                $scope.current_user = user;
-            } else {
-                window.location = "/";
-            }
-        });
+        currentUser($scope, function() {
+			if (!$scope.currentUser.is_logged_in) {
+				window.location = "/";
+			}
+		});
     }
 ]);
 
 giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
-        currentUser(function(user) {
-           $scope.current_user = user;
-        });
+        currentUser($scope);
 
         $scope.addTags = function() {
             $http.post("/api/tags/", {tag_values:$scope.newTags}).success(function(datums) {
@@ -182,9 +174,7 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
 
 giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
-        currentUser(function(user) {
-           $scope.current_user = user;
-        });
+        currentUser($scope);
 
         // tag information
         $http.get("/api/tag/" + $routeParams.tag_id).success(function(datums) {
@@ -229,12 +219,7 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
 
 giffyControllers.controller("userController", ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
-        currentUser(function(user) {
-           $scope.current_user = user;
-           getUser();
-        });
-
-        function getUser() {
+        currentUser($scope, function() {
             $http.get("/api/user/" + $routeParams.user_id).success(function(datums) {
                 $scope.user = datums.response;
 
@@ -242,7 +227,7 @@ giffyControllers.controller("userController", ["$scope", "$http", "$routeParams"
                     $scope.images = datums.response;
                 });
             });
-        }
+        });
 
         $scope.promote= function() {
             var user = $scope.user;
@@ -266,11 +251,9 @@ giffyControllers.controller("userController", ["$scope", "$http", "$routeParams"
 
 giffyControllers.controller("moderationLogController", ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
-        var pageSize = 50;
+        currentUser($scope);
 
-        currentUser(function(user) {
-           $scope.current_user = user;
-        });
+		var pageSize = 50;
 
         $http.get("/api/moderation.log/pages/" + pageSize +"/0").success(function(datums) {
             $scope.page = 0;
@@ -307,9 +290,7 @@ giffyControllers.controller("moderationLogController", ["$scope", "$http", "$rou
 
 giffyControllers.controller("userSearchController", ["$scope", "$http", "currentUser",
     function($scope, $http, currentUser) {
-        currentUser(function(user) {
-           $scope.current_user = user;
-        });
+        currentUser($scope);
 
         $scope.searchUsers = function() {
             if ($scope.searchQuery) {
@@ -329,8 +310,6 @@ giffyControllers.controller("userSearchController", ["$scope", "$http", "current
 giffyControllers.controller("logoutController", ["$scope", "$http", "localSession",
     function($scope, $http, localSession) {
         $http.post("/api/logout", null).success(function() {
-            console.log("did log out.")
-            localSession.purge("__current_user__");
             window.location = "/"
         });
     }

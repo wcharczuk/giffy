@@ -14,19 +14,18 @@
 			</div>
             <ul class="image-tags">
                 <li ng-repeat="tag in tags">
-                    <vote-button type="'tag'" user="current_user" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
+                    <vote-button type="'tag'" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
                 </li>
-                <li ng-if="current_user.is_logged_in">
+                <li ng-if="currentUser.is_logged_in">
                     <button class="btn btn-default btn-lg" data-toggle="modal" data-target="#add-tag-modal">+</button>
                 </li>
             </ul>
         </div>
     </div>
 
-
     <div class="row image-details">
         <div class="col-xs-10 col-xs-offset-1 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
-            <div class="row" ng-if="current_user.is_moderator">
+            <div class="row" ng-if="currentUser.is_moderator">
                 <div class="col-sm-6 col-md-6 col-lg-5 align-right">Status:</div>
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left">
                     <span class="label label-danger" ng-if="image.is_censored">Censored</span>
@@ -49,7 +48,7 @@
                 <div class="col-sm-6 col-md-6 col-lg-5 align-right">Added By:</div>
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left"><user-detail user="image.created_by"></user-detail></div>
             </div>
-            <div class="row" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by.uuid">
+            <div class="row" ng-if="currentUser.is_moderator || currentUser.user_uuid == image.created_by.uuid">
                 <div class="col-sm-6 col-md-6 col-lg-5 align-right">Moderator Controls:</div>
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left">
                     <button class="btn btn-default btn-xs" ng-click="censorImage()" ng-if="!image.is_censored">Censor Image</button>

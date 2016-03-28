@@ -20,7 +20,6 @@ import (
 	"github.com/blendlabs/go-util/linq"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/core/web"
 )
 
 // ConvertMD5 takes a fixed buffer and turns it into a byte slice.
@@ -109,12 +108,12 @@ func NewImage() *Image {
 }
 
 // NewImageFromPostedFile creates an image and parses the meta data for an image from a posted file.
-func NewImageFromPostedFile(userID int64, postedFile web.PostedFile) (*Image, error) {
+func NewImageFromPostedFile(userID int64, fileContents []byte, fileName string) (*Image, error) {
 	newImage := NewImage()
-	newImage.MD5 = ConvertMD5(md5.Sum(postedFile.Contents))
+	newImage.MD5 = ConvertMD5(md5.Sum(fileContents))
 	newImage.CreatedBy = userID
 
-	imageBuf := bytes.NewBuffer(postedFile.Contents)
+	imageBuf := bytes.NewBuffer(fileContents)
 
 	// read the image metadata
 	// this relies on the `image/*` imports.
@@ -123,11 +122,11 @@ func NewImageFromPostedFile(userID int64, postedFile web.PostedFile) (*Image, er
 		return nil, exception.Wrap(err)
 	}
 
-	newImage.DisplayName = postedFile.Filename
-	newImage.Extension = filepath.Ext(postedFile.Filename)
+	newImage.DisplayName = fileName
+	newImage.Extension = filepath.Ext(fileName)
 	newImage.Height = imageMeta.Height
 	newImage.Width = imageMeta.Width
-	newImage.FileSize = len(postedFile.Contents)
+	newImage.FileSize = len(fileContents)
 	return newImage, nil
 }
 
@@ -214,15 +213,15 @@ func SearchImages(query string, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 
 	imageQuery := `
-select 
+select
 	id
 from
 (
-	select 
+	select
 		vs.image_id as id
 		, similarity(t.tag_value, $1) as relevance
 		, vs.votes_total as votes_total
-	from 
+	from
 		tag t
 		join vote_summary vs on t.id = vs.tag_id
 		join image i on vs.image_id = i.id
@@ -252,21 +251,21 @@ order by
 // SearchImagesSlack is the query we use for slack.
 func SearchImagesSlack(query string, tx *sql.Tx) (*Image, error) {
 	imageQuery := `
-select 
+select
 	id
 from
 	(
-		select 
+		select
 			vs.image_id as id
 		from
 			(
-				select 
+				select
 					t.id as tag_id
-				from 
-					tag t 
+				from
+					tag t
 				where
 					t.tag_value % $1
-				order by 
+				order by
 					similarity(t.tag_value, $1) desc
 				limit 1
 			) best_tag
@@ -329,17 +328,17 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[])`, imageQueryAll)
 
 	tagQueryAll := `
-select 
+select
 	t.*
 	, u.uuid as created_by_uuid
 	, vs.image_id
 	, vs.votes_for
 	, vs.votes_against
 	, vs.votes_total
-	, row_number() over (partition by image_id order by vs.votes_total desc) as vote_rank 
-from 
-			tag t 
-	join 	vote_summary 	vs 	on vs.tag_id = t.id 
+	, row_number() over (partition by image_id order by vs.votes_total desc) as vote_rank
+from
+			tag t
+	join 	vote_summary 	vs 	on vs.tag_id = t.id
 	join 	users 			u 	on u.id = t.created_by
 `
 	tagQuerySingle := fmt.Sprintf(`%s where vs.image_id = $1`, tagQueryAll)

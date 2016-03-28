@@ -384,7 +384,6 @@ func (api API) createImageAction(session *auth.Session, ctx *web.HTTPContext) we
 	}
 
 	postedFile := files[0]
-
 	md5sum := model.ConvertMD5(md5.Sum(postedFile.Contents))
 	existing, err := model.GetImageByMD5(md5sum, nil)
 	if err != nil {
@@ -395,13 +394,12 @@ func (api API) createImageAction(session *auth.Session, ctx *web.HTTPContext) we
 		return ctx.API.JSON(existing)
 	}
 
-	image, err := CreateImageFromFile(session.UserID, postedFile)
+	image, err := CreateImageFromFile(session.UserID, postedFile.Contents, postedFile.Filename)
 	if err != nil {
 		return ctx.API.InternalError(err)
 	}
 
 	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
-
 	return ctx.API.JSON(image)
 }
 
@@ -829,44 +827,41 @@ func (api API) runJobAction(session *auth.Session, ctx *web.HTTPContext) web.Con
 // Register adds the routes to the router.
 func (api API) Register(router *httprouter.Router) {
 	router.GET("/api/users", web.ActionHandler(api.getUsersAction))
+	router.GET("/api/users.search", web.ActionHandler(api.searchUsersAction))
+
 	router.GET("/api/user/:user_id", web.ActionHandler(api.getUserAction))
 	router.PUT("/api/user/:user_id", auth.APISessionRequiredAction(api.updateUserAction))
-
 	router.GET("/api/user.images/:user_id", web.ActionHandler(api.getUserImagesAction))
-
-	router.GET("/api/images", web.ActionHandler(api.getImagesAction))
-	router.POST("/api/images", auth.APISessionRequiredAction(api.createImageAction))
-	router.GET("/api/images/random/:count", web.ActionHandler(api.getRandomImagesAction))
-
-	router.GET("/api/image/:image_id", web.ActionHandler(api.getImageAction))
-	router.PUT("/api/image/:image_id", auth.APISessionRequiredAction(api.updateImageAction))
-	router.DELETE("/api/image/:image_id", auth.APISessionRequiredAction(api.deleteImageAction))
-
-	router.GET("/api/tag.images/:tag_id", web.ActionHandler(api.getImagesForTagAction))
-	router.GET("/api/image.tags/:image_id", web.ActionHandler(api.getTagsForImageAction))
-
-	router.GET("/api/tags", web.ActionHandler(api.getTagsAction))
-	router.POST("/api/tags", auth.APISessionRequiredAction(api.createTagAction))
-	router.GET("/api/tag/:tag_id", web.ActionHandler(api.getTagAction))
-	router.DELETE("/api/tag/:tag_id", auth.APISessionRequiredAction(api.deleteTagAction))
-
-	router.GET("/api/image.votes/:image_id", web.ActionHandler(api.getLinksForImageAction))
-	router.GET("/api/tag.votes/:tag_id", web.ActionHandler(api.getLinksForTagAction))
-
-	router.DELETE("/api/link/:image_id/:tag_id", auth.APISessionRequiredAction(api.deleteLinkAction))
-
 	router.GET("/api/user.votes.image/:image_id", auth.APISessionRequiredAction(api.getVotesForUserForImageAction))
 	router.GET("/api/user.votes.tag/:tag_id", auth.APISessionRequiredAction(api.getVotesForUserForTagAction))
 	router.DELETE("/api/user.vote/:image_id/:tag_id", auth.APISessionRequiredAction(api.deleteUserVoteAction))
 
-	router.POST("/api/vote.up/:image_id/:tag_id", auth.APISessionRequiredAction(api.upvoteAction))
-	router.POST("/api/vote.down/:image_id/:tag_id", auth.APISessionRequiredAction(api.downvoteAction))
-
-	router.GET("/api/users.search", web.ActionHandler(api.searchUsersAction))
+	router.GET("/api/images", web.ActionHandler(api.getImagesAction))
+	router.POST("/api/images", auth.APISessionRequiredAction(api.createImageAction))
+	router.GET("/api/images/random/:count", web.ActionHandler(api.getRandomImagesAction))
 	router.GET("/api/images.search", web.ActionHandler(api.searchImagesAction))
 	router.GET("/api/images.search/slack", web.ActionHandler(api.searchImagesSlackAction))
 	router.POST("/api/images.search/slack", web.ActionHandler(api.searchImagesSlackAction))
+
+	router.GET("/api/image/:image_id", web.ActionHandler(api.getImageAction))
+	router.PUT("/api/image/:image_id", auth.APISessionRequiredAction(api.updateImageAction))
+	router.DELETE("/api/image/:image_id", auth.APISessionRequiredAction(api.deleteImageAction))
+	router.GET("/api/image.votes/:image_id", web.ActionHandler(api.getLinksForImageAction))
+	router.GET("/api/image.tags/:image_id", web.ActionHandler(api.getTagsForImageAction))
+
+	router.GET("/api/tags", web.ActionHandler(api.getTagsAction))
+	router.POST("/api/tags", auth.APISessionRequiredAction(api.createTagAction))
 	router.GET("/api/tags.search", web.ActionHandler(api.searchTagsAction))
+
+	router.GET("/api/tag/:tag_id", web.ActionHandler(api.getTagAction))
+	router.DELETE("/api/tag/:tag_id", auth.APISessionRequiredAction(api.deleteTagAction))
+	router.GET("/api/tag.images/:tag_id", web.ActionHandler(api.getImagesForTagAction))
+	router.GET("/api/tag.votes/:tag_id", web.ActionHandler(api.getLinksForTagAction))
+
+	router.DELETE("/api/link/:image_id/:tag_id", auth.APISessionRequiredAction(api.deleteLinkAction))
+
+	router.POST("/api/vote.up/:image_id/:tag_id", auth.APISessionRequiredAction(api.upvoteAction))
+	router.POST("/api/vote.down/:image_id/:tag_id", auth.APISessionRequiredAction(api.downvoteAction))
 
 	router.GET("/api/moderation.log/recent", web.ActionHandler(api.getRecentModerationLog))
 	router.GET("/api/moderation.log/pages/:count/:offset", web.ActionHandler(api.getModerationLogByCountAndOffsetAction))

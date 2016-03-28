@@ -1,15 +1,24 @@
 var giffyServices = angular.module('giffy.services', []);
 
-giffyServices.service('giffyAuth', function() {
+giffyServices.service('currentUser',
+	function($http) {
+		return function($scope, cb) {
+			$http.get("/api/session.user").success(function(datums) {
+				$scope.currentUser = datums.response;
+				if (!!cb) {
+					cb();
+				}
+			});
+		}
+	}
+);
 
-});
-
-giffyServices.service("localStorage", function() {
+giffyServices.service("storage", function() {
     var _toObject = function () {
 		var obj = {};
-		for (var x = 0; x < localSession.length; x++) {
-			var key = localSession.key(x);
-			obj[key] = localSession.getItem(key);
+		for (var x = 0; x < localStorage.length; x++) {
+			var key = localStorage.key(x);
+			obj[key] = localStorage.getItem(key);
 		}
 		return obj;
     };

@@ -1,9 +1,6 @@
 {{define "login_complete"}}
 {{template "header"}}
 <script type="text/javascript">
-	console.log("login complete, writing to local storage.");
-	console.log(localStorage);
-	localStorage.setItem("__current_user__", {{.CurrentUser}});
     window.location = "/";
 </script>
 {{template "footer"}}

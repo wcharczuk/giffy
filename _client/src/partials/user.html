@@ -24,7 +24,7 @@
 					<div class="col-md-2">Joined:</div>
 					<div class="col-md-4">{{user.created_utc}}</div>
 				</div>
-				<div class="info-row row" ng-if="current_user.is_admin">
+				<div class="info-row row" ng-if="currentUser.is_admin">
 					<div class="col-md-2">Admin Controls:</div>
 					<div class="col-md-10">
 						<button class="btn btn-primary btn-xs" ng-click="promote()" ng-disabled="user.is_admin">Moderator</button>
@@ -38,7 +38,7 @@
 				<div class="page-header">
 					<h4>Images they've added:</h4>
 				</div>
-				<giffy-image class="image-result" image="image" user="current_user" ng-repeat="image in images"></giffy-image>
+				<giffy-image class="image-result" image="image" ng-repeat="image in images"></giffy-image>
 			</div>
 		</div>
 	</div>
