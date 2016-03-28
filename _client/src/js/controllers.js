@@ -172,6 +172,10 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
 			});
 		}
 
+		if (!!$routeParams["show_add_tags"]) {
+			jQuery("#add-tag-modal").modal();
+		}
+
 		$scope.$on("voted", function() {
 		   fetchTagData();
 		});

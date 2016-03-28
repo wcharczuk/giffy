@@ -7,8 +7,6 @@
 	"go.useCodeSnippetsOnFunctionSuggest": false,
 	"go.formatTool": "goimports",
 
-	"editor.renderWhitespace" : true,
-
 	"editor.insertSpaces": false,
 	"editor.tabSize": 4,
 
