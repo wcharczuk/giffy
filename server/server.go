@@ -17,13 +17,16 @@ import (
 
 func indexAction(ctx *web.HTTPContext) web.ControllerResult {
 	if core.ConfigIsProduction() {
-		return ctx.Static("_dist/index.html")
+		return ctx.Static("_client/dist/index.html")
 	}
-	return ctx.Static("_static/index.html")
+	return ctx.Static("_client/src/index.html")
 }
 
 func faviconAction(ctx *web.HTTPContext) web.ControllerResult {
-	return ctx.Static("_dist/images/favicon.ico")
+	if core.ConfigIsProduction() {
+		return ctx.Static("_client/dist/images/favicon.ico")
+	}
+	return ctx.Static("_client/src/images/favicon.ico")
 }
 
 // Init inits the app.
@@ -50,7 +53,7 @@ func Init() *httprouter.Router {
 	if core.ConfigIsProduction() {
 		paths = append(paths, "server/_views/header_prod.html")
 	} else {
-		paths = append(paths, "server/_views/header_dev.html")
+		paths = append(paths, "server/_views/header.html")
 	}
 
 	web.InitViewCache(paths...)
@@ -64,10 +67,10 @@ func Init() *httprouter.Router {
 	router.GET("/", web.ActionHandler(indexAction))
 	router.GET("/favicon.ico", web.ActionHandler(faviconAction))
 	if core.ConfigIsProduction() {
-		router.ServeFiles("/static/*filepath", http.Dir("_dist"))
+		router.ServeFiles("/static/*filepath", http.Dir("_client/dist"))
 	} else {
-		router.ServeFiles("/static/*filepath", http.Dir("_static"))
-		router.ServeFiles("/_bower/*filepath", http.Dir("_bower"))
+		router.ServeFiles("/bower/*filepath", http.Dir("_client/bower"))
+		router.ServeFiles("/static/*filepath", http.Dir("_client/src"))
 	}
 
 	return router

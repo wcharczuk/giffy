@@ -1,23 +1,25 @@
 {{define "upload_image"}}
 {{template "header"}}
-<div class="page-header align-center">
-    <h3>Add an image</h3>
-</div>
 <div class="row">
     <div class="col-md-6 col-md-offset-3">
         <div id="add-image" class="add-image">
             <form method="POST" action="/images/upload" enctype="multipart/form-data">
-                <div class="form-group row">
-                    <label for="imageFile" class="form-control-label col-sm-4 col-md-4 align-right">Image</label>
+
+				<div class="form-group row">
+                    <label for="imageFile" class="form-control-label col-sm-4 col-md-4 align-right">Image URL</label>
                     <div class="col-sm-8 col-md-8">
-                        <input id="image_file" name="image_file" type="file"/>
+                        <input id="image_url" class="form-control" name="image_url" type="text" placeholder="http://imgur.com/foobar.gif"/>
                     </div>
                 </div>
 
+				<div class="form-group row">
+					<label class="form-control-label col-md-12 align-center">- or -</label>
+				</div>
+
                 <div class="form-group row">
-                    <label for="displayName" class="form-control-label col-sm-4 col-md-4 align-right">Give it a tag</label>
+                    <label for="imageFile" class="form-control-label col-sm-4 col-md-4 align-right">Image File</label>
                     <div class="col-sm-8 col-md-8">
-                        <input id="tag_value" name="tag_value" type="text" class="form-control" placeholder="lolz" autocomplete="off" data-provide="typeahead"/>
+                        <input id="image_file" name="image_file" type="file"/>
                     </div>
                 </div>
 

@@ -23,6 +23,7 @@
     "angular-route": "^1.5.3",
     "less": "^2.6.1",
     "angular-sanitize": "^1.5.3",
-    "ng-tags-input": "^3.0.0"
+    "ng-tags-input": "^3.0.0",
+    "lodash": "^4.6.1"
   }
 }

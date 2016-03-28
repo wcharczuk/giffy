@@ -30,29 +30,6 @@ giffyDirectives.controller('giffyFooterController', ["$scope", "currentUser", fu
   })
 }]);
 
-giffyDirectives.factory('currentUser', ["$http", "localSession", function($http, localSession) {
-  var fetchUser = function(cb) {
-    $http.get("/api/session.user").success(function(datums) {
-      var user = datums.response;
-      localSession.set("__current_user__", user);
-      cb(user);
-    });
-  };
-  
-  return function(cb) { 
-    if (!localSession.has("__current_user__")) {
-      fetchUser(cb);
-    } else {
-      var user = localSession.get("__current_user__");
-      if (user.is_logged_in) {
-        fetchUser(cb);
-      } else {
-        cb(user);
-      }
-    }
-  }
-}]);
-
 giffyDirectives.factory('voteAPI', function($http) {
   this.upvote = function(imageUUID, tagUUID) {
     return $http.post("/api/vote.up/" + imageUUID + "/" + tagUUID, null);
@@ -61,11 +38,11 @@ giffyDirectives.factory('voteAPI', function($http) {
   this.downvote = function(imageUUID, tagUUID) {
     return $http.post("/api/vote.down/" + imageUUID + "/" + tagUUID, null);
   };
-  
+
   this.deleteUserVote = function(imageUUID, tagUUID) {
     return $http.delete("/api/user.vote/" + imageUUID + "/" + tagUUID);
   }
-  
+
   this.deleteLink = function(imageUUID, tagUUID) {
     return $http.delete("/api/link/" + imageUUID + "/" + tagUUID);
   }
@@ -84,7 +61,7 @@ giffyDirectives.directive("giffyImage", function() {
   }
 });
 
-giffyDirectives.controller('giffyImageController', ["$scope", 
+giffyDirectives.controller('giffyImageController', ["$scope",
   function($scope) {
     $scope.deleteImage = function() {
       if (confirm("Are you sure?")) {
@@ -107,7 +84,7 @@ giffyDirectives.directive("userDetail", function() {
   }
 });
 
-giffyDirectives.controller('UserDetailElementController', ["$scope", 
+giffyDirectives.controller('UserDetailElementController', ["$scope",
   function($scope) {}
 ]);
 
@@ -128,7 +105,7 @@ giffyDirectives.directive('voteButton',
   }
 );
 
-giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI", 
+giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
   function($scope, voteAPI) {
     $scope.vote = function(isUpvote) {
       if (!$scope.hasVote()) {
@@ -141,7 +118,7 @@ giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
         voteAPI.deleteUserVote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
       }
     };
-    
+
     $scope.delete = function() {
       voteAPI.deleteLink($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
     }
@@ -154,11 +131,11 @@ giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
       }
       return false;
     }
-    
+
     $scope.userIsLoggedIn = function() {
       return $scope.user.is_logged_in;
     }
-    
+
     $scope.onVote = function(res) {
       $scope.$emit('voted');
     }
@@ -166,15 +143,15 @@ giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
     $scope.tagUUID = function() {
       return $scope.link.tag_uuid;
     }
-    
+
     $scope.imageUUID = function() {
       return $scope.link.image_uuid;
     }
-    
+
     $scope.detailURL = function() {
       return "/#/tag/" + $scope.object.tag_value;
     }
-    
+
     $scope.detailValue = function() {
       return $scope.object.tag_value;
     }

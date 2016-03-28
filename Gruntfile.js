@@ -10,7 +10,7 @@ module.exports = function(grunt) {
                     banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n',
                 },
                 files : {
-                    "_dist/js/giffy.min.js" : [ "_dist/js/giffy.js" ]
+                    "_client/dist/js/giffy.min.js" : [ "_client/dist/js/giffy.js" ]
                 }
             },
         },
@@ -22,7 +22,7 @@ module.exports = function(grunt) {
             },
             target: {
                 files: {
-                    "_dist/css/giffy.min.css" : ["_dist/css/giffy.css"]
+                    "_client/dist/css/giffy.min.css" : ["_client/dist/css/giffy.css"]
                 }
             }
         },
@@ -33,17 +33,17 @@ module.exports = function(grunt) {
             },
             app: {
                 src: [
-                    '_bower/jquery/dist/jquery.js',
-                    '_bower/bootstrap/dist/js/bootstrap.js',
-                    '_bower/angular/angular.js',
-                    '_bower/angular-route/angular-route.js',
-                    '_bower/angular-tags-input/angular-tags-input.js',
-                    '_static/js/app.js',
-                    '_static/js/controllers.js',
-                    '_static/js/directives.js',
-                    '_static/js/services.js',
+                    '_client/bower/jquery/dist/jquery.js',
+                    '_client/bower/bootstrap/dist/js/bootstrap.js',
+                    '_client/bower/angular/angular.js',
+                    '_client/bower/angular-route/angular-route.js',
+                    '_client/bower/angular-tags-input/angular-tags-input.js',
+                    '_client/src/js/app.js',
+                    '_client/src/js/controllers.js',
+                    '_client/src/js/directives.js',
+                    '_client/src/js/services.js',
                 ],
-                dest: "_dist/js/giffy.js"
+                dest: "_client/dist/js/giffy.js"
             }
         },
 
@@ -53,14 +53,14 @@ module.exports = function(grunt) {
                       strictMath: true,
                       outputSourceFiles: true,
                     paths: [
-                        "./",
-                        "_static/less/",
-                        "_bower/bootstrap/less/",
-                        "_bower/bootstrap/less/mixins"
+                        "_client/",
+                        "_client/src/less/",
+                        "_client/bower/bootstrap/less/",
+                        "_client/bower/bootstrap/less/mixins"
                     ],
                 },
                 files: {
-                    "_dist/css/giffy.css" : "_static/less/giffy.less"
+                    "_client/dist/css/giffy.css" : "_client/src/less/giffy.less"
                 }
             },
         },
@@ -68,12 +68,12 @@ module.exports = function(grunt) {
         copy: {
           dist: {
            files: [
-               { src: "_bower/jquery/dist/jquery.min.js", dest: "_dist/js/jquery.min.js" },
-               { src: "_bower/bootstrap/dist/js/bootstrap.min.js", dest: "_dist/js/bootstrap.min.js" },
-               { expand: true, flatten: true, src: "_static/images/*", dest: "_dist/images/" },
-               { expand: true, flatten: true, src: "_static/fonts/*", dest: "_dist/fonts/" },
-               { expand: true, flatten: true, src: "_static/partials/controls/*", dest: "_dist/partials/controls/" },
-               { expand: true, flatten: true, src: "_static/partials/*", dest: "_dist/partials/", filter: 'isFile' }
+               { src: "_client/bower/jquery/dist/jquery.min.js", dest: "_client/dist/js/jquery.min.js" },
+               { src: "_client/bower/bootstrap/dist/js/bootstrap.min.js", dest: "_client/dist/js/bootstrap.min.js" },
+               { expand: true, flatten: true, src: "_client/src/images/*", dest: "_client/dist/images/" },
+               { expand: true, flatten: true, src: "_client/src/fonts/*", dest: "_client/dist/fonts/" },
+               { expand: true, flatten: true, src: "_client/src/partials/controls/*", dest: "_client/dist/partials/controls/" },
+               { expand: true, flatten: true, src: "_client/src/partials/*", dest: "_client/dist/partials/", filter: 'isFile' }
            ]
           }
         },
@@ -84,7 +84,7 @@ module.exports = function(grunt) {
                     process: true,
                 },
                 files : {
-                    '_dist/index.html': ['_static/index.html']
+                    '_client/dist/index.html': ['_client/src/index.html']
                 }
             }
         },
@@ -96,7 +96,7 @@ module.exports = function(grunt) {
                     position: 'append'
                 },
                 files: {
-                    src: ['_dist/index.html']
+                    src: ['_client/dist/index.html']
                 }
             }
         },
@@ -104,13 +104,13 @@ module.exports = function(grunt) {
         clean: {
             build: {
                 src: [
-                    "_dist/css/giffy.css",
-                    "_dist/js/giffy.js",
+                    "_client/dist/css/giffy.css",
+                    "_client/dist/js/giffy.js",
                 ]
             },
             full : {
                 src: [
-                    "_dist/*"
+                    "_client/dist/*"
                 ]
             }
         }
