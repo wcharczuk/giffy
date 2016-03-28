@@ -100,16 +100,6 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
             }
         };
 
-        jQuery("#slack-command-link").on('click', function() {
-            var slackLink = document.querySelector("#slack-command-link");
-            copyElement(slackLink);
-            return false;
-        });
-
-        jQuery('#add-tag-modal').on('shown.bs.modal', function () {
-            jQuery('#add-tag-value').focus();
-        });
-
         var fetchImageData = function() {
             delete $scope.image;
 
@@ -188,6 +178,16 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
         $scope.tagAddedHandler = function() {
             jQuery("#tagsInput .tags input").focus();
         };
+
+        jQuery("#slack-command-link").on('click', function() {
+            var slackLink = document.querySelector("#slack-command-link");
+            copyElement(slackLink);
+            return false;
+        });
+
+        jQuery('#add-tag-modal').on('shown.bs.modal', function () {
+            jQuery('#add-tag-value').focus();
+        });
     }
 ]);
 
