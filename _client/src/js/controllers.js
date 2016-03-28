@@ -343,6 +343,8 @@ giffyControllers.controller("slackCompleteController", ["$scope", function($scop
 
 giffyControllers.controller("aboutController",  ["$scope", "$http",
 	function($scope, $http) {
+		currentUser($scope);
+
 		$http.get("/api/images/random/1").success(function(datums) {
 		   $scope.image = datums.response[0];
 		});
