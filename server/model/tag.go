@@ -107,6 +107,44 @@ func DeleteTagByID(tagID int64, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
 }
 
+// MergeTags merges the fromTagID into the toTagID, deleting the fromTagID.
+func MergeTags(fromTagID, toTagID int64, tx *sql.Tx) error {
+	links, err := GetVoteSummariesForTag(fromTagID, tx)
+	if err != nil {
+		return err
+	}
+
+	for _, link := range links {
+		existingLink, err := GetVoteSummary(link.ImageID, toTagID, tx)
+		if err != nil {
+			return err
+		}
+
+		if !existingLink.IsZero() {
+			existingLink.VotesFor += link.VotesFor
+			existingLink.VotesAgainst += link.VotesAgainst
+			existingLink.VotesTotal = existingLink.VotesFor - existingLink.VotesAgainst
+			err = spiffy.DefaultDb().UpdateInTransaction(existingLink, tx)
+			if err != nil {
+				return err
+			}
+		} else {
+			link.TagID = toTagID
+			err = spiffy.DefaultDb().UpdateInTransaction(link, tx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = spiffy.DefaultDb().ExecInTransaction(`update vote set tag_id = $1 where tag_id = $2`, tx, toTagID, fromTagID)
+	if err != nil {
+		return err
+	}
+
+	return DeleteTagByID(fromTagID, tx)
+}
+
 // DeleteOrphanedTags deletes tags that have no vote_summary link to an image.
 func DeleteOrphanedTags(tx *sql.Tx) error {
 	err := spiffy.DefaultDb().ExecInTransaction(`delete from vote where not exists (select 1 from vote_summary vs where vs.tag_id = vote.tag_id);`, tx)

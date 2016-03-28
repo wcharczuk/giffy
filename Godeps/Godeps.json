@@ -124,7 +124,7 @@
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-chronometer",
-			"Rev": "4292c2f21077d3a5fe52a1527f87a0711cb2b58f"
+			"Rev": "714f9305ae8ac61da57647e1c425d95e12682108"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-exception",

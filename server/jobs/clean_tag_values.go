@@ -1,6 +1,8 @@
 package jobs
 
 import (
+	"database/sql"
+
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/model"
@@ -21,17 +23,39 @@ func (ot CleanTagValues) Schedule() chronometer.Schedule {
 
 // Execute runs the job
 func (ot CleanTagValues) Execute(ct *chronometer.CancellationToken) error {
-	allTags, err := model.GetAllTags(nil)
+	return ot.ExecuteInTransaction(ct, nil)
+}
+
+// ExecuteInTransaction runs the job in a transaction
+func (ot CleanTagValues) ExecuteInTransaction(ct *chronometer.CancellationToken, tx *sql.Tx) error {
+	allTags, err := model.GetAllTags(tx)
 	if err != nil {
 		return err
 	}
 
 	for _, tag := range allTags {
+		if ct.ShouldCancel() {
+			return ct.Cancel()
+		}
+
 		tag.TagValue = model.CleanTagValue(tag.TagValue)
-		err = spiffy.DefaultDb().Update(&tag)
+
+		existingTag, err := model.GetTagByValue(tag.TagValue, tx)
 		if err != nil {
 			return err
 		}
+		if existingTag.IsZero() {
+			err = spiffy.DefaultDb().UpdateInTransaction(&tag, tx)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = model.MergeTags(tag.ID, existingTag.ID, tx)
+			if err != nil {
+				return err
+			}
+		}
+
 	}
 	return nil
 }

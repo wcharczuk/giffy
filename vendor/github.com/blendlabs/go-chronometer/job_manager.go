@@ -15,6 +15,9 @@ const (
 	// HeartbeatInterval is the interval between schedule next run checks.
 	HeartbeatInterval = 250 * time.Millisecond
 
+	// CancellationGracePeriod is the (default) extra time tasks are given to clean themselves up.
+	CancellationGracePeriod = 500 * time.Millisecond
+
 	//StateRunning is the running state.
 	StateRunning = "running"
 
@@ -75,10 +78,6 @@ type JobManager struct {
 	isRunning      bool
 	schedulerToken *CancellationToken
 	metaLock       *sync.Mutex
-}
-
-func (jm *JobManager) createCancellationToken() *CancellationToken {
-	return &CancellationToken{}
 }
 
 // LoadJob adds a job to the manager.
@@ -166,38 +165,80 @@ func (jm *JobManager) RunTask(t Task) error {
 	defer jm.metaLock.Unlock()
 
 	taskName := t.Name()
-	ct := jm.createCancellationToken()
+	ct := NewCancellationToken()
 
 	jm.RunningTasks[taskName] = t
-
 	jm.CancellationTokens[taskName] = ct
 	jm.RunningTaskStartTimes[taskName] = time.Now().UTC()
 
+	didFinish := false
+	taskFinished := make(chan bool, 1)
 	go func() {
 		defer jm.cleanupTask(taskName)
-
-		if receiver, isReceiver := t.(OnStartReceiver); isReceiver {
-			receiver.OnStart()
-		}
-
-		if ct.ShouldCancel {
-			if receiver, isReceiver := t.(OnCancellationReceiver); isReceiver {
-				receiver.OnCancellation()
+		defer func() {
+			if r := recover(); r != nil { //swallow cancellation exceptions ...
+				if _, isTyped := r.(CancellationException); !isTyped {
+					panic(r)
+				}
 			}
+		}()
+
+		go func() {
+			select {
+			case <-ct.cancellationSignal:
+				{
+					time.Sleep(CancellationGracePeriod)
+					if !ct.didCancel && !didFinish {
+						panic(NewCancellationException())
+					}
+				}
+			case <-taskFinished:
+				{
+					return
+				}
+			}
+		}()
+
+		jm.onTaskStart(t)
+
+		if jm.taskCancellationCheck(t, ct) {
 			return
 		}
+
 		result := t.Execute(ct)
-		if ct.ShouldCancel {
-			if receiver, isReceiver := t.(OnCancellationReceiver); isReceiver {
-				receiver.OnCancellation()
-			}
+
+		if jm.taskCancellationCheck(t, ct) {
 			return
 		}
-		if receiver, isReceiver := t.(OnCompleteReceiver); isReceiver {
-			receiver.OnComplete(result)
-		}
+
+		jm.onTaskComplete(t, result)
+
+		didFinish = true
+		taskFinished <- true
 	}()
 	return nil
+}
+
+func (jm *JobManager) onTaskStart(t Task) {
+	if receiver, isReceiver := t.(OnStartReceiver); isReceiver {
+		receiver.OnStart()
+	}
+}
+
+func (jm *JobManager) onTaskComplete(t Task, result error) {
+	if receiver, isReceiver := t.(OnCompleteReceiver); isReceiver {
+		receiver.OnComplete(result)
+	}
+}
+
+func (jm *JobManager) taskCancellationCheck(t Task, ct *CancellationToken) bool {
+	if ct.ShouldCancel() {
+		if receiver, isReceiver := t.(OnCancellationReceiver); isReceiver {
+			receiver.OnCancellation()
+		}
+		return true
+	}
+	return false
 }
 
 func (jm *JobManager) cleanupTask(taskName string) {
@@ -227,7 +268,7 @@ func (jm *JobManager) CancelTask(taskName string) error {
 
 // Start begins the schedule runner for a JobManager.
 func (jm *JobManager) Start() {
-	ct := jm.createCancellationToken()
+	ct := NewCancellationToken()
 	jm.schedulerToken = ct
 	go jm.runDueJobs(ct)
 	go jm.killHangingJobs(ct)
@@ -244,7 +285,7 @@ func (jm *JobManager) Stop() {
 }
 
 func (jm *JobManager) runDueJobs(ct *CancellationToken) {
-	for !ct.ShouldCancel {
+	for !ct.ShouldCancel() {
 		now := time.Now().UTC()
 
 		for jobName, nextRunTime := range jm.NextRunTimes {
@@ -264,7 +305,7 @@ func (jm *JobManager) runDueJobs(ct *CancellationToken) {
 }
 
 func (jm *JobManager) killHangingJobs(ct *CancellationToken) {
-	for !ct.ShouldCancel {
+	for !ct.ShouldCancel() {
 		now := time.Now().UTC()
 
 		for taskName, startedTime := range jm.RunningTaskStartTimes {
