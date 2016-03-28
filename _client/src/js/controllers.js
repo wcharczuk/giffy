@@ -184,6 +184,10 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
         $scope.$on("voted", function() {
            fetchTagData();
         });
+
+        $scope.tagAddedHandler = function() {
+            jQuery("#tagsInput .tags input").focus();
+        };
     }
 ]);
 

@@ -71,19 +71,18 @@
                         <!-- put validation here etc. -->
                         <form ng-submit="addTags()">
                             <div class="form-group row">
-                                <label class="form-control-label col-sm-4 col-md-4 align-right">What are the tags?</label>
-                                <div class="col-sm-8 col-md-8">
-                                    <tags-input tabindex="0" ng-model="newTags" min-tags="1" spellcheck="false" replace-spaces-with-dashes="false">
-										<auto-complete source="searchTags($query)"></auto-complete>
-									</tags-input>
+                                <div class="col-md-10 col-md-offset-1">
+                                    <tags-input id="tagsInput" tabindex="0" ng-model="newTags" spellcheck="false" replace-spaces-with-dashes="false" placeholder="lolz" on-tag-added="tagAddedHandler()">
+                                        <auto-complete source="searchTags($query)" select-first-match="false"></auto-complete>
+                                    </tags-input>
                                 </div>
                             </div>
                         </form>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" ng-click="addTags()">Add Tag</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal" tabindex="11">Close</button>
+                    <button type="button" class="btn btn-primary" ng-click="addTags()" tabindex="10">Add Tag</button>
                 </div>
             </div>
         </div>
