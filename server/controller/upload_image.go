@@ -23,10 +23,18 @@ import (
 type UploadImage struct{}
 
 func (ic UploadImage) uploadImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if !session.User.IsModerator {
+		return ctx.View.NotAuthorized()
+	}
+
 	return ctx.View.View("upload_image", nil)
 }
 
 func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+	if !session.User.IsModerator {
+		return ctx.View.NotAuthorized()
+	}
+
 	var fileContents []byte
 	var fileName string
 
@@ -100,12 +108,6 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 	return ctx.View.View("upload_image_complete", image)
 }
 
-// Register registers the controllers routes.
-func (ic UploadImage) Register(router *httprouter.Router) {
-	router.GET("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageAction))
-	router.POST("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageCompleteAction))
-}
-
 // CreateImageFromFile creates and uploads a new image.
 func CreateImageFromFile(userID int64, fileContents []byte, fileName string) (*model.Image, error) {
 	newImage, err := model.NewImageFromPostedFile(userID, fileContents, fileName)
@@ -129,4 +131,10 @@ func CreateImageFromFile(userID int64, fileContents []byte, fileName string) (*m
 	}
 
 	return newImage, nil
+}
+
+// Register registers the controllers routes.
+func (ic UploadImage) Register(router *httprouter.Router) {
+	router.GET("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageAction))
+	router.POST("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageCompleteAction))
 }

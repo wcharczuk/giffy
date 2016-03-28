@@ -112,6 +112,9 @@ func SessionRequiredAction(resultProvider web.HTTPResultProvider, action Session
 		if session == nil {
 			return resultProvider.NotAuthorized()
 		}
+		if session.User.IsBanned {
+			return resultProvider.NotAuthorized()
+		}
 
 		session.Lock()
 		defer session.Unlock()
