@@ -103,7 +103,8 @@ giffyDirectives.directive('voteButton',
         type: '=',
         link: '=',
         userVote: '=',
-        object: '='
+        object: '=',
+		currentUser: '='
       },
       controller: 'voteButtonController',
       templateUrl: '/static/partials/controls/vote_button.html'

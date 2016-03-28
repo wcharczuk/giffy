@@ -14,7 +14,7 @@
 			</div>
             <ul class="image-tags">
                 <li ng-repeat="tag in tags">
-                    <vote-button type="'tag'" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
+                    <vote-button type="'tag'" current-user="currentUser" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
                 </li>
                 <li ng-if="currentUser.is_logged_in">
                     <button class="btn btn-default btn-lg" data-toggle="modal" data-target="#add-tag-modal">+</button>
@@ -73,7 +73,7 @@
                             <div class="form-group row">
                                 <label class="form-control-label col-sm-4 col-md-4 align-right">What are the tags?</label>
                                 <div class="col-sm-8 col-md-8">
-                                    <tags-input ng-model="newTags">
+                                    <tags-input tabindex="0" ng-model="newTags" min-tags="1" spellcheck="false" replace-spaces-with-dashes="false">
 										<auto-complete source="searchTags($query)"></auto-complete>
 									</tags-input>
                                 </div>
@@ -83,7 +83,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" ng-click="addTag()">Add Tag</button>
+                    <button type="button" class="btn btn-primary" ng-click="addTags()">Add Tag</button>
                 </div>
             </div>
         </div>

@@ -12,8 +12,8 @@ import (
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
+	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/core/filecache"
 	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
@@ -33,12 +33,18 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 	imageURL := ctx.Param("image_url")
 	if len(imageURL) != 0 {
 
-		_, urlErr := url.Parse(imageURL)
-		if urlErr != nil {
+		refURL, err := url.Parse(imageURL)
+		if err != nil {
 			return ctx.View.BadRequest("`image_url` was malformed.")
 		}
 
-		res, err := core.NewExternalRequest().AsGet().WithURL(imageURL).FetchRawResponse()
+		res, err := external.NewRequest().
+			AsGet().
+			WithURL(refURL.String()).
+			WithHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36").
+			WithHeader("Cache-Control", "no-cache").
+			FetchRawResponse()
+
 		if err != nil {
 			return ctx.View.InternalError(err)
 		}
@@ -52,8 +58,7 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 			return ctx.View.InternalError(err)
 		}
 
-		resURL, _ := res.Location()
-		fileName = path.Base(resURL.Path)
+		fileName = path.Base(refURL.Path)
 		fileContents = bytes
 	} else {
 		files, filesErr := ctx.PostedFiles()

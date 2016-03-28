@@ -404,52 +404,34 @@ func (api API) createImageAction(session *auth.Session, ctx *web.HTTPContext) we
 }
 
 func (api API) createTagAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
-	args := &viewmodel.CreateTagArgs{}
-	err := ctx.PostBodyAsJSON(args)
+	args := viewmodel.CreateTagArgs{}
+	err := ctx.PostBodyAsJSON(&args)
 	if err != nil {
 		return ctx.API.BadRequest(err.Error())
 	}
 
-	if len(args.TagValue) == 0 && len(args.TagValues) == 0 {
-		return ctx.API.BadRequest("`tag_value` or `tag_values` must be set.")
+	if len(args) == 0 {
+		return ctx.API.BadRequest("empty post body, please submit an array of strings.")
 	}
 
-	if len(args.TagValue) != 0 {
-		tagValue := model.CleanTagValue(args.TagValue)
-		if len(tagValue) == 0 {
-			return ctx.API.BadRequest("`tag_value` be in the form [a-z,A-Z,0-9]+")
-		}
-
-		existingTag, err := model.GetTagByValue(tagValue, nil)
-		if err != nil {
-			return ctx.API.InternalError(err)
-		}
-		if !existingTag.IsZero() {
-			return ctx.API.JSON(existingTag)
-		}
-
-		tag := model.NewTag(session.UserID, tagValue)
-
-		err = spiffy.DefaultDb().Create(tag)
-		if err != nil {
-			return ctx.API.InternalError(err)
-		}
-
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
-		return ctx.API.JSON(tag)
-	}
-
-	tags := []*model.Tag{}
-	for _, value := range args.TagValues {
+	var tagValues []string
+	for _, value := range args {
 		tagValue := model.CleanTagValue(value)
 		if len(tagValue) == 0 {
 			return ctx.API.BadRequest("`tag_value` be in the form [a-z,A-Z,0-9]+")
 		}
 
+		tagValues = append(tagValues, tagValue)
+	}
+
+	tags := []*model.Tag{}
+	for _, tagValue := range tagValues {
 		existingTag, err := model.GetTagByValue(tagValue, nil)
+
 		if err != nil {
 			return ctx.API.InternalError(err)
 		}
+
 		if !existingTag.IsZero() {
 			tags = append(tags, existingTag)
 			continue

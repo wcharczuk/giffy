@@ -48,22 +48,34 @@ giffyControllers.controller("addImageController", ["$scope", "$http", "currentUs
     }
 ]);
 
-giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams", "currentUser",
-    function($scope, $http, $routeParams, currentUser) {
-        currentUser($scope);
+giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams", "$q", "currentUser",
+    function($scope, $http, $routeParams, $q, currentUser) {
+        currentUser($scope, function() {
+			fetchImageData();
+		});
 
         $scope.addTags = function() {
-            $http.post("/api/tags/", {tag_values:$scope.newTags}).success(function(datums) {
-               var tag = datums.response;
-               $http.post("/api/vote.up/" + $scope.image.uuid + "/" + tag.uuid, {}).success(function(res) {
-                    jQuery("#add-tag-modal").modal('hide');
+			var tagValues = [];
+			for (var x = 0; x < $scope.newTags.length; x++ ){
+				tagValues.push($scope.newTags[x].text);
+			}
+
+			$http.post("/api/tags/", tagValues).success(function(datums) {
+				var tags = datums.response;
+				var calls = []
+				angular.forEach(tags, function(tag) {
+					calls.push($http.post("/api/vote.up/" + $scope.image.uuid + "/" + tag.uuid, {}));
+				});
+
+				$q.all(calls).then(function() {
+					jQuery("#add-tag-modal").modal('hide');
                     fetchTagData();
-               });
-            });
+				});
+			});
         };
 
         $scope.deleteImage = function() {
-            if ($scope.current_user.is_moderator) {
+            if ($scope.currentUser.is_moderator) {
                 if (confirm("are you sure?")) {
                     $http.delete("/api/image/" + $scope.image.uuid).success(function() {
                         window.location = "/";
@@ -73,7 +85,7 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         };
 
         $scope.censorImage = function() {
-            if ($scope.current_user.is_moderator) {
+            if ($scope.currentUser.is_moderator) {
                 if (confirm("are you sure?")) {
                     $http.put("/api/image/" + $scope.image.uuid, {is_censored: true}).success(function(datums){
                         $scope.image = datums.response;
@@ -83,7 +95,7 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         };
 
         $scope.uncensorImage = function() {
-            if ($scope.current_user.is_moderator) {
+            if ($scope.currentUser.is_moderator) {
                 if (confirm("are you sure?")) {
                     $http.put("/api/image/" + $scope.image.uuid, {is_censored: false}).success(function(datums){
                         $scope.image = datums.response;
@@ -132,7 +144,7 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
                 $scope.linkLookup = linkLookup;
             }, function(res) {});
 
-            if ($scope.current_user.is_logged_in) {
+            if ($scope.currentUser.is_logged_in) {
                 $http.get("/api/user.votes.image/" + $routeParams.image_id).then(function(res) {
                     var userVoteLookup = {};
                     for (var x = 0; x < res.data.response.length; x++) {
@@ -161,14 +173,21 @@ giffyControllers.controller("imageController", ["$scope", "$http", "$routeParams
         };
 
 		$scope.searchTags = function(query) {
-			return $http.get("/api/tags.search/?query=" + query)
+			return $q(function(resolve, reject) {
+				$http.get("/api/tags.search/?query=" + query).success(function(datums) {
+					var values = [];
+					for (var x = 0; x < datums.response.length; x++) {
+						var tag = datums.response[x];
+						values.push({ text: tag.tag_value });
+					}
+					resolve(values);
+				});
+			});
 		}
 
         $scope.$on("voted", function() {
            fetchTagData();
         });
-
-        fetchImageData();
     }
 ]);
 
@@ -199,7 +218,7 @@ giffyControllers.controller("tagController", ["$scope", "$http", "$routeParams",
                 $scope.linkLookup = linkLookup;
             }, function(res) {});
 
-            if ($scope.current_user.is_logged_in) {
+            if ($scope.currentUser.is_logged_in) {
                 $http.get("/api/user.votes.tag/" + $scope.tag.uuid).then(function(res) {
                     var userVoteLookup = {};
                     for (var x = 0; x < res.data.response.length; x++) {

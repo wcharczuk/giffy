@@ -43,7 +43,7 @@ func (gp GoogleProfile) AsUser() *model.User {
 func GoogleOAuth(code string) (*GoogleOAuthResponse, error) {
 	var oar GoogleOAuthResponse
 
-	err := core.NewExternalRequest().
+	err := NewRequest().
 		AsPost().
 		WithScheme("https").
 		WithHost("accounts.google.com").
@@ -65,7 +65,7 @@ func GoogleAuthReturnURL() string {
 // FetchGoogleProfile gets a google proflile for an access token.
 func FetchGoogleProfile(accessToken string) (*GoogleProfile, error) {
 	var profile GoogleProfile
-	err := core.NewExternalRequest().AsGet().
+	err := NewRequest().AsGet().
 		WithURL("https://www.googleapis.com/oauth2/v1/userinfo").
 		WithQueryString("alt", "json").
 		WithQueryString("access_token", accessToken).

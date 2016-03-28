@@ -61,7 +61,7 @@ func SlackAuthReturnURL() string {
 func SlackOAuth(code string) (*SlackOAuthResponse, error) {
 	var oar SlackOAuthResponse
 
-	err := core.NewExternalRequest().
+	err := NewRequest().
 		AsPost().
 		WithURL("https://slack.com/api/oauth.access").
 		WithPostData("client_id", core.ConfigSlackClientID()).
