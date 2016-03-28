@@ -14,7 +14,7 @@ type CleanTagValues struct{}
 
 // Name returns the job name
 func (ot CleanTagValues) Name() string {
-	return "delete_orphaned_tags"
+	return "clean_tag_values"
 }
 
 // Schedule returns the job schedule.
