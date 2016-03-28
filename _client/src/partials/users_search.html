@@ -6,9 +6,9 @@
 			<h1>Search Users</h1>
 		</div>
 		<form>
-            <input id="giffy-user-search-bar" type="text" tabindex="0" class="form-control input-lg" placeholder="Search" ng-model="searchQuery" ng-enter="searchUsers()" required/>
-        </form>
-        <table class="table table-responsive">
+			<input id="giffy-user-search-bar" type="text" tabindex="0" class="form-control input-lg" placeholder="Search" ng-model="searchQuery" ng-enter="searchUsers()" required/>
+		</form>
+		<table class="table table-responsive">
 			<thead>
 				<tr>
 					<th>Username</th>
@@ -18,20 +18,20 @@
 					<th>Roles / Status</th>
 				</tr>
 			</thead>
-        	<tbody>
-        		<tr ng-repeat="user in users">
-        			<td><a href="/#/user/{{user.uuid}}">{{user.username}}</a></td>
-        			<td>{{user.created_utc | date:short}}</td>
-        			<td>{{user.first_name}}</td>
-        			<td>{{user.last_name}}</td>
-        			<td>
-        				<span class="label label-info ng-scope" ng-if="user.is_admin">Admin</span>
+			<tbody>
+				<tr ng-repeat="user in users">
+					<td><a href="/#/user/{{user.uuid}}">{{user.username}}</a></td>
+					<td>{{user.created_utc | date:short}}</td>
+					<td>{{user.first_name}}</td>
+					<td>{{user.last_name}}</td>
+					<td>
+						<span class="label label-info ng-scope" ng-if="user.is_admin">Admin</span>
 						<span class="label label-primary ng-scope" ng-if="user.is_moderator">Moderator</span>
 						<span class="label label-danger ng-scope" ng-if="user.is_banned">Banned</span>
 					</td>
-        		</tr>
-        	</tbody>
-    	</table>
+				</tr>
+			</tbody>
+		</table>
 	</div>
 </div>
 

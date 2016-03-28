@@ -1,14 +1,17 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-    "go.lintOnSave": true,
+	"go.lintOnSave": true,
 	"go.buildOnSave": true,
-    "go.vetOnSave": true,
-    "go.formatOnSave": true,
-    "go.useCodeSnippetsOnFunctionSuggest": false,
-    "go.formatTool": "goimports",
+	"go.vetOnSave": true,
+	"go.formatOnSave": true,
+	"go.useCodeSnippetsOnFunctionSuggest": false,
+	"go.formatTool": "goimports",
 
-    "editor.insertSpaces": false,
-    "editor.tabSize": 4,
+	"editor.renderWhitespace" : true,
+
+	"editor.insertSpaces": false,
+	"editor.tabSize": 4,
+
 	"files.trimTrailingWhitespace": true,
 
 	"files.exclude": {

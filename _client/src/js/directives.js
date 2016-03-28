@@ -31,11 +31,11 @@ giffyDirectives.factory('voteAPI', ["$http",
 // --------------------------------------------------------------------------------
 
 giffyDirectives.directive("giffyHeader", function() {
-  return {
-    restrict: 'E',
-    controller: "giffyHeaderController",
-    templateUrl: "/static/partials/controls/header.html"
-  }
+	return {
+		restrict: 'E',
+		controller: "giffyHeaderController",
+		templateUrl: "/static/partials/controls/header.html"
+	}
 });
 giffyDirectives.controller('giffyHeaderController', ["$scope", "$http", function($scope, $http) {}]);
 
@@ -44,11 +44,11 @@ giffyDirectives.controller('giffyHeaderController', ["$scope", "$http", function
 // --------------------------------------------------------------------------------
 
 giffyDirectives.directive("giffyFooter", function() {
-  return {
-    restrict: 'E',
-    controller: "giffyFooterController",
-    templateUrl: "/static/partials/controls/footer.html"
-  }
+	return {
+		restrict: 'E',
+		controller: "giffyFooterController",
+		templateUrl: "/static/partials/controls/footer.html"
+	}
 });
 giffyDirectives.controller('giffyFooterController', ["$scope", function($scope) {}]);
 
@@ -57,14 +57,14 @@ giffyDirectives.controller('giffyFooterController', ["$scope", function($scope) 
 // --------------------------------------------------------------------------------
 
 giffyDirectives.directive("giffyImage", function() {
-  return {
-    restrict: 'E',
-    scope: {
-      image: '='
-    },
-    controller: "giffyImageController",
-    templateUrl: "/static/partials/controls/image.html"
-  }
+	return {
+		restrict: 'E',
+		scope: {
+			image: '='
+		},
+		controller: "giffyImageController",
+		templateUrl: "/static/partials/controls/image.html"
+	}
 });
 giffyDirectives.controller('giffyImageController', ["$scope",
 	function($scope) {
@@ -83,14 +83,14 @@ giffyDirectives.controller('giffyImageController', ["$scope",
 // --------------------------------------------------------------------------------
 
 giffyDirectives.directive("userDetail", function() {
-  return {
-    restrict: 'E',
-    scope: {
-      user: '='
-    },
-    controller: "UserDetailElementController",
-    templateUrl: "/static/partials/controls/username.html"
-  }
+	return {
+		restrict: 'E',
+		scope: {
+			user: '='
+		},
+		controller: "UserDetailElementController",
+		templateUrl: "/static/partials/controls/username.html"
+	}
 });
 giffyDirectives.controller('UserDetailElementController', ["$scope", function($scope) { } ]);
 
@@ -99,100 +99,100 @@ giffyDirectives.controller('UserDetailElementController', ["$scope", function($s
 // --------------------------------------------------------------------------------
 
 giffyDirectives.directive('voteButton',
-  function() {
-    return {
-      restrict: 'E',
-      scope: {
-        type: '=',
-        link: '=',
-        userVote: '=',
-        object: '=',
+	function() {
+		return {
+			restrict: 'E',
+			scope: {
+				type: '=',
+				link: '=',
+				userVote: '=',
+				object: '=',
 		currentUser: '='
-      },
-      controller: 'voteButtonController',
-      templateUrl: '/static/partials/controls/vote_button.html'
-    };
-  }
+			},
+			controller: 'voteButtonController',
+			templateUrl: '/static/partials/controls/vote_button.html'
+		};
+	}
 );
 giffyDirectives.controller('voteButtonController', [ "$scope", "voteAPI",
-  function($scope, voteAPI) {
-    $scope.vote = function(isUpvote) {
-      if (!$scope.hasVote()) {
-        if (isUpvote) {
-          voteAPI.upvote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
-        } else {
-          voteAPI.downvote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
-        }
-      } else {
-        voteAPI.deleteUserVote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
-      }
-    };
+	function($scope, voteAPI) {
+		$scope.vote = function(isUpvote) {
+			if (!$scope.hasVote()) {
+				if (isUpvote) {
+					voteAPI.upvote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+				} else {
+					voteAPI.downvote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+				}
+			} else {
+				voteAPI.deleteUserVote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+			}
+		};
 
-    $scope.delete = function() {
-      voteAPI.deleteLink($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
-    }
+		$scope.delete = function() {
+			voteAPI.deleteLink($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+		}
 
-    $scope.isOnlyVoteCount = function() {
-      if ($scope.type === "tag") {
-        if (!$scope.currentUser.is_logged_in) {
-          return true;
-        }
-      }
-      return false;
-    }
+		$scope.isOnlyVoteCount = function() {
+			if ($scope.type === "tag") {
+				if (!$scope.currentUser.is_logged_in) {
+					return true;
+				}
+			}
+			return false;
+		}
 
-    $scope.userIsLoggedIn = function() {
-      return $scope.currentUser.is_logged_in;
-    }
+		$scope.userIsLoggedIn = function() {
+			return $scope.currentUser.is_logged_in;
+		}
 
-    $scope.onVote = function(res) {
-      $scope.$emit('voted');
-    }
+		$scope.onVote = function(res) {
+			$scope.$emit('voted');
+		}
 
-    $scope.tagUUID = function() {
-      return $scope.link.tag_uuid;
-    }
+		$scope.tagUUID = function() {
+			return $scope.link.tag_uuid;
+		}
 
-    $scope.imageUUID = function() {
-      return $scope.link.image_uuid;
-    }
+		$scope.imageUUID = function() {
+			return $scope.link.image_uuid;
+		}
 
-    $scope.detailURL = function() {
-      return "/#/tag/" + $scope.object.tag_value;
-    }
+		$scope.detailURL = function() {
+			return "/#/tag/" + $scope.object.tag_value;
+		}
 
-    $scope.detailValue = function() {
-      return $scope.object.tag_value;
-    }
+		$scope.detailValue = function() {
+			return $scope.object.tag_value;
+		}
 
-    $scope.canEdit = function() {
-      return $scope.currentUser.is_moderator || $scope.object.created_by == $scope.currentUser.uuid;
-    }
+		$scope.canEdit = function() {
+			return $scope.currentUser.is_moderator || $scope.object.created_by == $scope.currentUser.uuid;
+		}
 
-    $scope.hasVote = function() {
-      return !!$scope.userVote;
-    };
+		$scope.hasVote = function() {
+			return !!$scope.userVote;
+		};
 
-    $scope.didUpvote = function() {
-      return $scope.userVote && $scope.userVote.is_upvote;
-    };
+		$scope.didUpvote = function() {
+			return $scope.userVote && $scope.userVote.is_upvote;
+		};
 
-    $scope.didDownvote = function() {
-      return $scope.userVote && !$scope.userVote.is_upvote;
-    };
-  }
+		$scope.didDownvote = function() {
+			return $scope.userVote && !$scope.userVote.is_upvote;
+		};
+	}
 ]);
 
 giffyDirectives.directive('ngEnter', function() {
-    return function(scope, element, attrs) {
-        element.bind("keydown keypress", function(event) {
-            if(event.which === 13) {
-                scope.$apply(function(){
-                    scope.$eval(attrs.ngEnter, {'event': event});
-                });
+		return function(scope, element, attrs) {
+				element.bind("keydown keypress", function(event) {
+						if(event.which === 13) {
+								scope.$apply(function(){
+										scope.$eval(attrs.ngEnter, {'event': event});
+								});
 
-                event.preventDefault();
-            }
-        });
-    };
+								event.preventDefault();
+						}
+				});
+		};
 });
