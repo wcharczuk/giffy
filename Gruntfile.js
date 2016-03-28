@@ -37,11 +37,13 @@ module.exports = function(grunt) {
                     '_client/bower/bootstrap/dist/js/bootstrap.js',
                     '_client/bower/angular/angular.js',
                     '_client/bower/angular-route/angular-route.js',
-                    '_client/bower/angular-tags-input/angular-tags-input.js',
+                    '_client/bower/angular-sanitize/angular-sanitize.js',
+                    '_client/bower/ng-tags-input/ng-tags-input.js',
                     '_client/src/js/app.js',
                     '_client/src/js/controllers.js',
                     '_client/src/js/directives.js',
                     '_client/src/js/services.js',
+
                 ],
                 dest: "_client/dist/js/giffy.js"
             }
