@@ -65,6 +65,7 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
 
 				$q.all(calls).then(function() {
 					jQuery("#add-tag-modal").modal('hide');
+                    $scope.newTags = [];
                     fetchTagData();
 				});
 			});
