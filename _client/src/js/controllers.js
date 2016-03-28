@@ -1,20 +1,20 @@
 var giffyControllers = angular.module("giffy.controllers", []);
 
-giffyControllers.controller("homeController",
-    function($scope, $http, $routeParams, currentUser) {
+giffyControllers.controller('homeController', ["$scope", "$http", "$routeParams", "$location", "currentUser",
+	function($scope, $http, $routeParams, $location, currentUser) {
         currentUser($scope);
 
         $http.get("/api/images/random/9").success(function(datums) {
             $scope.images = datums.response;
         });
 
-        $scope.searchImages = function() {
-            window.location = "/#/search/" + $scope.searchQuery;
+        $scope.searchImages = function(searchQuery) {
+           $location.path("/search/" + searchQuery).replace();
         };
     }
-);
+]);
 
-giffyControllers.controller("searchController",
+giffyControllers.controller("searchController",  ["$scope", "$http", "$routeParams", "$location", "currentUser",
     function($scope, $http, $routeParams, $location, currentUser) {
 		currentUser($scope);
 
@@ -24,21 +24,17 @@ giffyControllers.controller("searchController",
             $scope.searchedQuery = $routeParams.search_query;
         });
 
-        $scope.searchImages = function() {
-            if ($scope.searchQuery && $scope.searchQuery.length > 0) {
-                $http.get("/api/images.search?query=" + $scope.searchQuery).success(function(datums) {
-                    $scope.images = datums.response;
-                    $scope.searchedQuery = $routeParams.search_query;
-                    $location.path("/search/" + $scope.searchQuery).replace();
-                });
+        $scope.searchImages = function(searchQuery) {
+            if (searchQuery && searchQuery.length > 0) {
+                $location.path("/search/" + searchQuery).replace();
             } else {
                 $scope.images = [];
             }
         };
     }
-);
+]);
 
-giffyControllers.controller("addImageController",
+giffyControllers.controller("addImageController",  ["$scope", "$http", "currentUser",
     function($scope, $http, currentUser) {
         currentUser($scope, function() {
 			if (!$scope.currentUser.is_logged_in) {
@@ -46,9 +42,9 @@ giffyControllers.controller("addImageController",
 			}
 		});
     }
-);
+]);
 
-giffyControllers.controller("imageController",
+giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParams", "$q", "currentUser",
     function($scope, $http, $routeParams, $q, currentUser) {
         currentUser($scope, function() {
 			fetchImageData();
@@ -189,9 +185,9 @@ giffyControllers.controller("imageController",
            fetchTagData();
         });
     }
-);
+]);
 
-giffyControllers.controller("tagController",
+giffyControllers.controller("tagController",  ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
         currentUser($scope);
 
@@ -234,9 +230,9 @@ giffyControllers.controller("tagController",
            fetchVoteData();
         });
     }
-);
+]);
 
-giffyControllers.controller("userController",
+giffyControllers.controller("userController",  ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
         currentUser($scope, function() {
             $http.get("/api/user/" + $routeParams.user_id).success(function(datums) {
@@ -266,9 +262,9 @@ giffyControllers.controller("userController",
             }
         };
     }
-);
+]);
 
-giffyControllers.controller("moderationLogController",
+giffyControllers.controller("moderationLogController",  ["$scope", "$http", "$routeParams", "currentUser",
     function($scope, $http, $routeParams, currentUser) {
         currentUser($scope);
 
@@ -305,9 +301,9 @@ giffyControllers.controller("moderationLogController",
             }
         };
     }
-);
+]);
 
-giffyControllers.controller("userSearchController",
+giffyControllers.controller("userSearchController",  ["$scope", "$http", "currentUser",
     function($scope, $http, currentUser) {
         currentUser($scope);
 
@@ -324,30 +320,30 @@ giffyControllers.controller("userSearchController",
 
         jQuery("#giffy-user-search-bar").focus();
     }
-);
+]);
 
-giffyControllers.controller("logoutController",
-    function($scope, $http, localSession) {
+giffyControllers.controller("logoutController",  ["$scope", "$http",
+    function($scope, $http) {
         $http.post("/api/logout", null).success(function() {
             window.location = "/"
         });
     }
-);
+]);
 
-giffyControllers.controller("slackCompleteController", function($scope) {});
+giffyControllers.controller("slackCompleteController", ["$scope", function($scope) {}]);
 
-giffyControllers.controller("aboutController",
+giffyControllers.controller("aboutController",  ["$scope", "$http",
     function($scope, $http) {
         $http.get("/api/images/random/1").success(function(datums) {
            $scope.image = datums.response[0];
         });
     }
-);
+]);
 
-giffyControllers.controller("statsController",
+giffyControllers.controller("statsController",  ["$scope", "$http",
     function($scope, $http) {
         $http.get("/api/stats").success(function(datums) {
             $scope.stats = datums.response;
         });
     }
-);
+]);

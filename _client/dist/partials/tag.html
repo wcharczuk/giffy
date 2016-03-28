@@ -8,7 +8,7 @@
         <div id="tag-image-results">
             <div class="tag-image-result" ng-repeat="image in images">
                 <giffy-image image="image"></giffy-image>
-                <vote-button type="'image'" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
+                <vote-button type="'image'" current-user="currentUser" link="linkLookup[image.uuid]" user-vote="userVoteLookup[image.uuid]" object="image"></vote-button>
             </div>
         </div>
     </div>

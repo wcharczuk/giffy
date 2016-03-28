@@ -4,24 +4,27 @@ var giffyDirectives = angular.module('giffy.directives', []);
 // VoteAPI
 // --------------------------------------------------------------------------------
 
-giffyDirectives.factory('voteAPI', function($http) {
-  this.upvote = function(imageUUID, tagUUID) {
-    return $http.post("/api/vote.up/" + imageUUID + "/" + tagUUID, null);
-  };
+giffyDirectives.factory('voteAPI', ["$http",
+	function($http) {
+		this.upvote = function(imageUUID, tagUUID) {
+			return $http.post("/api/vote.up/" + imageUUID + "/" + tagUUID, null);
+		};
 
-  this.downvote = function(imageUUID, tagUUID) {
-    return $http.post("/api/vote.down/" + imageUUID + "/" + tagUUID, null);
-  };
+		this.downvote = function(imageUUID, tagUUID) {
+			return $http.post("/api/vote.down/" + imageUUID + "/" + tagUUID, null);
+		};
 
-  this.deleteUserVote = function(imageUUID, tagUUID) {
-    return $http.delete("/api/user.vote/" + imageUUID + "/" + tagUUID);
-  }
+		this.deleteUserVote = function(imageUUID, tagUUID) {
+			return $http.delete("/api/user.vote/" + imageUUID + "/" + tagUUID);
+		}
 
-  this.deleteLink = function(imageUUID, tagUUID) {
-    return $http.delete("/api/link/" + imageUUID + "/" + tagUUID);
-  }
-  return this;
-});
+		this.deleteLink = function(imageUUID, tagUUID) {
+			return $http.delete("/api/link/" + imageUUID + "/" + tagUUID);
+		}
+
+		return this;
+	}
+]);
 
 // --------------------------------------------------------------------------------
 // Header
@@ -34,7 +37,7 @@ giffyDirectives.directive("giffyHeader", function() {
     templateUrl: "/static/partials/controls/header.html"
   }
 });
-giffyDirectives.controller('giffyHeaderController', function($scope, $http) {});
+giffyDirectives.controller('giffyHeaderController', ["$scope", "$http", function($scope, $http) {}]);
 
 // --------------------------------------------------------------------------------
 // Footer
@@ -47,7 +50,7 @@ giffyDirectives.directive("giffyFooter", function() {
     templateUrl: "/static/partials/controls/footer.html"
   }
 });
-giffyDirectives.controller('giffyFooterController', function($scope) {});
+giffyDirectives.controller('giffyFooterController', ["$scope", function($scope) {}]);
 
 // --------------------------------------------------------------------------------
 // Image
@@ -63,17 +66,17 @@ giffyDirectives.directive("giffyImage", function() {
     templateUrl: "/static/partials/controls/image.html"
   }
 });
-giffyDirectives.controller('giffyImageController',
-  function($scope) {
-    $scope.deleteImage = function() {
-      if (confirm("Are you sure?")) {
-        $http.delete("/api/image/" + $routeParams.image_id).success(function(res) {
-          $scope.$emit('image.deleted');
-        });
-      }
-    }
-  }
-);
+giffyDirectives.controller('giffyImageController', ["$scope",
+	function($scope) {
+		$scope.deleteImage = function() {
+			if (confirm("Are you sure?")) {
+				$http.delete("/api/image/" + $routeParams.image_id).success(function(res) {
+					$scope.$emit('image.deleted');
+				});
+			}
+		}
+	}
+]);
 
 // --------------------------------------------------------------------------------
 // Username
@@ -89,7 +92,7 @@ giffyDirectives.directive("userDetail", function() {
     templateUrl: "/static/partials/controls/username.html"
   }
 });
-giffyDirectives.controller('UserDetailElementController', function($scope) {});
+giffyDirectives.controller('UserDetailElementController', ["$scope", function($scope) { } ]);
 
 // --------------------------------------------------------------------------------
 // Vote Button
@@ -111,7 +114,7 @@ giffyDirectives.directive('voteButton',
     };
   }
 );
-giffyDirectives.controller('voteButtonController',
+giffyDirectives.controller('voteButtonController', [ "$scope", "voteAPI",
   function($scope, voteAPI) {
     $scope.vote = function(isUpvote) {
       if (!$scope.hasVote()) {
@@ -178,7 +181,7 @@ giffyDirectives.controller('voteButtonController',
       return $scope.userVote && !$scope.userVote.is_upvote;
     };
   }
-);
+]);
 
 giffyDirectives.directive('ngEnter', function() {
     return function(scope, element, attrs) {
