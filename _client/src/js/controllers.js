@@ -341,7 +341,7 @@ giffyControllers.controller("logoutController",  ["$scope", "$http",
 
 giffyControllers.controller("slackCompleteController", ["$scope", function($scope) {}]);
 
-giffyControllers.controller("aboutController",  ["$scope", "$http",
+giffyControllers.controller("aboutController",  ["$scope", "$http", "currentUser",
 	function($scope, $http) {
 		currentUser($scope);
 
