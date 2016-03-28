@@ -145,6 +145,11 @@ func ConfigHostname() string {
 
 // ConfigHTTPProto is the proto for the webserver.
 func ConfigHTTPProto() string {
+	envProto := os.Getenv("PROTO")
+	if len(envProto) != 0 {
+		return envProto
+	}
+
 	if ConfigIsProduction() {
 		return "https"
 	}
