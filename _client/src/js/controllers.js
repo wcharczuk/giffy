@@ -131,7 +131,7 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
 				$scope.linkLookup = linkLookup;
 			}, function(res) {});
 
-			if ($scope.currentUser.is_logged_in) {
+			if ($scope.currentUser.is_logged_in && !$scope.currentUser.is_banned) {
 				$http.get("/api/user.votes.image/" + $routeParams.image_id).then(function(res) {
 					var userVoteLookup = {};
 					for (var x = 0; x < res.data.response.length; x++) {

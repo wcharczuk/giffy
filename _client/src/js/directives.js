@@ -142,7 +142,7 @@ giffyDirectives.controller('voteButtonController', [ "$scope", "voteAPI",
 		}
 
 		$scope.userIsLoggedIn = function() {
-			return $scope.currentUser.is_logged_in;
+			return $scope.currentUser.is_logged_in && !$scope.currentUser.is_banned;
 		}
 
 		$scope.onVote = function(res) {
@@ -166,7 +166,7 @@ giffyDirectives.controller('voteButtonController', [ "$scope", "voteAPI",
 		}
 
 		$scope.canEdit = function() {
-			return $scope.currentUser.is_moderator || $scope.object.created_by == $scope.currentUser.uuid;
+			return ($scope.currentUser.is_moderator || $scope.object.created_by == $scope.currentUser.uuid) && !$scope.currentUser.is_banned;
 		}
 
 		$scope.hasVote = function() {
