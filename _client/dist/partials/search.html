@@ -9,13 +9,13 @@
                 </form>
             </div>
         </div>
-        
+
         <div class="row">
             <div class="col-md-12">
                 <div class="page-header align-center">
                     <h3 ng-if="!!searchedQuery">Image Search Results For: <span class="giffy-search-query">{{searchedQuery}}</h3>
                 </div>
-                <giffy-image class="image-result" image="image" user="current_user" ng-repeat="image in images"></giffy-image>
+                <giffy-image class="image-result" image="image"  ng-repeat="image in images"></giffy-image>
             </div>
         </div>
     </div>

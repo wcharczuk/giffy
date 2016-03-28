@@ -14,19 +14,18 @@
 			</div>
             <ul class="image-tags">
                 <li ng-repeat="tag in tags">
-                    <vote-button type="'tag'" user="current_user" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
+                    <vote-button type="'tag'" current-user="currentUser" link="linkLookup[tag.uuid]" user-vote="userVoteLookup[tag.uuid]" object="tag"></vote-button>
                 </li>
-                <li ng-if="current_user.is_logged_in">
+                <li ng-if="currentUser.is_logged_in">
                     <button class="btn btn-default btn-lg" data-toggle="modal" data-target="#add-tag-modal">+</button>
                 </li>
             </ul>
         </div>
     </div>
 
-
     <div class="row image-details">
         <div class="col-xs-10 col-xs-offset-1 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
-            <div class="row" ng-if="current_user.is_moderator">
+            <div class="row" ng-if="currentUser.is_moderator">
                 <div class="col-sm-6 col-md-6 col-lg-5 align-right">Status:</div>
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left">
                     <span class="label label-danger" ng-if="image.is_censored">Censored</span>
@@ -49,7 +48,7 @@
                 <div class="col-sm-6 col-md-6 col-lg-5 align-right">Added By:</div>
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left"><user-detail user="image.created_by"></user-detail></div>
             </div>
-            <div class="row" ng-if="current_user.is_moderator || current_user.user_uuid == image.created_by.uuid">
+            <div class="row" ng-if="currentUser.is_moderator || currentUser.user_uuid == image.created_by.uuid">
                 <div class="col-sm-6 col-md-6 col-lg-5 align-right">Moderator Controls:</div>
                 <div class="col-sm-6 col-md-6 col-lg-7 align-left">
                     <button class="btn btn-default btn-xs" ng-click="censorImage()" ng-if="!image.is_censored">Censor Image</button>
@@ -59,22 +58,24 @@
             </div>
         </div>
     </div>
-    
+
     <div id="add-tag-modal" class="modal" tabindex="-1" role="dialog">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title">Add Tag</h4>
+                    <h4 class="modal-title">Add Tag(s)</h4>
                 </div>
                 <div class="modal-body">
                     <div id="add-tag" class="add-tag">
                         <!-- put validation here etc. -->
-                        <form ng-submit="addTag()">
+                        <form ng-submit="addTags()">
                             <div class="form-group row">
-                                <label for="displayName" class="form-control-label col-sm-4 col-md-4 align-right">What is the tag?</label>
+                                <label class="form-control-label col-sm-4 col-md-4 align-right">What are the tags?</label>
                                 <div class="col-sm-8 col-md-8">
-                                    <input id="add-tag-value" tabindex="0" type="text" class="form-control" placeholder="lolz" ng-model="add_tag_value" autocomplete="off" data-provide="typeahead"/>
+                                    <tags-input tabindex="0" ng-model="newTags" min-tags="1" spellcheck="false" replace-spaces-with-dashes="false">
+										<auto-complete source="searchTags($query)"></auto-complete>
+									</tags-input>
                                 </div>
                             </div>
                         </form>
@@ -82,7 +83,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" ng-click="addTag()">Add Tag</button>
+                    <button type="button" class="btn btn-primary" ng-click="addTags()">Add Tag</button>
                 </div>
             </div>
         </div>
