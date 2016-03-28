@@ -326,7 +326,7 @@ giffyControllers.controller("userSearchController", ["$scope", "$http", "current
     }
 ]);
 
-giffyControllers.controller("logoutController", ["$scope", "$http", "localSession",
+giffyControllers.controller("logoutController", ["$scope", "$http",
     function($scope, $http, localSession) {
         $http.post("/api/logout", null).success(function() {
             window.location = "/"
