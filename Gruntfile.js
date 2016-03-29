@@ -120,6 +120,7 @@ module.exports = function(grunt) {
 				src: [
 					"_client/dist/css/giffy.css",
 					"_client/dist/js/giffy.js",
+					"_client/dist/js/partials.js",
 				]
 			},
 			full : {
