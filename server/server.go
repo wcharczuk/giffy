@@ -39,7 +39,7 @@ func Init() *httprouter.Router {
 
 	chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
 	//chronometer.Default().LoadJob(jobs.FixImageSizes{})
-	chronometer.Default().LoadJob(jobs.CleanTagValues{})
+	//chronometer.Default().LoadJob(jobs.CleanTagValues{})
 	chronometer.Default().Start()
 
 	paths := []string{
