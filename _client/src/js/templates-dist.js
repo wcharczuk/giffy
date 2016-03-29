@@ -1,0 +1,1 @@
+var templateDist = angular.module('templates-dist', []);

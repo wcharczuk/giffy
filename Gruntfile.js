@@ -43,9 +43,23 @@ module.exports = function(grunt) {
 					'_client/src/js/controllers.js',
 					'_client/src/js/directives.js',
 					'_client/src/js/services.js',
+					'_client/dist/js/partials.js',
 
 				],
 				dest: "_client/dist/js/giffy.js"
+			}
+		},
+
+		html2js: {
+			options: {
+				base: '_client/src/',
+				rename: function(name) {
+					return '/static/' + name;
+				}
+			},
+			dist: {
+				src: ["_client/src/partials/**/*.html"],
+				dest: "_client/dist/js/partials.js"
 			}
 		},
 
@@ -74,8 +88,6 @@ module.exports = function(grunt) {
 			   { src: "_client/bower/bootstrap/dist/js/bootstrap.min.js", dest: "_client/dist/js/bootstrap.min.js" },
 			   { expand: true, flatten: true, src: "_client/src/images/*", dest: "_client/dist/images/" },
 			   { expand: true, flatten: true, src: "_client/src/fonts/*", dest: "_client/dist/fonts/" },
-			   { expand: true, flatten: true, src: "_client/src/partials/controls/*", dest: "_client/dist/partials/controls/" },
-			   { expand: true, flatten: true, src: "_client/src/partials/*", dest: "_client/dist/partials/", filter: 'isFile' }
 		   ]
 		  }
 		},
@@ -126,12 +138,14 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-contrib-cssmin');
 	grunt.loadNpmTasks('grunt-processhtml');
 	grunt.loadNpmTasks('grunt-cache-breaker');
+	grunt.loadNpmTasks('grunt-html2js');
 
 	grunt.registerTask(
 		'build',
 		'Compiles all of the assets and copies the files to the build directory.',
 		[
 			'copy:dist',
+			'html2js:dist',
 			'concat:app',
 			'uglify:app',
 			'less:compile',
