@@ -4,7 +4,7 @@ giffyControllers.controller('homeController', ["$scope", "$http", "$routeParams"
 	function($scope, $http, $routeParams, $location, currentUser) {
 		currentUser($scope);
 
-		$http.get("/api/images/random/9").success(function(datums) {
+		$http.get("/api/images/random/12").success(function(datums) {
 			$scope.images = datums.response;
 		});
 
