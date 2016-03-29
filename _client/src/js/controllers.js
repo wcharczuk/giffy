@@ -34,6 +34,27 @@ giffyControllers.controller("searchController",  ["$scope", "$http", "$routePara
 	}
 ]);
 
+giffyControllers.controller("searchSlackController",  ["$scope", "$http", "$routeParams", "$location", "currentUser",
+	function($scope, $http, $routeParams, $location, currentUser) {
+		currentUser($scope);
+
+		$http.get("/api/images.search/slack?text=" + $routeParams.search_query).success(function(datums) {
+			$scope.image_url = datums.attachments[0].image_url;
+			$scope.searchQuery = $routeParams.search_query;
+			$scope.searchedQuery = $routeParams.search_query;
+		});
+
+		$scope.searchImages = function(searchQuery) {
+			if (searchQuery && searchQuery.length > 0) {
+				$location.path("/search.slack/" + searchQuery).replace();
+			} else {
+				$scope.images = [];
+			}
+		};
+	}
+]);
+
+
 giffyControllers.controller("addImageController",  ["$scope", "$http", "currentUser",
 	function($scope, $http, currentUser) {
 		currentUser($scope, function() {
