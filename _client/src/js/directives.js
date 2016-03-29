@@ -72,11 +72,7 @@ giffyDirectives.controller('giffyImageController', ["$scope",
 
 		// portrait = width 100%
 		$scope.isPortrait = function() {
-			var w = $scope.image.width;
-			var h = $scope.image.height;
-
-			var isLandscape = w > h;
-			return h > 250;
+			return false;
 		};
 
 		// landscape = height 100%
