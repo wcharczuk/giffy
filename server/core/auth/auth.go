@@ -3,7 +3,8 @@ package auth
 import (
 	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/giffy/server/core/web"
+	"github.com/wcharczuk/go-web"
+
 	"github.com/wcharczuk/giffy/server/model"
 )
 

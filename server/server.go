@@ -7,11 +7,11 @@ import (
 
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-util"
-	"github.com/blendlabs/httprouter"
+	"github.com/julienschmidt/httprouter"
+	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/jobs"
 )
 

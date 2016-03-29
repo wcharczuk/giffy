@@ -10,12 +10,13 @@ import (
 	"path"
 
 	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
+	"github.com/julienschmidt/httprouter"
+	"github.com/wcharczuk/go-web"
+
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/core/filecache"
-	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 )
 

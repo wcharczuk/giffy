@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-chronometer"
-	"github.com/blendlabs/httprouter"
 	"github.com/blendlabs/spiffy"
+	"github.com/julienschmidt/httprouter"
+	"github.com/wcharczuk/go-web"
+
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/core/filecache"
-	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 )
@@ -484,6 +485,8 @@ func (api API) deleteImageAction(session *auth.Session, ctx *web.HTTPContext) we
 	if err != nil {
 		return ctx.API.InternalError(err)
 	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID)
 	return ctx.API.OK()
 }
 

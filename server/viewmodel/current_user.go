@@ -5,8 +5,8 @@ import (
 
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/external"
-	"github.com/wcharczuk/giffy/server/core/web"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/go-web"
 )
 
 // CurrentUser is the response for the current user api service.

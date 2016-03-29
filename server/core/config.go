@@ -9,11 +9,6 @@ import (
 	"github.com/blendlabs/spiffy"
 )
 
-const (
-	// RequestLogFormat is the default log format.
-	RequestLogFormat = "datetime c-ip cs-method cs-uri cs-status time-taken bytes"
-)
-
 // DBConfig is the basic config object for db connections.
 type DBConfig struct {
 	Server   string
