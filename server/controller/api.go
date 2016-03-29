@@ -61,6 +61,7 @@ type slackImageAttachment struct {
 }
 
 type slackResponse struct {
+	ImageUUID    string        `json:"image_uuid"`
 	ResponseType string        `json:"response_type"`
 	Text         string        `json:"text,omitempty"`
 	Attachments  []interface{} `json:"attachments"`
@@ -85,6 +86,7 @@ func (api API) searchImagesSlackAction(ctx *web.HTTPContext) web.ControllerResul
 	}
 
 	res := slackResponse{}
+	res.ImageUUID = result.UUID
 	res.ResponseType = "in_channel"
 
 	if !strings.HasPrefix(query, "img:") {
