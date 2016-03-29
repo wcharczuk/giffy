@@ -2,53 +2,51 @@
     #giffy-header-search-cell {
         text-align:center;
     }
-    
+
     #giffy-header-logo-cell {
         text-align:center;
     }
-    
+
     #giffy-header-add-image-cell {
         text-align:center;
-    }   
+    }
 }
 
 @media (min-width: 767px) {
     #giffy-header-search-cell {
         text-align:left;
     }
-    
+
     #giffy-header-logo-cell {
         text-align:center;
     }
-    
+
     #giffy-header-add-image-cell {
         text-align:right;
     }
 }
 
 #giffy-header {
-    padding-left: 10px;
-    padding-right: 10px;
-    z-index: 10;
+    padding:10px;
     background-color: #222;
     box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-    
+
     #giffy-logo {
         background: #fff;
-        
+
         height: 64px;
         width: 64px;
     }
-    
+
     button {
         margin-left: 3px;
     }
-    
-    .row {
-        height: 80px;
+
+    .header-cell {
+        padding-bottom: 10px;
         line-height: 80px;
     }
-    
+
     .user-detail {
         font-size: 18px;
         a {
@@ -60,7 +58,7 @@
         color: #fff;
         font-size: 18px;
     }
-    
+
     #giffy-search:hover {
         color: #337ab7;
         text-decoration: none;
@@ -74,12 +72,14 @@
 #giffy-sub-header {
     height: 40px;
     line-height: 35px;
-    
+
     padding-left: 10px;
     padding-right: 10px;
-    
+
+    text-align: right;
+
     z-index: 10;
-    
+
     background: #f7f8fa;
     border-bottom: 1px solid #eeeff2;
 }

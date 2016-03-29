@@ -33,14 +33,22 @@ body {
 }
 
 @media(min-width:768px) and (max-width:991px) {
-	#giffy-home-results .image-element, #user-image-results .image-element, #tag-image-results .image-element {
+	#giffy-home .image-element, #giffy-search .image-element, #giffy-user .image-element, #tag-image-results .image-element {
 		min-width: unset;
 		width:50%;
 	}
 }
 
 @media (max-width: 767px) {
-	#giffy-home-results .image-element, #user-image-results .image-element, #tag-image-results .image-element {
+	#giffy-header .header-cell {
+		line-height: normal;
+	}
+
+	#giffy-sub-header {
+		text-align: center;
+	}
+
+	#giffy-home .image-element, #giffy-search .image-element, #giffy-user .image-element, #tag-image-results .image-element {
 		min-width: unset;
 		width:100%;
 	}

@@ -1,22 +1,22 @@
 
 .image-element {
     position: relative;
-   
+
     width:33%;
     height:250px;
     overflow: hidden;
     text-align: left;
-    
+
     float:left;
-    
+
     &:hover .image-info {
         display: block;
     }
-    
+
     .image-info .user-detail a{
         color: #FFF;
     }
-    
+
     .image-element-link {
         position:absolute;
         top:0;
@@ -24,16 +24,19 @@
         bottom:0;
         right:0;
     }
-    
+
     .image-element-img {
         position:absolute;
-        top: 0;
-        left: 0;
+        top: 50%;
+        left: 50%;
 
+        height: 100%;
         min-height: 250px;
         min-width: 100%;
+
+        transform: translate(-50%, -50%);
     }
-    
+
     .image-tags {
         position: absolute;
         bottom:0;
@@ -46,7 +49,7 @@
 
         text-align:center;
     }
-    
+
     .image-info {
         display:none;
         position: absolute;
@@ -62,7 +65,7 @@
         background: rgba(80,80,80,0.2);
         text-align:center;
     }
-    
+
     .image-tags .label {
         margin-left: 3px;
         margin-right: 3px;
