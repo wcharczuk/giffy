@@ -68,12 +68,20 @@ giffyDirectives.directive("giffyImage", function() {
 });
 giffyDirectives.controller('giffyImageController', ["$scope",
 	function($scope) {
-		$scope.deleteImage = function() {
-			if (confirm("Are you sure?")) {
-				$http.delete("/api/image/" + $routeParams.image_id).success(function(res) {
-					$scope.$emit('image.deleted');
-				});
-			}
+		var minH = 250;
+
+		// portrait = width 100%
+		$scope.isPortrait = function() {
+			var w = $scope.image.width;
+			var h = $scope.image.height;
+
+			var isLandscape = w > h;
+			return h > 250;
+		};
+
+		// landscape = height 100%
+		$scope.isLandscape = function() {
+			return !$scope.isPortrait();
 		}
 	}
 ]);
