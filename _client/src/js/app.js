@@ -15,6 +15,9 @@ giffyApp.config(["$routeProvider",
 		}).when("/search/:search_query", {
 			templateUrl: '/static/partials/search.html',
 			controller: 'searchController'
+		}).when("/search.slack", {
+			templateUrl: '/static/partials/search_slack.html',
+			controller: 'searchSlackController'
 		}).when("/search.slack/:search_query", {
 			templateUrl: '/static/partials/search_slack.html',
 			controller: 'searchSlackController'
