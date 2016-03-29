@@ -153,8 +153,8 @@
 		},
 		{
 			"ImportPath": "github.com/blendlabs/spiffy",
-			"Comment": "v1.0-92-g0aebc93",
-			"Rev": "0aebc933dae492014fa9354e0d384ff4202a501b"
+			"Comment": "v1.0-98-g37be19f",
+			"Rev": "37be19feb01963dd94f996bd37057d047b5dcdc3"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",
@@ -171,6 +171,11 @@
 			"Rev": "0b12d6b521d83fc7f755e7cfc1b1fbdd35a01a74"
 		},
 		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Comment": "v1.1-29-g77366a4",
+			"Rev": "77366a47451a56bb3ba682481eed85b64fea14e8"
+		},
+		{
 			"ImportPath": "github.com/lib/pq",
 			"Comment": "go1.0-cutoff-84-g3cd0097",
 			"Rev": "3cd0097429be7d611bb644ef85b42bfb102ceea4"
@@ -182,7 +187,11 @@
 		},
 		{
 			"ImportPath": "github.com/wcharczuk/go-slack",
-			"Rev": "c30b8ba67a9cb6d04c9afc0b7996487950bef88e"
+			"Rev": "be1ee5c6d34a700aeb7bf1b78ea6c5be0f1424c4"
+		},
+		{
+			"ImportPath": "github.com/wcharczuk/go-web",
+			"Rev": "3c1796145a2d72f769d8086b70cab7f765a11570"
 		}
 	]
 }
