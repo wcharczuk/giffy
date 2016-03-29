@@ -187,6 +187,9 @@ func escapeRequestLogOutput(format string, context *HTTPContext) string {
 
 // Log writes to the log output.
 func Log(a ...interface{}) {
+	if logger == nil {
+		return
+	}
 	timestamp := getLoggingTimestamp()
 	output := fmt.Sprint(a...)
 	logger.Printf("%s %s\n", timestamp, output)
@@ -194,6 +197,9 @@ func Log(a ...interface{}) {
 
 // Logf writes to the log with a given format.
 func Logf(format string, a ...interface{}) {
+	if logger == nil {
+		return
+	}
 	timestamp := getLoggingTimestamp()
 	output := fmt.Sprintf(format, a...)
 	logger.Printf("%s %s\n", timestamp, output)
@@ -211,7 +217,7 @@ func LogErrorf(format string, a ...interface{}) {
 	output := fmt.Sprintf(format, a...)
 	if errorLogger != nil {
 		errorLogger.Printf("%s %s %s\n", timestamp, util.Color("error", util.ColorRed), output)
-	} else {
+	} else if logger != nil {
 		logger.Printf("%s %s %s\n", timestamp, util.Color("error", util.ColorRed), output)
 	}
 }

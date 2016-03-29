@@ -147,11 +147,6 @@
 			"Rev": "66b67f5a9e13b732e41525c44feb6d4c7a5d94bd"
 		},
 		{
-			"ImportPath": "github.com/blendlabs/httprouter",
-			"Comment": "v1.0",
-			"Rev": "89b405072eaa897e45f3558d1720103070d8587a"
-		},
-		{
 			"ImportPath": "github.com/blendlabs/spiffy",
 			"Comment": "v1.0-98-g37be19f",
 			"Rev": "37be19feb01963dd94f996bd37057d047b5dcdc3"
@@ -191,7 +186,7 @@
 		},
 		{
 			"ImportPath": "github.com/wcharczuk/go-web",
-			"Rev": "3c1796145a2d72f769d8086b70cab7f765a11570"
+			"Rev": "215470112300a0acc955bb121e4357b111c38a42"
 		}
 	]
 }
