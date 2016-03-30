@@ -17,6 +17,10 @@ type Router interface {
 
 	Static(path string, root http.FileSystem)
 	ServeHTTP(w http.ResponseWriter, req *http.Request)
+
+	SetNotFoundHandler(handler ControllerAction)
+	SetMethodNotAllowedHandler(handler ControllerAction)
+	SetPanicHandler(handler PanicControllerAction)
 }
 
 // NewRouter returns a new router.
@@ -58,4 +62,32 @@ func (r *httpRouter) Static(path string, root http.FileSystem) {
 
 func (r *httpRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.router.ServeHTTP(w, req)
+}
+
+func (r *httpRouter) SetNotFoundHandler(handler ControllerAction) {
+	r.router.NotFound = newHandleShim(handler)
+}
+
+func (r *httpRouter) SetMethodNotAllowedHandler(handler ControllerAction) {
+	r.router.MethodNotAllowed = newHandleShim(handler)
+}
+
+func (r *httpRouter) SetPanicHandler(handler PanicControllerAction) {
+	r.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
+		ActionHandler(func(r *RequestContext) ControllerResult {
+			return handler(r, err)
+		})(w, r, httprouter.Params{})
+	}
+}
+
+func newHandleShim(handler ControllerAction) http.Handler {
+	return &handleShim{action: handler}
+}
+
+type handleShim struct {
+	action ControllerAction
+}
+
+func (hs handleShim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ActionHandler(hs.action)(w, r, httprouter.Params{})
 }

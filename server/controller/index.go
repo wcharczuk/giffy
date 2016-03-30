@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 
+	"github.com/blendlabs/go-exception"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/go-web"
 )
@@ -24,8 +25,27 @@ func (i Index) faviconAction(r *web.RequestContext) web.ControllerResult {
 	return r.Static("_client/src/images/favicon.ico")
 }
 
+func (i Index) methodNotAllowedHandler(r *web.RequestContext) web.ControllerResult {
+	return r.View().BadRequest("Method Not Allowed")
+}
+
+func (i Index) notFoundHandler(r *web.RequestContext) web.ControllerResult {
+	return r.View().NotFound()
+}
+
+func (i Index) panicHandler(r *web.RequestContext, err interface{}) web.ControllerResult {
+	if typed, isError := err.(error); isError {
+		return r.View().InternalError(typed)
+	}
+	return r.View().InternalError(exception.Newf("%v", err))
+}
+
 // Register registers the controller
 func (i Index) Register(app *web.App) {
+	app.SetMethodNotAllowed(i.methodNotAllowedHandler)
+	app.SetNotFound(i.notFoundHandler)
+	app.SetPanicHandler(i.panicHandler)
+
 	app.GET("/", i.indexAction)
 	app.GET("/favicon.ico", i.faviconAction)
 
