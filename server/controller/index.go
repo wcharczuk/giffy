@@ -3,7 +3,7 @@ package controller
 import (
 	"net/http"
 
-	"github.com/blendlabs/connectivity/core"
+	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/go-web"
 )
 
