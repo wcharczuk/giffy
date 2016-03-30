@@ -244,12 +244,16 @@ func (rc *RequestContext) Render(result ControllerResult) {
 
 // LogRequest consumes the context and writes a log message for the request.
 func (rc *RequestContext) LogRequest() {
-	rc.logger.Log(FormatRequestLog(DefaultRequestLogFormat, rc))
+	if rc.logger != nil {
+		rc.logger.Log(FormatRequestLog(DefaultRequestLogFormat, rc))
+	}
 }
 
 // LogRequestWithW3CFormat consumes the context and writes a log message for the request.
 func (rc *RequestContext) LogRequestWithW3CFormat(format string) {
-	rc.logger.Log(FormatRequestLog(format, rc))
+	if rc.logger != nil {
+		rc.logger.Log(FormatRequestLog(format, rc))
+	}
 }
 
 // --------------------------------------------------------------------------------
