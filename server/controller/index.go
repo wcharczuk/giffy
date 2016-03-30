@@ -42,8 +42,8 @@ func (i Index) panicHandler(r *web.RequestContext, err interface{}) web.Controll
 
 // Register registers the controller
 func (i Index) Register(app *web.App) {
-	app.SetMethodNotAllowed(i.methodNotAllowedHandler)
-	app.SetNotFound(i.notFoundHandler)
+	app.SetMethodNotAllowedHandler(i.methodNotAllowedHandler)
+	app.SetNotFoundHandler(i.notFoundHandler)
 	app.SetPanicHandler(i.panicHandler)
 
 	app.GET("/", i.indexAction)
