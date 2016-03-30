@@ -39,7 +39,6 @@ func Init() *web.App {
 	app := web.New()
 	app.SetName("giffy")
 	app.SetPort(core.ConfigPort())
-
 	app.InitViewCache(paths...)
 	app.SetLogger(web.NewStandardOutputLogger())
 

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/blendlabs/go-exception"
@@ -30,13 +31,11 @@ func (i Index) methodNotAllowedHandler(r *web.RequestContext) web.ControllerResu
 }
 
 func (i Index) notFoundHandler(r *web.RequestContext) web.ControllerResult {
+	fmt.Printf("r.View(): %#v\n", r.View())
 	return r.View().NotFound()
 }
 
 func (i Index) panicHandler(r *web.RequestContext, err interface{}) web.ControllerResult {
-	if typed, isError := err.(error); isError {
-		return r.View().InternalError(typed)
-	}
 	return r.View().InternalError(exception.Newf("%v", err))
 }
 
