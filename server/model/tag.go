@@ -90,7 +90,7 @@ func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
 // SearchTags searches tags
 func SearchTags(query string, tx *sql.Tx) ([]Tag, error) {
 	tags := []Tag{}
-	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag where tag_value % $1`, tx, query).OutMany(&tags)
+	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag where tag_value % $1 order by similarity(tag_value, $1) desc;`, tx, query).OutMany(&tags)
 	return tags, err
 }
 
