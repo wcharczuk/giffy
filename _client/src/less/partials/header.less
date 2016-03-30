@@ -1,10 +1,15 @@
-@media (max-width: 767px) {
+@media (max-width: @screen-xs-max) {
     #giffy-header .header-cell {
-		line-height: normal;
+		line-height: normal !important;
 	}
 
 	#giffy-sub-header {
-		text-align: center;
+		text-align: center !important;
+        font-size: 12px;
+
+        .label, .btn {
+            font-size: 11px;
+        }
 	}
 
     #giffy-header-search-cell {
@@ -12,25 +17,11 @@
     }
 
     #giffy-header-logo-cell {
-        text-align:center;
+        text-align:center !important;
     }
 
     #giffy-header-add-image-cell {
-        text-align:center;
-    }
-}
-
-@media (min-width: 767px) {
-    #giffy-header-search-cell {
-        text-align:left;
-    }
-
-    #giffy-header-logo-cell {
-        text-align:center;
-    }
-
-    #giffy-header-add-image-cell {
-        text-align:right;
+        text-align:center !important;
     }
 }
 
@@ -73,8 +64,13 @@
         text-decoration: none;
     }
 
-    #giffy-header-add-image {
+    #giffy-header-logo-cell {
+        text-align:center;
+    }
+
+    #giffy-header-add-image-cell {
         font-size: 18px;
+        text-align: right;
     }
 }
 
