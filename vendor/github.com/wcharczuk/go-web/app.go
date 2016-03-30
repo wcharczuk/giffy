@@ -42,7 +42,7 @@ type App struct {
 	MethodNotAllowed ControllerAction
 	PanicHandler     PanicControllerAction
 
-	Port int
+	Port string
 }
 
 // Name returns the app name.``
@@ -73,7 +73,7 @@ func (a *App) SetLogger(l Logger) {
 
 // Start starts the server and binds to the given address.
 func (a *App) Start() error {
-	bindAddr := fmt.Sprintf(":%d", a.Port)
+	bindAddr := fmt.Sprintf(":%s", a.Port)
 	server := &http.Server{
 		Addr:    bindAddr,
 		Handler: a,
