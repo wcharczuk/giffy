@@ -1,14 +1,20 @@
 package web
 
-import "net/http"
+import (
+	"html/template"
+	"net/http"
+)
 
 // NewViewResultProvider creates a new ViewResults object.
-func NewViewResultProvider() *ViewResultProvider {
-	return &ViewResultProvider{}
+func NewViewResultProvider(logger Logger, viewCache *template.Template) *ViewResultProvider {
+	return &ViewResultProvider{logger: logger, viewCache: viewCache}
 }
 
 // ViewResultProvider returns results based on views.
-type ViewResultProvider struct{}
+type ViewResultProvider struct {
+	viewCache *template.Template
+	logger    Logger
+}
 
 // View returns a view result.
 func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) ControllerResult {
@@ -16,6 +22,7 @@ func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) Contr
 		StatusCode: http.StatusOK,
 		ViewModel:  viewModel,
 		Template:   viewName,
+		viewCache:  vr.viewCache,
 	}
 }
 
@@ -25,16 +32,18 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 		StatusCode: http.StatusBadRequest,
 		ViewModel:  message,
 		Template:   "bad_request",
+		viewCache:  vr.viewCache,
 	}
 }
 
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
-	LogErrorf("%v", err)
+	vr.logger.Errorf("%v", err)
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
 		Template:   "error",
+		viewCache:  vr.viewCache,
 	}
 }
 
@@ -44,6 +53,7 @@ func (vr *ViewResultProvider) NotFound() ControllerResult {
 		StatusCode: http.StatusNotFound,
 		ViewModel:  nil,
 		Template:   "not_found",
+		viewCache:  vr.viewCache,
 	}
 }
 
@@ -53,5 +63,6 @@ func (vr *ViewResultProvider) NotAuthorized() ControllerResult {
 		StatusCode: http.StatusUnauthorized,
 		ViewModel:  nil,
 		Template:   "not_authorized",
+		viewCache:  vr.viewCache,
 	}
 }

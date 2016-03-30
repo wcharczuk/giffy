@@ -8,7 +8,7 @@ type RedirectResult struct {
 }
 
 // Render writes the result to the response.
-func (rr *RedirectResult) Render(ctx *HTTPContext) error {
+func (rr *RedirectResult) Render(ctx *RequestContext) error {
 	http.Redirect(ctx.Response, ctx.Request, rr.RedirectURI, http.StatusTemporaryRedirect)
 	return nil
 }

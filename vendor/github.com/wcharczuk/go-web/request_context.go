@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-util"
-	"github.com/julienschmidt/httprouter"
 )
 
 const (
@@ -29,31 +28,33 @@ type PostedFile struct {
 	Contents []byte
 }
 
-// NewHTTPContext returns a new hc context.
-func NewHTTPContext(w http.ResponseWriter, r *http.Request, p httprouter.Params) *HTTPContext {
-	ctx := &HTTPContext{
+// State is the collection of state objects on a context.
+type State map[string]interface{}
+
+// NewRequestContext returns a new hc context.
+func NewRequestContext(w http.ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
+	ctx := &RequestContext{
 		Request:         r,
 		Response:        w,
 		routeParameters: p,
-		state:           map[string]interface{}{},
+		state:           State{},
 	}
-
-	ctx.API = ProviderAPI
-	ctx.View = ProviderView
 
 	return ctx
 }
 
-// HTTPContext is the struct that represents the context for an hc request.
-type HTTPContext struct {
+// RequestContext is the struct that represents the context for an hc request.
+type RequestContext struct {
 	Response http.ResponseWriter
 	Request  *http.Request
 
-	API  *APIResultProvider
-	View *ViewResultProvider
+	api  *APIResultProvider
+	view *ViewResultProvider
 
-	state           map[string]interface{}
-	routeParameters httprouter.Params
+	logger Logger
+
+	state           State
+	routeParameters RouteParameters
 
 	statusCode    int
 	contentLength int
@@ -61,37 +62,47 @@ type HTTPContext struct {
 	requestEnd    time.Time
 }
 
+// API returns the API result provider.
+func (rc *RequestContext) API() *APIResultProvider {
+	return rc.api
+}
+
+// View returns the view result provider.
+func (rc *RequestContext) View() *ViewResultProvider {
+	return rc.view
+}
+
 // State returns an object in the state cache.
-func (hc *HTTPContext) State(key string) interface{} {
-	if item, hasItem := hc.state[key]; hasItem {
+func (rc *RequestContext) State(key string) interface{} {
+	if item, hasItem := rc.state[key]; hasItem {
 		return item
 	}
 	return nil
 }
 
 // SetState sets the state for a key to an object.
-func (hc *HTTPContext) SetState(key string, value interface{}) {
-	hc.state[key] = value
+func (rc *RequestContext) SetState(key string, value interface{}) {
+	rc.state[key] = value
 }
 
 // Param returns a parameter from the request.
-func (hc *HTTPContext) Param(name string) string {
-	queryValue := hc.Request.URL.Query().Get(name)
+func (rc *RequestContext) Param(name string) string {
+	queryValue := rc.Request.URL.Query().Get(name)
 	if len(queryValue) != 0 {
 		return queryValue
 	}
 
-	headerValue := hc.Request.Header.Get(name)
+	headerValue := rc.Request.Header.Get(name)
 	if len(headerValue) != 0 {
 		return headerValue
 	}
 
-	formValue := hc.Request.FormValue(name)
+	formValue := rc.Request.FormValue(name)
 	if len(formValue) != 0 {
 		return formValue
 	}
 
-	cookie, cookieErr := hc.Request.Cookie(name)
+	cookie, cookieErr := rc.Request.Cookie(name)
 	if cookieErr == nil && len(cookie.Value) != 0 {
 		return cookie.Value
 	}
@@ -100,25 +111,25 @@ func (hc *HTTPContext) Param(name string) string {
 }
 
 // PostBodyAsString is the string post body.
-func (hc *HTTPContext) PostBodyAsString() string {
-	defer hc.Request.Body.Close()
-	bytes, _ := ioutil.ReadAll(hc.Request.Body)
+func (rc *RequestContext) PostBodyAsString() string {
+	defer rc.Request.Body.Close()
+	bytes, _ := ioutil.ReadAll(rc.Request.Body)
 	return string(bytes)
 }
 
 // PostBodyAsJSON reads the incoming post body (closing it) and marshals it to the target object as json.
-func (hc *HTTPContext) PostBodyAsJSON(response interface{}) error {
-	return DeserializeReaderAsJSON(response, hc.Request.Body)
+func (rc *RequestContext) PostBodyAsJSON(response interface{}) error {
+	return DeserializeReaderAsJSON(response, rc.Request.Body)
 }
 
 // PostedFiles returns any files posted
-func (hc *HTTPContext) PostedFiles() ([]PostedFile, error) {
+func (rc *RequestContext) PostedFiles() ([]PostedFile, error) {
 	var files []PostedFile
 
-	err := hc.Request.ParseMultipartForm(PostBodySize)
+	err := rc.Request.ParseMultipartForm(PostBodySize)
 	if err == nil {
-		for key := range hc.Request.MultipartForm.File {
-			fileReader, fileHeader, err := hc.Request.FormFile(key)
+		for key := range rc.Request.MultipartForm.File {
+			fileReader, fileHeader, err := rc.Request.FormFile(key)
 			if err != nil {
 				return nil, err
 			}
@@ -129,10 +140,10 @@ func (hc *HTTPContext) PostedFiles() ([]PostedFile, error) {
 			files = append(files, PostedFile{Key: key, Filename: fileHeader.Filename, Contents: bytes})
 		}
 	} else {
-		err = hc.Request.ParseForm()
+		err = rc.Request.ParseForm()
 		if err == nil {
-			for key := range hc.Request.PostForm {
-				if fileReader, fileHeader, err := hc.Request.FormFile(key); err == nil && fileReader != nil {
+			for key := range rc.Request.PostForm {
+				if fileReader, fileHeader, err := rc.Request.FormFile(key); err == nil && fileReader != nil {
 					bytes, err := ioutil.ReadAll(fileReader)
 					if err != nil {
 						return nil, err
@@ -145,45 +156,33 @@ func (hc *HTTPContext) PostedFiles() ([]PostedFile, error) {
 	return files, nil
 }
 
-// LogRequest consumes the context and writes a log message for the request.
-func (hc *HTTPContext) LogRequest() {
-	Log(escapeRequestLogOutput(DefaultRequestLogFormat, hc))
-}
-
-// LogRequestWithW3CFormat consumes the context and writes a log message for the request.
-func (hc *HTTPContext) LogRequestWithW3CFormat(format string) {
-	Log(escapeRequestLogOutput(format, hc))
-}
-
 // RouteParameterInt returns a route parameter as an integer
-func (hc *HTTPContext) RouteParameterInt(key string) int {
-	v := hc.routeParameters.ByName(key)
-	if !util.IsEmpty(v) {
-		return util.ParseInt(v)
+func (rc *RequestContext) RouteParameterInt(key string) int {
+	if value, hasKey := rc.routeParameters[key]; hasKey {
+		return util.ParseInt(value)
 	}
 	return int(0)
 }
 
 // RouteParameterInt64 returns a route parameter as an integer
-func (hc *HTTPContext) RouteParameterInt64(key string) int64 {
-	v := hc.routeParameters.ByName(key)
-	if !util.IsEmpty(v) {
-		vi, err := strconv.ParseInt(v, 10, 64)
+func (rc *RequestContext) RouteParameterInt64(key string) int64 {
+	if value, hasKey := rc.routeParameters[key]; hasKey {
+		valueAsInt, err := strconv.ParseInt(value, 10, 64)
 		if err == nil {
-			return vi
+			return valueAsInt
 		}
 	}
 	return int64(0)
 }
 
 // RouteParameter returns a string route parameter
-func (hc *HTTPContext) RouteParameter(key string) string {
-	return hc.routeParameters.ByName(key)
+func (rc *RequestContext) RouteParameter(key string) string {
+	return rc.routeParameters[key]
 }
 
 // GetCookie returns a named cookie from the request.
-func (hc *HTTPContext) GetCookie(name string) *http.Cookie {
-	cookie, err := hc.Request.Cookie(name)
+func (rc *RequestContext) GetCookie(name string) *http.Cookie {
+	cookie, err := rc.Request.Cookie(name)
 	if err != nil {
 		return nil
 	}
@@ -191,76 +190,97 @@ func (hc *HTTPContext) GetCookie(name string) *http.Cookie {
 }
 
 // WriteCookie writes the cookie to the response.
-func (hc *HTTPContext) WriteCookie(cookie *http.Cookie) {
-	http.SetCookie(hc.Response, cookie)
+func (rc *RequestContext) WriteCookie(cookie *http.Cookie) {
+	http.SetCookie(rc.Response, cookie)
 }
 
 // SetCookie is a helper method for WriteCookie.
-func (hc *HTTPContext) SetCookie(name string, value string, expires *time.Time, path string) {
+func (rc *RequestContext) SetCookie(name string, value string, expires *time.Time, path string) {
 	c := http.Cookie{}
 	c.Name = name
 	c.HttpOnly = true
-	c.Domain = hc.Request.Host
+	c.Domain = rc.Request.Host
 	c.Value = value
 	c.Path = path
 	if expires != nil {
 		c.Expires = *expires
 	}
-	hc.WriteCookie(&c)
+	rc.WriteCookie(&c)
 }
 
 // ExtendCookieByDuration extends a cookie by a time duration (on the order of nanoseconds to hours).
-func (hc *HTTPContext) ExtendCookieByDuration(name string, duration time.Duration) {
-	cookie := hc.GetCookie(name)
+func (rc *RequestContext) ExtendCookieByDuration(name string, duration time.Duration) {
+	cookie := rc.GetCookie(name)
 	cookie.Expires = cookie.Expires.Add(duration)
-	hc.WriteCookie(cookie)
+	rc.WriteCookie(cookie)
 }
 
 // ExtendCookie extends a cookie by years, months or days.
-func (hc HTTPContext) ExtendCookie(name string, years, months, days int) {
-	cookie := hc.GetCookie(name)
+func (rc *RequestContext) ExtendCookie(name string, years, months, days int) {
+	cookie := rc.GetCookie(name)
 	cookie.Expires.AddDate(years, months, days)
-	hc.WriteCookie(cookie)
+	rc.WriteCookie(cookie)
 }
 
 // ExpireCookie expires a cookie.
-func (hc *HTTPContext) ExpireCookie(name string) {
+func (rc *RequestContext) ExpireCookie(name string) {
 	c := http.Cookie{}
 	c.Name = name
 	c.Expires = time.Now().UTC().AddDate(-1, 0, 0)
-	hc.WriteCookie(&c)
+	rc.WriteCookie(&c)
 }
 
 // Render writes the body of the response, it should not alter metadata.
-func (hc *HTTPContext) Render(result ControllerResult) {
-	renderErr := result.Render(hc)
+func (rc *RequestContext) Render(result ControllerResult) {
+	renderErr := result.Render(rc)
 	if renderErr != nil {
-		LogError(renderErr)
+		rc.logger.Error(renderErr)
 	}
+}
+
+// --------------------------------------------------------------------------------
+// Logging
+// --------------------------------------------------------------------------------
+
+// LogRequest consumes the context and writes a log message for the request.
+func (rc *RequestContext) LogRequest() {
+	rc.logger.Log(FormatRequestLog(DefaultRequestLogFormat, rc))
+}
+
+// LogRequestWithW3CFormat consumes the context and writes a log message for the request.
+func (rc *RequestContext) LogRequestWithW3CFormat(format string) {
+	rc.logger.Log(FormatRequestLog(format, rc))
 }
 
 // --------------------------------------------------------------------------------
 // Basic result providers
 // --------------------------------------------------------------------------------
 
-func (hc *HTTPContext) Raw(contentType string, body []byte) *RawResult {
+// Raw returns a binary response body, sniffing the content type.
+func (rc *RequestContext) Raw(body []byte) *RawResult {
+	sniffedContentType := http.DetectContentType(body)
+	return rc.RawWithContentType(sniffedContentType, body)
+}
+
+// RawWithContentType returns a binary response with a given content type.
+func (rc *RequestContext) RawWithContentType(contentType string, body []byte) *RawResult {
 	return &RawResult{ContentType: contentType, Body: body}
 }
 
 // NoContent returns a service response.
-func (hc *HTTPContext) NoContent() *NoContentResult {
+func (rc *RequestContext) NoContent() *NoContentResult {
 	return &NoContentResult{}
 }
 
 // Static returns a static result.
-func (hc *HTTPContext) Static(filePath string) *StaticResult {
+func (rc *RequestContext) Static(filePath string) *StaticResult {
 	return &StaticResult{
 		FilePath: filePath,
 	}
 }
 
 // Redirect returns a redirect result.
-func (hc *HTTPContext) Redirect(path string) *RedirectResult {
+func (rc *RequestContext) Redirect(path string) *RedirectResult {
 	return &RedirectResult{
 		RedirectURI: path,
 	}
@@ -271,38 +291,38 @@ func (hc *HTTPContext) Redirect(path string) *RedirectResult {
 // --------------------------------------------------------------------------------
 
 // StatusCode returns the status code for the request, this is used for logging.
-func (hc HTTPContext) getStatusCode() int {
-	return hc.statusCode
+func (rc *RequestContext) getStatusCode() int {
+	return rc.statusCode
 }
 
 // SetStatusCode sets the status code for the request, this is used for logging.
-func (hc *HTTPContext) setStatusCode(code int) {
-	hc.statusCode = code
+func (rc *RequestContext) setStatusCode(code int) {
+	rc.statusCode = code
 }
 
 // ContentLength returns the content length for the request, this is used for logging.
-func (hc HTTPContext) getContentLength() int {
-	return hc.contentLength
+func (rc *RequestContext) getContentLength() int {
+	return rc.contentLength
 }
 
 // SetContentLength sets the content length, this is used for logging.
-func (hc *HTTPContext) setContentLength(length int) {
-	hc.contentLength = length
+func (rc *RequestContext) setContentLength(length int) {
+	rc.contentLength = length
 }
 
 // OnRequestStart will mark the start of request timing.
-func (hc *HTTPContext) onRequestStart() {
-	hc.requestStart = time.Now().UTC()
+func (rc *RequestContext) onRequestStart() {
+	rc.requestStart = time.Now().UTC()
 }
 
 // OnRequestEnd will mark the end of request timing.
-func (hc *HTTPContext) onRequestEnd() {
-	hc.requestEnd = time.Now().UTC()
+func (rc *RequestContext) onRequestEnd() {
+	rc.requestEnd = time.Now().UTC()
 }
 
 // Elapsed is the time delta between start and end.
-func (hc *HTTPContext) elapsed() time.Duration {
-	return hc.requestEnd.Sub(hc.requestStart)
+func (rc *RequestContext) elapsed() time.Duration {
+	return rc.requestEnd.Sub(rc.requestStart)
 }
 
 // --------------------------------------------------------------------------------
@@ -374,14 +394,14 @@ func MockResponse(responseBuffer *bytes.Buffer) http.ResponseWriter {
 	return &mockResponseWriter{statusCode: http.StatusOK, contents: responseBuffer, headers: http.Header{}}
 }
 
-// MockHTTPContext returns a mocked HTTPContext.
-func MockHTTPContext(verb string, params httprouter.Params, header http.Header, queryString url.Values, postBody *bytes.Buffer, responseBuffer *bytes.Buffer) *HTTPContext {
+// MockRequestContext returns a mocked HTTPContext.
+func MockRequestContext(verb string, params RouteParameters, header http.Header, queryString url.Values, postBody *bytes.Buffer, responseBuffer *bytes.Buffer) *RequestContext {
 	mockRequest := MockRequest(verb, header, queryString, postBody)
 	mockResponse := MockResponse(responseBuffer)
 
 	if params == nil {
-		params = httprouter.Params{}
+		params = RouteParameters{}
 	}
 
-	return NewHTTPContext(mockResponse, mockRequest, params)
+	return NewRequestContext(mockResponse, mockRequest, params)
 }

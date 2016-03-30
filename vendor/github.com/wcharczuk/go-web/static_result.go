@@ -12,7 +12,7 @@ type StaticResult struct {
 }
 
 // Render renders a static result.
-func (sr StaticResult) Render(ctx *HTTPContext) error {
+func (sr StaticResult) Render(ctx *RequestContext) error {
 	f, err := os.Open(sr.FilePath)
 	if err != nil {
 		return err

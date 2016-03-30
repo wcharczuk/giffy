@@ -10,7 +10,7 @@ type RawResult struct {
 }
 
 // Render renders the result.
-func (rr RawResult) Render(ctx *HTTPContext) error {
+func (rr RawResult) Render(ctx *RequestContext) error {
 	if len(rr.ContentType) != 0 {
 		ctx.Response.Header().Set("Content-Type", rr.ContentType)
 	}

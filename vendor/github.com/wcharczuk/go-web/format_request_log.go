@@ -2,11 +2,8 @@ package web
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/blendlabs/go-util"
 )
@@ -74,44 +71,8 @@ var RequestLogItemsWithPrefix = []string{
 	RequestLogItemURIQuery,
 }
 
-var logger *log.Logger
-var errorLogger *log.Logger
-
-// SetLoggerStd sets the logger to os.Stdout.
-func SetLoggerStd() {
-	logger = log.New(os.Stdout, "", 0)      // we don't use any flags
-	errorLogger = log.New(os.Stderr, "", 0) // we don't use any flags here either
-}
-
-// SetLogger sets the logger to a custom instance.
-func SetLogger(l *log.Logger) {
-	logger = l
-}
-
-// SetErrorLogger sets the logger to a custom instance.
-func SetErrorLogger(logger *log.Logger) {
-	errorLogger = logger
-}
-
-// Logger returns the logger
-func Logger() *log.Logger {
-	return logger
-}
-
-// ErrorLogger returns the error logger
-func ErrorLogger() *log.Logger {
-	if errorLogger != nil {
-		return errorLogger
-	}
-	return logger
-}
-
-func getLoggingTimestamp() string {
-	timestamp := time.Now().UTC().Format(time.RFC3339)
-	return util.Color(timestamp, util.ColorGray)
-}
-
-func formatFileSize(sizeBytes int) string {
+// FormatFileSize returns a pretty representation of a file size in bytes.
+func FormatFileSize(sizeBytes int) string {
 	if sizeBytes >= 1<<30 {
 		return fmt.Sprintf("%.2fgB", float64(sizeBytes)/float64(1<<30))
 	} else if sizeBytes >= 1<<20 {
@@ -122,7 +83,8 @@ func formatFileSize(sizeBytes int) string {
 	return fmt.Sprintf("%dB", sizeBytes)
 }
 
-func escapeRequestLogOutput(format string, context *HTTPContext) string {
+// FormatRequestLog logs a request based on a context.
+func FormatRequestLog(format string, context *RequestContext) string {
 	output := format
 
 	//log item: datetime
@@ -134,7 +96,7 @@ func escapeRequestLogOutput(format string, context *HTTPContext) string {
 	output = strings.Replace(output, RequestLogItemTimeTaken, timeTakenStr, -1)
 
 	//log item: bytes
-	contentLengthStr := fmt.Sprintf("%v", formatFileSize(context.getContentLength()))
+	contentLengthStr := fmt.Sprintf("%v", FormatFileSize(context.getContentLength()))
 	output = strings.Replace(output, RequestLogItemBytes, contentLengthStr, -1)
 
 	//log item: cached
@@ -183,41 +145,4 @@ func escapeRequestLogOutput(format string, context *HTTPContext) string {
 	output = strings.Replace(output, RequestLogItemURIQuery, rawQuery, -1)
 
 	return output
-}
-
-// Log writes to the log output.
-func Log(a ...interface{}) {
-	if logger == nil {
-		return
-	}
-	timestamp := getLoggingTimestamp()
-	output := fmt.Sprint(a...)
-	logger.Printf("%s %s\n", timestamp, output)
-}
-
-// Logf writes to the log with a given format.
-func Logf(format string, a ...interface{}) {
-	if logger == nil {
-		return
-	}
-	timestamp := getLoggingTimestamp()
-	output := fmt.Sprintf(format, a...)
-	logger.Printf("%s %s\n", timestamp, output)
-}
-
-// LogError logs to the error logger.
-func LogError(a ...interface{}) {
-	output := fmt.Sprint(a...)
-	LogErrorf("%s", output)
-}
-
-// LogErrorf logs to the error logger with a format.
-func LogErrorf(format string, a ...interface{}) {
-	timestamp := getLoggingTimestamp()
-	output := fmt.Sprintf(format, a...)
-	if errorLogger != nil {
-		errorLogger.Printf("%s %s %s\n", timestamp, util.Color("error", util.ColorRed), output)
-	} else if logger != nil {
-		logger.Printf("%s %s %s\n", timestamp, util.Color("error", util.ColorRed), output)
-	}
 }

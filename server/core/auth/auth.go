@@ -2,7 +2,6 @@ package auth
 
 import (
 	"github.com/blendlabs/spiffy"
-	"github.com/julienschmidt/httprouter"
 	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/model"
@@ -54,33 +53,33 @@ func VerifySession(sessionID string) (*Session, error) {
 }
 
 // SessionAwareControllerAction is an controller action that also gets the session passed in.
-type SessionAwareControllerAction func(session *Session, ctx *web.HTTPContext) web.ControllerResult
+type SessionAwareControllerAction func(session *Session, r *web.RequestContext) web.ControllerResult
 
 // APISessionAwareAction inserts the session into the context.
-func APISessionAwareAction(action SessionAwareControllerAction) httprouter.Handle {
-	return SessionAwareAction(web.ProviderAPI, action)
+func APISessionAwareAction(action SessionAwareControllerAction) web.ControllerAction {
+	return SessionAwareAction(web.NewAPIResultProvider(nil), action)
 }
 
 // APISessionRequiredAction is an action that requires the user to be logged in.
-func APISessionRequiredAction(action SessionAwareControllerAction) httprouter.Handle {
-	return SessionRequiredAction(web.ProviderAPI, action)
+func APISessionRequiredAction(action SessionAwareControllerAction) web.ControllerAction {
+	return SessionRequiredAction(web.NewAPIResultProvider(nil), action)
 }
 
 // ViewSessionAwareAction inserts the session into the context.
-func ViewSessionAwareAction(action SessionAwareControllerAction) httprouter.Handle {
-	return SessionAwareAction(web.ProviderView, action)
+func ViewSessionAwareAction(action SessionAwareControllerAction) web.ControllerAction {
+	return SessionAwareAction(web.NewViewResultProvider(nil, nil), action)
 }
 
 // ViewSessionRequiredAction is an action that requires the user to be logged in.
-func ViewSessionRequiredAction(action SessionAwareControllerAction) httprouter.Handle {
-	return SessionRequiredAction(web.ProviderView, action)
+func ViewSessionRequiredAction(action SessionAwareControllerAction) web.ControllerAction {
+	return SessionRequiredAction(web.NewViewResultProvider(nil, nil), action)
 }
 
 // SessionAwareAction injects the current session (if there is one) into the middleware.
 // CAVEAT; we lock on session, so there cannot be multiple concurrent session aware requests (!!).
-func SessionAwareAction(resultProvider web.HTTPResultProvider, action SessionAwareControllerAction) httprouter.Handle {
-	return web.Render(func(ctx *web.HTTPContext) web.ControllerResult {
-		sessionID := ctx.Param(SessionParamName)
+func SessionAwareAction(resultProvider web.ControllerResultProvider, action SessionAwareControllerAction) web.ControllerAction {
+	return func(r *web.RequestContext) web.ControllerResult {
+		sessionID := r.Param(SessionParamName)
 		if len(sessionID) != 0 {
 			session, err := VerifySession(sessionID)
 			if err != nil {
@@ -91,17 +90,17 @@ func SessionAwareAction(resultProvider web.HTTPResultProvider, action SessionAwa
 				defer session.Unlock()
 			}
 
-			return action(session, ctx)
+			return action(session, r)
 		}
-		return action(nil, ctx)
-	})
+		return action(nil, r)
+	}
 }
 
 // SessionRequiredAction is an action that requires session.
 // CAVEAT; we lock on session, so there cannot be multiple concurrent session aware requests (!!).
-func SessionRequiredAction(resultProvider web.HTTPResultProvider, action SessionAwareControllerAction) httprouter.Handle {
-	return web.Render(func(ctx *web.HTTPContext) web.ControllerResult {
-		sessionID := ctx.Param(SessionParamName)
+func SessionRequiredAction(resultProvider web.ControllerResultProvider, action SessionAwareControllerAction) web.ControllerAction {
+	return func(r *web.RequestContext) web.ControllerResult {
+		sessionID := r.Param(SessionParamName)
 		if len(sessionID) == 0 {
 			return resultProvider.NotAuthorized()
 		}
@@ -120,6 +119,6 @@ func SessionRequiredAction(resultProvider web.HTTPResultProvider, action Session
 		session.Lock()
 		defer session.Unlock()
 
-		return action(session, ctx)
-	})
+		return action(session, r)
+	}
 }

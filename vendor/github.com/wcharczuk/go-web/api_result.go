@@ -17,7 +17,7 @@ type APIResult struct {
 }
 
 // Render turns the response into JSON.
-func (ar *APIResult) Render(ctx *HTTPContext) error {
+func (ar *APIResult) Render(ctx *RequestContext) error {
 	_, err := WriteJSON(ctx.Response, ctx.Request, ar.Meta.HTTPCode, ar)
 	return err
 }

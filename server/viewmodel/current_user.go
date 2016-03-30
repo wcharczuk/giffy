@@ -6,7 +6,6 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/go-web"
 )
 
 // CurrentUser is the response for the current user api service.
@@ -31,7 +30,7 @@ func (cu *CurrentUser) SetFromUser(u *model.User) {
 }
 
 // SetLoggedOut does things.
-func (cu *CurrentUser) SetLoggedOut(ctx *web.HTTPContext) {
+func (cu *CurrentUser) SetLoggedOut() {
 	cu.IsLoggedIn = false
 	cu.GoogleLoginURL = fmt.Sprintf(
 		"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=%s&redirect_uri=%s&scope=https://www.googleapis.com/auth/userinfo.email%%20https://www.googleapis.com/auth/userinfo.profile",

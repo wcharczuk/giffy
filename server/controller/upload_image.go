@@ -11,7 +11,6 @@ import (
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/spiffy"
-	"github.com/julienschmidt/httprouter"
 	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/core/auth"
@@ -23,28 +22,28 @@ import (
 // UploadImage is the controller responsible for image actions.
 type UploadImage struct{}
 
-func (ic UploadImage) uploadImageAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (ic UploadImage) uploadImageAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
 	if !session.User.IsModerator {
-		return ctx.View.NotAuthorized()
+		return r.View().NotAuthorized()
 	}
 
-	return ctx.View.View("upload_image", nil)
+	return r.View().View("upload_image", nil)
 }
 
-func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.HTTPContext) web.ControllerResult {
+func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
 	if !session.User.IsModerator {
-		return ctx.View.NotAuthorized()
+		return r.View().NotAuthorized()
 	}
 
 	var fileContents []byte
 	var fileName string
 
-	imageURL := ctx.Param("image_url")
+	imageURL := r.Param("image_url")
 	if len(imageURL) != 0 {
 
 		refURL, err := url.Parse(imageURL)
 		if err != nil {
-			return ctx.View.BadRequest("`image_url` was malformed.")
+			return r.View().BadRequest("`image_url` was malformed.")
 		}
 
 		res, err := external.NewRequest().
@@ -55,32 +54,32 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 			FetchRawResponse()
 
 		if err != nil {
-			return ctx.View.InternalError(err)
+			return r.View().InternalError(err)
 		}
 
 		if res.StatusCode != http.StatusOK {
-			return ctx.View.BadRequest("Non 200 returned from `image_url` host.")
+			return r.View().BadRequest("Non 200 returned from `image_url` host.")
 		}
 		defer res.Body.Close()
 		bytes, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			return ctx.View.InternalError(err)
+			return r.View().InternalError(err)
 		}
 
 		fileName = path.Base(refURL.Path)
 		fileContents = bytes
 	} else {
-		files, filesErr := ctx.PostedFiles()
+		files, filesErr := r.PostedFiles()
 		if filesErr != nil {
-			return ctx.View.BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
+			return r.View().BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
 		}
 
 		if len(files) == 0 {
-			return ctx.View.BadRequest("No files posted.")
+			return r.View().BadRequest("No files posted.")
 		}
 
 		if len(files) > 1 {
-			return ctx.View.BadRequest("Too many files posted.")
+			return r.View().BadRequest("Too many files posted.")
 		}
 
 		fileName = files[0].Filename
@@ -90,23 +89,23 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, ctx *web.
 	md5sum := model.ConvertMD5(md5.Sum(fileContents))
 	existing, err := model.GetImageByMD5(md5sum, nil)
 	if err != nil {
-		return ctx.View.InternalError(err)
+		return r.View().InternalError(err)
 	}
 
 	if !existing.IsZero() {
-		return ctx.View.View("upload_image_complete", existing)
+		return r.View().View("upload_image_complete", existing)
 	}
 
 	image, err := CreateImageFromFile(session.UserID, fileContents, fileName)
 	if err != nil {
-		return ctx.View.InternalError(err)
+		return r.View().InternalError(err)
 	}
 	if image == nil {
-		return ctx.View.InternalError(exception.New("Nil image returned from `createImageFromFile`."))
+		return r.View().InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
 
 	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
-	return ctx.View.View("upload_image_complete", image)
+	return r.View().View("upload_image_complete", image)
 }
 
 // CreateImageFromFile creates and uploads a new image.
@@ -135,7 +134,7 @@ func CreateImageFromFile(userID int64, fileContents []byte, fileName string) (*m
 }
 
 // Register registers the controllers routes.
-func (ic UploadImage) Register(router *httprouter.Router) {
-	router.GET("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageAction))
-	router.POST("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageCompleteAction))
+func (ic UploadImage) Register(app *web.App) {
+	app.GET("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageAction))
+	app.POST("/images/upload", auth.ViewSessionRequiredAction(ic.uploadImageCompleteAction))
 }

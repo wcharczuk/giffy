@@ -1,9 +1,11 @@
 package main
 
 import (
+	"log"
+
 	"github.com/wcharczuk/giffy/server"
 )
 
 func main() {
-	server.Start(server.Init())
+	log.Fatal(server.Init().Start())
 }
