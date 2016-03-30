@@ -37,11 +37,6 @@ func GetSiteStats(tx *sql.Tx) (*SiteStats, error) {
 	var karmaTotal int
 	var orphanedTagCount int
 
-	var userDaily []StatAtTime
-	var imageDaily []StatAtTime
-	var tagDaily []StatAtTime
-	var karmaTotalDaily []StatAtTime
-
 	err := spiffy.DefaultDb().QueryInTransaction(userCountQuery, tx).Scan(&userCount)
 	if err != nil {
 		return nil, err
