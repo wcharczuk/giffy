@@ -38,10 +38,6 @@ type App struct {
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
 
-	notFoundHandler         ControllerAction
-	methodNotAllowedHandler ControllerAction
-	panicHandlerHandler     PanicControllerAction
-
 	port string
 }
 
@@ -152,17 +148,17 @@ func (a *App) Static(path string, root http.FileSystem) {
 
 // SetNotFoundHandler sets the not found handler.
 func (a *App) SetNotFoundHandler(handler ControllerAction) {
-	a.notFoundHandler = handler
+	a.router.SetNotFoundHandler(handler)
 }
 
 // SetMethodNotAllowedHandler sets the not found handler.
 func (a *App) SetMethodNotAllowedHandler(handler ControllerAction) {
-	a.methodNotAllowedHandler = handler
+	a.router.SetMethodNotAllowedHandler(handler)
 }
 
 // SetPanicHandler sets the not found handler.
 func (a *App) SetPanicHandler(handler PanicControllerAction) {
-	a.panicHandlerHandler = handler
+	a.router.SetPanicHandler(handler)
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
