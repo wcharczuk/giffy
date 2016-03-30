@@ -32,7 +32,10 @@ func (ar *APIResultProvider) NotAuthorized() ControllerResult {
 
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) ControllerResult {
-	ar.logger.Errorf("%v", err)
+	if ar.logger != nil {
+		ar.logger.Errorf("%v", err)
+	}
+
 	if exPtr, isException := err.(*exception.Exception); isException {
 		return &APIResult{
 			Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: "An internal server error occurred.", Exception: exPtr},

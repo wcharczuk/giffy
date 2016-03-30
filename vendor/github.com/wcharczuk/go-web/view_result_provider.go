@@ -16,16 +16,6 @@ type ViewResultProvider struct {
 	logger    Logger
 }
 
-// View returns a view result.
-func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) ControllerResult {
-	return &ViewResult{
-		StatusCode: http.StatusOK,
-		ViewModel:  viewModel,
-		Template:   viewName,
-		viewCache:  vr.viewCache,
-	}
-}
-
 // BadRequest returns a view result.
 func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 	return &ViewResult{
@@ -38,7 +28,10 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
-	vr.logger.Errorf("%v", err)
+	if vr.logger != nil {
+		vr.logger.Errorf("%v", err)
+	}
+
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
@@ -60,9 +53,19 @@ func (vr *ViewResultProvider) NotFound() ControllerResult {
 // NotAuthorized returns a view result.
 func (vr *ViewResultProvider) NotAuthorized() ControllerResult {
 	return &ViewResult{
-		StatusCode: http.StatusUnauthorized,
+		StatusCode: http.StatusForbidden,
 		ViewModel:  nil,
 		Template:   "not_authorized",
+		viewCache:  vr.viewCache,
+	}
+}
+
+// View returns a view result.
+func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) ControllerResult {
+	return &ViewResult{
+		StatusCode: http.StatusOK,
+		ViewModel:  viewModel,
+		Template:   viewName,
 		viewCache:  vr.viewCache,
 	}
 }

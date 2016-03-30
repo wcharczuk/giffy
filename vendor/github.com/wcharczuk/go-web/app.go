@@ -67,6 +67,19 @@ func (a *App) SetLogger(l Logger) {
 	}
 }
 
+// ViewCache gets the view cache for the app.
+func (a *App) ViewCache() *template.Template {
+	return a.viewCache
+}
+
+// SetViewCache sets the view cache for the app.
+func (a *App) SetViewCache(viewCache *template.Template) {
+	a.viewCache = viewCache
+	if a.viewResultProvider != nil {
+		a.viewResultProvider.viewCache = viewCache
+	}
+}
+
 // Port returns the port for the app.
 func (a *App) Port() string {
 	return a.port
