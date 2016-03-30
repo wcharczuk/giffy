@@ -220,7 +220,7 @@ func parseParams(p httprouter.Params) RouteParameters {
 func (a *App) renderUncompressed(action ControllerAction, w http.ResponseWriter, r *http.Request, p RouteParameters) {
 	w.Header().Set("Vary", "Accept-Encoding")
 	rw := NewResponseWriter(w)
-	context := NewRequestContext(rw, r, p)
+	context := a.RequestContext(rw, r, p)
 	context.onRequestStart()
 	context.Render(action(context))
 	context.setStatusCode(rw.StatusCode)
@@ -235,7 +235,7 @@ func (a *App) renderCompressed(action ControllerAction, w http.ResponseWriter, r
 
 	gzw := NewGZippedResponseWriter(w)
 	defer gzw.Close()
-	context := NewRequestContext(gzw, r, p)
+	context := a.RequestContext(gzw, r, p)
 	context.onRequestStart()
 	result := action(context)
 	context.Render(result)
