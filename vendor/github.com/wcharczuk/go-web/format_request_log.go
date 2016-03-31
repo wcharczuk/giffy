@@ -92,7 +92,7 @@ func FormatRequestLog(format string, context *RequestContext) string {
 	output = strings.Replace(output, RequestLogItemDateTime, dateTime, -1)
 
 	//log item: time-taken
-	timeTakenStr := fmt.Sprintf("%v", context.elapsed())
+	timeTakenStr := fmt.Sprintf("%v", context.Elapsed())
 	output = strings.Replace(output, RequestLogItemTimeTaken, timeTakenStr, -1)
 
 	//log item: bytes

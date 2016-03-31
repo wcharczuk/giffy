@@ -328,7 +328,7 @@ func (rc *RequestContext) onRequestEnd() {
 }
 
 // Elapsed is the time delta between start and end.
-func (rc *RequestContext) elapsed() time.Duration {
+func (rc *RequestContext) Elapsed() time.Duration {
 	return rc.requestEnd.Sub(rc.requestStart)
 }
 

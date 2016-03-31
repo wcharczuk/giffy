@@ -181,12 +181,16 @@
 			"Rev": "3cd0097429be7d611bb644ef85b42bfb102ceea4"
 		},
 		{
+			"ImportPath": "github.com/stathat/go",
+			"Rev": "91dfa3a59c5b233fef9a346a1460f6e2bc889d93"
+		},
+		{
 			"ImportPath": "github.com/wcharczuk/go-slack",
 			"Rev": "be1ee5c6d34a700aeb7bf1b78ea6c5be0f1424c4"
 		},
 		{
 			"ImportPath": "github.com/wcharczuk/go-web",
-			"Rev": "1a00db126d0c47ecb73159a2aaf86b4d281ba8ef"
+			"Rev": "00bb608d842222a256db427aa406a3c58f24292e"
 		}
 	]
 }

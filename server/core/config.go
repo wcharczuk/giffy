@@ -175,3 +175,7 @@ func ConfigSlackClientID() string {
 func ConfigSlackClientSecret() string {
 	return os.Getenv("SLACK_CLIENT_SECRET")
 }
+
+func ConfigStathatToken() string {
+	return os.Getenv("STATHAT_TOKEN")
+}
