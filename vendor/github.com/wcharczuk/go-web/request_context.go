@@ -31,6 +31,9 @@ type PostedFile struct {
 // State is the collection of state objects on a context.
 type State map[string]interface{}
 
+// RequestEventHandler is an event handler for requests.
+type RequestEventHandler func(r *RequestContext)
+
 // NewRequestContext returns a new hc context.
 func NewRequestContext(w http.ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	ctx := &RequestContext{

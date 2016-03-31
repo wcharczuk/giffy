@@ -41,6 +41,9 @@ type App struct {
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
 
+	onRequestStart    RequestEventHandler
+	onRequestComplete RequestEventHandler
+
 	port string
 }
 
@@ -195,6 +198,20 @@ func (a *App) RequestContext(w http.ResponseWriter, r *http.Request, p RoutePara
 }
 
 // --------------------------------------------------------------------------------
+// Events
+// --------------------------------------------------------------------------------
+
+// OnRequestStart fires before an action handler is run.
+func (a *App) OnRequestStart(handler RequestEventHandler) {
+	a.onRequestStart = handler
+}
+
+// OnRequestComplete fires after an action handler is run.
+func (a *App) OnRequestComplete(handler RequestEventHandler) {
+	a.onRequestComplete = handler
+}
+
+// --------------------------------------------------------------------------------
 // Render Methods
 // --------------------------------------------------------------------------------
 
@@ -221,11 +238,21 @@ func (a *App) renderUncompressed(action ControllerAction, w http.ResponseWriter,
 	w.Header().Set("Vary", "Accept-Encoding")
 	rw := NewResponseWriter(w)
 	context := a.RequestContext(rw, r, p)
+
+	if a.onRequestStart != nil {
+		a.onRequestStart(context)
+	}
+
 	context.onRequestStart()
 	context.Render(action(context))
 	context.setStatusCode(rw.StatusCode)
 	context.setContentLength(rw.ContentLength)
 	context.onRequestEnd()
+
+	if a.onRequestComplete != nil {
+		a.onRequestComplete(context)
+	}
+
 	context.LogRequest()
 }
 
@@ -236,6 +263,11 @@ func (a *App) renderCompressed(action ControllerAction, w http.ResponseWriter, r
 	gzw := NewGZippedResponseWriter(w)
 	defer gzw.Close()
 	context := a.RequestContext(gzw, r, p)
+
+	if a.onRequestStart != nil {
+		a.onRequestStart(context)
+	}
+
 	context.onRequestStart()
 	result := action(context)
 	context.Render(result)
@@ -243,6 +275,11 @@ func (a *App) renderCompressed(action ControllerAction, w http.ResponseWriter, r
 	context.setStatusCode(gzw.StatusCode)
 	context.setContentLength(gzw.BytesWritten)
 	context.onRequestEnd()
+
+	if a.onRequestComplete != nil {
+		a.onRequestComplete(context)
+	}
+
 	context.LogRequest()
 }
 
