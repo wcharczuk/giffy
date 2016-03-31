@@ -337,14 +337,18 @@ giffyControllers.controller("moderationLogController",  ["$scope", "$http", "$ro
 
 giffyControllers.controller("searchHistoryController",  ["$scope", "$http", "$routeParams", "currentUser",
 	function($scope, $http, $routeParams, currentUser) {
-		currentUser($scope);
+		currentUser($scope, function() {
+			if (!$scope.currentUser.is_moderator) {
+				window.location = "/#/"
+			}
+
+			$http.get("/api/search.history/pages/" + pageSize +"/0").success(function(datums) {
+				$scope.page = 0;
+				$scope.history = datums.response;
+			});
+		});
 
 		var pageSize = 50;
-
-		$http.get("/api/search.history/pages/" + pageSize +"/0").success(function(datums) {
-			$scope.page = 0;
-			$scope.history = datums.response;
-		});
 
 		$scope.hasPreviousPage = function() {
 			return $scope.page > 0;

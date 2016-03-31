@@ -704,7 +704,11 @@ func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web
 	return r.API().JSON(log)
 }
 
-func (api API) getRecentSearchHistoryAction(r *web.RequestContext) web.ControllerResult {
+func (api API) getRecentSearchHistoryAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+	if !session.User.IsModerator {
+		return r.API().NotAuthorized()
+	}
+
 	searchHistory, err := model.GetSearchHistory(nil)
 	if err != nil {
 		return r.API().InternalError(err)
@@ -713,7 +717,11 @@ func (api API) getRecentSearchHistoryAction(r *web.RequestContext) web.Controlle
 	return r.API().JSON(searchHistory)
 }
 
-func (api API) getSearchHistoryByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
+func (api API) getSearchHistoryByCountAndOffsetAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+	if !session.User.IsModerator {
+		return r.API().NotAuthorized()
+	}
+
 	count := r.RouteParameterInt("count")
 	offset := r.RouteParameterInt("offset")
 
@@ -833,8 +841,8 @@ func (api API) Register(app *web.App) {
 	app.GET("/api/moderation.log/recent", api.getRecentModerationLogAction)
 	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
 
-	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction)
-	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction)
+	app.GET("/api/search.history/recent", auth.SessionRequiredAction(web.ProviderAPI, api.getRecentSearchHistoryAction))
+	app.GET("/api/search.history/pages/:count/:offset", auth.SessionRequiredAction(web.ProviderAPI, api.getSearchHistoryByCountAndOffsetAction))
 
 	app.GET("/api/stats", api.getSiteStatsAction)
 
