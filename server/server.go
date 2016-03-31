@@ -1,16 +1,13 @@
 package server
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-util"
-	"github.com/stathat/go"
 	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/jobs"
 )
 
@@ -47,12 +44,11 @@ func Init() *web.App {
 	app.SetLogger(web.NewStandardOutputLogger())
 
 	app.OnRequestComplete(func(r *web.RequestContext) {
-		statHatToken := core.ConfigStathatToken()
-		if len(statHatToken) != 0 {
-			requestTimingBucket := fmt.Sprintf("request_timing_%s", core.ConfigEnvironment())
-			requestElapsed := r.Elapsed()
-			stathat.PostEZValue(requestTimingBucket, statHatToken, float64(requestElapsed/time.Millisecond))
-		}
+		external.StatHatRequestTiming(r.Elapsed())
+	})
+
+	app.OnRequestError(func(r *web.RequestContext, err interface{}) {
+		external.StatHatError()
 	})
 
 	app.Register(new(controller.Index))

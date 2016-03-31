@@ -12,21 +12,28 @@ import (
 // New returns a new app.
 func New() *App {
 	return &App{
-		router:             httprouter.New(),
-		name:               "Web",
-		apiResultProvider:  NewAPIResultProvider(nil),
-		viewResultProvider: NewViewResultProvider(nil, nil),
+		router: httprouter.New(),
+		name:   "Web",
+		onRequestStart: []RequestEventHandler{func(r *RequestContext) {
+			r.onRequestStart()
+		}},
+		onRequestComplete: []RequestEventHandler{func(r *RequestContext) {
+			r.onRequestEnd()
+		}},
+		onRequestError: []RequestEventErrorHandler{func(r *RequestContext, err interface{}) {
+			if r != nil && r.logger != nil {
+				r.logger.Error(err)
+			}
+		}},
 	}
 }
 
 // NewWithLogger returns a new app with a given logger.
 func NewWithLogger(logger Logger) *App {
 	return &App{
-		router:             httprouter.New(),
-		name:               "Web",
-		logger:             logger,
-		apiResultProvider:  NewAPIResultProvider(logger),
-		viewResultProvider: NewViewResultProvider(logger, nil),
+		router: httprouter.New(),
+		name:   "Web",
+		logger: logger,
 	}
 }
 
@@ -41,8 +48,9 @@ type App struct {
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
 
-	onRequestStart    RequestEventHandler
-	onRequestComplete RequestEventHandler
+	onRequestStart    []RequestEventHandler
+	onRequestComplete []RequestEventHandler
+	onRequestError    []RequestEventErrorHandler
 
 	port string
 }
@@ -65,12 +73,6 @@ func (a *App) Logger() Logger {
 // SetLogger sets the logger.
 func (a *App) SetLogger(l Logger) {
 	a.logger = l
-	if a.apiResultProvider != nil {
-		a.apiResultProvider.logger = l
-	}
-	if a.viewResultProvider != nil {
-		a.viewResultProvider.logger = l
-	}
 }
 
 // ViewCache gets the view cache for the app.
@@ -81,9 +83,6 @@ func (a *App) ViewCache() *template.Template {
 // SetViewCache sets the view cache for the app.
 func (a *App) SetViewCache(viewCache *template.Template) {
 	a.viewCache = viewCache
-	if a.viewResultProvider != nil {
-		a.viewResultProvider.viewCache = viewCache
-	}
 }
 
 // Port returns the port for the app.
@@ -109,6 +108,8 @@ func (a *App) Start() error {
 
 // StartWithServer starts the app on a custom server.
 func (a *App) StartWithServer(server *http.Server) error {
+	// this is the only property we will set of the server
+	// i.e. the server handler (which is this app)
 	server.Handler = a
 	a.logger.Logf("%s Started, listening on %s", a.Name(), server.Addr)
 	return server.ListenAndServe()
@@ -126,7 +127,6 @@ func (a *App) InitViewCache(paths ...string) error {
 		return err
 	}
 	a.viewCache = template.Must(views, nil)
-	a.viewResultProvider.viewCache = a.viewCache
 	return nil
 }
 
@@ -179,6 +179,8 @@ func (a *App) SetMethodNotAllowedHandler(handler ControllerAction) {
 func (a *App) SetPanicHandler(handler PanicControllerAction) {
 	a.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		a.RenderAction(func(r *RequestContext) ControllerResult {
+			a.OnRequestError(r, err)
+
 			return handler(r, err)
 		})(w, r, httprouter.Params{})
 	}
@@ -192,8 +194,8 @@ func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (a *App) RequestContext(w http.ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	hc := NewRequestContext(w, r, p)
 	hc.logger = a.logger
-	hc.view = a.viewResultProvider
-	hc.api = a.apiResultProvider
+	hc.api = NewAPIResultProvider(a, hc)
+	hc.view = NewViewResultProvider(a, hc)
 	return hc
 }
 
@@ -201,14 +203,46 @@ func (a *App) RequestContext(w http.ResponseWriter, r *http.Request, p RoutePara
 // Events
 // --------------------------------------------------------------------------------
 
-// OnRequestStart fires before an action handler is run.
-func (a *App) OnRequestStart(handler RequestEventHandler) {
-	a.onRequestStart = handler
+// OnRequestStart triggers the onRequestStart event.
+func (a *App) OnRequestStart(r *RequestContext) {
+	if len(a.onRequestStart) > 0 {
+		for _, handler := range a.onRequestStart {
+			handler(r)
+		}
+	}
 }
 
-// OnRequestComplete fires after an action handler is run.
-func (a *App) OnRequestComplete(handler RequestEventHandler) {
-	a.onRequestComplete = handler
+// OnRequestComplete triggers the onRequestStart event.
+func (a *App) OnRequestComplete(r *RequestContext) {
+	if len(a.onRequestComplete) > 0 {
+		for _, handler := range a.onRequestComplete {
+			handler(r)
+		}
+	}
+}
+
+// OnRequestError triggers the onRequestStart event.
+func (a *App) OnRequestError(r *RequestContext, err interface{}) {
+	if len(a.onRequestError) > 0 {
+		for _, handler := range a.onRequestError {
+			handler(r, err)
+		}
+	}
+}
+
+// RequestStartHandler fires before an action handler is run.
+func (a *App) RequestStartHandler(handler RequestEventHandler) {
+	a.onRequestStart = append(a.onRequestStart, handler)
+}
+
+// RequestCompleteHandler fires after an action handler is run.
+func (a *App) RequestCompleteHandler(handler RequestEventHandler) {
+	a.onRequestComplete = append(a.onRequestComplete, handler)
+}
+
+// RequestErrorHandler fires if there is an error logged.
+func (a *App) RequestErrorHandler(handler RequestEventErrorHandler) {
+	a.onRequestError = append(a.onRequestError, handler)
 }
 
 // --------------------------------------------------------------------------------
@@ -239,19 +273,13 @@ func (a *App) renderUncompressed(action ControllerAction, w http.ResponseWriter,
 	rw := NewResponseWriter(w)
 	context := a.RequestContext(rw, r, p)
 
-	if a.onRequestStart != nil {
-		a.onRequestStart(context)
-	}
+	a.OnRequestStart(context)
 
-	context.onRequestStart()
 	context.Render(action(context))
 	context.setStatusCode(rw.StatusCode)
 	context.setContentLength(rw.ContentLength)
-	context.onRequestEnd()
 
-	if a.onRequestComplete != nil {
-		a.onRequestComplete(context)
-	}
+	a.OnRequestComplete(context)
 
 	context.LogRequest()
 }
@@ -264,21 +292,15 @@ func (a *App) renderCompressed(action ControllerAction, w http.ResponseWriter, r
 	defer gzw.Close()
 	context := a.RequestContext(gzw, r, p)
 
-	if a.onRequestStart != nil {
-		a.onRequestStart(context)
-	}
+	a.OnRequestStart(context)
 
-	context.onRequestStart()
 	result := action(context)
 	context.Render(result)
 	gzw.Flush()
 	context.setStatusCode(gzw.StatusCode)
 	context.setContentLength(gzw.BytesWritten)
-	context.onRequestEnd()
 
-	if a.onRequestComplete != nil {
-		a.onRequestComplete(context)
-	}
+	a.OnRequestComplete(context)
 
 	context.LogRequest()
 }

@@ -1,19 +1,16 @@
 package web
 
-import (
-	"html/template"
-	"net/http"
-)
+import "net/http"
 
 // NewViewResultProvider creates a new ViewResults object.
-func NewViewResultProvider(logger Logger, viewCache *template.Template) *ViewResultProvider {
-	return &ViewResultProvider{logger: logger, viewCache: viewCache}
+func NewViewResultProvider(app *App, r *RequestContext) *ViewResultProvider {
+	return &ViewResultProvider{app: app, requestContext: r}
 }
 
 // ViewResultProvider returns results based on views.
 type ViewResultProvider struct {
-	viewCache *template.Template
-	logger    Logger
+	app            *App
+	requestContext *RequestContext
 }
 
 // BadRequest returns a view result.
@@ -22,21 +19,21 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 		StatusCode: http.StatusBadRequest,
 		ViewModel:  message,
 		Template:   "bad_request",
-		viewCache:  vr.viewCache,
+		viewCache:  vr.app.viewCache,
 	}
 }
 
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
-	if vr.logger != nil {
-		vr.logger.Errorf("%v", err)
+	if vr.app != nil {
+		vr.app.OnRequestError(vr.requestContext, err)
 	}
 
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
 		Template:   "error",
-		viewCache:  vr.viewCache,
+		viewCache:  vr.app.viewCache,
 	}
 }
 
@@ -46,7 +43,7 @@ func (vr *ViewResultProvider) NotFound() ControllerResult {
 		StatusCode: http.StatusNotFound,
 		ViewModel:  nil,
 		Template:   "not_found",
-		viewCache:  vr.viewCache,
+		viewCache:  vr.app.viewCache,
 	}
 }
 
@@ -56,7 +53,7 @@ func (vr *ViewResultProvider) NotAuthorized() ControllerResult {
 		StatusCode: http.StatusForbidden,
 		ViewModel:  nil,
 		Template:   "not_authorized",
-		viewCache:  vr.viewCache,
+		viewCache:  vr.app.viewCache,
 	}
 }
 
@@ -66,6 +63,6 @@ func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) Contr
 		StatusCode: http.StatusOK,
 		ViewModel:  viewModel,
 		Template:   viewName,
-		viewCache:  vr.viewCache,
+		viewCache:  vr.app.viewCache,
 	}
 }

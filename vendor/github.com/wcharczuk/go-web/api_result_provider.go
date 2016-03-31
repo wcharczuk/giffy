@@ -7,13 +7,14 @@ import (
 )
 
 // NewAPIResultProvider Creates a new APIResults object.
-func NewAPIResultProvider(logger Logger) *APIResultProvider {
-	return &APIResultProvider{logger: logger}
+func NewAPIResultProvider(app *App, r *RequestContext) *APIResultProvider {
+	return &APIResultProvider{app: app, requestContext: r}
 }
 
 // APIResultProvider are context results for api methods.
 type APIResultProvider struct {
-	logger Logger
+	app            *App
+	requestContext *RequestContext
 }
 
 // NotFound returns a service response.
@@ -32,8 +33,8 @@ func (ar *APIResultProvider) NotAuthorized() ControllerResult {
 
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) ControllerResult {
-	if ar.logger != nil {
-		ar.logger.Errorf("%v", err)
+	if ar.app != nil {
+		ar.app.OnRequestError(ar.requestContext, err)
 	}
 
 	if exPtr, isException := err.(*exception.Exception); isException {

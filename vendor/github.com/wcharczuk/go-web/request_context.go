@@ -34,6 +34,9 @@ type State map[string]interface{}
 // RequestEventHandler is an event handler for requests.
 type RequestEventHandler func(r *RequestContext)
 
+// RequestEventErrorHandler is fired when an error occurs.
+type RequestEventErrorHandler func(r *RequestContext, err interface{})
+
 // NewRequestContext returns a new hc context.
 func NewRequestContext(w http.ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	ctx := &RequestContext{
