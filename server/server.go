@@ -48,9 +48,11 @@ func Init() *web.App {
 
 	app.OnRequestComplete(func(r *web.RequestContext) {
 		statHatToken := core.ConfigStathatToken()
-		requestTimingBucket := fmt.Sprintf("request_timing_%s", core.ConfigEnvironment())
-		requestElapsed := r.Elapsed()
-		stathat.PostEZValue(requestTimingBucket, statHatToken, float64(requestElapsed/time.Millisecond))
+		if len(statHatToken) != 0 {
+			requestTimingBucket := fmt.Sprintf("request_timing_%s", core.ConfigEnvironment())
+			requestElapsed := r.Elapsed()
+			stathat.PostEZValue(requestTimingBucket, statHatToken, float64(requestElapsed/time.Millisecond))
+		}
 	})
 
 	app.Register(new(controller.Index))
