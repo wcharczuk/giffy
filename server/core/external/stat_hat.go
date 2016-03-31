@@ -25,3 +25,12 @@ func StatHatError() {
 		stathat.PostEZCount(errorCountBucket, statHatToken, 1)
 	}
 }
+
+//StatHatSeach logs a search.
+func StatHatSeach() {
+	statHatToken := core.ConfigStathatToken()
+	if len(statHatToken) != 0 {
+		seachCountBucket := fmt.Sprintf("search_count_%s", core.ConfigEnvironment())
+		stathat.PostEZCount(seachCountBucket, statHatToken, 1)
+	}
+}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
+	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/core/filecache"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
@@ -103,6 +104,8 @@ func (api API) searchImagesSlackAction(r *web.RequestContext) web.ControllerResu
 	if err != nil {
 		return r.API().InternalError(err)
 	}
+
+	external.StatHatSeach()
 	return r.RawWithContentType("application/json; charset=utf-8", responseBytes)
 }
 
