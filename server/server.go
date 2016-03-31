@@ -43,11 +43,11 @@ func Init() *web.App {
 	app.InitViewCache(paths...)
 	app.SetLogger(web.NewStandardOutputLogger())
 
-	app.OnRequestComplete(func(r *web.RequestContext) {
+	app.RequestCompleteHandler(func(r *web.RequestContext) {
 		external.StatHatRequestTiming(r.Elapsed())
 	})
 
-	app.OnRequestError(func(r *web.RequestContext, err interface{}) {
+	app.RequestErrorHandler(func(r *web.RequestContext, err interface{}) {
 		external.StatHatError()
 	})
 

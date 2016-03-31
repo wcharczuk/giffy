@@ -868,5 +868,5 @@ func (api API) Register(app *web.App) {
 	app.POST("/api/job/:job_id", auth.SessionRequiredAction(web.ProviderAPI, api.runJobAction))
 
 	// auth endpoints
-	app.POST("/api/logout", auth.APISessionAwareAction(api.logoutAction))
+	app.POST("/api/logout", auth.SessionAwareAction(web.ProviderAPI, api.logoutAction))
 }

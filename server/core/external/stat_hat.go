@@ -18,7 +18,7 @@ func StatHatRequestTiming(timing time.Duration) {
 }
 
 // StatHatError posts the request timing to stat hat.
-func StatHatError(timing time.Duration) {
+func StatHatError() {
 	statHatToken := core.ConfigStathatToken()
 	if len(statHatToken) != 0 {
 		errorCountBucket := fmt.Sprintf("error_count_%s", core.ConfigEnvironment())
