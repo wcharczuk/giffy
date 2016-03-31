@@ -111,7 +111,7 @@ giffyDirectives.directive('voteButton',
 				link: '=',
 				userVote: '=',
 				object: '=',
-		currentUser: '='
+				currentUser: '='
 			},
 			controller: 'voteButtonController',
 			templateUrl: '/static/partials/controls/vote_button.html'
@@ -137,7 +137,7 @@ giffyDirectives.controller('voteButtonController', [ "$scope", "voteAPI",
 		}
 
 		$scope.isOnlyVoteCount = function() {
-			if ($scope.type === "tag") {
+			if ($scope.type === "image") {
 				if (!$scope.currentUser.is_logged_in) {
 					return true;
 				}

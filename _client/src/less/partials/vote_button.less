@@ -1,31 +1,31 @@
 .vote-button {
-    display: inline-block;  
-    
+    display: inline-block;
+
     margin: 5px;
-    
+
     background-color: #337ab7;
     border: 1px solid #2e6da4;
     border-radius: 4px;
 
     .vote-button-part {
         font-size:18px;
-        
+
         display:inline-block;
         margin:0;
         padding:6px;
-        
+
         color: #fff;
-        
+
         line-height: 24px;
 
         text-align: center;
-        vertical-align: middle;   
-        
+        vertical-align: middle;
+
         vertical-align: middle;
         line-height: 24px;
     }
 
-    .vote-count {
+    .vote-button-part.vote-count {
         border-top-left-radius: 4px;
         border-bottom-left-radius: 4px;
         padding-left:10px;
@@ -34,6 +34,16 @@
         background-color: #fff;
         color: black;
     }
+
+
+    .vote-button-part.vote-count.singleton {
+        border-radius: 4px;
+        border-right: none;
+
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
 
     .vote-controls {
         padding:0;
@@ -48,7 +58,7 @@
         line-height: 12px;
         padding-left: 5px;
         padding-right: 5px;
-    } 
+    }
     .vote-arrow.voted {
         background-color: #2e6da4
     }
@@ -58,7 +68,7 @@
     .vote-arrow:active {
         background-color: #286090
     }
-    
+
     .vote-upvote {
         padding-top: 4px;
         border-bottom:  1px solid #2e6da4;
@@ -66,14 +76,14 @@
     .vote-downvote {
         padding-bottom: 5px;
     }
-    
+
     .vote-detail-link {
         padding-top: 5px;
         padding-bottom: 7px;
         padding-right: 16px;
         text-transform: lowercase;
     }
-    
+
     .vote-detail-link a {
         color: #fff;
     }
@@ -81,12 +91,12 @@
     .vote-detail-link a:hover {
         text-decoration: none;
     }
-    
+
     .vote-remove {
         cursor: pointer;
         border-left: 1px solid #2e6da4
     }
-    
+
     .vote-remove:hover {
         background-color: #2e6da4
     }
