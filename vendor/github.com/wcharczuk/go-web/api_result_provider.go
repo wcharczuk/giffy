@@ -20,14 +20,26 @@ type APIResultProvider struct {
 // NotFound returns a service response.
 func (ar *APIResultProvider) NotFound() ControllerResult {
 	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusNotFound, Message: "Not Found."},
+		StatusCode: http.StatusNotFound,
+		Response: &APIResponse{
+			Meta: &APIResponseMeta{
+				HTTPCode: http.StatusNotFound,
+				Message:  "Not Found.",
+			},
+		},
 	}
 }
 
 // NotAuthorized returns a service response.
 func (ar *APIResultProvider) NotAuthorized() ControllerResult {
 	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusForbidden, Message: "Not Authorized."},
+		StatusCode: http.StatusForbidden,
+		Response: &APIResponse{
+			Meta: &APIResponseMeta{
+				HTTPCode: http.StatusForbidden,
+				Message:  "Not Authorized",
+			},
+		},
 	}
 }
 
@@ -39,32 +51,63 @@ func (ar *APIResultProvider) InternalError(err error) ControllerResult {
 
 	if exPtr, isException := err.(*exception.Exception); isException {
 		return &APIResult{
-			Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: "An internal server error occurred.", Exception: exPtr},
+			StatusCode: http.StatusInternalServerError,
+			Response: &APIResponse{
+				Meta: &APIResponseMeta{
+					HTTPCode:  http.StatusInternalServerError,
+					Message:   "An internal server error occurred.",
+					Exception: exPtr,
+				},
+			},
 		}
 	}
 	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusInternalServerError, Message: err.Error()},
+		StatusCode: http.StatusInternalServerError,
+		Response: &APIResponse{
+			Meta: &APIResponseMeta{
+				HTTPCode: http.StatusInternalServerError,
+				Message:  err.Error(),
+			},
+		},
 	}
 }
 
 // BadRequest returns a service response.
 func (ar *APIResultProvider) BadRequest(message string) ControllerResult {
 	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusBadRequest, Message: message},
+		StatusCode: http.StatusBadRequest,
+		Response: &APIResponse{
+			Meta: &APIResponseMeta{
+				HTTPCode: http.StatusBadRequest,
+				Message:  "User error / Bad request",
+			},
+		},
 	}
 }
 
 // OK returns a service response.
 func (ar *APIResultProvider) OK() ControllerResult {
 	return &APIResult{
-		Meta: &APIResultMeta{HTTPCode: http.StatusOK, Message: "OK!"},
+		StatusCode: http.StatusOK,
+		Response: &APIResponse{
+			Meta: &APIResponseMeta{
+				HTTPCode: http.StatusOK,
+				Message:  "OK!",
+			},
+		},
 	}
 }
 
 // JSON returns a service response.
 func (ar *APIResultProvider) JSON(response interface{}) ControllerResult {
 	return &APIResult{
-		Meta:     &APIResultMeta{HTTPCode: http.StatusOK, Message: "OK!"},
-		Response: response,
+		StatusCode: http.StatusOK,
+		Response: &APIResponse{
+			Meta: &APIResponseMeta{
+				HTTPCode: http.StatusOK,
+				Message:  "OK!",
+			},
+			Response: response,
+		},
 	}
 }

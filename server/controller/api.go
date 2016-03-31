@@ -817,41 +817,41 @@ func (api API) runJobAction(session *auth.Session, r *web.RequestContext) web.Co
 // Register adds the routes to the app.
 func (api API) Register(app *web.App) {
 	app.GET("/api/users", api.getUsersAction)
-	app.GET("/api/users.search", auth.APISessionRequiredAction(api.searchUsersAction))
+	app.GET("/api/users.search", auth.SessionRequiredAction(web.ProviderAPI, api.searchUsersAction))
 
 	app.GET("/api/user/:user_id", api.getUserAction)
-	app.PUT("/api/user/:user_id", auth.APISessionRequiredAction(api.updateUserAction))
+	app.PUT("/api/user/:user_id", auth.SessionRequiredAction(web.ProviderAPI, api.updateUserAction))
 	app.GET("/api/user.images/:user_id", api.getUserImagesAction)
-	app.GET("/api/user.votes.image/:image_id", auth.APISessionRequiredAction(api.getVotesForUserForImageAction))
-	app.GET("/api/user.votes.tag/:tag_id", auth.APISessionRequiredAction(api.getVotesForUserForTagAction))
-	app.DELETE("/api/user.vote/:image_id/:tag_id", auth.APISessionRequiredAction(api.deleteUserVoteAction))
+	app.GET("/api/user.votes.image/:image_id", auth.SessionRequiredAction(web.ProviderAPI, api.getVotesForUserForImageAction))
+	app.GET("/api/user.votes.tag/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.getVotesForUserForTagAction))
+	app.DELETE("/api/user.vote/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteUserVoteAction))
 
 	app.GET("/api/images", api.getImagesAction)
-	app.POST("/api/images", auth.APISessionRequiredAction(api.createImageAction))
+	app.POST("/api/images", auth.SessionRequiredAction(web.ProviderAPI, api.createImageAction))
 	app.GET("/api/images/random/:count", api.getRandomImagesAction)
 	app.GET("/api/images.search", api.searchImagesAction)
 	app.GET("/api/images.search/slack", api.searchImagesSlackAction)
 	app.POST("/api/images.search/slack", api.searchImagesSlackAction)
 
 	app.GET("/api/image/:image_id", api.getImageAction)
-	app.PUT("/api/image/:image_id", auth.APISessionRequiredAction(api.updateImageAction))
-	app.DELETE("/api/image/:image_id", auth.APISessionRequiredAction(api.deleteImageAction))
+	app.PUT("/api/image/:image_id", auth.SessionRequiredAction(web.ProviderAPI, api.updateImageAction))
+	app.DELETE("/api/image/:image_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteImageAction))
 	app.GET("/api/image.votes/:image_id", api.getLinksForImageAction)
 	app.GET("/api/image.tags/:image_id", api.getTagsForImageAction)
 
 	app.GET("/api/tags", api.getTagsAction)
-	app.POST("/api/tags", auth.APISessionRequiredAction(api.createTagAction))
+	app.POST("/api/tags", auth.SessionRequiredAction(web.ProviderAPI, api.createTagAction))
 	app.GET("/api/tags.search", api.searchTagsAction)
 
 	app.GET("/api/tag/:tag_id", api.getTagAction)
-	app.DELETE("/api/tag/:tag_id", auth.APISessionRequiredAction(api.deleteTagAction))
+	app.DELETE("/api/tag/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteTagAction))
 	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
 	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
 
-	app.DELETE("/api/link/:image_id/:tag_id", auth.APISessionRequiredAction(api.deleteLinkAction))
+	app.DELETE("/api/link/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteLinkAction))
 
-	app.POST("/api/vote.up/:image_id/:tag_id", auth.APISessionRequiredAction(api.upvoteAction))
-	app.POST("/api/vote.down/:image_id/:tag_id", auth.APISessionRequiredAction(api.downvoteAction))
+	app.POST("/api/vote.up/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.upvoteAction))
+	app.POST("/api/vote.down/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.downvoteAction))
 
 	app.GET("/api/moderation.log/recent", api.getRecentModerationLog)
 	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
@@ -859,13 +859,13 @@ func (api API) Register(app *web.App) {
 	app.GET("/api/stats", api.getSiteStatsAction)
 
 	//session endpoints
-	app.GET("/api/session.user", auth.APISessionAwareAction(api.getCurrentUserAction))
-	app.GET("/api/session/:key", auth.APISessionRequiredAction(api.getSessionKeyAction))
-	app.POST("/api/session/:key", auth.APISessionRequiredAction(api.setSessionKeyAction))
+	app.GET("/api/session.user", auth.SessionAwareAction(web.ProviderAPI, api.getCurrentUserAction))
+	app.GET("/api/session/:key", auth.SessionRequiredAction(web.ProviderAPI, api.getSessionKeyAction))
+	app.POST("/api/session/:key", auth.SessionRequiredAction(web.ProviderAPI, api.setSessionKeyAction))
 
 	//jobs
-	app.GET("/api/jobs", auth.APISessionRequiredAction(api.getJobsStatusAction))
-	app.POST("/api/job/:job_id", auth.APISessionRequiredAction(api.runJobAction))
+	app.GET("/api/jobs", auth.SessionRequiredAction(web.ProviderAPI, api.getJobsStatusAction))
+	app.POST("/api/job/:job_id", auth.SessionRequiredAction(web.ProviderAPI, api.runJobAction))
 
 	// auth endpoints
 	app.POST("/api/logout", auth.APISessionAwareAction(api.logoutAction))

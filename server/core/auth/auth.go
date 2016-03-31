@@ -55,35 +55,15 @@ func VerifySession(sessionID string) (*Session, error) {
 // SessionAwareControllerAction is an controller action that also gets the session passed in.
 type SessionAwareControllerAction func(session *Session, r *web.RequestContext) web.ControllerResult
 
-// APISessionAwareAction inserts the session into the context.
-func APISessionAwareAction(action SessionAwareControllerAction) web.ControllerAction {
-	return SessionAwareAction(web.NewAPIResultProvider(nil), action)
-}
-
-// APISessionRequiredAction is an action that requires the user to be logged in.
-func APISessionRequiredAction(action SessionAwareControllerAction) web.ControllerAction {
-	return SessionRequiredAction(web.NewAPIResultProvider(nil), action)
-}
-
-// ViewSessionAwareAction inserts the session into the context.
-func ViewSessionAwareAction(action SessionAwareControllerAction) web.ControllerAction {
-	return SessionAwareAction(web.NewViewResultProvider(nil, nil), action)
-}
-
-// ViewSessionRequiredAction is an action that requires the user to be logged in.
-func ViewSessionRequiredAction(action SessionAwareControllerAction) web.ControllerAction {
-	return SessionRequiredAction(web.NewViewResultProvider(nil, nil), action)
-}
-
 // SessionAwareAction injects the current session (if there is one) into the middleware.
 // CAVEAT; we lock on session, so there cannot be multiple concurrent session aware requests (!!).
-func SessionAwareAction(resultProvider web.ControllerResultProvider, action SessionAwareControllerAction) web.ControllerAction {
+func SessionAwareAction(providerID int, action SessionAwareControllerAction) web.ControllerAction {
 	return func(r *web.RequestContext) web.ControllerResult {
 		sessionID := r.Param(SessionParamName)
 		if len(sessionID) != 0 {
 			session, err := VerifySession(sessionID)
 			if err != nil {
-				return resultProvider.InternalError(err)
+				return r.ResultProvider(providerID).InternalError(err)
 			}
 			if session != nil {
 				session.Lock()
@@ -98,22 +78,22 @@ func SessionAwareAction(resultProvider web.ControllerResultProvider, action Sess
 
 // SessionRequiredAction is an action that requires session.
 // CAVEAT; we lock on session, so there cannot be multiple concurrent session aware requests (!!).
-func SessionRequiredAction(resultProvider web.ControllerResultProvider, action SessionAwareControllerAction) web.ControllerAction {
+func SessionRequiredAction(providerID int, action SessionAwareControllerAction) web.ControllerAction {
 	return func(r *web.RequestContext) web.ControllerResult {
 		sessionID := r.Param(SessionParamName)
 		if len(sessionID) == 0 {
-			return resultProvider.NotAuthorized()
+			return r.API().NotAuthorized()
 		}
 
 		session, sessionErr := VerifySession(sessionID)
 		if sessionErr != nil {
-			return resultProvider.InternalError(sessionErr)
+			return r.ResultProvider(providerID).InternalError(sessionErr)
 		}
 		if session == nil {
-			return resultProvider.NotAuthorized()
+			return r.ResultProvider(providerID).NotAuthorized()
 		}
-		if session.User.IsBanned {
-			return resultProvider.NotAuthorized()
+		if session.User != nil && session.User.IsBanned {
+			return r.ResultProvider(providerID).NotAuthorized()
 		}
 
 		session.Lock()

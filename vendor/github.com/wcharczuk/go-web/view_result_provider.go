@@ -1,6 +1,9 @@
 package web
 
-import "net/http"
+import (
+	"html/template"
+	"net/http"
+)
 
 // NewViewResultProvider creates a new ViewResults object.
 func NewViewResultProvider(app *App, r *RequestContext) *ViewResultProvider {
@@ -13,13 +16,20 @@ type ViewResultProvider struct {
 	requestContext *RequestContext
 }
 
+func (vr ViewResultProvider) viewCache() *template.Template {
+	if vr.app != nil {
+		return vr.app.viewCache
+	}
+	return nil
+}
+
 // BadRequest returns a view result.
 func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 	return &ViewResult{
 		StatusCode: http.StatusBadRequest,
 		ViewModel:  message,
 		Template:   "bad_request",
-		viewCache:  vr.app.viewCache,
+		viewCache:  vr.viewCache(),
 	}
 }
 
@@ -33,7 +43,7 @@ func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
 		Template:   "error",
-		viewCache:  vr.app.viewCache,
+		viewCache:  vr.viewCache(),
 	}
 }
 
@@ -43,7 +53,7 @@ func (vr *ViewResultProvider) NotFound() ControllerResult {
 		StatusCode: http.StatusNotFound,
 		ViewModel:  nil,
 		Template:   "not_found",
-		viewCache:  vr.app.viewCache,
+		viewCache:  vr.viewCache(),
 	}
 }
 
@@ -53,7 +63,7 @@ func (vr *ViewResultProvider) NotAuthorized() ControllerResult {
 		StatusCode: http.StatusForbidden,
 		ViewModel:  nil,
 		Template:   "not_authorized",
-		viewCache:  vr.app.viewCache,
+		viewCache:  vr.viewCache(),
 	}
 }
 
@@ -63,6 +73,6 @@ func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) Contr
 		StatusCode: http.StatusOK,
 		ViewModel:  viewModel,
 		Template:   viewName,
-		viewCache:  vr.app.viewCache,
+		viewCache:  vr.viewCache(),
 	}
 }

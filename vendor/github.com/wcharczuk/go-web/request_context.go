@@ -78,6 +78,17 @@ func (rc *RequestContext) View() *ViewResultProvider {
 	return rc.view
 }
 
+// ResultProvider returns a provider by ID.
+func (rc *RequestContext) ResultProvider(resultProviderID int) ControllerResultProvider {
+	switch resultProviderID {
+	case ProviderAPI:
+		return rc.API()
+	case ProviderView:
+		return rc.View()
+	}
+	return nil
+}
+
 // State returns an object in the state cache.
 func (rc *RequestContext) State(key string) interface{} {
 	if item, hasItem := rc.state[key]; hasItem {
