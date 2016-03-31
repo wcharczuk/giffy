@@ -53,6 +53,7 @@ func Init() *web.App {
 
 	app.Register(new(controller.Index))
 	app.Register(new(controller.API))
+	app.Register(new(controller.Integrations))
 	app.Register(new(controller.Auth))
 	app.Register(new(controller.UploadImage))
 

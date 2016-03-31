@@ -2,18 +2,14 @@ package controller
 
 import (
 	"crypto/md5"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/go-web"
 
-	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/core/auth"
-	"github.com/wcharczuk/giffy/server/core/external"
 	"github.com/wcharczuk/giffy/server/core/filecache"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
@@ -66,47 +62,6 @@ type slackResponse struct {
 	ResponseType string        `json:"response_type"`
 	Text         string        `json:"text,omitempty"`
 	Attachments  []interface{} `json:"attachments"`
-}
-
-func (api API) searchImagesSlackAction(r *web.RequestContext) web.ControllerResult {
-	query := r.Param("text")
-
-	var result *model.Image
-	var err error
-	if strings.HasPrefix(query, "img:") {
-		uuid := strings.Replace(query, "img:", "", -1)
-		result, err = model.GetImageByUUID(uuid, nil)
-	} else {
-		result, err = model.SearchImagesSlack(query, nil)
-	}
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if result.IsZero() {
-		return r.RawWithContentType("text/plaid; charset=utf-8", []byte(fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())))
-	}
-
-	res := slackResponse{}
-	res.ImageUUID = result.UUID
-	res.ResponseType = "in_channel"
-
-	if !strings.HasPrefix(query, "img:") {
-		res.Attachments = []interface{}{
-			slackImageAttachment{Title: query, ImageURL: result.S3ReadURL},
-		}
-	} else {
-		res.Attachments = []interface{}{
-			slackImageAttachment{Title: result.Tags[0].TagValue, ImageURL: result.S3ReadURL},
-		}
-	}
-
-	responseBytes, err := json.Marshal(res)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	external.StatHatSeach()
-	return r.RawWithContentType("application/json; charset=utf-8", responseBytes)
 }
 
 func (api API) searchTagsAction(r *web.RequestContext) web.ControllerResult {
@@ -833,8 +788,6 @@ func (api API) Register(app *web.App) {
 	app.POST("/api/images", auth.SessionRequiredAction(web.ProviderAPI, api.createImageAction))
 	app.GET("/api/images/random/:count", api.getRandomImagesAction)
 	app.GET("/api/images.search", api.searchImagesAction)
-	app.GET("/api/images.search/slack", api.searchImagesSlackAction)
-	app.POST("/api/images.search/slack", api.searchImagesSlackAction)
 
 	app.GET("/api/image/:image_id", api.getImageAction)
 	app.PUT("/api/image/:image_id", auth.SessionRequiredAction(web.ProviderAPI, api.updateImageAction))

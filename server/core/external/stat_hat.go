@@ -26,8 +26,8 @@ func StatHatError() {
 	}
 }
 
-//StatHatSeach logs a search.
-func StatHatSeach() {
+//StatHatSearch logs a search.
+func StatHatSearch() {
 	statHatToken := core.ConfigStathatToken()
 	if len(statHatToken) != 0 {
 		seachCountBucket := fmt.Sprintf("search_count_%s", core.ConfigEnvironment())

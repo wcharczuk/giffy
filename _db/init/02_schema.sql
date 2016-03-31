@@ -52,17 +52,17 @@ CREATE TABLE image (
 	s3_key varchar(64) not null,
 
 	is_censored boolean not null default false,
-	
+
 	width int not null,
 	height int not null,
 	file_size int not null,
-	
+
 	extension varchar(8)
 );
 ALTER TABLE image ADD CONSTRAINT pk_image_id PRIMARY KEY (id);
 ALTER TABLE image ADD CONSTRAINT uk_image_uuid UNIQUE (uuid);
 ALTER TABLE image ADD CONSTRAINT uk_image_md5 UNIQUE (md5);
-ALTER TABLE image ADD CONSTRAINT fk_image_created_by_user_id 
+ALTER TABLE image ADD CONSTRAINT fk_image_created_by_user_id
 	FOREIGN KEY (created_by) REFERENCES users(id);
 
 CREATE TABLE tag (
@@ -75,9 +75,9 @@ CREATE TABLE tag (
 ALTER TABLE tag ADD CONSTRAINT pk_tag_id PRIMARY KEY (id);
 ALTER TABLE tag ADD CONSTRAINT uk_tag_uuid UNIQUE (uuid);
 ALTER TABLE tag ADD CONSTRAINT uk_tag_tag_value UNIQUE (tag_value);
-ALTER TABLE tag ADD CONSTRAINT fk_tag_created_by_user_id 
+ALTER TABLE tag ADD CONSTRAINT fk_tag_created_by_user_id
 	FOREIGN KEY (created_by) REFERENCES users(id);
-CREATE INDEX idx_tag_tag_value_gin ON tag 
+CREATE INDEX idx_tag_tag_value_gin ON tag
 	USING gin (tag_value gin_trgm_ops);
 
 CREATE TABLE vote_summary (
@@ -93,7 +93,7 @@ CREATE TABLE vote_summary (
 ALTER TABLE vote_summary ADD CONSTRAINT pk_vote_summary_image_id_tag_id PRIMARY KEY (image_id, tag_id);
 ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_image_id
 	FOREIGN KEY (image_id) REFERENCES image(id);
-ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_tag_id 
+ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_tag_id
 	FOREIGN KEY (tag_id) REFERENCES tag(id);
 
 CREATE TABLE vote (
@@ -122,3 +122,19 @@ CREATE TABLE moderation (
 );
 ALTER TABLE moderation ADD CONSTRAINT pk_moderation_uuid PRIMARY KEY (uuid);
 ALTER TABLE moderation add CONSTRAINT fk_moderation_user_id FOREIGN KEY (user_id) REFERENCES users(id);
+
+/*
+create table search_history (
+	source varchar(255) not null,
+	source_user_identifier varchar(255),
+	source_team_identifier varchar(255),
+	source_channel_identifier varchar(255),
+
+	timestamp_utc timestamp not null,
+	search_query varchar(255) not null,
+
+	did_find_match boolean not null,
+
+	image_id bigint,
+	tag_id bigint
+);*/

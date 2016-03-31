@@ -82,7 +82,7 @@ func SessionRequiredAction(providerID int, action SessionAwareControllerAction) 
 	return func(r *web.RequestContext) web.ControllerResult {
 		sessionID := r.Param(SessionParamName)
 		if len(sessionID) == 0 {
-			return r.API().NotAuthorized()
+			return r.ResultProvider(providerID).NotAuthorized()
 		}
 
 		session, sessionErr := VerifySession(sessionID)
