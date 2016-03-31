@@ -123,12 +123,16 @@ CREATE TABLE moderation (
 ALTER TABLE moderation ADD CONSTRAINT pk_moderation_uuid PRIMARY KEY (uuid);
 ALTER TABLE moderation add CONSTRAINT fk_moderation_user_id FOREIGN KEY (user_id) REFERENCES users(id);
 
-/*
 create table search_history (
 	source varchar(255) not null,
-	source_user_identifier varchar(255),
+
 	source_team_identifier varchar(255),
 	source_channel_identifier varchar(255),
+	source_user_identifier varchar(255),
+
+	source_team_name varchar(255),
+	source_channel_name varchar(255),
+	source_user_name varchar(255),
 
 	timestamp_utc timestamp not null,
 	search_query varchar(255) not null,
@@ -137,4 +141,4 @@ create table search_history (
 
 	image_id bigint,
 	tag_id bigint
-);*/
+);

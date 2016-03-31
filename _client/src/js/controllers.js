@@ -334,6 +334,46 @@ giffyControllers.controller("moderationLogController",  ["$scope", "$http", "$ro
 	}
 ]);
 
+
+giffyControllers.controller("searchHistoryController",  ["$scope", "$http", "$routeParams", "currentUser",
+	function($scope, $http, $routeParams, currentUser) {
+		currentUser($scope);
+
+		var pageSize = 50;
+
+		$http.get("/api/search.history/pages/" + pageSize +"/0").success(function(datums) {
+			$scope.page = 0;
+			$scope.history = datums.response;
+		});
+
+		$scope.hasPreviousPage = function() {
+			return $scope.page > 0;
+		};
+
+		$scope.hasNextPage = function() {
+			return !!$scope.history && $scope.history.length >= pageSize;
+		};
+
+		$scope.nextPage = function() {
+			if ($scope.hasNextPage()) {
+				$scope.page = $scope.page + 1;
+				$http.get("/api/search.history/pages/" + pageSize + "/" + ($scope.page * pageSize)).success(function(datums) {
+					$scope.history = datums.response;
+				});
+			}
+		};
+
+		$scope.previousPage = function() {
+			if ($scope.page > 0) {
+				$scope.page = $scope.page - 1;
+				$http.get("/api/search.history/pages/" + pageSize + "/" + ($scope.page * pageSize)).success(function(datums) {
+					$scope.history = datums.response;
+				});
+			}
+		};
+	}
+]);
+
 giffyControllers.controller("userSearchController",  ["$scope", "$http", "currentUser",
 	function($scope, $http, currentUser) {
 		currentUser($scope);

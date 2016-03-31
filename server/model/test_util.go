@@ -117,3 +117,10 @@ func CreateTestUserSession(userID int64, tx *sql.Tx) (*UserSession, error) {
 	err := spiffy.DefaultDb().CreateInTransaction(us, tx)
 	return us, err
 }
+
+// CreateTestSearchHistory creates a test search history entry.
+func CreateTestSearchHistory(source, searchQuery string, imageID, tagID *int64, tx *sql.Tx) (*SearchHistory, error) {
+	sh := NewSearchHistory(source, searchQuery, true, imageID, tagID)
+	err := spiffy.DefaultDb().CreateInTransaction(sh, tx)
+	return sh, err
+}

@@ -131,15 +131,6 @@ func (api API) updateUserAction(session *auth.Session, r *web.RequestContext) we
 	return r.API().JSON(postedUser)
 }
 
-func (api API) getRecentModerationLog(r *web.RequestContext) web.ControllerResult {
-	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -1), nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	return r.API().JSON(moderationLog)
-}
-
 func (api API) getModerationForUserAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
 	if !session.User.IsModerator {
 		return r.API().NotAuthorized()
@@ -692,6 +683,48 @@ func (api API) deleteLinkAction(session *auth.Session, r *web.RequestContext) we
 	return r.API().OK()
 }
 
+func (api API) getRecentModerationLogAction(r *web.RequestContext) web.ControllerResult {
+	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -1), nil)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(moderationLog)
+}
+
+func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
+	count := r.RouteParameterInt("count")
+	offset := r.RouteParameterInt("offset")
+
+	log, err := model.GetModerationLogByCountAndOffset(count, offset, nil)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(log)
+}
+
+func (api API) getRecentSearchHistoryAction(r *web.RequestContext) web.ControllerResult {
+	searchHistory, err := model.GetSearchHistory(nil)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(searchHistory)
+}
+
+func (api API) getSearchHistoryByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
+	count := r.RouteParameterInt("count")
+	offset := r.RouteParameterInt("offset")
+
+	searchHistory, err := model.GetSearchHistoryByCountAndOffset(count, offset, nil)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(searchHistory)
+}
+
 func (api API) getCurrentUserAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
 	cu := &viewmodel.CurrentUser{}
 	if session == nil {
@@ -715,18 +748,6 @@ func (api API) setSessionKeyAction(session *auth.Session, r *web.RequestContext)
 	key := r.RouteParameter("key")
 	session.State[key] = r.PostBodyAsString()
 	return r.API().OK()
-}
-
-func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
-	count := r.RouteParameterInt("count")
-	offset := r.RouteParameterInt("offset")
-
-	log, err := model.GetModerationLogByCountAndOffset(count, offset, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	return r.API().JSON(log)
 }
 
 func (api API) logoutAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
@@ -809,8 +830,11 @@ func (api API) Register(app *web.App) {
 	app.POST("/api/vote.up/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.upvoteAction))
 	app.POST("/api/vote.down/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.downvoteAction))
 
-	app.GET("/api/moderation.log/recent", api.getRecentModerationLog)
+	app.GET("/api/moderation.log/recent", api.getRecentModerationLogAction)
 	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
+
+	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction)
+	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction)
 
 	app.GET("/api/stats", api.getSiteStatsAction)
 

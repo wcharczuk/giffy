@@ -39,6 +39,9 @@ giffyApp.config(["$routeProvider",
 		}).when("/moderation.log", {
 			templateUrl: '/static/partials/moderation_log.html',
 			controller: 'moderationLogController'
+		}).when("/search.history", {
+			templateUrl: '/static/partials/search_history.html',
+			controller: 'searchHistoryController'
 		}).when("/logout", {
 			templateUrl: '/static/partials/logout.html',
 			controller: 'logoutController'

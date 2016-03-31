@@ -5,15 +5,33 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/blendlabs/go-exception"
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 )
 
+// NewSearchHistory returns a new search history.
+func NewSearchHistory(source, searchQuery string, didFindMatch bool, imageID, tagID *int64) *SearchHistory {
+	return &SearchHistory{
+		Source:       source,
+		TimestampUTC: time.Now().UTC(),
+		SearchQuery:  searchQuery,
+		DidFindMatch: didFindMatch,
+		ImageID:      imageID,
+		TagID:        tagID,
+	}
+}
+
 // SearchHistory is a record of searches and the primary result.
 type SearchHistory struct {
-	Source                  string `json:"source" db:"source"`
-	SourceUserIdentifier    string `json:"source_user_identifier" db:"source_user_identifier"`
+	Source string `json:"source" db:"source"`
+
 	SourceTeamIdentifier    string `json:"source_team_identifier" db:"source_team_identifier"`
+	SourceTeamName          string `json:"source_team_name" db:"source_team_name"`
 	SourceChannelIdentifier string `json:"source_channel_identifier" db:"source_channel_identifier"`
+	SourceChannelName       string `json:"source_channel_name" db:"source_channel_name"`
+	SourceUserIdentifier    string `json:"source_user_identifier" db:"source_user_identifier"`
+	SourceUserName          string `json:"source_user_name" db:"source_user_name"`
 
 	TimestampUTC time.Time `json:"timestamp_utc" db:"timestamp_utc"`
 	SearchQuery  string    `json:"search_query" db:"search_query"`
@@ -32,7 +50,7 @@ func (sh SearchHistory) TableName() string {
 }
 
 func searchHistoryQuery(whereClause string) string {
-	searchColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().ColumnNamesFromAlias("sh"))
+	searchColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(SearchHistory{}).NotReadOnly().ColumnNamesFromAlias("sh"))
 	imageColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_").ColumnNamesFromAlias("i"))
 	tagColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
 	return fmt.Sprintf(`
@@ -50,7 +68,7 @@ order by timestamp_utc desc
 }
 
 func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
-	searchColumns := spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly()
+	searchColumns := spiffy.NewColumnCollectionFromInstance(SearchHistory{}).NotReadOnly()
 	imageColumns := spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_")
 	tagColumns := spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_")
 
@@ -94,4 +112,25 @@ func GetSearchHistoryByCountAndOffset(count, offset int, tx *sql.Tx) ([]SearchHi
 	query = query + `limit $1 offset $2`
 	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).Each(searchHistoryConsumer(&searchHistory))
 	return searchHistory, err
+}
+
+func writeSearchHistoryEntry(state interface{}) error {
+	if typed, isTyped := state.(*SearchHistory); isTyped {
+		return spiffy.DefaultDb().Create(typed)
+	}
+	return exception.New("`state` was not of the correct type.")
+}
+
+// QueueSearchHistoryEntry queues logging a new moderation log entry.
+func QueueSearchHistoryEntry(source, sourceTeamID, sourceTeamName, sourceChannelID, sourceChannelName, sourceUserID, sourceUserName, searchQuery string, didFindMatch bool, imageID, tagID *int64) {
+	sh := NewSearchHistory(source, searchQuery, didFindMatch, imageID, tagID)
+	sh.SourceTeamIdentifier = sourceTeamID
+	sh.SourceChannelIdentifier = sourceChannelID
+	sh.SourceUserIdentifier = sourceUserID
+
+	sh.SourceTeamName = sourceTeamName
+	sh.SourceChannelName = sourceChannelName
+	sh.SourceUserName = sourceUserName
+
+	util.QueueWorkItem(writeSearchHistoryEntry, sh)
 }
