@@ -5,29 +5,26 @@
 
     background-color: #337ab7;
     border: 1px solid #2e6da4;
-    border-radius: 4px;
+    border-radius: 0px;
+
+    height: 46px;
 
     .vote-button-part {
-        font-size:18px;
-
         display:inline-block;
         margin:0;
         padding:6px;
 
         color: #fff;
 
-        line-height: 24px;
+        height: 100%;
+        font-size:18px;
+        line-height: 36px;
 
         text-align: center;
         vertical-align: middle;
-
-        vertical-align: middle;
-        line-height: 24px;
     }
 
     .vote-button-part.vote-count {
-        border-top-left-radius: 4px;
-        border-bottom-left-radius: 4px;
         padding-left:10px;
         padding-right: 9px;
         border-right: 1px solid #2e6da4;
@@ -35,30 +32,26 @@
         color: black;
     }
 
-
     .vote-button-part.vote-count.singleton {
-        border-radius: 4px;
         border-right: none;
 
         padding-left: 10px;
         padding-right: 10px;
     }
 
-
-    .vote-controls {
-        padding:0;
+    .vote-button-part.vote-controls {
+        padding: 0;
+        line-height: normal;
     }
 
     .vote-arrow  {
-        padding: 0;
         cursor: pointer;
         border-right: 1px solid #2e6da4;
-        padding: 0;
-        font-size: 12px;
-        line-height: 12px;
+        height:50%;
         padding-left: 5px;
         padding-right: 5px;
     }
+
     .vote-arrow.voted {
         background-color: #2e6da4
     }
@@ -70,31 +63,39 @@
     }
 
     .vote-upvote {
-        padding-top: 4px;
         border-bottom:  1px solid #2e6da4;
+        padding-bottom:0;
     }
     .vote-downvote {
-        padding-bottom: 5px;
+        padding-top: 0;
+        line-height: 20px;
     }
 
-    .vote-detail-link {
-        padding-top: 5px;
-        padding-bottom: 7px;
-        padding-right: 16px;
+    .vote-button-part.vote-detail-link {
+        text-align: center;
         text-transform: lowercase;
+        padding: 0;
+    }
+
+    .vote-button-part.vote-detail-link:hover {
+        background-color: #2e6da4;
+        text-decoration: underline;
+        cursor: pointer;
     }
 
     .vote-detail-link a {
         color: #fff;
+        height: 100%;
+
+        line-height: 46px;
+        padding-left: 7px;
+        padding-right: 7px;
     }
 
-    .vote-detail-link a:hover {
-        text-decoration: none;
-    }
-
-    .vote-remove {
+    .vote-button-part.vote-remove {
         cursor: pointer;
-        border-left: 1px solid #2e6da4
+        border-left: 1px solid #2e6da4;
+        line-height: 33px;
     }
 
     .vote-remove:hover {
