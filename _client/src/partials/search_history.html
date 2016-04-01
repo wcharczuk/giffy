@@ -8,17 +8,23 @@
 		<table id="search-history" class="table table-responsive">
 			<thead>
 				<tr>
-					<th>Time</th><th>Search Query</th><th>Source</th><th>Team</th><th>Channel</th><th>User</th><th>Did Find Match?</th>
+					<th>Time</th>
+					<th>Source</th>
+					<th>Team</th>
+					<th>Channel</th>
+					<th>User</th>
+					<th>Search Query</th>
+					<th>Did Find Match?</th>
 				</tr>
 			</thead>
 			<tbody>
 				<tr ng-repeat="entry in history">
 					<td>{{entry.timestamp_utc | date:short}}</td>
-					<td>{{entry.search_query}}</td>
 					<td>{{entry.source}}</td>
 					<td>{{entry.source_team_name}}</td>
 					<td>{{entry.source_channel_name}}</td>
 					<td>{{entry.source_user_name}}</td>
+					<td>{{entry.search_query}}</td>
 					<td ng-if="!!entry.image"><a href="/#/image/{{entry.image.uuid}}">{{entry.did_find_match}}</a></td>
 					<td ng-if="!!!entry.image">{{entry.did_find_match}}</td>
 				</tr>
