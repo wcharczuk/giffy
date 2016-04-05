@@ -40,3 +40,14 @@ func StatHatSearch() {
 		}
 	}
 }
+
+//StatHatUserSignup logs a search.
+func StatHatUserSignup() {
+	if core.ConfigEnvironment() != "local" {
+		statHatToken := core.ConfigStathatToken()
+		if len(statHatToken) != 0 {
+			seachCountBucket := fmt.Sprintf("user_signup_%s", core.ConfigEnvironment())
+			stathat.PostEZCount(seachCountBucket, statHatToken, 1)
+		}
+	}
+}

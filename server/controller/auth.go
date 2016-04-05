@@ -65,6 +65,7 @@ func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, auth
 		if err != nil {
 			return r.View().InternalError(err)
 		}
+		external.StatHatUserSignup()
 		userID = prototypeUser.ID
 	} else {
 		userID = existingUser.ID
