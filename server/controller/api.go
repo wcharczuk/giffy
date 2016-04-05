@@ -285,8 +285,29 @@ func (api API) getTagsAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(tags)
 }
 
-func (api API) getUsersAction(r *web.RequestContext) web.ControllerResult {
+func (api API) getUsersAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
 	users, err := model.GetAllUsers(nil)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(users)
+}
+
+func (api API) getUsersByCountAndOffsetAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	count := r.RouteParameterInt("count")
+	offset := r.RouteParameterInt("offset")
+
+	users, err := model.GetUsersByCountAndOffset(count, offset, nil)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -803,8 +824,9 @@ func (api API) runJobAction(session *auth.Session, r *web.RequestContext) web.Co
 
 // Register adds the routes to the app.
 func (api API) Register(app *web.App) {
-	app.GET("/api/users", api.getUsersAction)
+	app.GET("/api/users", auth.SessionRequiredAction(web.ProviderAPI, api.getUsersAction))
 	app.GET("/api/users.search", auth.SessionRequiredAction(web.ProviderAPI, api.searchUsersAction))
+	app.GET("/api/users/pages/:count/:offset", auth.SessionRequiredAction(web.ProviderAPI, api.getUsersByCountAndOffsetAction))
 
 	app.GET("/api/user/:user_id", api.getUserAction)
 	app.PUT("/api/user/:user_id", auth.SessionRequiredAction(web.ProviderAPI, api.updateUserAction))

@@ -380,7 +380,11 @@ giffyControllers.controller("searchHistoryController",  ["$scope", "$http", "$ro
 
 giffyControllers.controller("userSearchController",  ["$scope", "$http", "currentUser",
 	function($scope, $http, currentUser) {
-		currentUser($scope);
+		currentUser($scope, function() {
+			$http.get("/api/users/pages/50/0").success(function(datums) {
+				$scope.users = datums.response;
+			});
+		});
 
 		$scope.searchUsers = function() {
 			if ($scope.searchQuery) {

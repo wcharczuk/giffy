@@ -70,6 +70,13 @@ func GetAllUsers(tx *sql.Tx) ([]User, error) {
 	return all, err
 }
 
+// GetUsersByCountAndOffset returns users by count and offset.
+func GetUsersByCountAndOffset(count, offset int, tx *sql.Tx) ([]User, error) {
+	var all []User
+	err := spiffy.DefaultDb().QueryInTransaction(`select * from users order by created_utc desc limit $1 offset $2`, tx, count, offset).OutMany(&all)
+	return all, err
+}
+
 // GetUserByID returns a user by id.
 func GetUserByID(id int64, tx *sql.Tx) (*User, error) {
 	var user User
