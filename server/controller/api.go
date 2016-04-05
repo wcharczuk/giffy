@@ -726,7 +726,7 @@ func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web
 }
 
 func (api API) getRecentSearchHistoryAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
-	if !session.User.IsModerator {
+	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -739,7 +739,7 @@ func (api API) getRecentSearchHistoryAction(session *auth.Session, r *web.Reques
 }
 
 func (api API) getSearchHistoryByCountAndOffsetAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
-	if !session.User.IsModerator {
+	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 

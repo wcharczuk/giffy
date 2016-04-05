@@ -338,7 +338,7 @@ giffyControllers.controller("moderationLogController",  ["$scope", "$http", "$ro
 giffyControllers.controller("searchHistoryController",  ["$scope", "$http", "$routeParams", "currentUser",
 	function($scope, $http, $routeParams, currentUser) {
 		currentUser($scope, function() {
-			if (!$scope.currentUser.is_moderator) {
+			if (!$scope.currentUser.is_admin) {
 				window.location = "/#/"
 			}
 
