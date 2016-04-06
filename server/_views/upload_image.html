@@ -2,6 +2,15 @@
 {{template "header"}}
 <div class="row">
     <div class="col-md-4 col-md-offset-4">
+        <div id="add-image-notes">
+            Images should be:
+            <ul>
+                <li>At least 300px in both height and width.</li>
+                <li>At least 400 px in either height or width.</li>
+                <li>Less than 32 mb in size.</li>
+                <li>At Least 10 fps.</li>
+            </ul>
+        </div>
         <div id="add-image" class="add-image">
             <form method="POST" action="/images/upload" enctype="multipart/form-data">
 				<div class="form-group align-center">

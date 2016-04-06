@@ -96,7 +96,7 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, r *web.Re
 		return r.View().View("upload_image_complete", existing)
 	}
 
-	image, err := CreateImageFromFile(session.UserID, fileContents, fileName)
+	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, fileContents, fileName)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -109,8 +109,8 @@ func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, r *web.Re
 }
 
 // CreateImageFromFile creates and uploads a new image.
-func CreateImageFromFile(userID int64, fileContents []byte, fileName string) (*model.Image, error) {
-	newImage, err := model.NewImageFromPostedFile(userID, fileContents, fileName)
+func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte, fileName string) (*model.Image, error) {
+	newImage, err := model.NewImageFromPostedFile(userID, shouldValidate, fileContents, fileName)
 	if err != nil {
 		return nil, err
 	}

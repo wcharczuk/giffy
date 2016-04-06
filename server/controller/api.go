@@ -370,7 +370,7 @@ func (api API) createImageAction(session *auth.Session, r *web.RequestContext) w
 		return r.API().JSON(existing)
 	}
 
-	image, err := CreateImageFromFile(session.UserID, postedFile.Contents, postedFile.Filename)
+	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, postedFile.Contents, postedFile.Filename)
 	if err != nil {
 		return r.API().InternalError(err)
 	}

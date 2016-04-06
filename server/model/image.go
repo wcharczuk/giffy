@@ -22,6 +22,11 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 )
 
+const (
+	// MaxImageSize is 32 megabytes.
+	MaxImageSize = 1 << 25 // 32 mb
+)
+
 // ConvertMD5 takes a fixed buffer and turns it into a byte slice.
 func ConvertMD5(md5sum [16]byte) []byte {
 	typedBuffer := make([]byte, 16)
@@ -108,7 +113,7 @@ func NewImage() *Image {
 }
 
 // NewImageFromPostedFile creates an image and parses the meta data for an image from a posted file.
-func NewImageFromPostedFile(userID int64, fileContents []byte, fileName string) (*Image, error) {
+func NewImageFromPostedFile(userID int64, shouldValidate bool, fileContents []byte, fileName string) (*Image, error) {
 	newImage := NewImage()
 	newImage.MD5 = ConvertMD5(md5.Sum(fileContents))
 	newImage.CreatedBy = userID
@@ -123,10 +128,25 @@ func NewImageFromPostedFile(userID int64, fileContents []byte, fileName string) 
 	}
 
 	newImage.DisplayName = fileName
-	newImage.Extension = filepath.Ext(fileName)
+	newImage.Extension = strings.ToLower(filepath.Ext(fileName))
 	newImage.Height = imageMeta.Height
 	newImage.Width = imageMeta.Width
 	newImage.FileSize = len(fileContents)
+
+	if shouldValidate {
+		if newImage.Width < 300 || newImage.Height < 300 {
+			return nil, exception.New("Image width and height need to be > 300px.")
+		}
+
+		if newImage.Width < 400 && newImage.Height < 400 {
+			return nil, exception.New("Image width or height need to be > 400px.")
+		}
+
+		if newImage.FileSize > MaxImageSize {
+			return nil, exception.New("Image file size should be < 32 mb.")
+		}
+	}
+
 	return newImage, nil
 }
 
