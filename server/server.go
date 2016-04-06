@@ -1,6 +1,8 @@
 package server
 
 import (
+	"log"
+
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-util"
 	"github.com/wcharczuk/go-web"
@@ -40,7 +42,10 @@ func Init() *web.App {
 	app := web.New()
 	app.SetName("giffy")
 	app.SetPort(core.ConfigPort())
-	app.InitViewCache(paths...)
+	viewCacheErr := app.InitViewCache(paths...)
+	if viewCacheErr != nil {
+		log.Fatal(viewCacheErr)
+	}
 	app.SetLogger(web.NewStandardOutputLogger())
 
 	app.RequestCompleteHandler(func(r *web.RequestContext) {
