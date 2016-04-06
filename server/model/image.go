@@ -25,6 +25,15 @@ import (
 const (
 	// MaxImageSize is 32 megabytes.
 	MaxImageSize = 1 << 25 // 32 mb
+
+	// MinImageHeight is the min height
+	MinImageHeight = 200
+
+	// MinImageWidth is the min image width
+	MinImageWidth = 200
+
+	// MinImageHeightOrWidth is the minimum height or width.
+	MinImageHeightOrWidth = 300
 )
 
 // ConvertMD5 takes a fixed buffer and turns it into a byte slice.
@@ -134,12 +143,16 @@ func NewImageFromPostedFile(userID int64, shouldValidate bool, fileContents []by
 	newImage.FileSize = len(fileContents)
 
 	if shouldValidate {
-		if newImage.Width < 300 || newImage.Height < 300 {
-			return nil, exception.New("Image width and height need to be > 300px.")
+		if newImage.Width < MinImageWidth {
+			return nil, exception.Newf("Image width needs to be > %dpx.", MinImageWidth)
 		}
 
-		if newImage.Width < 400 && newImage.Height < 400 {
-			return nil, exception.New("Image width or height need to be > 400px.")
+		if newImage.Height < MinImageHeight {
+			return nil, exception.Newf("Image height needs to be > %dpx.", MinImageHeight)
+		}
+
+		if newImage.Width < MinImageHeightOrWidth && newImage.Height < MinImageHeightOrWidth {
+			return nil, exception.Newf("Image width or height need to be > %dpx.", MinImageHeightOrWidth)
 		}
 
 		if newImage.FileSize > MaxImageSize {

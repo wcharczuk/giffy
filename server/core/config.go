@@ -176,6 +176,17 @@ func ConfigSlackClientSecret() string {
 	return os.Getenv("SLACK_CLIENT_SECRET")
 }
 
+// ConfigStathatToken returns the stathat token.
 func ConfigStathatToken() string {
 	return os.Getenv("STATHAT_TOKEN")
+}
+
+// ConfigFacebookClientID returns the facebook client id.
+func ConfigFacebookClientID() string {
+	return os.Getenv("FACEBOOK_CLIENT_ID")
+}
+
+// ConfigFacebookClientSecret returns the bacebook client secret.
+func ConfigFacebookClientSecret() string {
+	return os.Getenv("FACEBOOK_CLIENT_SECRET")
 }
