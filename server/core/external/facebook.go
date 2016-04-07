@@ -73,7 +73,7 @@ func FacebookOAuth(code string) (*FacebookOAuthResponse, error) {
 func FetchFacebookProfile(accessToken string) (*FacebookProfile, error) {
 	var res FacebookProfile
 
-	fields := "username,email,first_name,last_name"
+	fields := "email,first_name,last_name"
 
 	err := NewRequest().AsGet().
 		WithScheme("https").
