@@ -57,6 +57,15 @@ func GoogleOAuth(code string) (*GoogleOAuthResponse, error) {
 	return &oar, err
 }
 
+// GoogleAuthURL is the auth url for google.
+func GoogleAuthURL() string {
+	return fmt.Sprintf(
+		"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=%s&redirect_uri=%s&scope=https://www.googleapis.com/auth/userinfo.email%%20https://www.googleapis.com/auth/userinfo.profile",
+		core.ConfigGoogleClientID(),
+		GoogleAuthReturnURL(),
+	)
+}
+
 //GoogleAuthReturnURL formats an oauth return uri.
 func GoogleAuthReturnURL() string {
 	return fmt.Sprintf("%s/oauth/google", core.ConfigURL())

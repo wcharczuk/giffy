@@ -50,6 +50,30 @@ func (ac Auth) oauthGoogleAction(session *auth.Session, r *web.RequestContext) w
 	return ac.finishOAuthLogin(r, auth.OAuthProviderGoogle, oa.AccessToken, oa.IDToken, prototypeUser)
 }
 
+func (ac Auth) oauthFacebookAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+	code := r.Param("code")
+	if len(code) == 0 {
+		return r.View().BadRequest("`code` parameter missing, cannot continue")
+	}
+
+	oa, err := external.FacebookOAuth(code)
+	if err != nil {
+		return r.View().InternalError(err)
+	}
+
+	profile, err := external.FetchFacebookProfile(oa.AccessToken)
+	if err != nil {
+		return r.View().InternalError(err)
+	}
+
+	if len(profile.Email) == 0 {
+		return r.View().BadRequest("Facebook privacy settings restrict email; cannot continue.")
+	}
+
+	prototypeUser := profile.AsUser()
+	return ac.finishOAuthLogin(r, auth.OAuthProviderGoogle, oa.AccessToken, util.StringEmpty, prototypeUser)
+}
+
 func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, authSecret string, prototypeUser *model.User) web.ControllerResult {
 	existingUser, err := model.GetUserByUsername(prototypeUser.Username, nil)
 	if err != nil {
@@ -128,6 +152,7 @@ func (ac Auth) logoutAction(session *auth.Session, r *web.RequestContext) web.Co
 // Register registers the controllers routes.
 func (ac Auth) Register(app *web.App) {
 	app.GET("/oauth/google", auth.SessionAwareAction(web.ProviderView, ac.oauthGoogleAction))
+	app.GET("/oauth/facebook", auth.SessionAwareAction(web.ProviderView, ac.oauthFacebookAction))
 	app.GET("/oauth/slack", auth.SessionAwareAction(web.ProviderView, ac.oauthSlackAction))
 	app.GET("/logout", auth.SessionRequiredAction(web.ProviderView, ac.logoutAction))
 	app.POST("/logout", auth.SessionRequiredAction(web.ProviderView, ac.logoutAction))

@@ -17,6 +17,9 @@ const (
 	// OAuthProviderGoogle is the google auth provider.
 	OAuthProviderGoogle = "google"
 
+	// OAuthProviderFacebook is the facebook auth provider.
+	OAuthProviderFacebook = "facebook"
+
 	// OAuthProviderSlack is the google auth provider.
 	OAuthProviderSlack = "slack"
 )

@@ -13,7 +13,7 @@ import (
 type UserAuth struct {
 	UserID        int64     `json:"user_id" db:"user_id,pk"`
 	TimestampUTC  time.Time `json:"timestamp_utc" db:"timestamp_utc"`
-	Provider      string    `json:"provider" db:"provider"`
+	Provider      string    `json:"provider" db:"provider,pk"`
 	AuthToken     []byte    `json:"auth_token" db:"auth_token"`
 	AuthTokenHash []byte    `json:"auth_token_hash" db:"auth_token_hash"`
 	AuthSecret    []byte    `json:"auth_secret" db:"auth_secret"`
@@ -66,6 +66,13 @@ func GetUserAuthByToken(token string, tx *sql.Tx) (*UserAuth, error) {
 
 	var auth UserAuth
 	err := spiffy.DefaultDb().QueryInTransaction("SELECT * FROM user_auth where auth_token_hash = $1", tx, authTokenHash).Out(&auth)
+	return &auth, err
+}
+
+// GetUserAuthByProvider returns an auth entry for the given auth token.
+func GetUserAuthByProvider(userID int64, provider string, tx *sql.Tx) (*UserAuth, error) {
+	var auth UserAuth
+	err := spiffy.DefaultDb().QueryInTransaction("SELECT * FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider).Out(&auth)
 	return &auth, err
 }
 
