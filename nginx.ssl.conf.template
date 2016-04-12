@@ -40,7 +40,7 @@ $SSL_DIRECTIVES
 	}
 
 	location ~* \.(css|js)$ {
-		rewrite (.*).([0-9]+).(css|jss) $1.$2;
+		rewrite (.*)\.([0-9]+)\.(css|js)$ $1.$3 last;
 	}
 
 	include $DOKKU_ROOT/$APP/nginx.conf.d/*.conf;
