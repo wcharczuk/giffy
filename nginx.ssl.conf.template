@@ -21,6 +21,10 @@ $SSL_DIRECTIVES
 	keepalive_timeout   70;
 	add_header          Alternate-Protocol  $NGINX_SSL_PORT:npn-spdy/2;
 
+	location ~* \.(css|js)$ {
+		rewrite (.*)\.([0-9]+)\.(css|js)$ $1.$3 last;
+	}
+
 	location / {
 		gzip on;
 		gzip_min_length  1100;
@@ -38,10 +42,6 @@ $SSL_DIRECTIVES
 		proxy_set_header X-Forwarded-For \$remote_addr;
 		proxy_set_header X-Forwarded-Port \$server_port;
 		proxy_set_header X-Request-Start \$msec;
-	}
-
-	location ~* \.(css|js)$ {
-		rewrite (.*)\.([0-9]+)\.(css|js)$ $1.$3 last;
 	}
 
 	include $DOKKU_ROOT/$APP/nginx.conf.d/*.conf;
