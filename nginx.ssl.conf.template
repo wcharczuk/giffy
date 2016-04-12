@@ -21,9 +21,7 @@ $SSL_DIRECTIVES
 	keepalive_timeout   70;
 	add_header          Alternate-Protocol  $NGINX_SSL_PORT:npn-spdy/2;
 
-	location ~* \.(css|js)$ {
-		rewrite (.*)\.([0-9]+)\.(css|js)$ $1\.$3 last;
-	}
+	rewrite (.*)\.([0-9]+)\.(css|js)$ $1\.$3 last;
 
 	location / {
 		gzip on;
