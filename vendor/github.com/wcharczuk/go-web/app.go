@@ -252,6 +252,10 @@ func (a *App) RequestErrorHandler(handler RequestEventErrorHandler) {
 // RenderAction is the translation step from APIControllerAction to httprouter.Handle.
 func (a *App) RenderAction(action ControllerAction) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		w.Header().Set("X-Served-By", "github.com/wcharczuk/go-web")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("X-Xss-Protection", "1; mode=block")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			a.renderUncompressed(action, w, r, parseParams(p))
 		} else {

@@ -7,9 +7,6 @@ server {
 
 	client_max_body_size 64M;
 
-	# set a custom header for requests
-	add_header X-Served-By github.com/wcharczuk/go-web;
-
 	location    / {
 		proxy_pass  http://$APP;
 		proxy_http_version 1.1;
