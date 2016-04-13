@@ -23,8 +23,9 @@ $SSL_DIRECTIVES
 	keepalive_timeout   70;
 	add_header          Alternate-Protocol  $NGINX_SSL_PORT:npn-spdy/2;
 
-	location ~ \.(js|css) {
+	location ~* \.min\.([0-9]+)\.(js|css) {
 		rewrite (.*)\.([0-9]+)\.(js|css) $1.$2 last;
+		try_files $uri /;
 	}
 
 	location / {
