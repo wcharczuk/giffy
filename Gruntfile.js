@@ -107,7 +107,7 @@ module.exports = function(grunt) {
 			dist: {
 				options: {
 					match: ['giffy.min.js', 'giffy.min.css'],
-					position: 'append'
+					position: 'filename'
 				},
 				files: {
 					src: ['_client/dist/index.html']

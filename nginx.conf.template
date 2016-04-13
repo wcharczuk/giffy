@@ -7,6 +7,10 @@ server {
 
 	client_max_body_size 64M;
 
+	location ~ \.(js|css) {
+		rewrite (.*)\.([0-9]+)\.(js|css) $1.$2 last;
+	}
+
 	location / {
 		proxy_pass  http://$APP;
 		proxy_http_version 1.1;
