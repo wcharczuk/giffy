@@ -13,8 +13,10 @@ import (
 // New returns a new app.
 func New() *App {
 	return &App{
-		router: httprouter.New(),
-		name:   "Web",
+		router:             httprouter.New(),
+		name:               "Web",
+		staticRewriteRules: map[string][]*RewriteRule{},
+		staticHeaders:      map[string]http.Header{},
 		onRequestStart: []RequestEventHandler{func(r *RequestContext) {
 			r.onRequestStart()
 		}},
@@ -210,7 +212,7 @@ func (a *App) Static(path string, root http.FileSystem) {
 
 // StaticRewrite adds a rewrite rule for a specific statically served path.
 // Make sure to serve the static path with (app).Static(path, root).
-func (a *App) StaticRewrite(path, match string, replaceFn func(pieces ...string) string) error {
+func (a *App) StaticRewrite(path, match string, action RewriteAction) error {
 	expr, err := regexp.Compile(match)
 	if err != nil {
 		return err
@@ -218,7 +220,7 @@ func (a *App) StaticRewrite(path, match string, replaceFn func(pieces ...string)
 	a.staticRewriteRules[path] = append(a.staticRewriteRules[path], &RewriteRule{
 		MatchExpression: match,
 		expr:            expr,
-		Action:          replaceFn,
+		Action:          action,
 	})
 
 	return nil

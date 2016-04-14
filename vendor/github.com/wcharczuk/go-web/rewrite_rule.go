@@ -2,18 +2,21 @@ package web
 
 import "regexp"
 
+// RewriteAction is an action for a rewrite rule.
+type RewriteAction func(filePath string, matchedPieces ...string) string
+
 // RewriteRule is a rule for re-writing incoming static urls.
 type RewriteRule struct {
 	MatchExpression string
 	expr            *regexp.Regexp
-	Action          func(matchedPieces ...string) string
+	Action          RewriteAction
 }
 
 // Apply runs the filter, returning a bool if it matched, and the resulting path.
 func (rr RewriteRule) Apply(filePath string) (bool, string) {
 	if rr.expr.MatchString(filePath) {
 		pieces := extractSubMatches(rr.expr, filePath)
-		return true, rr.Action(pieces...)
+		return true, rr.Action(filePath, pieces...)
 	}
 
 	return false, filePath
