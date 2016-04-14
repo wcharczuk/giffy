@@ -187,12 +187,11 @@ func (a *App) Static(path string, root http.FileSystem) {
 
 	fileServer := http.FileServer(root)
 
-	a.router.GET(path, func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
-		filePath := ps.ByName("filepath")
+	a.router.GET(path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		filePath := p.ByName("filepath")
 		if rules, hasRules := a.staticRewriteRules[path]; hasRules {
 			for _, rule := range rules {
 				if matched, newFilePath := rule.Apply(filePath); matched {
-					println("go-web :: changing file path", filePath, newFilePath)
 					filePath = newFilePath
 				}
 			}
@@ -206,9 +205,37 @@ func (a *App) Static(path string, root http.FileSystem) {
 			}
 		}
 
-		req.URL.Path = filePath
-		fileServer.ServeHTTP(w, req)
+		r.URL.Path = filePath
+
+		w.Header().Set("Vary", "Accept-Encoding")
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+			gzw := NewGZippedResponseWriter(w)
+			defer gzw.Close()
+
+			context := a.RequestContext(gzw, r, parseParams(p))
+			a.OnRequestStart(context)
+			fileServer.ServeHTTP(gzw, r)
+			a.OnRequestComplete(context)
+			gzw.Flush()
+			context.setStatusCode(gzw.StatusCode)
+			context.setContentLength(gzw.BytesWritten)
+			context.LogRequest()
+		} else {
+			rw := NewResponseWriter(w)
+			context := a.RequestContext(rw, r, parseParams(p))
+			a.OnRequestStart(context)
+			fileServer.ServeHTTP(rw, r)
+			context.setStatusCode(rw.StatusCode)
+			context.setContentLength(rw.ContentLength)
+			a.OnRequestComplete(context)
+			context.LogRequest()
+		}
 	})
+}
+
+func (a *App) handleStaticRequest(fileServer http.Handler, w http.ResponseWriter, r *http.Request, p RouteParameters) {
+
 }
 
 // StaticRewrite adds a rewrite rule for a specific statically served path.
@@ -348,13 +375,10 @@ func (a *App) renderUncompressed(action ControllerAction, w http.ResponseWriter,
 	context := a.RequestContext(rw, r, p)
 
 	a.OnRequestStart(context)
-
 	context.Render(action(context))
 	context.setStatusCode(rw.StatusCode)
 	context.setContentLength(rw.ContentLength)
-
 	a.OnRequestComplete(context)
-
 	context.LogRequest()
 }
 
@@ -364,18 +388,16 @@ func (a *App) renderCompressed(action ControllerAction, w http.ResponseWriter, r
 
 	gzw := NewGZippedResponseWriter(w)
 	defer gzw.Close()
+
 	context := a.RequestContext(gzw, r, p)
 
 	a.OnRequestStart(context)
-
 	result := action(context)
 	context.Render(result)
 	gzw.Flush()
 	context.setStatusCode(gzw.StatusCode)
 	context.setContentLength(gzw.BytesWritten)
-
 	a.OnRequestComplete(context)
-
 	context.LogRequest()
 }
 

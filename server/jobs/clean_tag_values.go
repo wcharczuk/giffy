@@ -43,9 +43,7 @@ func (ot CleanTagValues) ExecuteInTransaction(ct *chronometer.CancellationToken,
 	}
 
 	for _, tag := range allTags {
-		if ct.ShouldCancel() {
-			return ct.Cancel()
-		}
+		ct.CheckCancellation()
 
 		newTagValue := model.CleanTagValue(tag.TagValue)
 		if newTagValue != tag.TagValue {

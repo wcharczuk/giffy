@@ -53,7 +53,7 @@ func (i Index) Register(app *web.App) {
 			if len(parts) < 3 {
 				return path
 			}
-			return fmt.Sprintf("%s.%s", parts[1], parts[2])
+			return fmt.Sprintf("%s.%s", parts[1], parts[3])
 		})
 		app.StaticHeader("/static/*filepath", "access-control-allow-origin", "*")
 		app.StaticHeader("/static/*filepath", "cache-control", "public,max-age=315360000")
