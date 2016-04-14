@@ -44,5 +44,9 @@ $SSL_DIRECTIVES
 		proxy_set_header X-Request-Start \$msec;
 	}
 
+	location ~ \.(aspx|php|jsp|cgi)$ {
+		return 410;
+	}
+
 	include $DOKKU_ROOT/$APP/nginx.conf.d/*.conf;
 }
