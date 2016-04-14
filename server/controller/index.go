@@ -50,7 +50,7 @@ func (i Index) Register(app *web.App) {
 	if core.ConfigIsProduction() {
 		app.Static("/static/*filepath", http.Dir("_client/dist"))
 		app.StaticRewrite("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
-			if len(parts) < 3 {
+			if len(parts) < 4 {
 				return path
 			}
 			return fmt.Sprintf("%s.%s", parts[1], parts[3])
