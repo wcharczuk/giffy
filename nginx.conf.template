@@ -22,11 +22,11 @@ server {
 		proxy_set_header X-Request-Start \$msec;
 	}
 
-	location ~* giffy.min.([0-9]+).js {
+	location ~* giffy\.min\.([0-9]+)\.js {
 		try_files $scheme://$APP/static/js/giffy.min.js $uri  =404;
 	}
 
-	location ~* giffy.min.([0-9]+).css {
+	location ~* giffy\.min\.([0-9]+)\.css {
 		try_files $scheme://$APP/static/css/giffy.min.css $uri =404;
 	}
 
