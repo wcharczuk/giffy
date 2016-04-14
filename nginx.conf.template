@@ -10,7 +10,7 @@ server {
 	client_max_body_size 64M;
 
 	location / {
-		try_files / @app;
+		try_files $uri $uri/ @app =404;
 	}
 
 	location ~* ^(.*)\/giffy\.min\.([0-9]+)\.js {
