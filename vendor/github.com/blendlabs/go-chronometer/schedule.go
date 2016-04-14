@@ -33,7 +33,7 @@ const (
 // The Schedule interface defines the form a schedule should take. All schedules are resposible for is giving a next run time after a last run time.
 type Schedule interface {
 	// Returns the next start time after a given "last run time". Note: after will be `nil` if the job is running for the first time.
-	GetNextRunTime(after *time.Time) time.Time
+	GetNextRunTime(after *time.Time) *time.Time
 }
 
 // EverySecond returns a schedule that fires every second.
@@ -100,12 +100,21 @@ func WeekendsAt(hour, minute, second int) Schedule {
 // Schedule Implementations
 // --------------------------------------------------------------------------------
 
+// OnDemandSchedule is a schedule that runs on demand.
+type OnDemandSchedule struct{}
+
+// GetNextRunTime gets the next run time.
+func (ods OnDemandSchedule) GetNextRunTime(after *time.Time) *time.Time {
+	return nil
+}
+
 // ImmediateSchedule fires immediately.
 type ImmediateSchedule struct{}
 
 // GetNextRunTime implements Schedule.
-func (i ImmediateSchedule) GetNextRunTime(after *time.Time) time.Time {
-	return time.Now().UTC()
+func (i ImmediateSchedule) GetNextRunTime(after *time.Time) *time.Time {
+	now := time.Now().UTC()
+	return &now
 }
 
 // IntervalSchedule is as chedule that fires every given interval with an optional start delay.
@@ -115,17 +124,18 @@ type IntervalSchedule struct {
 }
 
 // GetNextRunTime implements Schedule.
-func (i IntervalSchedule) GetNextRunTime(after *time.Time) time.Time {
+func (i IntervalSchedule) GetNextRunTime(after *time.Time) *time.Time {
 	if after == nil {
 		if i.StartDelay == nil {
-			return time.Now().UTC().Add(i.Every)
-		} else {
-			return time.Now().UTC().Add(*i.StartDelay).Add(i.Every)
+			next := time.Now().UTC().Add(i.Every)
+			return &next
 		}
-	} else {
-		last := *after
-		return last.Add(i.Every)
+		next := time.Now().UTC().Add(*i.StartDelay).Add(i.Every)
+		return &next
 	}
+	last := *after
+	last = last.Add(i.Every)
+	return &last
 }
 
 // DailySchedule is a schedule that fires every day that satisfies the DayOfWeekMask at the given TimeOfDayUTC.
@@ -141,7 +151,7 @@ func (ds DailySchedule) checkDayOfWeekMask(day time.Weekday) bool {
 }
 
 // GetNextRunTime implements Schedule.
-func (ds DailySchedule) GetNextRunTime(after *time.Time) time.Time {
+func (ds DailySchedule) GetNextRunTime(after *time.Time) *time.Time {
 	if after == nil {
 		now := time.Now().UTC()
 		after = &now
@@ -152,18 +162,18 @@ func (ds DailySchedule) GetNextRunTime(after *time.Time) time.Time {
 		next := todayInstance.AddDate(0, 0, day) //the first run here it should be adding nothing, i.e. returning todayInstance ...
 
 		if ds.checkDayOfWeekMask(next.Weekday()) && next.After(*after) { //we're on a day ...
-			return next
+			return &next
 		}
 	}
 
-	return Epoch
+	return &Epoch
 }
 
 // OnTheQuarterHour is a schedule that fires every 15 minutes, on the quarter hours.
 type OnTheQuarterHour struct{}
 
 // GetNextRunTime implements the chronometer Schedule api.
-func (o OnTheQuarterHour) GetNextRunTime(after *time.Time) time.Time {
+func (o OnTheQuarterHour) GetNextRunTime(after *time.Time) *time.Time {
 	var returnValue time.Time
 	if after == nil {
 		now := time.Now().UTC()
@@ -187,14 +197,14 @@ func (o OnTheQuarterHour) GetNextRunTime(after *time.Time) time.Time {
 			returnValue = time.Date(after.Year(), after.Month(), after.Day(), after.Hour(), 0, 0, 0, time.UTC).Add(15 * time.Minute)
 		}
 	}
-	return returnValue
+	return &returnValue
 }
 
 // OnTheHour is a schedule that fires every hour on the 00th minute.
 type OnTheHour struct{}
 
 // GetNextRunTime implements the chronometer Schedule api.
-func (o OnTheHour) GetNextRunTime(after *time.Time) time.Time {
+func (o OnTheHour) GetNextRunTime(after *time.Time) *time.Time {
 	var returnValue time.Time
 	if after == nil {
 		now := time.Now().UTC()
@@ -202,5 +212,5 @@ func (o OnTheHour) GetNextRunTime(after *time.Time) time.Time {
 	} else {
 		returnValue = time.Date(after.Year(), after.Month(), after.Day(), after.Hour(), 0, 0, 0, time.UTC).Add(1 * time.Hour)
 	}
-	return returnValue
+	return &returnValue
 }

@@ -1,39 +1,63 @@
 package chronometer
 
-import "github.com/blendlabs/go-exception"
+import (
+	"sync"
+
+	"github.com/blendlabs/go-exception"
+)
 
 // NewCancellationToken returns a new CancellationToken instance.
 func NewCancellationToken() *CancellationToken {
-	return &CancellationToken{shouldCancel: false, didCancel: false, cancellationSignal: make(chan bool, 1)}
+	return &CancellationToken{
+		shouldCancel:     false,
+		shouldCancelLock: sync.RWMutex{},
+	}
 }
 
-// CancellationException is the panic that gets raised when tasks are canceled.
-type CancellationException error
+// CancellationPanic is the panic that gets raised when tasks are canceled.
+type CancellationPanic error
 
-// NewCancellationException returns a new cancellation exception.
-func NewCancellationException() error {
-	return CancellationException(exception.New("Cancellation grace period expired."))
+// NewCancellationPanic returns a new cancellation exception.
+func NewCancellationPanic() error {
+	return CancellationPanic(exception.New("Cancellation grace period expired."))
+}
+
+// HandleCancellationPanic is a method to use in your
+// execution handlers that handles and forwards the CancellationPanic
+func HandleCancellationPanic(handler func()) {
+	if r := recover(); r != nil {
+		if _, isCancellation := r.(CancellationPanic); isCancellation {
+			handler()
+			panic(r)
+		}
+	}
 }
 
 // CancellationToken are the signalling mechanism chronometer uses to tell tasks that they should stop work.
 type CancellationToken struct {
-	shouldCancel       bool
-	didCancel          bool
-	cancellationSignal chan bool
+	shouldCancel     bool
+	shouldCancelLock sync.RWMutex
 }
 
-func (ct *CancellationToken) signalCancellation() {
+// Cancel signals cancellation.
+func (ct *CancellationToken) Cancel() {
+	ct.shouldCancelLock.Lock()
+	defer ct.shouldCancelLock.Unlock()
 	ct.shouldCancel = true
-	ct.didCancel = false
 }
 
-// ShouldCancel indicates if a token should cancel.
-func (ct *CancellationToken) ShouldCancel() bool {
+func (ct *CancellationToken) didCancel() bool {
+	ct.shouldCancelLock.RLock()
+	defer ct.shouldCancelLock.RUnlock()
+
 	return ct.shouldCancel
 }
 
-// Cancel should be called when ShouldCancel is true in order to signal OnCancellationReceiver's.
-func (ct *CancellationToken) Cancel() error {
-	ct.didCancel = true
-	return exception.New("Task Cancellation")
+// CheckCancellation indicates if a token has been signaled to cancel.
+func (ct *CancellationToken) CheckCancellation() {
+	ct.shouldCancelLock.RLock()
+	defer ct.shouldCancelLock.RUnlock()
+	if ct.shouldCancel {
+		panic(NewCancellationPanic())
+	}
 }

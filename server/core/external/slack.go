@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/go-slack"
 )
 
 // SlackOAuthResponse is the response from the second phase of slack oauth 2.0
@@ -22,29 +20,6 @@ type SlackAuthTestResponse struct {
 	Team   string `json:"team"`
 	UserID string `json:"user_id"`
 	TeamID string `json:"team_id"`
-}
-
-// FetchSlackProfile returns the slack profile for an access token.
-func FetchSlackProfile(accessToken string) (*model.User, error) {
-	c := slack.NewClient(accessToken)
-
-	authTest, err := c.AuthTest()
-	if err != nil {
-		return nil, err
-	}
-
-	userInfo, err := c.UsersInfo(authTest.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.User{
-		Username:        fmt.Sprintf("%s @ %s", userInfo.Name, authTest.Team),
-		FirstName:       userInfo.Profile.FirstName,
-		LastName:        userInfo.Profile.LastName,
-		EmailAddress:    userInfo.Profile.Email,
-		IsEmailVerified: true,
-	}, nil
 }
 
 // SlackLoginURL is the url to start the OAuth 2.0 process with slack.

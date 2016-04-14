@@ -124,7 +124,7 @@
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-chronometer",
-			"Rev": "714f9305ae8ac61da57647e1c425d95e12682108"
+			"Rev": "7e3da6aecf2c51c7354eaec8ec89a303f23fd5ec"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-exception",
@@ -148,17 +148,13 @@
 		},
 		{
 			"ImportPath": "github.com/blendlabs/spiffy",
-			"Comment": "v1.0-98-g37be19f",
-			"Rev": "37be19feb01963dd94f996bd37057d047b5dcdc3"
+			"Comment": "v1.0-80-gb9741fa",
+			"Rev": "b9741fac0e0adecbe6668e8f140d9718fd79bdfd"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",
 			"Comment": "v1.10.1",
 			"Rev": "776aa739ce9373377cd16f526cdf06cb4c89b40f"
-		},
-		{
-			"ImportPath": "github.com/gorilla/websocket",
-			"Rev": "4935ba31a2adbfcd9e08b86d2657659afbf1af9a"
 		},
 		{
 			"ImportPath": "github.com/jmespath/go-jmespath",
@@ -183,10 +179,6 @@
 		{
 			"ImportPath": "github.com/stathat/go",
 			"Rev": "91dfa3a59c5b233fef9a346a1460f6e2bc889d93"
-		},
-		{
-			"ImportPath": "github.com/wcharczuk/go-slack",
-			"Rev": "be1ee5c6d34a700aeb7bf1b78ea6c5be0f1424c4"
 		},
 		{
 			"ImportPath": "github.com/wcharczuk/go-web",

@@ -13,4 +13,4 @@ notifications:
       - "Build Details: %{build_url}"
 
 script:
-  - go test
+  - go test -timeout 4s -race
