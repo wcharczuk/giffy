@@ -50,10 +50,10 @@ func (i Index) Register(app *web.App) {
 	if core.ConfigIsProduction() {
 		app.Static("/static/*filepath", http.Dir("_client/dist"))
 		app.StaticRewrite("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
-			if len(parts) < 2 {
+			if len(parts) < 3 {
 				return path
 			}
-			return fmt.Sprintf("%s.%s", parts[0], parts[1])
+			return fmt.Sprintf("%s.%s", parts[1], parts[2])
 		})
 		app.StaticHeader("/static/*filepath", "access-control-allow-origin", "*")
 		app.StaticHeader("/static/*filepath", "cache-control", "public,max-age=315360000")
