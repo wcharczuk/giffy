@@ -23,11 +23,11 @@ server {
 	}
 
 	location ~* giffy.min.([0-9]+).js {
-		try_files $uri /static/js/giffy.min.js =404;
+		try_files /static/js/giffy.min.js $uri  =404;
 	}
 
 	location ~* giffy.min.([0-9]+).css {
-		try_files $uri /static/css/giffy.min.css =404;
+		try_files /static/css/giffy.min.css $uri =404;
 	}
 
 	location ~ \.(aspx|php|jsp|cgi)$ {
