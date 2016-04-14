@@ -23,7 +23,8 @@ server {
 	}
 
 	location ~* (.+)\.(?:\d+)\.(js|css)$ {
-		try_files $uri $uri/ $1.$2 =200;
+		rewrite  (.*)\.(?:\d+)\.(js|css) $1.$3 break;
+		try_files $uri $uri/ $1.$3;
 	}
 
 	include $DOKKU_ROOT/$APP/nginx.conf.d/*.conf;
