@@ -23,11 +23,11 @@ server {
 	}
 
 	location ~* ^(.*)\/giffy\.min\.([0-9]+)\.js {
-		rewrite $uri http://$APP/static/js/giffy.min.js last;
+		rewrite $uri /static/js/giffy.min.js last;
 	}
 
 	location ~* ^(.*)\/giffy\.min\.([0-9]+)\.css {
-		rewrite $uri http://$APP/static/css/giffy.min.css last;
+		rewrite $uri /static/css/giffy.min.css last;
 	}
 
 	location ~ \.(aspx|php|jsp|cgi)$ {
