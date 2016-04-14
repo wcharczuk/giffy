@@ -22,14 +22,6 @@ server {
 		proxy_set_header X-Request-Start \$msec;
 	}
 
-	location ~* ^(.*)\/giffy\.min\.([0-9]+)\.js {
-		rewrite ^(.*)\/giffy\.min\.([0-9]+)\.js /static/js/giffy.min.js last;
-	}
-
-	location ~* ^(.*)\/giffy\.min\.([0-9]+)\.css {
-		rewrite ^(.*)\/giffy\.min\.([0-9]+)\.css /static/css/giffy.min.css last;
-	}
-
 	location ~ \.(aspx|php|jsp|cgi)$ {
 		return 410;
 	}
