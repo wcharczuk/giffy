@@ -10,7 +10,7 @@ server {
 	client_max_body_size 64M;
 
 	location / {
-		proxy_pass  http://$APP/;
+		proxy_pass  http://$APP;
 
 		proxy_http_version 1.1;
 		proxy_set_header Upgrade \$http_upgrade;
@@ -22,7 +22,7 @@ server {
 		proxy_set_header X-Request-Start \$msec;
 	}
 
-	location ~* (.+)\.(?:\d+)\.(js|css|png|jpg|jpeg|gif)$ {
+	location ~* (.+)\.(?:\d+)\.(js|css)$ {
 		try_files $uri $1.$2;
 	}
 
