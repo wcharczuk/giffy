@@ -192,6 +192,7 @@ func (a *App) Static(path string, root http.FileSystem) {
 		if rules, hasRules := a.staticRewriteRules[path]; hasRules {
 			for _, rule := range rules {
 				if matched, newFilePath := rule.Apply(filePath); matched {
+					println("go-web :: changing file path", filePath, newFilePath)
 					filePath = newFilePath
 				}
 			}
