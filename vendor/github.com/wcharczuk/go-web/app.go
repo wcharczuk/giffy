@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
@@ -31,9 +32,11 @@ func New() *App {
 // NewWithLogger returns a new app with a given logger.
 func NewWithLogger(logger Logger) *App {
 	return &App{
-		router: httprouter.New(),
-		name:   "Web",
-		logger: logger,
+		router:             httprouter.New(),
+		name:               "Web",
+		logger:             logger,
+		staticRewriteRules: map[string][]*RewriteRule{},
+		staticHeaders:      map[string]http.Header{},
 	}
 }
 
@@ -51,6 +54,9 @@ type App struct {
 	onRequestStart    []RequestEventHandler
 	onRequestComplete []RequestEventHandler
 	onRequestError    []RequestEventErrorHandler
+
+	staticRewriteRules map[string][]*RewriteRule
+	staticHeaders      map[string]http.Header
 
 	port string
 }
@@ -107,6 +113,8 @@ func (a *App) Start() error {
 }
 
 // StartWithServer starts the app on a custom server.
+// This lets you configure things like TLS keys and
+// other options.
 func (a *App) StartWithServer(server *http.Server) error {
 	// this is the only property we will set of the server
 	// i.e. the server handler (which is this app)
@@ -160,9 +168,68 @@ func (a *App) DELETE(path string, handler ControllerAction) {
 	a.router.DELETE(path, a.RenderAction(handler))
 }
 
-// Static registers a Static request handler.
+// Static serves files from the given file system root.
+// The path must end with "/*filepath", files are then served from the local
+// path /defined/root/dir/*filepath.
+// For example if root is "/etc" and *filepath is "passwd", the local file
+// "/etc/passwd" would be served.
+// Internally a http.FileServer is used, therefore http.NotFound is used instead
+// of the Router's NotFound handler.
+// To use the operating system's file system implementation,
+// use http.Dir:
+//     router.ServeFiles("/src/*filepath", http.Dir("/var/www"))
 func (a *App) Static(path string, root http.FileSystem) {
-	a.router.ServeFiles(path, root)
+	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
+		panic("path must end with /*filepath in path '" + path + "'")
+	}
+
+	fileServer := http.FileServer(root)
+
+	a.router.GET(path, func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+		filePath := ps.ByName("filepath")
+		if rules, hasRules := a.staticRewriteRules[path]; hasRules {
+			for _, rule := range rules {
+				if matched, newFilePath := rule.Apply(filePath); matched {
+					filePath = newFilePath
+				}
+			}
+		}
+
+		if headers, hasHeaders := a.staticHeaders[path]; hasHeaders {
+			for key, values := range headers {
+				for _, value := range values {
+					w.Header().Add(key, value)
+				}
+			}
+		}
+
+		req.URL.Path = filePath
+		fileServer.ServeHTTP(w, req)
+	})
+}
+
+// StaticRewrite adds a rewrite rule for a specific statically served path.
+// Make sure to serve the static path with (app).Static(path, root).
+func (a *App) StaticRewrite(path, match string, replaceFn func(pieces ...string) string) error {
+	expr, err := regexp.Compile(match)
+	if err != nil {
+		return err
+	}
+	a.staticRewriteRules[path] = append(a.staticRewriteRules[path], &RewriteRule{
+		MatchExpression: match,
+		expr:            expr,
+		Action:          replaceFn,
+	})
+
+	return nil
+}
+
+// StaticHeader adds a header for the given static path.
+func (a *App) StaticHeader(path, key, value string) {
+	if _, hasHeaders := a.staticHeaders[path]; !hasHeaders {
+		a.staticHeaders[path] = http.Header{}
+	}
+	a.staticHeaders[path].Add(key, value)
 }
 
 // SetNotFoundHandler sets the not found handler.
