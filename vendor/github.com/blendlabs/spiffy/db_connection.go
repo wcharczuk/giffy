@@ -314,7 +314,7 @@ func (dbc *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql.Tx,
 		return exception.New("invalid `ids` parameter.")
 	}
 
-	meta := NewColumnCollectionFromInstance(object)
+	meta := CachedColumnCollectionFromInstance(object)
 	standardCols := meta.NotReadOnly()
 	columnNames := standardCols.ColumnNames()
 	tableName := object.TableName()
@@ -393,7 +393,7 @@ func (dbc *DbConnection) GetAllInTransaction(collection interface{}, tx *sql.Tx)
 	collectionValue := reflectValue(collection)
 	t := reflectSliceType(collection)
 	tableName, _ := TableName(t)
-	meta := NewColumnCollectionFromType(t).NotReadOnly()
+	meta := CachedColumnCollectionFromType(tableName, t).NotReadOnly()
 
 	columnNames := meta.ColumnNames()
 	sqlStmt := fmt.Sprintf("SELECT %s FROM %s", strings.Join(columnNames, ","), tableName)
@@ -467,7 +467,7 @@ func (dbc *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 	dbc.txLock()
 	defer dbc.txUnlock()
 
-	cols := NewColumnCollectionFromInstance(object)
+	cols := CachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
 
 	//NOTE: we're only using one.
@@ -555,7 +555,7 @@ func (dbc *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 	defer dbc.txUnlock()
 
 	tableName := object.TableName()
-	cols := NewColumnCollectionFromInstance(object)
+	cols := CachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
 	pks := cols.PrimaryKeys()
 	allCols := writeCols.ConcatWith(pks)
@@ -616,7 +616,7 @@ func (dbc *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.Tx) 
 	defer dbc.txUnlock()
 
 	tableName := object.TableName()
-	cols := NewColumnCollectionFromInstance(object)
+	cols := CachedColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
 	if pks.Len() == 0 {
@@ -680,7 +680,7 @@ func (dbc *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.Tx) 
 	defer dbc.txUnlock()
 
 	tableName := object.TableName()
-	cols := NewColumnCollectionFromInstance(object)
+	cols := CachedColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
 	if len(pks.Columns()) == 0 {

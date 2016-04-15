@@ -9,7 +9,7 @@ import (
 
 var (
 	metaCacheLock sync.Mutex
-	metaCache     map[reflect.Type]*ColumnCollection
+	metaCache     map[string]*ColumnCollection
 )
 
 // --------------------------------------------------------------------------------
@@ -35,25 +35,25 @@ func NewColumnCollectionFromColumns(columns []Column) *ColumnCollection {
 	return &cc
 }
 
-// NewColumnCollectionFromInstance reflects an object instance into a new column collection.
-func NewColumnCollectionFromInstance(object DatabaseMapped) *ColumnCollection {
-	return NewColumnCollectionFromType(reflect.TypeOf(object))
+// CachedColumnCollectionFromInstance reflects an object instance into a new column collection.
+func CachedColumnCollectionFromInstance(object DatabaseMapped) *ColumnCollection {
+	return CachedColumnCollectionFromType(object.TableName(), reflect.TypeOf(object))
 }
 
-// NewColumnCollectionFromType reflects a reflect.Type into a column collection.
+// CachedColumnCollectionFromType reflects a reflect.Type into a column collection.
 // The results of this are cached for speed.
-func NewColumnCollectionFromType(t reflect.Type) *ColumnCollection {
+func CachedColumnCollectionFromType(identifier string, t reflect.Type) *ColumnCollection {
 	metaCacheLock.Lock()
 	defer metaCacheLock.Unlock()
 
 	if metaCache == nil {
-		metaCache = map[reflect.Type]*ColumnCollection{}
+		metaCache = map[string]*ColumnCollection{}
 	}
 
-	if _, ok := metaCache[t]; !ok {
-		metaCache[t] = GenerateColumnCollectionForType(t)
+	if _, ok := metaCache[identifier]; !ok {
+		metaCache[identifier] = GenerateColumnCollectionForType(t)
 	}
-	return metaCache[t]
+	return metaCache[identifier]
 }
 
 // GenerateColumnCollectionForType reflects a new column collection from a reflect.Type.
@@ -93,16 +93,24 @@ func (cc *ColumnCollection) Len() int {
 	return len(cc.columns)
 }
 
-// WithColumnPrefix applies a column prefix to column names.
-func (cc *ColumnCollection) WithColumnPrefix(prefix string) *ColumnCollection {
-	cc.columnPrefix = prefix
-	return cc
-}
-
 // Add adds a column.
 func (cc *ColumnCollection) Add(c Column) {
 	cc.columns = append(cc.columns, c)
 	cc.lookup[c.ColumnName] = &c
+}
+
+// WithColumnPrefix applies a column prefix to column names.
+func (cc ColumnCollection) WithColumnPrefix(prefix string) *ColumnCollection {
+	newCC := NewColumnCollectionFromColumns(cc.columns)
+	newCC.columnPrefix = prefix
+	return newCC
+}
+
+// Copy copies the metadata.
+func (cc ColumnCollection) Copy() *ColumnCollection {
+	newCC := NewColumnCollectionFromColumns(cc.columns)
+	newCC.columnPrefix = cc.columnPrefix
+	return newCC
 }
 
 // PrimaryKeys are columns we use as where predicates and can't update.
@@ -241,7 +249,6 @@ func (cc ColumnCollection) ColumnValues(instance interface{}) []interface{} {
 		} else {
 			values = append(values, valueField.Interface())
 		}
-
 	}
 	return values
 }

@@ -114,11 +114,10 @@ func QueueModerationEntry(userID int64, verb, object string, nouns ...string) {
 }
 
 func getModerationQuery(whereClause string) string {
-	moderatorColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
-
-	userColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_").ColumnNamesFromAlias("u"))
-	imageColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_").ColumnNamesFromAlias("i"))
-	tagColumns := spiffy.CSV(spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
+	moderatorColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
+	userColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_").ColumnNamesFromAlias("u"))
+	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_").ColumnNamesFromAlias("i"))
+	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
 
 	return fmt.Sprintf(`
 select
@@ -169,12 +168,11 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 }
 
 func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
-	moderationColumns := spiffy.NewColumnCollectionFromInstance(Moderation{})
-	moderatorColumns := spiffy.NewColumnCollectionFromInstance(User{}).WithColumnPrefix("moderator_")
-
-	userColumns := spiffy.NewColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_")
-	imageColumns := spiffy.NewColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_")
-	tagColumns := spiffy.NewColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_")
+	moderationColumns := spiffy.CachedColumnCollectionFromInstance(Moderation{})
+	moderatorColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("moderator_")
+	userColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_")
+	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_")
+	tagColumns := spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_")
 
 	return func(r *sql.Rows) error {
 		var m Moderation

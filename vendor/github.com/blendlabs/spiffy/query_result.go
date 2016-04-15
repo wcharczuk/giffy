@@ -157,7 +157,7 @@ func (q *QueryResult) Out(object DatabaseMapped) (err error) {
 		return
 	}
 
-	columnMeta := NewColumnCollectionFromInstance(object)
+	columnMeta := CachedColumnCollectionFromInstance(object)
 	var popErr error
 	if q.Rows.Next() {
 		if populatable, isPopulatable := object.(Populatable); isPopulatable {
@@ -207,9 +207,9 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 	sliceInnerType := reflectSliceType(collection)
 	collectionValue := reflectValue(collection)
 
-	meta := NewColumnCollectionFromType(sliceInnerType)
-
 	v, _ := MakeNew(sliceInnerType)
+	meta := CachedColumnCollectionFromType(v.TableName(), sliceInnerType)
+
 	isPopulatable := IsPopulatable(v)
 
 	var popErr error
