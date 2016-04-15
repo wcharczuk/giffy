@@ -38,6 +38,10 @@ func (i Index) panicHandler(r *web.RequestContext, err interface{}) web.Controll
 	return r.View().InternalError(exception.Newf("%v", err))
 }
 
+func (i Index) blitzHandler(r *web.RequestContext) web.ControllerResult {
+	return r.Raw([]byte("42"))
+}
+
 // Register registers the controller
 func (i Index) Register(app *web.App) {
 	app.SetMethodNotAllowedHandler(i.methodNotAllowedHandler)
@@ -46,6 +50,7 @@ func (i Index) Register(app *web.App) {
 
 	app.GET("/", i.indexAction)
 	app.GET("/favicon.ico", i.faviconAction)
+	app.GET("/mu-7a4082d8-5f909f9e-91fd701d-c2bce091", i.blitzHandler)
 
 	if core.ConfigIsProduction() {
 		app.Static("/static/*filepath", http.Dir("_client/dist"))
