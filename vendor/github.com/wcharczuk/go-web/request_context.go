@@ -250,7 +250,7 @@ func (rc *RequestContext) ExpireCookie(name string) {
 // Render writes the body of the response, it should not alter metadata.
 func (rc *RequestContext) Render(result ControllerResult) {
 	renderErr := result.Render(rc)
-	if renderErr != nil {
+	if renderErr != nil && rc.logger != nil {
 		rc.logger.Error(renderErr)
 	}
 }

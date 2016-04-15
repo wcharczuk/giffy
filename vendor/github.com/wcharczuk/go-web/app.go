@@ -31,17 +31,6 @@ func New() *App {
 	}
 }
 
-// NewWithLogger returns a new app with a given logger.
-func NewWithLogger(logger Logger) *App {
-	return &App{
-		router:             httprouter.New(),
-		name:               "Web",
-		logger:             logger,
-		staticRewriteRules: map[string][]*RewriteRule{},
-		staticHeaders:      map[string]http.Header{},
-	}
-}
-
 // App is the server for the app.
 type App struct {
 	name string
@@ -110,8 +99,7 @@ func (a *App) Start() error {
 		Addr:    bindAddr,
 		Handler: a,
 	}
-	a.logger.Logf("%s Started, listening on %s", a.Name(), bindAddr)
-	return server.ListenAndServe()
+	return a.StartWithServer(server)
 }
 
 // StartWithServer starts the app on a custom server.
@@ -121,7 +109,9 @@ func (a *App) StartWithServer(server *http.Server) error {
 	// this is the only property we will set of the server
 	// i.e. the server handler (which is this app)
 	server.Handler = a
-	a.logger.Logf("%s Started, listening on %s", a.Name(), server.Addr)
+	if a.logger != nil {
+		a.logger.Logf("%s Started, listening on %s", a.Name(), server.Addr)
+	}
 	return server.ListenAndServe()
 }
 
@@ -232,10 +222,6 @@ func (a *App) Static(path string, root http.FileSystem) {
 			context.LogRequest()
 		}
 	})
-}
-
-func (a *App) handleStaticRequest(fileServer http.Handler, w http.ResponseWriter, r *http.Request, p RouteParameters) {
-
 }
 
 // StaticRewrite adds a rewrite rule for a specific statically served path.
@@ -349,6 +335,7 @@ func (a *App) RequestErrorHandler(handler RequestEventErrorHandler) {
 // RenderAction is the translation step from APIControllerAction to httprouter.Handle.
 func (a *App) RenderAction(action ControllerAction) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		w.Header().Set("Vary", "Accept-Encoding")
 		w.Header().Set("X-Served-By", "github.com/wcharczuk/go-web")
 		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		w.Header().Set("X-Xss-Protection", "1; mode=block")
@@ -370,7 +357,6 @@ func parseParams(p httprouter.Params) RouteParameters {
 }
 
 func (a *App) renderUncompressed(action ControllerAction, w http.ResponseWriter, r *http.Request, p RouteParameters) {
-	w.Header().Set("Vary", "Accept-Encoding")
 	rw := NewResponseWriter(w)
 	context := a.RequestContext(rw, r, p)
 
@@ -384,7 +370,6 @@ func (a *App) renderUncompressed(action ControllerAction, w http.ResponseWriter,
 
 func (a *App) renderCompressed(action ControllerAction, w http.ResponseWriter, r *http.Request, p RouteParameters) {
 	w.Header().Set("Content-Encoding", "gzip")
-	w.Header().Set("Vary", "Accept-Encoding")
 
 	gzw := NewGZippedResponseWriter(w)
 	defer gzw.Close()
