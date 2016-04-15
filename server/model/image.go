@@ -82,7 +82,7 @@ func (i Image) IsZero() bool {
 
 //Populate popultes the object from rows.
 func (i *Image) Populate(r *sql.Rows) error {
-	return r.Scan(
+	return exception.Wrap(r.Scan(
 		&i.ID,
 		&i.UUID,
 		&i.CreatedUTC,
@@ -97,7 +97,7 @@ func (i *Image) Populate(r *sql.Rows) error {
 		&i.Height,
 		&i.FileSize,
 		&i.Extension,
-	)
+	))
 }
 
 // ImagePredicate is used in linq queries
@@ -534,7 +534,7 @@ type imageSignature struct {
 }
 
 func (i imageSignature) TableName() string {
-	return "image"
+	return "image_signature" //note this doesn't matter, its just for column metadata reasons.
 }
 
 type imageSignatures []imageSignature
