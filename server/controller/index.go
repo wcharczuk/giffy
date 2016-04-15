@@ -51,6 +51,7 @@ func (i Index) Register(app *web.App) {
 	app.GET("/", i.indexAction)
 	app.GET("/favicon.ico", i.faviconAction)
 	app.GET("/mu-7a4082d8-5f909f9e-91fd701d-c2bce091", i.blitzHandler)
+	app.GET("/mu-564346ee-4c8fbe62-92480e43-51138c7a", i.blitzHandler)
 
 	if core.ConfigIsProduction() {
 		app.Static("/static/*filepath", http.Dir("_client/dist"))
