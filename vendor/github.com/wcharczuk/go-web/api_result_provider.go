@@ -6,7 +6,7 @@ import (
 	"github.com/blendlabs/go-exception"
 )
 
-// NewAPIResultProvider Creates a new APIResults object.
+// NewAPIResultProvider Creates a new JSONResults object.
 func NewAPIResultProvider(app *App, r *RequestContext) *APIResultProvider {
 	return &APIResultProvider{app: app, requestContext: r}
 }
@@ -19,7 +19,7 @@ type APIResultProvider struct {
 
 // NotFound returns a service response.
 func (ar *APIResultProvider) NotFound() ControllerResult {
-	return &APIResult{
+	return &JSONResult{
 		StatusCode: http.StatusNotFound,
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{
@@ -32,7 +32,7 @@ func (ar *APIResultProvider) NotFound() ControllerResult {
 
 // NotAuthorized returns a service response.
 func (ar *APIResultProvider) NotAuthorized() ControllerResult {
-	return &APIResult{
+	return &JSONResult{
 		StatusCode: http.StatusForbidden,
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{
@@ -46,11 +46,11 @@ func (ar *APIResultProvider) NotAuthorized() ControllerResult {
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) ControllerResult {
 	if ar.app != nil {
-		ar.app.OnRequestError(ar.requestContext, err)
+		ar.app.onRequestError(ar.requestContext, err)
 	}
 
 	if exPtr, isException := err.(*exception.Exception); isException {
-		return &APIResult{
+		return &JSONResult{
 			StatusCode: http.StatusInternalServerError,
 			Response: &APIResponse{
 				Meta: &APIResponseMeta{
@@ -61,7 +61,7 @@ func (ar *APIResultProvider) InternalError(err error) ControllerResult {
 			},
 		}
 	}
-	return &APIResult{
+	return &JSONResult{
 		StatusCode: http.StatusInternalServerError,
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{
@@ -74,7 +74,7 @@ func (ar *APIResultProvider) InternalError(err error) ControllerResult {
 
 // BadRequest returns a service response.
 func (ar *APIResultProvider) BadRequest(message string) ControllerResult {
-	return &APIResult{
+	return &JSONResult{
 		StatusCode: http.StatusBadRequest,
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{
@@ -87,7 +87,7 @@ func (ar *APIResultProvider) BadRequest(message string) ControllerResult {
 
 // OK returns a service response.
 func (ar *APIResultProvider) OK() ControllerResult {
-	return &APIResult{
+	return &JSONResult{
 		StatusCode: http.StatusOK,
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{
@@ -100,7 +100,7 @@ func (ar *APIResultProvider) OK() ControllerResult {
 
 // JSON returns a service response.
 func (ar *APIResultProvider) JSON(response interface{}) ControllerResult {
-	return &APIResult{
+	return &JSONResult{
 		StatusCode: http.StatusOK,
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{

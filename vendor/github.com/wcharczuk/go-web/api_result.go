@@ -15,15 +15,3 @@ type APIResponse struct {
 	Meta     *APIResponseMeta `json:"meta"`
 	Response interface{}      `json:"response"`
 }
-
-// APIResult is an api result.
-type APIResult struct {
-	StatusCode int
-	Response   interface{}
-}
-
-// Render turns the response into JSON.
-func (ar *APIResult) Render(ctx *RequestContext) error {
-	_, err := WriteJSON(ctx.Response, ctx.Request, ar.StatusCode, ar.Response)
-	return err
-}

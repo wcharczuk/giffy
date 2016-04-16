@@ -1,13 +1,9 @@
 package web
 
 import (
-	"bytes"
-	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/blendlabs/go-util"
@@ -40,8 +36,8 @@ type RequestEventErrorHandler func(r *RequestContext, err interface{})
 // NewRequestContext returns a new hc context.
 func NewRequestContext(w http.ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	ctx := &RequestContext{
-		Request:         r,
 		Response:        w,
+		Request:         r,
 		routeParameters: p,
 		state:           State{},
 	}
@@ -288,6 +284,14 @@ func (rc *RequestContext) RawWithContentType(contentType string, body []byte) *R
 	return &RawResult{ContentType: contentType, Body: body}
 }
 
+// JSON returns a basic json result.
+func (rc *RequestContext) JSON(object interface{}) *JSONResult {
+	return &JSONResult{
+		StatusCode: http.StatusOK,
+		Response:   object,
+	}
+}
+
 // NoContent returns a service response.
 func (rc *RequestContext) NoContent() *NoContentResult {
 	return &NoContentResult{}
@@ -344,85 +348,4 @@ func (rc *RequestContext) onRequestEnd() {
 // Elapsed is the time delta between start and end.
 func (rc *RequestContext) Elapsed() time.Duration {
 	return rc.requestEnd.Sub(rc.requestStart)
-}
-
-// --------------------------------------------------------------------------------
-// Testing Methods & Types
-// --------------------------------------------------------------------------------
-
-type mockResponseWriter struct {
-	contents   io.Writer
-	statusCode int
-	headers    http.Header
-}
-
-func (res *mockResponseWriter) Write(buffer []byte) (int, error) {
-	return res.contents.Write(buffer)
-}
-
-func (res *mockResponseWriter) Header() http.Header {
-	return res.headers
-}
-
-func (res *mockResponseWriter) WriteHeader(statusCode int) {
-	res.statusCode = statusCode
-}
-
-// MockRequest returns a mock request.
-func MockRequest(verb string, header http.Header, queryString url.Values, postBody *bytes.Buffer) *http.Request {
-	url, _ := url.Parse("http://localhost/unit/test")
-	r := http.Request{
-		Method:     strings.ToUpper(verb),
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header:     http.Header{},
-		Close:      true,
-		Host:       "localhost",
-		RemoteAddr: "127.0.0.1",
-		RequestURI: "http://localhost/unit/test",
-		URL:        url,
-	}
-
-	if postBody != nil && postBody.Len() != 0 {
-		r.Body = ioutil.NopCloser(postBody)
-	}
-
-	if len(header) > 0 {
-		for key, values := range header {
-			for _, value := range values {
-				r.Header.Set(key, value)
-			}
-		}
-	}
-
-	if len(queryString) > 0 {
-		v := r.URL.Query()
-		for key, values := range queryString {
-			for _, value := range values {
-				v.Add(key, value)
-			}
-		}
-		r.URL.RawQuery = v.Encode()
-		r.RequestURI = r.URL.String()
-	}
-
-	return &r
-}
-
-// MockResponse returns a mock response.
-func MockResponse(responseBuffer *bytes.Buffer) http.ResponseWriter {
-	return &mockResponseWriter{statusCode: http.StatusOK, contents: responseBuffer, headers: http.Header{}}
-}
-
-// MockRequestContext returns a mocked HTTPContext.
-func MockRequestContext(verb string, params RouteParameters, header http.Header, queryString url.Values, postBody *bytes.Buffer, responseBuffer *bytes.Buffer) *RequestContext {
-	mockRequest := MockRequest(verb, header, queryString, postBody)
-	mockResponse := MockResponse(responseBuffer)
-
-	if params == nil {
-		params = RouteParameters{}
-	}
-
-	return NewRequestContext(mockResponse, mockRequest, params)
 }

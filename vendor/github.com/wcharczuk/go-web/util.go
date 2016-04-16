@@ -13,6 +13,20 @@ import (
 	"github.com/blendlabs/go-util"
 )
 
+const (
+	//HeaderContentType is the content type header.
+	HeaderContentType = "Content-Type"
+
+	//HeaderConnection is the connection header.
+	HeaderConnection = "Connection"
+
+	//ConnectionKeepAlive is the keep-alive connection header value.
+	ConnectionKeepAlive = "keep-alive"
+
+	//ContentTypeJSON is the standard json content type.
+	ContentTypeJSON = "application/json; charset=utf-8"
+)
+
 // WriteNoContent writes http.StatusNoContent for a request.
 func WriteNoContent(w http.ResponseWriter) (int, error) {
 	w.WriteHeader(http.StatusNoContent)
@@ -34,13 +48,13 @@ func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response 
 		return 0, exception.Wrap(err)
 	}
 
-	if requestConnectionHeader := r.Header.Get("Connection"); !util.IsEmpty(requestConnectionHeader) {
-		if strings.ToLower(requestConnectionHeader) == "keep-alive" {
-			w.Header().Set("Connection", "keep-alive")
+	if requestConnectionHeader := r.Header.Get(HeaderConnection); !util.IsEmpty(requestConnectionHeader) {
+		if strings.ToLower(requestConnectionHeader) == ConnectionKeepAlive {
+			w.Header().Set(HeaderConnection, ConnectionKeepAlive)
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	w.WriteHeader(statusCode)
 
 	count, err := w.Write(bytes)

@@ -5,6 +5,20 @@ import (
 	"net/http"
 )
 
+const (
+	// DefaultTemplateBadRequest is the default template name for bad request view results.
+	DefaultTemplateBadRequest = "bad_request"
+
+	// DefaultTemplateInternalServerError is the default template name for internal server error view results.
+	DefaultTemplateInternalServerError = "error"
+
+	// DefaultTemplateNotFound is the default template name for not found error view results.
+	DefaultTemplateNotFound = "not_found"
+
+	// DefaultTemplateNotAuthorized is the default template name for not authorized error view results.
+	DefaultTemplateNotAuthorized = "not_authorized"
+)
+
 // NewViewResultProvider creates a new ViewResults object.
 func NewViewResultProvider(app *App, r *RequestContext) *ViewResultProvider {
 	return &ViewResultProvider{app: app, requestContext: r}
@@ -28,7 +42,7 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 	return &ViewResult{
 		StatusCode: http.StatusBadRequest,
 		ViewModel:  message,
-		Template:   "bad_request",
+		Template:   DefaultTemplateBadRequest,
 		viewCache:  vr.viewCache(),
 	}
 }
@@ -36,13 +50,13 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
 	if vr.app != nil {
-		vr.app.OnRequestError(vr.requestContext, err)
+		vr.app.onRequestError(vr.requestContext, err)
 	}
 
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
-		Template:   "error",
+		Template:   DefaultTemplateInternalServerError,
 		viewCache:  vr.viewCache(),
 	}
 }
@@ -52,7 +66,7 @@ func (vr *ViewResultProvider) NotFound() ControllerResult {
 	return &ViewResult{
 		StatusCode: http.StatusNotFound,
 		ViewModel:  nil,
-		Template:   "not_found",
+		Template:   DefaultTemplateNotFound,
 		viewCache:  vr.viewCache(),
 	}
 }
@@ -62,7 +76,7 @@ func (vr *ViewResultProvider) NotAuthorized() ControllerResult {
 	return &ViewResult{
 		StatusCode: http.StatusForbidden,
 		ViewModel:  nil,
-		Template:   "not_authorized",
+		Template:   DefaultTemplateNotAuthorized,
 		viewCache:  vr.viewCache(),
 	}
 }

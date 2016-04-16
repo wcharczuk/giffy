@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -17,13 +18,13 @@ func New() *App {
 		name:               "Web",
 		staticRewriteRules: map[string][]*RewriteRule{},
 		staticHeaders:      map[string]http.Header{},
-		onRequestStart: []RequestEventHandler{func(r *RequestContext) {
+		requestStartHandlers: []RequestEventHandler{func(r *RequestContext) {
 			r.onRequestStart()
 		}},
-		onRequestComplete: []RequestEventHandler{func(r *RequestContext) {
+		requestCompleteHandlers: []RequestEventHandler{func(r *RequestContext) {
 			r.onRequestEnd()
 		}},
-		onRequestError: []RequestEventErrorHandler{func(r *RequestContext, err interface{}) {
+		requestErrorHandlers: []RequestEventErrorHandler{func(r *RequestContext, err interface{}) {
 			if r != nil && r.logger != nil {
 				r.logger.Error(err)
 			}
@@ -42,14 +43,15 @@ type App struct {
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
 
-	onRequestStart    []RequestEventHandler
-	onRequestComplete []RequestEventHandler
-	onRequestError    []RequestEventErrorHandler
+	requestStartHandlers    []RequestEventHandler
+	requestCompleteHandlers []RequestEventHandler
+	requestErrorHandlers    []RequestEventErrorHandler
 
 	staticRewriteRules map[string][]*RewriteRule
 	staticHeaders      map[string]http.Header
 
 	port string
+	tx   *sql.Tx
 }
 
 // Name returns the app name.``
@@ -80,6 +82,16 @@ func (a *App) ViewCache() *template.Template {
 // SetViewCache sets the view cache for the app.
 func (a *App) SetViewCache(viewCache *template.Template) {
 	a.viewCache = viewCache
+}
+
+// SetTx sets the app's tx.
+func (a *App) SetTx(tx *sql.Tx) {
+	a.tx = tx
+}
+
+// Tx returns the app's transaction (usually used for testing.
+func (a *App) Tx() *sql.Tx {
+	return a.tx
 }
 
 // Port returns the port for the app.
@@ -204,9 +216,9 @@ func (a *App) Static(path string, root http.FileSystem) {
 			defer gzw.Close()
 
 			context := a.RequestContext(gzw, r, parseParams(p))
-			a.OnRequestStart(context)
+			a.onRequestStart(context)
 			fileServer.ServeHTTP(gzw, r)
-			a.OnRequestComplete(context)
+			a.onRequestComplete(context)
 			gzw.Flush()
 			context.setStatusCode(gzw.StatusCode)
 			context.setContentLength(gzw.BytesWritten)
@@ -214,11 +226,11 @@ func (a *App) Static(path string, root http.FileSystem) {
 		} else {
 			rw := NewResponseWriter(w)
 			context := a.RequestContext(rw, r, parseParams(p))
-			a.OnRequestStart(context)
+			a.onRequestStart(context)
 			fileServer.ServeHTTP(rw, r)
 			context.setStatusCode(rw.StatusCode)
 			context.setContentLength(rw.ContentLength)
-			a.OnRequestComplete(context)
+			a.onRequestComplete(context)
 			context.LogRequest()
 		}
 	})
@@ -262,8 +274,7 @@ func (a *App) SetMethodNotAllowedHandler(handler ControllerAction) {
 func (a *App) SetPanicHandler(handler PanicControllerAction) {
 	a.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		a.RenderAction(func(r *RequestContext) ControllerResult {
-			a.OnRequestError(r, err)
-
+			a.onRequestError(r, err)
 			return handler(r, err)
 		})(w, r, httprouter.Params{})
 	}
@@ -287,27 +298,27 @@ func (a *App) RequestContext(w http.ResponseWriter, r *http.Request, p RoutePara
 // --------------------------------------------------------------------------------
 
 // OnRequestStart triggers the onRequestStart event.
-func (a *App) OnRequestStart(r *RequestContext) {
-	if len(a.onRequestStart) > 0 {
-		for _, handler := range a.onRequestStart {
+func (a *App) onRequestStart(r *RequestContext) {
+	if len(a.requestStartHandlers) > 0 {
+		for _, handler := range a.requestStartHandlers {
 			handler(r)
 		}
 	}
 }
 
 // OnRequestComplete triggers the onRequestStart event.
-func (a *App) OnRequestComplete(r *RequestContext) {
-	if len(a.onRequestComplete) > 0 {
-		for _, handler := range a.onRequestComplete {
+func (a *App) onRequestComplete(r *RequestContext) {
+	if len(a.requestCompleteHandlers) > 0 {
+		for _, handler := range a.requestCompleteHandlers {
 			handler(r)
 		}
 	}
 }
 
 // OnRequestError triggers the onRequestStart event.
-func (a *App) OnRequestError(r *RequestContext, err interface{}) {
-	if len(a.onRequestError) > 0 {
-		for _, handler := range a.onRequestError {
+func (a *App) onRequestError(r *RequestContext, err interface{}) {
+	if len(a.requestErrorHandlers) > 0 {
+		for _, handler := range a.requestErrorHandlers {
 			handler(r, err)
 		}
 	}
@@ -315,17 +326,26 @@ func (a *App) OnRequestError(r *RequestContext, err interface{}) {
 
 // RequestStartHandler fires before an action handler is run.
 func (a *App) RequestStartHandler(handler RequestEventHandler) {
-	a.onRequestStart = append(a.onRequestStart, handler)
+	a.requestStartHandlers = append(a.requestStartHandlers, handler)
 }
 
 // RequestCompleteHandler fires after an action handler is run.
 func (a *App) RequestCompleteHandler(handler RequestEventHandler) {
-	a.onRequestComplete = append(a.onRequestComplete, handler)
+	a.requestCompleteHandlers = append(a.requestCompleteHandlers, handler)
 }
 
 // RequestErrorHandler fires if there is an error logged.
 func (a *App) RequestErrorHandler(handler RequestEventErrorHandler) {
-	a.onRequestError = append(a.onRequestError, handler)
+	a.requestErrorHandlers = append(a.requestErrorHandlers, handler)
+}
+
+// --------------------------------------------------------------------------------
+// Testing Methods
+// --------------------------------------------------------------------------------
+
+// Mock returns a request bulider to facilitate mocking requests.
+func (a *App) Mock() *MockRequestBuilder {
+	return NewMockRequestBuilder(a)
 }
 
 // --------------------------------------------------------------------------------
@@ -360,11 +380,11 @@ func (a *App) renderUncompressed(action ControllerAction, w http.ResponseWriter,
 	rw := NewResponseWriter(w)
 	context := a.RequestContext(rw, r, p)
 
-	a.OnRequestStart(context)
+	a.onRequestStart(context)
 	context.Render(action(context))
 	context.setStatusCode(rw.StatusCode)
 	context.setContentLength(rw.ContentLength)
-	a.OnRequestComplete(context)
+	a.onRequestComplete(context)
 	context.LogRequest()
 }
 
@@ -376,13 +396,13 @@ func (a *App) renderCompressed(action ControllerAction, w http.ResponseWriter, r
 
 	context := a.RequestContext(gzw, r, p)
 
-	a.OnRequestStart(context)
+	a.onRequestStart(context)
 	result := action(context)
 	context.Render(result)
 	gzw.Flush()
 	context.setStatusCode(gzw.StatusCode)
 	context.setContentLength(gzw.BytesWritten)
-	a.OnRequestComplete(context)
+	a.onRequestComplete(context)
 	context.LogRequest()
 }
 
