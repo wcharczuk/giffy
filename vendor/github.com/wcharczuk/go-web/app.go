@@ -142,34 +142,55 @@ func (a *App) InitViewCache(paths ...string) error {
 	return nil
 }
 
+func (a *App) marshalControllerMiddleware(action ControllerAction, middleware ...ControllerMiddleware) ControllerAction {
+	if len(middleware) == 0 {
+		return action
+	}
+
+	var nest = func(a, b ControllerMiddleware) ControllerMiddleware {
+		if b == nil {
+			return a
+		}
+		return func(action ControllerAction) ControllerAction {
+			return a(b(action))
+		}
+	}
+
+	var metaAction ControllerMiddleware
+	for _, step := range middleware {
+		metaAction = nest(step, metaAction)
+	}
+	return metaAction(action)
+}
+
 // GET registers a GET request handler.
-func (a *App) GET(path string, handler ControllerAction) {
-	a.router.GET(path, a.RenderAction(handler))
+func (a *App) GET(path string, action ControllerAction, middleware ...ControllerMiddleware) {
+	a.router.GET(path, a.RenderAction(a.marshalControllerMiddleware(action, middleware...)))
 }
 
 // OPTIONS registers a OPTIONS request handler.
-func (a *App) OPTIONS(path string, handler ControllerAction) {
-	a.router.OPTIONS(path, a.RenderAction(handler))
+func (a *App) OPTIONS(path string, action ControllerAction, middleware ...ControllerMiddleware) {
+	a.router.OPTIONS(path, a.RenderAction(a.marshalControllerMiddleware(action, middleware...)))
 }
 
 // HEAD registers a HEAD request handler.
-func (a *App) HEAD(path string, handler ControllerAction) {
-	a.router.HEAD(path, a.RenderAction(handler))
+func (a *App) HEAD(path string, action ControllerAction, middleware ...ControllerMiddleware) {
+	a.router.HEAD(path, a.RenderAction(a.marshalControllerMiddleware(action, middleware...)))
 }
 
 // PUT registers a PUT request handler.
-func (a *App) PUT(path string, handler ControllerAction) {
-	a.router.PUT(path, a.RenderAction(handler))
+func (a *App) PUT(path string, action ControllerAction, middleware ...ControllerMiddleware) {
+	a.router.PUT(path, a.RenderAction(a.marshalControllerMiddleware(action, middleware...)))
 }
 
-// POST registers a POST request handler.
-func (a *App) POST(path string, handler ControllerAction) {
-	a.router.POST(path, a.RenderAction(handler))
+// POST registers a POST request actions.
+func (a *App) POST(path string, action ControllerAction, middleware ...ControllerMiddleware) {
+	a.router.POST(path, a.RenderAction(a.marshalControllerMiddleware(action, middleware...)))
 }
 
 // DELETE registers a DELETE request handler.
-func (a *App) DELETE(path string, handler ControllerAction) {
-	a.router.DELETE(path, a.RenderAction(handler))
+func (a *App) DELETE(path string, action ControllerAction, middleware ...ControllerMiddleware) {
+	a.router.DELETE(path, a.RenderAction(a.marshalControllerMiddleware(action, middleware...)))
 }
 
 // Static serves files from the given file system root.
