@@ -17,7 +17,6 @@ import (
 type Auth struct{}
 
 func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -32,8 +31,6 @@ func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
 }
 
 func (ac Auth) oauthGoogleAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -54,8 +51,6 @@ func (ac Auth) oauthGoogleAction(r *web.RequestContext) web.ControllerResult {
 }
 
 func (ac Auth) oauthFacebookAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
