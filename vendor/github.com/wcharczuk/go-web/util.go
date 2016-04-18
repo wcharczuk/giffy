@@ -11,6 +11,7 @@ import (
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-util"
+	"github.com/julienschmidt/httprouter"
 )
 
 const (
@@ -87,4 +88,17 @@ func LocalIP() string {
 		}
 	}
 	return ""
+}
+
+func newHandleShim(app *App, handler ControllerAction) http.Handler {
+	return &handleShim{action: handler, app: app}
+}
+
+type handleShim struct {
+	action ControllerAction
+	app    *App
+}
+
+func (hs handleShim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	hs.app.renderAction(hs.action)(w, r, httprouter.Params{})
 }

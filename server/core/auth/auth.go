@@ -24,6 +24,21 @@ const (
 	OAuthProviderSlack = "slack"
 )
 
+// InjectSession injects the session object into a request context.
+func InjectSession(session *Session, context *web.RequestContext) {
+	context.SetState(StateKeySession, session)
+}
+
+// GetSession extracts the session from the web.RequestContext
+func GetSession(context *web.RequestContext) *Session {
+	if sessionStorage := context.State(StateKeySession); sessionStorage != nil {
+		if session, isSession := sessionStorage.(*Session); isSession {
+			return session
+		}
+	}
+	return nil
+}
+
 // UserProvider is an object that returns a user.
 type UserProvider interface {
 	AsUser() *model.User
@@ -55,53 +70,57 @@ func VerifySession(sessionID string) (*Session, error) {
 	return SessionState().Add(session.UserID, session.SessionID)
 }
 
-// SessionAwareControllerAction is an controller action that also gets the session passed in.
-type SessionAwareControllerAction func(session *Session, r *web.RequestContext) web.ControllerResult
+// SessionAware is an action that injects the session into the context.
+func SessionAware(action web.ControllerAction) web.ControllerAction {
+	return func(context *web.RequestContext) web.ControllerResult {
+		if context.CurrentProvider() == nil {
+			panic("context.CurrentProvider() is nil; make sure to include the correct middleware in the handler registration (i.e. web.APIProvider or web.ViewProvider)")
+		}
 
-// SessionAwareAction injects the current session (if there is one) into the middleware.
-// CAVEAT; we lock on session, so there cannot be multiple concurrent session aware requests (!!).
-func SessionAwareAction(providerID int, action SessionAwareControllerAction) web.ControllerAction {
-	return func(r *web.RequestContext) web.ControllerResult {
-		sessionID := r.Param(SessionParamName)
+		sessionID := context.Param(SessionParamName)
 		if len(sessionID) != 0 {
 			session, err := VerifySession(sessionID)
 			if err != nil {
-				return r.ResultProvider(providerID).InternalError(err)
+				return context.CurrentProvider().InternalError(err)
 			}
 			if session != nil {
 				session.Lock()
 				defer session.Unlock()
 			}
 
-			return action(session, r)
+			InjectSession(session, context)
 		}
-		return action(nil, r)
+		return action(context)
 	}
 }
 
-// SessionRequiredAction is an action that requires session.
-// CAVEAT; we lock on session, so there cannot be multiple concurrent session aware requests (!!).
-func SessionRequiredAction(providerID int, action SessionAwareControllerAction) web.ControllerAction {
-	return func(r *web.RequestContext) web.ControllerResult {
-		sessionID := r.Param(SessionParamName)
+// SessionRequired is an action that requires session.
+func SessionRequired(action web.ControllerAction) web.ControllerAction {
+	return func(context *web.RequestContext) web.ControllerResult {
+		if context.CurrentProvider() == nil {
+			panic("context.CurrentProvider() is nil; make sure to include the correct middleware in the handler registration (i.e. web.APIProvider or web.ViewProvider)")
+		}
+
+		sessionID := context.Param(SessionParamName)
 		if len(sessionID) == 0 {
-			return r.ResultProvider(providerID).NotAuthorized()
+			return context.CurrentProvider().NotAuthorized()
 		}
 
 		session, sessionErr := VerifySession(sessionID)
 		if sessionErr != nil {
-			return r.ResultProvider(providerID).InternalError(sessionErr)
+			return context.CurrentProvider().InternalError(sessionErr)
 		}
 		if session == nil {
-			return r.ResultProvider(providerID).NotAuthorized()
+			return context.CurrentProvider().NotAuthorized()
 		}
 		if session.User != nil && session.User.IsBanned {
-			return r.ResultProvider(providerID).NotAuthorized()
+			return context.CurrentProvider().NotAuthorized()
 		}
 
 		session.Lock()
 		defer session.Unlock()
 
-		return action(session, r)
+		InjectSession(session, context)
+		return action(context)
 	}
 }

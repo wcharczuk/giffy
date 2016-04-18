@@ -22,7 +22,9 @@ import (
 // UploadImage is the controller responsible for image actions.
 type UploadImage struct{}
 
-func (ic UploadImage) uploadImageAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (ic UploadImage) uploadImageAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsModerator {
 		return r.View().NotAuthorized()
 	}
@@ -30,7 +32,9 @@ func (ic UploadImage) uploadImageAction(session *auth.Session, r *web.RequestCon
 	return r.View().View("upload_image", nil)
 }
 
-func (ic UploadImage) uploadImageCompleteAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (ic UploadImage) uploadImageCompleteAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsModerator {
 		return r.View().NotAuthorized()
 	}
@@ -135,6 +139,6 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 
 // Register registers the controllers routes.
 func (ic UploadImage) Register(app *web.App) {
-	app.GET("/images/upload", auth.SessionRequiredAction(web.ProviderView, ic.uploadImageAction))
-	app.POST("/images/upload", auth.SessionRequiredAction(web.ProviderView, ic.uploadImageCompleteAction))
+	app.GET("/images/upload", ic.uploadImageAction, web.ViewProvider, auth.SessionRequired)
+	app.POST("/images/upload", ic.uploadImageCompleteAction, web.ViewProvider, auth.SessionRequired)
 }

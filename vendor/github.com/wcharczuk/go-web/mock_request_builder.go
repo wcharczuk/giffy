@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -139,15 +138,19 @@ func (mrb *MockRequestBuilder) AsRequestContext(p RouteParameters) (*RequestCont
 		buffer = bytes.NewBuffer([]byte{})
 	}
 
-	w := newMockResponseWriter(buffer)
+	w := NewMockResponseWriter(buffer)
+	var rc *RequestContext
 	if mrb.app != nil {
-		return mrb.app.RequestContext(w, r, p), nil
+		rc = mrb.app.requestContext(w, r, p)
+	} else {
+		rc = NewRequestContext(w, r, p)
 	}
-	return NewRequestContext(w, r, p), nil
+
+	return rc, nil
 }
 
-// Execute runs the mock request.
-func (mrb *MockRequestBuilder) Execute() (*http.Response, error) {
+// Response runs the mock request.
+func (mrb *MockRequestBuilder) Response() (*http.Response, error) {
 	handle, params, addTrailingSlash := mrb.app.router.Lookup(mrb.verb, mrb.path)
 	if addTrailingSlash {
 		mrb.path = mrb.path + "/"
@@ -170,11 +173,11 @@ func (mrb *MockRequestBuilder) Execute() (*http.Response, error) {
 		buffer = bytes.NewBuffer([]byte{})
 	}
 
-	w := newMockResponseWriter(buffer)
+	w := NewMockResponseWriter(buffer)
 	handle(w, req, params)
 	res := http.Response{
 		Body:          ioutil.NopCloser(bytes.NewBuffer(buffer.Bytes())),
-		ContentLength: int64(buffer.Len()),
+		ContentLength: int64(w.ContentLength()),
 		Header:        http.Header{},
 	}
 
@@ -194,7 +197,7 @@ func (mrb *MockRequestBuilder) Execute() (*http.Response, error) {
 
 // JSON executes the mock request and reads the response to the given object as json.
 func (mrb *MockRequestBuilder) JSON(object interface{}) error {
-	res, err := mrb.Execute()
+	res, err := mrb.Response()
 	if err != nil {
 		return err
 	}
@@ -208,7 +211,7 @@ func (mrb *MockRequestBuilder) JSON(object interface{}) error {
 
 // Bytes returns the response as bytes.
 func (mrb *MockRequestBuilder) Bytes() ([]byte, error) {
-	res, err := mrb.Execute()
+	res, err := mrb.Response()
 	if err != nil {
 		return nil, err
 	}
@@ -216,27 +219,8 @@ func (mrb *MockRequestBuilder) Bytes() ([]byte, error) {
 	return ioutil.ReadAll(res.Body)
 }
 
-func newMockResponseWriter(buffer io.Writer) *mockResponseWriter {
-	return &mockResponseWriter{
-		contents: buffer,
-		headers:  http.Header{},
-	}
-}
-
-type mockResponseWriter struct {
-	contents   io.Writer
-	statusCode int
-	headers    http.Header
-}
-
-func (res *mockResponseWriter) Write(buffer []byte) (int, error) {
-	return res.contents.Write(buffer)
-}
-
-func (res *mockResponseWriter) Header() http.Header {
-	return res.headers
-}
-
-func (res *mockResponseWriter) WriteHeader(statusCode int) {
-	res.statusCode = statusCode
+// Execute just runs the request.
+func (mrb *MockRequestBuilder) Execute() error {
+	_, err := mrb.Bytes()
+	return err
 }

@@ -18,7 +18,9 @@ import (
 // API is the controller for api endpoints.
 type API struct{}
 
-func (api API) searchUsersAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) searchUsersAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
@@ -73,7 +75,9 @@ func (api API) searchTagsAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(results)
 }
 
-func (api API) updateUserAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) updateUserAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	userUUID := r.RouteParameter("user_id")
 
 	if !session.User.IsAdmin {
@@ -131,7 +135,9 @@ func (api API) updateUserAction(session *auth.Session, r *web.RequestContext) we
 	return r.API().JSON(postedUser)
 }
 
-func (api API) getModerationForUserAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getModerationForUserAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsModerator {
 		return r.API().NotAuthorized()
 	}
@@ -200,7 +206,9 @@ func (api API) getImageAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(image)
 }
 
-func (api API) updateImageAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) updateImageAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	imageUUID := r.RouteParameter("image_id")
 
 	if !session.User.IsModerator {
@@ -285,9 +293,8 @@ func (api API) getTagsAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(tags)
 }
 
-func (api API) getUsersAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
-
-	if !session.User.IsAdmin {
+func (api API) getUsersAction(r *web.RequestContext) web.ControllerResult {
+	if !auth.GetSession(r).User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -298,9 +305,8 @@ func (api API) getUsersAction(session *auth.Session, r *web.RequestContext) web.
 	return r.API().JSON(users)
 }
 
-func (api API) getUsersByCountAndOffsetAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
-
-	if !session.User.IsAdmin {
+func (api API) getUsersByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
+	if !auth.GetSession(r).User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -349,7 +355,7 @@ func (api API) getUserImagesAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(images)
 }
 
-func (api API) createImageAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) createImageAction(r *web.RequestContext) web.ControllerResult {
 	files, filesErr := r.PostedFiles()
 	if filesErr != nil {
 		return r.API().BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
@@ -370,6 +376,7 @@ func (api API) createImageAction(session *auth.Session, r *web.RequestContext) w
 		return r.API().JSON(existing)
 	}
 
+	session := auth.GetSession(r)
 	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, postedFile.Contents, postedFile.Filename)
 	if err != nil {
 		return r.API().InternalError(err)
@@ -379,7 +386,7 @@ func (api API) createImageAction(session *auth.Session, r *web.RequestContext) w
 	return r.API().JSON(image)
 }
 
-func (api API) createTagAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) createTagAction(r *web.RequestContext) web.ControllerResult {
 	args := viewmodel.CreateTagArgs{}
 	err := r.PostBodyAsJSON(&args)
 	if err != nil {
@@ -399,6 +406,8 @@ func (api API) createTagAction(session *auth.Session, r *web.RequestContext) web
 
 		tagValues = append(tagValues, tagValue)
 	}
+
+	session := auth.GetSession(r)
 
 	tags := []*model.Tag{}
 	for _, tagValue := range tagValues {
@@ -425,7 +434,9 @@ func (api API) createTagAction(session *auth.Session, r *web.RequestContext) web
 	return r.API().JSON(tags)
 }
 
-func (api API) deleteImageAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) deleteImageAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return r.API().InternalError(err)
@@ -459,7 +470,9 @@ func (api API) deleteImageAction(session *auth.Session, r *web.RequestContext) w
 	return r.API().OK()
 }
 
-func (api API) deleteTagAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) deleteTagAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return r.API().InternalError(err)
@@ -519,7 +532,9 @@ func (api API) getLinksForTagAction(r *web.RequestContext) web.ControllerResult 
 	return r.API().JSON(voteSummaries)
 }
 
-func (api API) getVotesForUserForImageAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getVotesForUserForImageAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	imageUUID := r.RouteParameter("image_id")
 	image, err := model.GetImageByUUID(imageUUID, nil)
 	if err != nil {
@@ -535,7 +550,9 @@ func (api API) getVotesForUserForImageAction(session *auth.Session, r *web.Reque
 	return r.API().JSON(votes)
 }
 
-func (api API) getVotesForUserForTagAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getVotesForUserForTagAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	tagUUID := r.RouteParameter("tag_id")
 	tag, err := model.GetTagByUUID(tagUUID, nil)
 	if err != nil {
@@ -551,11 +568,15 @@ func (api API) getVotesForUserForTagAction(session *auth.Session, r *web.Request
 	return r.API().JSON(votes)
 }
 
-func (api API) upvoteAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) upvoteAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	return api.voteAction(true, session, r)
 }
 
-func (api API) downvoteAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) downvoteAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	return api.voteAction(false, session, r)
 }
 
@@ -601,7 +622,9 @@ func (api API) voteAction(isUpvote bool, session *auth.Session, r *web.RequestCo
 	return r.API().OK()
 }
 
-func (api API) deleteUserVoteAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) deleteUserVoteAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	imageUUID := r.RouteParameter("image_id")
 	tagUUID := r.RouteParameter("tag_id")
 	userID := session.UserID
@@ -666,7 +689,9 @@ func (api API) deleteUserVoteAction(session *auth.Session, r *web.RequestContext
 	return r.API().OK()
 }
 
-func (api API) deleteLinkAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	currentUser, err := model.GetUserByID(session.UserID, nil)
 	if err != nil {
 		return r.API().InternalError(err)
@@ -725,7 +750,9 @@ func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web
 	return r.API().JSON(log)
 }
 
-func (api API) getRecentSearchHistoryAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getRecentSearchHistoryAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
@@ -738,7 +765,9 @@ func (api API) getRecentSearchHistoryAction(session *auth.Session, r *web.Reques
 	return r.API().JSON(searchHistory)
 }
 
-func (api API) getSearchHistoryByCountAndOffsetAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getSearchHistoryByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
@@ -754,7 +783,9 @@ func (api API) getSearchHistoryByCountAndOffsetAction(session *auth.Session, r *
 	return r.API().JSON(searchHistory)
 }
 
-func (api API) getCurrentUserAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getCurrentUserAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	cu := &viewmodel.CurrentUser{}
 	if session == nil {
 		cu.SetLoggedOut()
@@ -764,7 +795,9 @@ func (api API) getCurrentUserAction(session *auth.Session, r *web.RequestContext
 	return r.API().JSON(cu)
 }
 
-func (api API) getSessionKeyAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getSessionKeyAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	key := r.RouteParameter("key")
 	value, hasValue := session.State[key]
 	if !hasValue {
@@ -773,13 +806,17 @@ func (api API) getSessionKeyAction(session *auth.Session, r *web.RequestContext)
 	return r.API().JSON(value)
 }
 
-func (api API) setSessionKeyAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) setSessionKeyAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	key := r.RouteParameter("key")
 	session.State[key] = r.PostBodyAsString()
 	return r.API().OK()
 }
 
-func (api API) logoutAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) logoutAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if session == nil {
 		return r.API().OK()
 	}
@@ -801,7 +838,9 @@ func (api API) getSiteStatsAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(stats)
 }
 
-func (api API) getJobsStatusAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) getJobsStatusAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
@@ -809,7 +848,9 @@ func (api API) getJobsStatusAction(session *auth.Session, r *web.RequestContext)
 	return r.API().JSON(status)
 }
 
-func (api API) runJobAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (api API) runJobAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
@@ -824,59 +865,59 @@ func (api API) runJobAction(session *auth.Session, r *web.RequestContext) web.Co
 
 // Register adds the routes to the app.
 func (api API) Register(app *web.App) {
-	app.GET("/api/users", auth.SessionRequiredAction(web.ProviderAPI, api.getUsersAction))
-	app.GET("/api/users.search", auth.SessionRequiredAction(web.ProviderAPI, api.searchUsersAction))
-	app.GET("/api/users/pages/:count/:offset", auth.SessionRequiredAction(web.ProviderAPI, api.getUsersByCountAndOffsetAction))
+	app.GET("/api/users", api.getUsersAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/users.search", api.searchUsersAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/users/pages/:count/:offset", api.getUsersByCountAndOffsetAction, web.APIProvider, auth.SessionRequired)
 
 	app.GET("/api/user/:user_id", api.getUserAction)
-	app.PUT("/api/user/:user_id", auth.SessionRequiredAction(web.ProviderAPI, api.updateUserAction))
+	app.PUT("/api/user/:user_id", api.updateUserAction, web.APIProvider, auth.SessionRequired)
 	app.GET("/api/user.images/:user_id", api.getUserImagesAction)
-	app.GET("/api/user.votes.image/:image_id", auth.SessionRequiredAction(web.ProviderAPI, api.getVotesForUserForImageAction))
-	app.GET("/api/user.votes.tag/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.getVotesForUserForTagAction))
-	app.DELETE("/api/user.vote/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteUserVoteAction))
+	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, web.APIProvider, auth.SessionRequired)
+	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, web.APIProvider, auth.SessionRequired)
 
 	app.GET("/api/images", api.getImagesAction)
-	app.POST("/api/images", auth.SessionRequiredAction(web.ProviderAPI, api.createImageAction))
+	app.POST("/api/images", api.createImageAction, web.APIProvider, auth.SessionRequired)
 	app.GET("/api/images/random/:count", api.getRandomImagesAction)
 	app.GET("/api/images.search", api.searchImagesAction)
 
 	app.GET("/api/image/:image_id", api.getImageAction)
-	app.PUT("/api/image/:image_id", auth.SessionRequiredAction(web.ProviderAPI, api.updateImageAction))
-	app.DELETE("/api/image/:image_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteImageAction))
+	app.PUT("/api/image/:image_id", api.updateImageAction, web.APIProvider, auth.SessionRequired)
+	app.DELETE("/api/image/:image_id", api.deleteImageAction, web.APIProvider, auth.SessionRequired)
 	app.GET("/api/image.votes/:image_id", api.getLinksForImageAction)
 	app.GET("/api/image.tags/:image_id", api.getTagsForImageAction)
 
 	app.GET("/api/tags", api.getTagsAction)
-	app.POST("/api/tags", auth.SessionRequiredAction(web.ProviderAPI, api.createTagAction))
+	app.POST("/api/tags", api.createTagAction, web.APIProvider, auth.SessionRequired)
 	app.GET("/api/tags.search", api.searchTagsAction)
 
 	app.GET("/api/tag/:tag_id", api.getTagAction)
-	app.DELETE("/api/tag/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteTagAction))
+	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, web.APIProvider, auth.SessionRequired)
 	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
 	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
 
-	app.DELETE("/api/link/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.deleteLinkAction))
+	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, web.APIProvider, auth.SessionRequired)
 
-	app.POST("/api/vote.up/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.upvoteAction))
-	app.POST("/api/vote.down/:image_id/:tag_id", auth.SessionRequiredAction(web.ProviderAPI, api.downvoteAction))
+	app.POST("/api/vote.up/:image_id/:tag_id", api.upvoteAction, web.APIProvider, auth.SessionRequired)
+	app.POST("/api/vote.down/:image_id/:tag_id", api.downvoteAction, web.APIProvider, auth.SessionRequired)
 
 	app.GET("/api/moderation.log/recent", api.getRecentModerationLogAction)
 	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
 
-	app.GET("/api/search.history/recent", auth.SessionRequiredAction(web.ProviderAPI, api.getRecentSearchHistoryAction))
-	app.GET("/api/search.history/pages/:count/:offset", auth.SessionRequiredAction(web.ProviderAPI, api.getSearchHistoryByCountAndOffsetAction))
+	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, web.APIProvider, auth.SessionRequired)
 
 	app.GET("/api/stats", api.getSiteStatsAction)
 
 	//session endpoints
-	app.GET("/api/session.user", auth.SessionAwareAction(web.ProviderAPI, api.getCurrentUserAction))
-	app.GET("/api/session/:key", auth.SessionRequiredAction(web.ProviderAPI, api.getSessionKeyAction))
-	app.POST("/api/session/:key", auth.SessionRequiredAction(web.ProviderAPI, api.setSessionKeyAction))
+	app.GET("/api/session.user", api.getCurrentUserAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/session/:key", api.getSessionKeyAction, web.APIProvider, auth.SessionRequired)
+	app.POST("/api/session/:key", api.setSessionKeyAction, web.APIProvider, auth.SessionRequired)
 
 	//jobs
-	app.GET("/api/jobs", auth.SessionRequiredAction(web.ProviderAPI, api.getJobsStatusAction))
-	app.POST("/api/job/:job_id", auth.SessionRequiredAction(web.ProviderAPI, api.runJobAction))
+	app.GET("/api/jobs", api.getJobsStatusAction, web.APIProvider, auth.SessionRequired)
+	app.POST("/api/job/:job_id", api.runJobAction, web.APIProvider, auth.SessionRequired)
 
 	// auth endpoints
-	app.POST("/api/logout", auth.SessionAwareAction(web.ProviderAPI, api.logoutAction))
+	app.POST("/api/logout", api.logoutAction, web.APIProvider, auth.SessionRequired)
 }

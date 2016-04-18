@@ -1,8 +1,10 @@
 package web
 
 import (
+	"database/sql"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"strconv"
 	"time"
 
@@ -34,7 +36,7 @@ type RequestEventHandler func(r *RequestContext)
 type RequestEventErrorHandler func(r *RequestContext, err interface{})
 
 // NewRequestContext returns a new hc context.
-func NewRequestContext(w http.ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
+func NewRequestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	ctx := &RequestContext{
 		Response:        w,
 		Request:         r,
@@ -47,13 +49,16 @@ func NewRequestContext(w http.ResponseWriter, r *http.Request, p RouteParameters
 
 // RequestContext is the struct that represents the context for an hc request.
 type RequestContext struct {
-	Response http.ResponseWriter
+	Response ResponseWriter
 	Request  *http.Request
 
-	api  *APIResultProvider
-	view *ViewResultProvider
+	api             *APIResultProvider
+	view            *ViewResultProvider
+	currentProvider ControllerResultProvider
 
 	logger Logger
+
+	tx *sql.Tx
 
 	state           State
 	routeParameters RouteParameters
@@ -64,6 +69,41 @@ type RequestContext struct {
 	requestEnd    time.Time
 }
 
+// isolateTo isolates a request context to a transaction.
+func (rc *RequestContext) isolateTo(tx *sql.Tx) *RequestContext {
+	rc.tx = tx
+	return rc
+}
+
+// Tx returns the transaction a request context may or may not be isolated to.
+func (rc *RequestContext) Tx() *sql.Tx {
+	return rc.tx
+}
+
+// TxBegin either returns the existing (testing) transaction on the request, or calls the provider.
+func (rc *RequestContext) TxBegin(provider func() (*sql.Tx, error)) (*sql.Tx, error) {
+	if rc.tx != nil {
+		return rc.tx, nil
+	}
+	return provider()
+}
+
+// TxCommit will call the committer if the request context is not isolated to a transaction already.
+func (rc *RequestContext) TxCommit(commiter func() error) error {
+	if rc.tx != nil {
+		return nil
+	}
+	return commiter()
+}
+
+// TxRollback will call the rollbacker if the request context is not isolated to a transaction already.
+func (rc *RequestContext) TxRollback(rollbacker func() error) error {
+	if rc.tx != nil {
+		return nil
+	}
+	return rollbacker()
+}
+
 // API returns the API result provider.
 func (rc *RequestContext) API() *APIResultProvider {
 	return rc.api
@@ -72,6 +112,18 @@ func (rc *RequestContext) API() *APIResultProvider {
 // View returns the view result provider.
 func (rc *RequestContext) View() *ViewResultProvider {
 	return rc.view
+}
+
+// CurrentProvider returns the current result provider for the context. This is
+// set by calling SetCurrentProvider or using one of the pre-built middleware
+// steps that set it for you.
+func (rc *RequestContext) CurrentProvider() ControllerResultProvider {
+	return rc.currentProvider
+}
+
+// SetCurrentProvider sets the current result provider.
+func (rc *RequestContext) SetCurrentProvider(provider ControllerResultProvider) {
+	rc.currentProvider = provider
 }
 
 // State returns an object in the state cache.
@@ -232,14 +284,6 @@ func (rc *RequestContext) ExpireCookie(name string) {
 	rc.WriteCookie(&c)
 }
 
-// Render writes the body of the response, it should not alter metadata.
-func (rc *RequestContext) Render(result ControllerResult) {
-	renderErr := result.Render(rc)
-	if renderErr != nil && rc.logger != nil {
-		rc.logger.Error(renderErr)
-	}
-}
-
 // --------------------------------------------------------------------------------
 // Logging
 // --------------------------------------------------------------------------------
@@ -288,8 +332,11 @@ func (rc *RequestContext) NoContent() *NoContentResult {
 
 // Static returns a static result.
 func (rc *RequestContext) Static(filePath string) *StaticResult {
+	file := path.Base(filePath)
+	root := path.Dir(filePath)
 	return &StaticResult{
-		FilePath: filePath,
+		FilePath:   file,
+		FileServer: http.FileServer(http.Dir(root)),
 	}
 }
 

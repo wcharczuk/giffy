@@ -16,7 +16,8 @@ import (
 // Auth is the main controller for the app.
 type Auth struct{}
 
-func (ac Auth) oauthSlackAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -30,7 +31,9 @@ func (ac Auth) oauthSlackAction(session *auth.Session, r *web.RequestContext) we
 	return r.Redirect("/#/slack/complete")
 }
 
-func (ac Auth) oauthGoogleAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (ac Auth) oauthGoogleAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -50,7 +53,9 @@ func (ac Auth) oauthGoogleAction(session *auth.Session, r *web.RequestContext) w
 	return ac.finishOAuthLogin(r, auth.OAuthProviderGoogle, oa.AccessToken, oa.IDToken, prototypeUser)
 }
 
-func (ac Auth) oauthFacebookAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (ac Auth) oauthFacebookAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -135,7 +140,9 @@ type loginCompleteArguments struct {
 	CurrentUser string `json:"current_user"`
 }
 
-func (ac Auth) logoutAction(session *auth.Session, r *web.RequestContext) web.ControllerResult {
+func (ac Auth) logoutAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
 	if session == nil {
 		return r.Redirect("/")
 	}
@@ -151,9 +158,9 @@ func (ac Auth) logoutAction(session *auth.Session, r *web.RequestContext) web.Co
 
 // Register registers the controllers routes.
 func (ac Auth) Register(app *web.App) {
-	app.GET("/oauth/google", auth.SessionAwareAction(web.ProviderView, ac.oauthGoogleAction))
-	app.GET("/oauth/facebook", auth.SessionAwareAction(web.ProviderView, ac.oauthFacebookAction))
-	app.GET("/oauth/slack", auth.SessionAwareAction(web.ProviderView, ac.oauthSlackAction))
-	app.GET("/logout", auth.SessionRequiredAction(web.ProviderView, ac.logoutAction))
-	app.POST("/logout", auth.SessionRequiredAction(web.ProviderView, ac.logoutAction))
+	app.GET("/oauth/google", ac.oauthGoogleAction, web.ViewProvider, auth.SessionAware)
+	app.GET("/oauth/facebook", ac.oauthFacebookAction, web.ViewProvider, auth.SessionAware)
+	app.GET("/oauth/slack", ac.oauthSlackAction, web.ViewProvider, auth.SessionAware)
+	app.GET("/logout", ac.logoutAction, web.ViewProvider, auth.SessionAware)
+	app.POST("/logout", ac.logoutAction, web.ViewProvider, auth.SessionAware)
 }
