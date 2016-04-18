@@ -73,6 +73,7 @@ func VerifySession(sessionID string) (*Session, error) {
 // SessionAware is an action that injects the session into the context.
 func SessionAware(action web.ControllerAction) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
+		println("session aware middleware")
 		if context.CurrentProvider() == nil {
 			panic("context.CurrentProvider() is nil; make sure to include the correct middleware in the handler registration (i.e. web.APIProvider or web.ViewProvider)")
 		}
@@ -97,6 +98,7 @@ func SessionAware(action web.ControllerAction) web.ControllerAction {
 // SessionRequired is an action that requires session.
 func SessionRequired(action web.ControllerAction) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
+		println("session required middleware")
 		if context.CurrentProvider() == nil {
 			panic("context.CurrentProvider() is nil; make sure to include the correct middleware in the handler registration (i.e. web.APIProvider or web.ViewProvider)")
 		}

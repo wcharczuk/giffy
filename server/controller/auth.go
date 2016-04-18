@@ -153,9 +153,9 @@ func (ac Auth) logoutAction(r *web.RequestContext) web.ControllerResult {
 
 // Register registers the controllers routes.
 func (ac Auth) Register(app *web.App) {
-	app.GET("/oauth/google", ac.oauthGoogleAction, web.ViewProvider, auth.SessionAware)
-	app.GET("/oauth/facebook", ac.oauthFacebookAction, web.ViewProvider, auth.SessionAware)
-	app.GET("/oauth/slack", ac.oauthSlackAction, web.ViewProvider, auth.SessionAware)
-	app.GET("/logout", ac.logoutAction, web.ViewProvider, auth.SessionAware)
-	app.POST("/logout", ac.logoutAction, web.ViewProvider, auth.SessionAware)
+	app.GET("/oauth/google", ac.oauthGoogleAction, auth.SessionAware, web.InjectViewProvider)
+	app.GET("/oauth/facebook", ac.oauthFacebookAction, auth.SessionAware, web.InjectViewProvider)
+	app.GET("/oauth/slack", ac.oauthSlackAction, auth.SessionAware, web.InjectViewProvider)
+	app.GET("/logout", ac.logoutAction, auth.SessionAware, web.InjectViewProvider)
+	app.POST("/logout", ac.logoutAction, auth.SessionAware, web.InjectViewProvider)
 }

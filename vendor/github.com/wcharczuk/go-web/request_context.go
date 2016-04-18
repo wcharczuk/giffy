@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"io/ioutil"
 	"net/http"
-	"path"
 	"strconv"
 	"time"
 
@@ -332,12 +331,7 @@ func (rc *RequestContext) NoContent() *NoContentResult {
 
 // Static returns a static result.
 func (rc *RequestContext) Static(filePath string) *StaticResult {
-	file := path.Base(filePath)
-	root := path.Dir(filePath)
-	return &StaticResult{
-		FilePath:   file,
-		FileServer: http.FileServer(http.Dir(root)),
-	}
+	return NewStaticResultForSingleFile(filePath)
 }
 
 // Redirect returns a redirect result.

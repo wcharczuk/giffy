@@ -139,6 +139,6 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 
 // Register registers the controllers routes.
 func (ic UploadImage) Register(app *web.App) {
-	app.GET("/images/upload", ic.uploadImageAction, web.ViewProvider, auth.SessionRequired)
-	app.POST("/images/upload", ic.uploadImageCompleteAction, web.ViewProvider, auth.SessionRequired)
+	app.GET("/images/upload", ic.uploadImageAction, auth.SessionRequired, web.InjectViewProvider)
+	app.POST("/images/upload", ic.uploadImageCompleteAction, auth.SessionRequired, web.InjectViewProvider)
 }

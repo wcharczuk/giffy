@@ -865,59 +865,59 @@ func (api API) runJobAction(r *web.RequestContext) web.ControllerResult {
 
 // Register adds the routes to the app.
 func (api API) Register(app *web.App) {
-	app.GET("/api/users", api.getUsersAction, web.APIProvider, auth.SessionRequired)
-	app.GET("/api/users.search", api.searchUsersAction, web.APIProvider, auth.SessionRequired)
-	app.GET("/api/users/pages/:count/:offset", api.getUsersByCountAndOffsetAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/users", api.getUsersAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.GET("/api/users.search", api.searchUsersAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.GET("/api/users/pages/:count/:offset", api.getUsersByCountAndOffsetAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	app.GET("/api/user/:user_id", api.getUserAction)
-	app.PUT("/api/user/:user_id", api.updateUserAction, web.APIProvider, auth.SessionRequired)
+	app.PUT("/api/user/:user_id", api.updateUserAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/user.images/:user_id", api.getUserImagesAction)
-	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, web.APIProvider, auth.SessionRequired)
-	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, web.APIProvider, auth.SessionRequired)
-	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	app.GET("/api/images", api.getImagesAction)
-	app.POST("/api/images", api.createImageAction, web.APIProvider, auth.SessionRequired)
+	app.POST("/api/images", api.createImageAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/images/random/:count", api.getRandomImagesAction)
 	app.GET("/api/images.search", api.searchImagesAction)
 
 	app.GET("/api/image/:image_id", api.getImageAction)
-	app.PUT("/api/image/:image_id", api.updateImageAction, web.APIProvider, auth.SessionRequired)
-	app.DELETE("/api/image/:image_id", api.deleteImageAction, web.APIProvider, auth.SessionRequired)
+	app.PUT("/api/image/:image_id", api.updateImageAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.DELETE("/api/image/:image_id", api.deleteImageAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/image.votes/:image_id", api.getLinksForImageAction)
 	app.GET("/api/image.tags/:image_id", api.getTagsForImageAction)
 
 	app.GET("/api/tags", api.getTagsAction)
-	app.POST("/api/tags", api.createTagAction, web.APIProvider, auth.SessionRequired)
+	app.POST("/api/tags", api.createTagAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/tags.search", api.searchTagsAction)
 
 	app.GET("/api/tag/:tag_id", api.getTagAction)
-	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, web.APIProvider, auth.SessionRequired)
+	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
 	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
 
-	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, web.APIProvider, auth.SessionRequired)
+	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, auth.SessionRequired, web.InjectAPIProvider)
 
-	app.POST("/api/vote.up/:image_id/:tag_id", api.upvoteAction, web.APIProvider, auth.SessionRequired)
-	app.POST("/api/vote.down/:image_id/:tag_id", api.downvoteAction, web.APIProvider, auth.SessionRequired)
+	app.POST("/api/vote.up/:image_id/:tag_id", api.upvoteAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.POST("/api/vote.down/:image_id/:tag_id", api.downvoteAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	app.GET("/api/moderation.log/recent", api.getRecentModerationLogAction)
 	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
 
-	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction, web.APIProvider, auth.SessionRequired)
-	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	app.GET("/api/stats", api.getSiteStatsAction)
 
 	//session endpoints
-	app.GET("/api/session.user", api.getCurrentUserAction, web.APIProvider, auth.SessionRequired)
-	app.GET("/api/session/:key", api.getSessionKeyAction, web.APIProvider, auth.SessionRequired)
-	app.POST("/api/session/:key", api.setSessionKeyAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/session.user", api.getCurrentUserAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.GET("/api/session/:key", api.getSessionKeyAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.POST("/api/session/:key", api.setSessionKeyAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	//jobs
-	app.GET("/api/jobs", api.getJobsStatusAction, web.APIProvider, auth.SessionRequired)
-	app.POST("/api/job/:job_id", api.runJobAction, web.APIProvider, auth.SessionRequired)
+	app.GET("/api/jobs", api.getJobsStatusAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.POST("/api/job/:job_id", api.runJobAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	// auth endpoints
-	app.POST("/api/logout", api.logoutAction, web.APIProvider, auth.SessionRequired)
+	app.POST("/api/logout", api.logoutAction, auth.SessionRequired, web.InjectAPIProvider)
 }
