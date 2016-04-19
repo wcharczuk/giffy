@@ -13,6 +13,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// we do this because a lot of static results depend on relative paths.
+	core.Setwd("../../")
 	core.DBInit()
 	os.Exit(m.Run())
 }

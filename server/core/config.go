@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
@@ -189,4 +190,13 @@ func ConfigFacebookClientID() string {
 // ConfigFacebookClientSecret returns the bacebook client secret.
 func ConfigFacebookClientSecret() string {
 	return os.Getenv("FACEBOOK_CLIENT_SECRET")
+}
+
+// Setwd sets the working directory to the relative path.
+func Setwd(relativePath string) {
+	fullPath, err := filepath.Abs(relativePath)
+	if err != nil {
+		return
+	}
+	os.Chdir(fullPath)
 }

@@ -12,7 +12,7 @@ run:
 
 test:
 	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
-	@genv -f=_config/config.json go test -short ./server/...
+	@bash ./_util/test.bash --root="./server/" --package=$(package) --short --filter=${filter} ${flags}
 	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
 
 cover:
