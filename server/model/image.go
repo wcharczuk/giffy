@@ -320,6 +320,12 @@ limit $2
 		return nil, err
 	}
 
+	fmt.Printf("searchImagesRandom (%d) : %#v\n", count, imageIDs)
+
+	if len(imageIDs) == 0 {
+		return []Image{}, nil
+	}
+
 	return GetImagesByID(imageSignatures(imageIDs).AsInt64s(), tx)
 }
 

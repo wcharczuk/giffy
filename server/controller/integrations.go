@@ -34,7 +34,7 @@ func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
 		result, err = model.GetImageByUUID(uuid, nil)
 	} else {
 		images, err := model.SearchImagesRandom(query, 1, nil)
-		if err == nil {
+		if err == nil && len(images) > 0 {
 			result = &images[0]
 		}
 	}
