@@ -212,7 +212,7 @@ func TestSearchImages(t *testing.T) {
 	assert.NotEmpty(firstImage.Tags)
 }
 
-func TestSearchImagesSlack(t *testing.T) {
+func TestSearchImagesRandom(t *testing.T) {
 	assert := assert.New(t)
 	tx, txErr := spiffy.DefaultDb().Begin()
 	assert.Nil(txErr)
@@ -245,9 +245,11 @@ func TestSearchImagesSlack(t *testing.T) {
 	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
-	image, err := SearchImagesSlack("__test", tx)
+	images, err := SearchImagesRandom("__test", 1, tx)
 	assert.Nil(err)
-	assert.NotNil(image)
+	assert.NotNil(images)
+	assert.NotEmpty(images)
+	image := images[0]
 	assert.False(image.IsZero())
 	assert.Equal(i.ID, image.ID)
 	assert.NotNil(image.CreatedByUser)

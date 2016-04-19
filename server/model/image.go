@@ -281,8 +281,8 @@ order by
 	return GetImagesByID(ids, tx)
 }
 
-// SearchImagesSlack is the query we use for slack.
-func SearchImagesSlack(query string, tx *sql.Tx) (*Image, error) {
+// SearchImagesRandom pulls a random count of images based on a search query. The most common `count` is 1.
+func SearchImagesRandom(query string, count int, tx *sql.Tx) ([]Image, error) {
 	imageQuery := `
 select
 	id
@@ -309,27 +309,18 @@ from
 			and i.is_censored = false
 		order by
 			gen_random_uuid()
-		limit 1
+		limit $2
 	) results
-limit 1
+limit $2
 `
-	imageID := imageSignature{}
-	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query).Out(&imageID)
+	var imageIDs []imageSignature
+	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query, count).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if imageID.ID == 0 {
-		return &Image{}, nil
-	}
-
-	images, err := GetImagesByID([]int64{imageID.ID}, tx)
-	if err != nil {
-		return &Image{}, err
-	}
-
-	return &images[0], nil
+	return GetImagesByID(imageSignatures(imageIDs).AsInt64s(), tx)
 }
 
 // GetImagesForUserID returns images for a user.

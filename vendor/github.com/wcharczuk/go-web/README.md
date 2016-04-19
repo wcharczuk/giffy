@@ -34,7 +34,30 @@ func main() {
 And that's it! There are options to configure things like the port and tls certificates, but the core use case is to bind
 on 8080 or whatever is specified in the `PORT` environment variable. 
 
-##Fun other features
+##Middleware
+
+If you want to run some steps before controller actions fire (such as for auth etc.) you can add those steps as "middleware". 
+
+```go
+	app.GET("/admin/dashboard", c.dashboardAction, middle2, middle1, web.InjectViewProvider)
+```
+
+This will then run `web.InjectViewProvider` (which does something useful) and then call `middle1` and then `middle2`.
+
+What do `middle1` and `middle2` look like? They are `ControllerMiddleware` and are just functions that take an action and return an action.
+
+```go
+func middle1(action web.ControllerAction) web.ControllerAction {
+	return func(r *web.RequestContext) web.ControllerResult {
+		if r.Param("foo") != "bar" { //maximum security
+			return r.CurrentProvider().NotAuthorized() //.CurrentProvider() is set by `web.InjectViewProvider()`
+		}
+		return action(r) //note we call the input action here!
+	}
+}
+```
+
+##Serving Static Files
 
 You can set a path root to serve static files.
 
@@ -48,6 +71,12 @@ func main() {
 
 A couple key points: we use the special token `*filepath` to denote a wildcard in the route that will be passed to the static file server (users of `httprouter` should recognize this, it's the same thing under the hood).
 We then use the `http.Dir` function to specify the filesystem root that will be served (in this case a relative path).
+
+You can also have a controller action return a static file:
+
+```go
+	app.GET("/thing", func(r *web.RequestContext) web.ControllerResult { return r.Static("path/to/my/file") })
+```
 
 You can optionally set a static re-write rule (such as if you are cache-breaking assets with timestamps in the filename):
 

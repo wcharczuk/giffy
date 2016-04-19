@@ -301,6 +301,11 @@ func (rc *RequestContext) LogRequestWithW3CFormat(format string) {
 	}
 }
 
+// Logger returns the logger.
+func (rc *RequestContext) Logger() Logger {
+	return rc.logger
+}
+
 // --------------------------------------------------------------------------------
 // Basic result providers
 // --------------------------------------------------------------------------------

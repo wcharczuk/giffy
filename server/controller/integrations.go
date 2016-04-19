@@ -33,14 +33,20 @@ func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
 		uuid := strings.Replace(query, "img:", "", -1)
 		result, err = model.GetImageByUUID(uuid, nil)
 	} else {
-		result, err = model.SearchImagesSlack(query, nil)
+		images, err := model.SearchImagesRandom(query, 1, nil)
+		if err == nil {
+			result = &images[0]
+		}
 	}
 	if err != nil {
-		return r.API().InternalError(err)
+		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)
+		r.Logger().Error(err)
+		return r.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
 	}
+
 	if result.IsZero() {
 		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)
-		return r.RawWithContentType("text/plaid; charset=utf-8", []byte(fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())))
+		return r.RawWithContentType("text/plain; charset=utf-8", []byte(fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())))
 	}
 
 	var tagID *int64

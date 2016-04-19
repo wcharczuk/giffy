@@ -42,6 +42,19 @@ func (api API) searchImagesAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(results)
 }
 
+func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerResult {
+	count := r.RouteParameterInt("count")
+
+	query := r.Param("query")
+	results, err := model.SearchImagesRandom(query, count, nil)
+
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(results)
+}
+
 type slackField struct {
 	Title string `json:"title"`
 	Value string `json:"value"`
@@ -880,6 +893,7 @@ func (api API) Register(app *web.App) {
 	app.POST("/api/images", api.createImageAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/images/random/:count", api.getRandomImagesAction)
 	app.GET("/api/images.search", api.searchImagesAction)
+	app.GET("/api/images.search/random/:count", api.searchImagesRandomAction)
 
 	app.GET("/api/image/:image_id", api.getImageAction)
 	app.PUT("/api/image/:image_id", api.updateImageAction, auth.SessionRequired, web.InjectAPIProvider)
