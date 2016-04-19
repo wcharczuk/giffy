@@ -18,6 +18,21 @@ import (
 // API is the controller for api endpoints.
 type API struct{}
 
+// GET "/api/users"
+func (api API) getUsersAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	users, err := model.GetAllUsers(r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(users)
+}
+
+// GET "/api/users.search"
 func (api API) searchUsersAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -26,68 +41,46 @@ func (api API) searchUsersAction(r *web.RequestContext) web.ControllerResult {
 	}
 
 	query := r.Param("query")
-	users, err := model.SearchUsers(query, nil)
+	users, err := model.SearchUsers(query, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 	return r.API().JSON(users)
 }
 
-func (api API) searchImagesAction(r *web.RequestContext) web.ControllerResult {
-	query := r.Param("query")
-	results, err := model.SearchImages(query, nil)
-	if err != nil {
-		return r.API().InternalError(err)
+// GET "/api/users/pages/:count/:offset"
+func (api API) getUsersByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
+	if !auth.GetSession(r).User.IsAdmin {
+		return r.API().NotAuthorized()
 	}
-	return r.API().JSON(results)
-}
 
-func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerResult {
 	count := r.RouteParameterInt("count")
+	offset := r.RouteParameterInt("offset")
 
-	query := r.Param("query")
-	results, err := model.SearchImagesRandom(query, count, nil)
+	users, err := model.GetUsersByCountAndOffset(count, offset, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(users)
+}
 
+// GET "/api/user/:user_id"
+func (api API) getUserAction(r *web.RequestContext) web.ControllerResult {
+	userUUID := r.RouteParameter("user_id")
+
+	user, err := model.GetUserByUUID(userUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 
-	return r.API().JSON(results)
-}
-
-type slackField struct {
-	Title string `json:"title"`
-	Value string `json:"value"`
-	Short bool   `json:"short"`
-}
-
-type slackMessageAttachment struct {
-	Text   string       `json:"text"`
-	Fields []slackField `json:"field"`
-}
-
-type slackImageAttachment struct {
-	Title    string `json:"title"`
-	ImageURL string `json:"image_url"`
-	ThumbURL string `json:"thumb_url,omitempty"`
-}
-
-type slackResponse struct {
-	ImageUUID    string        `json:"image_uuid"`
-	ResponseType string        `json:"response_type"`
-	Text         string        `json:"text,omitempty"`
-	Attachments  []interface{} `json:"attachments"`
-}
-
-func (api API) searchTagsAction(r *web.RequestContext) web.ControllerResult {
-	query := r.Param("query")
-	results, err := model.SearchTags(query, nil)
-	if err != nil {
-		return r.API().InternalError(err)
+	if user.IsZero() {
+		return r.API().NotFound()
 	}
-	return r.API().JSON(results)
+
+	return r.API().JSON(user)
 }
 
+// PUT "/api/user/:user_id"
 func (api API) updateUserAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -97,7 +90,7 @@ func (api API) updateUserAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().NotAuthorized()
 	}
 
-	user, err := model.GetUserByUUID(userUUID, nil)
+	user, err := model.GetUserByUUID(userUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -148,16 +141,32 @@ func (api API) updateUserAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(postedUser)
 }
 
-func (api API) getModerationForUserAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
-	if !session.User.IsModerator {
-		return r.API().NotAuthorized()
-	}
-
+// GET "/api/user.images/:user_id"
+func (api API) getUserImagesAction(r *web.RequestContext) web.ControllerResult {
 	userUUID := r.RouteParameter("user_id")
 
-	user, err := model.GetUserByUUID(userUUID, nil)
+	user, err := model.GetUserByUUID(userUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if user.IsZero() {
+		return r.API().NotFound()
+	}
+
+	images, err := model.GetImagesForUserID(user.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(images)
+}
+
+// GET "/api/user.moderation/:user_id"
+func (api API) getModerationForUserAction(r *web.RequestContext) web.ControllerResult {
+	userUUID := r.RouteParameter("user_id")
+
+	user, err := model.GetUserByUUID(userUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -165,476 +174,52 @@ func (api API) getModerationForUserAction(r *web.RequestContext) web.ControllerR
 		return r.API().NotFound()
 	}
 
-	actions, err := model.GetModerationForUserID(user.ID, nil)
+	actions, err := model.GetModerationForUserID(user.ID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 	return r.API().JSON(actions)
 }
 
-func (api API) getImagesAction(r *web.RequestContext) web.ControllerResult {
-	images, err := model.GetAllImages(nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(images)
-}
-
-func (api API) getRandomImagesAction(r *web.RequestContext) web.ControllerResult {
-	count := r.RouteParameterInt("count")
-
-	images, err := model.GetRandomImages(count, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(images)
-}
-
-func (api API) getImagesForTagAction(r *web.RequestContext) web.ControllerResult {
-	tagUUID := r.RouteParameter("tag_id")
-	tag, err := model.GetTagByUUID(tagUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if tag.IsZero() {
-		return r.API().NotFound()
-	}
-
-	results, err := model.GetImagesForTagID(tag.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(results)
-}
-
-func (api API) getImageAction(r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
-	image, err := model.GetImageByUUID(imageUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if image.IsZero() {
-		return r.API().NotFound()
-	}
-	return r.API().JSON(image)
-}
-
-func (api API) updateImageAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
-	imageUUID := r.RouteParameter("image_id")
-
-	if !session.User.IsModerator {
-		return r.API().NotAuthorized()
-	}
-
-	image, err := model.GetImageByUUID(imageUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if image.IsZero() {
-		return r.API().NotFound()
-	}
-
-	updatedImage := model.Image{}
-	err = r.PostBodyAsJSON(&updatedImage)
-
-	if len(updatedImage.DisplayName) != 0 {
-		image.DisplayName = updatedImage.DisplayName
-	}
-
-	if updatedImage.IsCensored != image.IsCensored {
-		if updatedImage.IsCensored {
-			model.QueueModerationEntry(session.UserID, model.ModerationVerbCensor, model.ModerationObjectImage, image.UUID)
-		} else {
-			model.QueueModerationEntry(session.UserID, model.ModerationVerbUncensor, model.ModerationObjectImage, image.UUID)
-		}
-
-		image.IsCensored = updatedImage.IsCensored
-	}
-
-	err = spiffy.DefaultDb().Update(image)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	return r.API().JSON(image)
-}
-
-func (api API) getTagsForImageAction(r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
-	image, err := model.GetImageByUUID(imageUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if image.IsZero() {
-		return r.API().NotFound()
-	}
-
-	results, err := model.GetTagsForImageID(image.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(results)
-}
-
-func (api API) getTagAction(r *web.RequestContext) web.ControllerResult {
-	tagUUID := r.RouteParameter("tag_id")
-	tag, err := model.GetTagByUUID(tagUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	if tag.IsZero() {
-		tag, err = model.GetTagByValue(tagUUID, nil)
-		if err != nil {
-			return r.API().InternalError(err)
-		}
-		if tag.IsZero() {
-			return r.API().NotFound()
-		}
-	}
-
-	return r.API().JSON(tag)
-}
-
-func (api API) getTagsAction(r *web.RequestContext) web.ControllerResult {
-	tags, err := model.GetAllTags(nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(tags)
-}
-
-func (api API) getUsersAction(r *web.RequestContext) web.ControllerResult {
-	if !auth.GetSession(r).User.IsAdmin {
-		return r.API().NotAuthorized()
-	}
-
-	users, err := model.GetAllUsers(nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(users)
-}
-
-func (api API) getUsersByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
-	if !auth.GetSession(r).User.IsAdmin {
-		return r.API().NotAuthorized()
-	}
-
-	count := r.RouteParameterInt("count")
-	offset := r.RouteParameterInt("offset")
-
-	users, err := model.GetUsersByCountAndOffset(count, offset, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(users)
-}
-
-func (api API) getUserAction(r *web.RequestContext) web.ControllerResult {
-	userUUID := r.RouteParameter("user_id")
-
-	user, err := model.GetUserByUUID(userUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	if user.IsZero() {
-		return r.API().NotFound()
-	}
-
-	return r.API().JSON(user)
-}
-
-func (api API) getUserImagesAction(r *web.RequestContext) web.ControllerResult {
-	userUUID := r.RouteParameter("user_id")
-
-	user, err := model.GetUserByUUID(userUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	if user.IsZero() {
-		return r.API().NotFound()
-	}
-
-	images, err := model.GetImagesForUserID(user.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	return r.API().JSON(images)
-}
-
-func (api API) createImageAction(r *web.RequestContext) web.ControllerResult {
-	files, filesErr := r.PostedFiles()
-	if filesErr != nil {
-		return r.API().BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
-	}
-
-	if len(files) == 0 {
-		return r.API().BadRequest("No files posted.")
-	}
-
-	postedFile := files[0]
-	md5sum := model.ConvertMD5(md5.Sum(postedFile.Contents))
-	existing, err := model.GetImageByMD5(md5sum, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	if !existing.IsZero() {
-		return r.API().JSON(existing)
-	}
-
-	session := auth.GetSession(r)
-	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, postedFile.Contents, postedFile.Filename)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
-	return r.API().JSON(image)
-}
-
-func (api API) createTagAction(r *web.RequestContext) web.ControllerResult {
-	args := viewmodel.CreateTagArgs{}
-	err := r.PostBodyAsJSON(&args)
-	if err != nil {
-		return r.API().BadRequest(err.Error())
-	}
-
-	if len(args) == 0 {
-		return r.API().BadRequest("empty post body, please submit an array of strings.")
-	}
-
-	var tagValues []string
-	for _, value := range args {
-		tagValue := model.CleanTagValue(value)
-		if len(tagValue) == 0 {
-			return r.API().BadRequest("`tag_value` be in the form [a-z,A-Z,0-9]+")
-		}
-
-		tagValues = append(tagValues, tagValue)
-	}
-
-	session := auth.GetSession(r)
-
-	tags := []*model.Tag{}
-	for _, tagValue := range tagValues {
-		existingTag, err := model.GetTagByValue(tagValue, nil)
-
-		if err != nil {
-			return r.API().InternalError(err)
-		}
-
-		if !existingTag.IsZero() {
-			tags = append(tags, existingTag)
-			continue
-		}
-
-		tag := model.NewTag(session.UserID, tagValue)
-		err = spiffy.DefaultDb().Create(tag)
-		if err != nil {
-			return r.API().InternalError(err)
-		}
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
-		tags = append(tags, tag)
-	}
-
-	return r.API().JSON(tags)
-}
-
-func (api API) deleteImageAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
-	currentUser, err := model.GetUserByID(session.UserID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	imageUUID := r.RouteParameter("image_id")
-
-	image, err := model.GetImageByUUID(imageUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if image.IsZero() {
-		return r.API().NotFound()
-	}
-	if !currentUser.IsModerator && image.CreatedBy != currentUser.ID {
-		return r.API().NotAuthorized()
-	}
-
-	//delete from s3 (!!)
-	err = filecache.DeleteFile(filecache.NewLocationFromKey(image.S3Key))
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	err = model.DeleteImageByID(image.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID)
-	return r.API().OK()
-}
-
-func (api API) deleteTagAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
-	currentUser, err := model.GetUserByID(session.UserID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	tagUUID := r.RouteParameter("tag_id")
-
-	tag, err := model.GetTagByUUID(tagUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if tag.IsZero() {
-		return r.API().NotFound()
-	}
-	if !currentUser.IsModerator && tag.CreatedBy != currentUser.ID {
-		return r.API().NotAuthorized()
-	}
-
-	err = model.DeleteTagWithVotesByID(tag.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID)
-	return r.API().OK()
-}
-
-func (api API) getLinksForImageAction(r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
-	image, err := model.GetImageByUUID(imageUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if image.IsZero() {
-		return r.API().NotFound()
-	}
-	voteSummaries, err := model.GetVoteSummariesForImage(image.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(voteSummaries)
-}
-
-func (api API) getLinksForTagAction(r *web.RequestContext) web.ControllerResult {
-	tagUUID := r.RouteParameter("tag_id")
-	tag, err := model.GetTagByUUID(tagUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if tag.IsZero() {
-		return r.API().NotFound()
-	}
-	voteSummaries, err := model.GetVoteSummariesForTag(tag.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	return r.API().JSON(voteSummaries)
-}
-
+// GET "/api/user.votes.image/:image_id"
 func (api API) getVotesForUserForImageAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
 	imageUUID := r.RouteParameter("image_id")
-	image, err := model.GetImageByUUID(imageUUID, nil)
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 	if image.IsZero() {
 		return r.API().NotFound()
 	}
-	votes, err := model.GetVotesForUserForImage(session.UserID, image.ID, nil)
+	votes, err := model.GetVotesForUserForImage(session.UserID, image.ID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 	return r.API().JSON(votes)
 }
 
+// GET "/api/user.votes.tag/:tag_id"
 func (api API) getVotesForUserForTagAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
 	tagUUID := r.RouteParameter("tag_id")
-	tag, err := model.GetTagByUUID(tagUUID, nil)
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 	if tag.IsZero() {
 		return r.API().NotFound()
 	}
-	votes, err := model.GetVotesForUserForTag(session.UserID, tag.ID, nil)
+	votes, err := model.GetVotesForUserForTag(session.UserID, tag.ID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 	return r.API().JSON(votes)
 }
 
-func (api API) upvoteAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
-	return api.voteAction(true, session, r)
-}
-
-func (api API) downvoteAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
-	return api.voteAction(false, session, r)
-}
-
-func (api API) voteAction(isUpvote bool, session *auth.Session, r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
-	tagUUID := r.RouteParameter("tag_id")
-	userID := session.UserID
-
-	tag, err := model.GetTagByUUID(tagUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if tag.IsZero() {
-		return r.API().NotFound()
-	}
-
-	image, err := model.GetImageByUUID(imageUUID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	if image.IsZero() {
-		return r.API().NotFound()
-	}
-
-	existingUserVote, err := model.GetVote(userID, image.ID, tag.ID, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	if !existingUserVote.IsZero() {
-		return r.API().OK()
-	}
-
-	didCreate, err := model.CreateOrUpdateVote(userID, image.ID, tag.ID, isUpvote, nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	if didCreate {
-		model.QueueModerationEntry(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID)
-	}
-
-	return r.API().OK()
-}
-
+// DELETE "/api/user.vote/:image_id/:tag_id"
 func (api API) deleteUserVoteAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -642,7 +227,7 @@ func (api API) deleteUserVoteAction(r *web.RequestContext) web.ControllerResult 
 	tagUUID := r.RouteParameter("tag_id")
 	userID := session.UserID
 
-	image, err := model.GetImageByUUID(imageUUID, nil)
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -650,7 +235,7 @@ func (api API) deleteUserVoteAction(r *web.RequestContext) web.ControllerResult 
 		return r.API().NotFound()
 	}
 
-	tag, err := model.GetTagByUUID(tagUUID, nil)
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -692,7 +277,7 @@ func (api API) deleteUserVoteAction(r *web.RequestContext) web.ControllerResult 
 		return r.API().InternalError(err)
 	}
 
-	err = model.DeleteVote(userID, image.ID, tag.ID, nil)
+	err = model.DeleteVote(userID, image.ID, tag.ID, r.Tx())
 	if err != nil {
 		tx.Rollback()
 		return r.API().InternalError(err)
@@ -702,18 +287,106 @@ func (api API) deleteUserVoteAction(r *web.RequestContext) web.ControllerResult 
 	return r.API().OK()
 }
 
-func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
+// GET "/api/images"
+func (api API) getImagesAction(r *web.RequestContext) web.ControllerResult {
+	images, err := model.GetAllImages(r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(images)
+}
 
-	currentUser, err := model.GetUserByID(session.UserID, nil)
+// POST "/api/images"
+func (api API) createImageAction(r *web.RequestContext) web.ControllerResult {
+	files, filesErr := r.PostedFiles()
+	if filesErr != nil {
+		return r.API().BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
+	}
+
+	if len(files) == 0 {
+		return r.API().BadRequest("No files posted.")
+	}
+
+	postedFile := files[0]
+	md5sum := model.ConvertMD5(md5.Sum(postedFile.Contents))
+	existing, err := model.GetImageByMD5(md5sum, nil)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 
-	imageUUID := r.RouteParameter("image_id")
-	tagUUID := r.RouteParameter("tag_id")
+	if !existing.IsZero() {
+		return r.API().JSON(existing)
+	}
 
-	image, err := model.GetImageByUUID(imageUUID, nil)
+	session := auth.GetSession(r)
+	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, postedFile.Contents, postedFile.Filename)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
+	return r.API().JSON(image)
+}
+
+// GET "/api/images/random/:count"
+func (api API) getRandomImagesAction(r *web.RequestContext) web.ControllerResult {
+	count := r.RouteParameterInt("count")
+
+	images, err := model.GetRandomImages(count, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(images)
+}
+
+// GET "/api/images.search?query=<query>"
+func (api API) searchImagesAction(r *web.RequestContext) web.ControllerResult {
+	query := r.Param("query")
+	results, err := model.SearchImages(query, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(results)
+}
+
+// GET "/api/images.search/random/:count?query=<query>"
+func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerResult {
+	count := r.RouteParameterInt("count")
+
+	query := r.Param("query")
+	results, err := model.SearchImagesRandom(query, count, r.Tx())
+
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(results)
+}
+
+// GET "/api/image/:image_id"
+func (api API) getImageAction(r *web.RequestContext) web.ControllerResult {
+	imageUUID := r.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if image.IsZero() {
+		return r.API().NotFound()
+	}
+	return r.API().JSON(image)
+}
+
+// PUT "/api/image/:image_id"
+func (api API) updateImageAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	imageUUID := r.RouteParameter("image_id")
+
+	if !session.User.IsModerator {
+		return r.API().NotAuthorized()
+	}
+
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -721,7 +394,204 @@ func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().NotFound()
 	}
 
-	tag, err := model.GetTagByUUID(tagUUID, nil)
+	updatedImage := model.Image{}
+	err = r.PostBodyAsJSON(&updatedImage)
+
+	if len(updatedImage.DisplayName) != 0 {
+		image.DisplayName = updatedImage.DisplayName
+	}
+
+	if updatedImage.IsCensored != image.IsCensored {
+		if updatedImage.IsCensored {
+			model.QueueModerationEntry(session.UserID, model.ModerationVerbCensor, model.ModerationObjectImage, image.UUID)
+		} else {
+			model.QueueModerationEntry(session.UserID, model.ModerationVerbUncensor, model.ModerationObjectImage, image.UUID)
+		}
+
+		image.IsCensored = updatedImage.IsCensored
+	}
+
+	err = spiffy.DefaultDb().Update(image)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(image)
+}
+
+// DELETE "/api/image/:image_id"
+func (api API) deleteImageAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	currentUser, err := model.GetUserByID(session.UserID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	imageUUID := r.RouteParameter("image_id")
+
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if image.IsZero() {
+		return r.API().NotFound()
+	}
+	if !currentUser.IsModerator && image.CreatedBy != currentUser.ID {
+		return r.API().NotAuthorized()
+	}
+
+	//delete from s3 (!!)
+	err = filecache.DeleteFile(filecache.NewLocationFromKey(image.S3Key))
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	err = model.DeleteImageByID(image.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID)
+	return r.API().OK()
+}
+
+// GET "/api/image.votes/:image_id"
+func (api API) getLinksForImageAction(r *web.RequestContext) web.ControllerResult {
+	imageUUID := r.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if image.IsZero() {
+		return r.API().NotFound()
+	}
+	voteSummaries, err := model.GetVoteSummariesForImage(image.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(voteSummaries)
+}
+
+// GET "/api/image.tags/:image_id"
+func (api API) getTagsForImageAction(r *web.RequestContext) web.ControllerResult {
+	imageUUID := r.RouteParameter("image_id")
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if image.IsZero() {
+		return r.API().NotFound()
+	}
+
+	results, err := model.GetTagsForImageID(image.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(results)
+}
+
+// GET "/api/tags"
+func (api API) getTagsAction(r *web.RequestContext) web.ControllerResult {
+	tags, err := model.GetAllTags(r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(tags)
+}
+
+// POST "/api/tags"
+func (api API) createTagsAction(r *web.RequestContext) web.ControllerResult {
+	args := viewmodel.CreateTagArgs{}
+	err := r.PostBodyAsJSON(&args)
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	if len(args) == 0 {
+		return r.API().BadRequest("empty post body, please submit an array of strings.")
+	}
+
+	var tagValues []string
+	for _, value := range args {
+		tagValue := model.CleanTagValue(value)
+		if len(tagValue) == 0 {
+			return r.API().BadRequest("`tag_value` be in the form [a-z,A-Z,0-9]+")
+		}
+
+		tagValues = append(tagValues, tagValue)
+	}
+
+	session := auth.GetSession(r)
+
+	tags := []*model.Tag{}
+	for _, tagValue := range tagValues {
+		existingTag, err := model.GetTagByValue(tagValue, r.Tx())
+
+		if err != nil {
+			return r.API().InternalError(err)
+		}
+
+		if !existingTag.IsZero() {
+			tags = append(tags, existingTag)
+			continue
+		}
+
+		tag := model.NewTag(session.UserID, tagValue)
+		err = spiffy.DefaultDb().Create(tag)
+		if err != nil {
+			return r.API().InternalError(err)
+		}
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
+		tags = append(tags, tag)
+	}
+
+	return r.API().JSON(tags)
+}
+
+// GET "/api/tags.search?query=<query>"
+func (api API) searchTagsAction(r *web.RequestContext) web.ControllerResult {
+	query := r.Param("query")
+	results, err := model.SearchTags(query, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(results)
+}
+
+// GET "/api/tag/:tag_id"
+func (api API) getTagAction(r *web.RequestContext) web.ControllerResult {
+	tagUUID := r.RouteParameter("tag_id")
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if tag.IsZero() {
+		tag, err = model.GetTagByValue(tagUUID, r.Tx())
+		if err != nil {
+			return r.API().InternalError(err)
+		}
+		if tag.IsZero() {
+			return r.API().NotFound()
+		}
+	}
+
+	return r.API().JSON(tag)
+}
+
+// DELETE "/api/tag/:tag_id"
+func (api API) deleteTagAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	currentUser, err := model.GetUserByID(session.UserID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	tagUUID := r.RouteParameter("tag_id")
+
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -732,7 +602,82 @@ func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().NotAuthorized()
 	}
 
-	err = model.DeleteVoteSummary(image.ID, tag.ID, nil)
+	err = model.DeleteTagWithVotesByID(tag.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID)
+	return r.API().OK()
+}
+
+// GET "/api/tag.images/:tag_id"
+func (api API) getImagesForTagAction(r *web.RequestContext) web.ControllerResult {
+	tagUUID := r.RouteParameter("tag_id")
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if tag.IsZero() {
+		return r.API().NotFound()
+	}
+
+	results, err := model.GetImagesForTagID(tag.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(results)
+}
+
+// GET "/api/tag.votes/:tag_id"
+func (api API) getLinksForTagAction(r *web.RequestContext) web.ControllerResult {
+	tagUUID := r.RouteParameter("tag_id")
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if tag.IsZero() {
+		return r.API().NotFound()
+	}
+	voteSummaries, err := model.GetVoteSummariesForTag(tag.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(voteSummaries)
+}
+
+// DELETE "/api/link/:image_id/:tag_id"
+func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	currentUser, err := model.GetUserByID(session.UserID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	imageUUID := r.RouteParameter("image_id")
+	tagUUID := r.RouteParameter("tag_id")
+
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if image.IsZero() {
+		return r.API().NotFound()
+	}
+
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if tag.IsZero() {
+		return r.API().NotFound()
+	}
+	if !currentUser.IsModerator && tag.CreatedBy != currentUser.ID {
+		return r.API().NotAuthorized()
+	}
+
+	err = model.DeleteVoteSummary(image.ID, tag.ID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -742,8 +687,65 @@ func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().OK()
 }
 
+// POST "/api/vote.up/:image_id/:tag_id"
+func (api API) upvoteAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	return api.voteAction(true, session, r)
+}
+
+// POST "/api/vote.down/:image_id/:tag_id"
+func (api API) downvoteAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	return api.voteAction(false, session, r)
+}
+
+func (api API) voteAction(isUpvote bool, session *auth.Session, r *web.RequestContext) web.ControllerResult {
+	imageUUID := r.RouteParameter("image_id")
+	tagUUID := r.RouteParameter("tag_id")
+	userID := session.UserID
+
+	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if tag.IsZero() {
+		return r.API().NotFound()
+	}
+
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	if image.IsZero() {
+		return r.API().NotFound()
+	}
+
+	existingUserVote, err := model.GetVote(userID, image.ID, tag.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if !existingUserVote.IsZero() {
+		return r.API().OK()
+	}
+
+	didCreate, err := model.CreateOrUpdateVote(userID, image.ID, tag.ID, isUpvote, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if didCreate {
+		model.QueueModerationEntry(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID)
+	}
+
+	return r.API().OK()
+}
+
+// GET "/api/moderation.log/recent"
 func (api API) getRecentModerationLogAction(r *web.RequestContext) web.ControllerResult {
-	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -1), nil)
+	moderationLog, err := model.GetModerationsByTime(time.Now().UTC().AddDate(0, 0, -1), r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -751,11 +753,12 @@ func (api API) getRecentModerationLogAction(r *web.RequestContext) web.Controlle
 	return r.API().JSON(moderationLog)
 }
 
+// GET "/api/moderation.log/pages/:count/:offset"
 func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
 	count := r.RouteParameterInt("count")
 	offset := r.RouteParameterInt("offset")
 
-	log, err := model.GetModerationLogByCountAndOffset(count, offset, nil)
+	log, err := model.GetModerationLogByCountAndOffset(count, offset, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -763,6 +766,7 @@ func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web
 	return r.API().JSON(log)
 }
 
+// GET "/api/search.history/recent"
 func (api API) getRecentSearchHistoryAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -770,7 +774,7 @@ func (api API) getRecentSearchHistoryAction(r *web.RequestContext) web.Controlle
 		return r.API().NotAuthorized()
 	}
 
-	searchHistory, err := model.GetSearchHistory(nil)
+	searchHistory, err := model.GetSearchHistory(r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -778,6 +782,7 @@ func (api API) getRecentSearchHistoryAction(r *web.RequestContext) web.Controlle
 	return r.API().JSON(searchHistory)
 }
 
+// GET "/api/search.history/pages/:count/:offset"
 func (api API) getSearchHistoryByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -788,7 +793,7 @@ func (api API) getSearchHistoryByCountAndOffsetAction(r *web.RequestContext) web
 	count := r.RouteParameterInt("count")
 	offset := r.RouteParameterInt("offset")
 
-	searchHistory, err := model.GetSearchHistoryByCountAndOffset(count, offset, nil)
+	searchHistory, err := model.GetSearchHistoryByCountAndOffset(count, offset, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -796,6 +801,17 @@ func (api API) getSearchHistoryByCountAndOffsetAction(r *web.RequestContext) web
 	return r.API().JSON(searchHistory)
 }
 
+// GET "/api/stats"
+func (api API) getSiteStatsAction(r *web.RequestContext) web.ControllerResult {
+	stats, err := viewmodel.GetSiteStats(r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(stats)
+}
+
+// GET "/api/session.user"
 func (api API) getCurrentUserAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -808,6 +824,7 @@ func (api API) getCurrentUserAction(r *web.RequestContext) web.ControllerResult 
 	return r.API().JSON(cu)
 }
 
+// GET "/api/session/:key"
 func (api API) getSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -819,6 +836,7 @@ func (api API) getSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(value)
 }
 
+// POST "/api/session/:key"
 func (api API) setSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -827,30 +845,7 @@ func (api API) setSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().OK()
 }
 
-func (api API) logoutAction(r *web.RequestContext) web.ControllerResult {
-	session := auth.GetSession(r)
-
-	if session == nil {
-		return r.API().OK()
-	}
-	err := auth.Logout(session.UserID, session.SessionID)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-	r.ExpireCookie(auth.SessionParamName)
-
-	return r.API().OK()
-}
-
-func (api API) getSiteStatsAction(r *web.RequestContext) web.ControllerResult {
-	stats, err := viewmodel.GetSiteStats(nil)
-	if err != nil {
-		return r.API().InternalError(err)
-	}
-
-	return r.API().JSON(stats)
-}
-
+// GET "/api/jobs"
 func (api API) getJobsStatusAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -861,6 +856,7 @@ func (api API) getJobsStatusAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(status)
 }
 
+// POST "/api/job/:job_id"
 func (api API) runJobAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
@@ -876,6 +872,21 @@ func (api API) runJobAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().OK()
 }
 
+// POST "/api/logout"
+func (api API) logoutAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if session == nil {
+		return r.API().OK()
+	}
+	err := auth.Logout(session.UserID, session.SessionID, r, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().OK()
+}
+
 // Register adds the routes to the app.
 func (api API) Register(app *web.App) {
 	app.GET("/api/users", api.getUsersAction, auth.SessionRequired, web.InjectAPIProvider)
@@ -885,8 +896,10 @@ func (api API) Register(app *web.App) {
 	app.GET("/api/user/:user_id", api.getUserAction)
 	app.PUT("/api/user/:user_id", api.updateUserAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/user.images/:user_id", api.getUserImagesAction)
+	app.GET("/api/user.moderation/:user_id", api.getModerationForUserAction)
 	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, auth.SessionRequired, web.InjectAPIProvider)
+
 	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	app.GET("/api/images", api.getImagesAction)
@@ -902,7 +915,7 @@ func (api API) Register(app *web.App) {
 	app.GET("/api/image.tags/:image_id", api.getTagsForImageAction)
 
 	app.GET("/api/tags", api.getTagsAction)
-	app.POST("/api/tags", api.createTagAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.POST("/api/tags", api.createTagsAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/tags.search", api.searchTagsAction)
 
 	app.GET("/api/tag/:tag_id", api.getTagAction)

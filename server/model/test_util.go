@@ -9,6 +9,15 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 )
 
+// CreateTestUser creates a test user.
+func CreateTestUser(tx *sql.Tx) (*User, error) {
+	u := NewUser(fmt.Sprintf("__test_user_%s__", core.UUIDv4().ToShortString()))
+	u.FirstName = "Test"
+	u.LastName = "User"
+	err := spiffy.DefaultDb().CreateInTransaction(u, tx)
+	return u, err
+}
+
 // CreateTestTag creates a test tag.
 func CreateTestTag(userID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
 	tag := NewTag(userID, tagValue)
@@ -92,15 +101,6 @@ func CreatTestVoteSummaryWithVote(imageID, tagID, userID int64, votesFor, votesA
 	}
 
 	return newLink, nil
-}
-
-// CreateTestUser creates a test user.
-func CreateTestUser(tx *sql.Tx) (*User, error) {
-	u := NewUser(fmt.Sprintf("__test_user_%s__", core.UUIDv4().ToShortString()))
-	u.FirstName = "Test"
-	u.LastName = "User"
-	err := spiffy.DefaultDb().CreateInTransaction(u, tx)
-	return u, err
 }
 
 // CreateTestUserAuth creates a test user auth.

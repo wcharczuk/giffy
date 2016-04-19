@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"time"
-
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/go-web"
@@ -75,13 +73,12 @@ func (ac Auth) oauthFacebookAction(r *web.RequestContext) web.ControllerResult {
 }
 
 func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, authSecret string, prototypeUser *model.User) web.ControllerResult {
-	existingUser, err := model.GetUserByUsername(prototypeUser.Username, nil)
+	existingUser, err := model.GetUserByUsername(prototypeUser.Username, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
 	var userID int64
-	var sessionID string
 
 	//create the user if it doesn't exist ...
 	if existingUser.IsZero() {
@@ -95,7 +92,7 @@ func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, auth
 		userID = existingUser.ID
 	}
 
-	err = model.DeleteUserAuthForProvider(userID, provider, nil)
+	err = model.DeleteUserAuthForProvider(userID, provider, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -108,19 +105,12 @@ func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, auth
 		return r.View().InternalError(err)
 	}
 
-	// set up the session
-	userSession := model.NewUserSession(userID)
-	err = spiffy.DefaultDb().Create(userSession)
+	_, err = auth.Login(userID, r, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
-	sessionID = userSession.SessionID
-
-	auth.SessionState().Add(userID, sessionID)
-	r.SetCookie(auth.SessionParamName, sessionID, util.OptionalTime(time.Now().UTC().AddDate(0, 1, 0)), "/")
-
-	currentUser, err := model.GetUserByID(userID, nil)
+	currentUser, err := model.GetUserByID(userID, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -142,11 +132,10 @@ func (ac Auth) logoutAction(r *web.RequestContext) web.ControllerResult {
 		return r.Redirect("/")
 	}
 
-	err := auth.Logout(session.UserID, session.SessionID)
+	err := auth.Logout(session.UserID, session.SessionID, r, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}
-	r.ExpireCookie(auth.SessionParamName)
 
 	return r.Redirect("/")
 }

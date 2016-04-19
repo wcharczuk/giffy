@@ -25,7 +25,7 @@ func TestSessionCache(t *testing.T) {
 
 	sessionID := util.RandomString(32)
 	cache := newSessionCache()
-	cache.Add(u.ID, sessionID)
+	cache.Add(u.ID, sessionID, tx)
 	assert.NotEmpty(cache.Sessions)
 	session := cache.Get(sessionID)
 	assert.NotNil(session)

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"sync"
 
 	"github.com/wcharczuk/giffy/server/model"
@@ -37,10 +38,10 @@ type SessionCache struct {
 }
 
 // Add a session to the cache.
-func (sc *SessionCache) Add(userID int64, sessionID string) (*Session, error) {
+func (sc *SessionCache) Add(userID int64, sessionID string, tx *sql.Tx) (*Session, error) {
 	session := NewSession(userID, sessionID)
 
-	user, err := model.GetUserByID(session.UserID, nil)
+	user, err := model.GetUserByID(session.UserID, tx)
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,30 @@ import (
 	"github.com/wcharczuk/go-web"
 )
 
+type slackField struct {
+	Title string `json:"title"`
+	Value string `json:"value"`
+	Short bool   `json:"short"`
+}
+
+type slackMessageAttachment struct {
+	Text   string       `json:"text"`
+	Fields []slackField `json:"field"`
+}
+
+type slackImageAttachment struct {
+	Title    string `json:"title"`
+	ImageURL string `json:"image_url"`
+	ThumbURL string `json:"thumb_url,omitempty"`
+}
+
+type slackResponse struct {
+	ImageUUID    string        `json:"image_uuid"`
+	ResponseType string        `json:"response_type"`
+	Text         string        `json:"text,omitempty"`
+	Attachments  []interface{} `json:"attachments"`
+}
+
 // Integrations controller is responsible for integration responses.
 type Integrations struct{}
 

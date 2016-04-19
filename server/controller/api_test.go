@@ -1,9 +1,12 @@
 package controller
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/go-web"
 )
@@ -27,14 +30,44 @@ type testImagesResponse struct {
 	Response []model.Image        `json:"response"`
 }
 
-func TestAPIUser(t *testing.T) {
+func authUser(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (*auth.Session, error)) *auth.Session {
+	session, err := mockUserProvider(tx)
+	a.Nil(err)
+	a.NotNil(session)
+	return session
+}
+
+func TestAPIUsers(t *testing.T) {
 	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	session := authUser(assert, tx, MockAdminLogin)
+	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
 
 	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testUsersResponse
+	err = app.Mock().WithPathf("/api/users").WithHeader(auth.SessionParamName, session.SessionID).JSON(&res)
+	assert.Nil(err)
+	assert.NotEmpty(res.Response)
+}
+
+func TestAPIUser(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	app := web.New()
+	app.IsolateTo(tx)
 	app.Register(API{})
 
 	var res testUserResponse
-	err := app.Mock().WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
+	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotNil(res.Response)
@@ -43,12 +76,16 @@ func TestAPIUser(t *testing.T) {
 
 func TestAPIImages(t *testing.T) {
 	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
 
 	app := web.New()
+	app.IsolateTo(tx)
 	app.Register(API{})
 
 	var res testImagesResponse
-	err := app.Mock().WithPathf("/api/images").JSON(&res)
+	err = app.Mock().WithPathf("/api/images").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
