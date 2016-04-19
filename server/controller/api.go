@@ -937,7 +937,7 @@ func (api API) Register(app *web.App) {
 	app.GET("/api/stats", api.getSiteStatsAction)
 
 	//session endpoints
-	app.GET("/api/session.user", api.getCurrentUserAction, auth.SessionRequired, web.InjectAPIProvider)
+	app.GET("/api/session.user", api.getCurrentUserAction, auth.SessionAware, web.InjectAPIProvider)
 	app.GET("/api/session/:key", api.getSessionKeyAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.POST("/api/session/:key", api.setSessionKeyAction, auth.SessionRequired, web.InjectAPIProvider)
 

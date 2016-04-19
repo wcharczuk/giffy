@@ -8,6 +8,7 @@ import (
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/viewmodel"
 	"github.com/wcharczuk/go-web"
 )
 
@@ -28,6 +29,11 @@ type testUsersResponse struct {
 type testImagesResponse struct {
 	Meta     *web.APIResponseMeta `json:"meta"`
 	Response []model.Image        `json:"response"`
+}
+
+type testCurrentUserResponse struct {
+	Meta     *web.APIResponseMeta   `json:"meta"`
+	Response *viewmodel.CurrentUser `json:"response"`
 }
 
 func authUser(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (*auth.Session, error)) *auth.Session {
@@ -171,4 +177,43 @@ func TestAPIImagesRandom(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
+}
+
+func TestAPICurrentUser(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	session := authUser(assert, tx, MockAdminLogin)
+	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testCurrentUserResponse
+	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/session.user").JSON(&res)
+	assert.Nil(err)
+	assert.NotNil(res.Response)
+	assert.True(res.Response.IsLoggedIn)
+	assert.NotEmpty(res.Response.UUID)
+}
+
+func TestAPICurrentUserLoggedOut(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testCurrentUserResponse
+	err = app.Mock().WithPathf("/api/session.user").JSON(&res)
+	assert.Nil(err)
+	assert.NotNil(res.Response)
+	assert.False(res.Response.IsLoggedIn)
+	assert.Empty(res.Response.UUID)
 }
