@@ -14,7 +14,7 @@ type CurrentUser struct {
 	IsModerator      bool   `json:"is_moderator"`
 	IsBanned         bool   `json:"is_banned"`
 	FacebookLoginURL string `json:"facebook_login_url,omitempty"`
-	GoogleLoginURL   string `json:"google_login_url,ommitempty"`
+	GoogleLoginURL   string `json:"google_login_url,omitempty"`
 }
 
 // SetFromUser does things.

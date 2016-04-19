@@ -12,7 +12,7 @@ run:
 
 test:
 	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
-	@bash ./_util/test.bash --root="./server/" --package=$(package) --short --filter=${filter} ${flags}
+	@genv -f=_config/config.json go test -short ./server/...
 	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
 
 cover:
@@ -24,7 +24,7 @@ db:
 	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
 	@genv -f="./_config/config.json" sh ./_db/init.sh
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
-	
+
 db-dev:
 	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
 	@GIFFY_APP=giffy-dev-db GIFFY_HOST=45.33.5.126 sh ./_db/init.sh
@@ -39,7 +39,7 @@ migrate-dev:
 	@echo "$(OK_COLOR)==> Migrating Database with configuration from config.json file$(NO_COLOR)"
 	@GIFFY_APP=giffy-dev-db GIFFY_HOST=45.33.5.126 sh ./_db/migrate.sh
 	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"
-	
+
 migrate-prod:
 	@echo "$(OK_COLOR)==> Migrating Database with configuration from config.json file$(NO_COLOR)"
 	@GIFFY_APP=giffy-db GIFFY_HOST=45.33.5.126 sh ./_db/migrate.sh
