@@ -40,7 +40,6 @@ type slackResponse struct {
 type Integrations struct{}
 
 func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
-
 	teamID := r.Param("team_id")
 	channelID := r.Param("channel_id")
 	userID := r.Param("user_id")
@@ -55,9 +54,9 @@ func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
 	var err error
 	if strings.HasPrefix(query, "img:") {
 		uuid := strings.Replace(query, "img:", "", -1)
-		result, err = model.GetImageByUUID(uuid, nil)
+		result, err = model.GetImageByUUID(uuid, r.Tx())
 	} else {
-		images, err := model.SearchImagesRandom(query, 1, nil)
+		images, err := model.SearchImagesRandom(query, 1, r.Tx())
 		if err == nil && len(images) > 0 {
 			result = &images[0]
 		}
@@ -68,7 +67,7 @@ func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
 		return r.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
 	}
 
-	if result.IsZero() {
+	if result == nil || result.IsZero() {
 		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)
 		return r.RawWithContentType("text/plain; charset=utf-8", []byte(fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())))
 	}

@@ -51,9 +51,74 @@ func TestAPIUsers(t *testing.T) {
 	app.Register(API{})
 
 	var res testUsersResponse
-	err = app.Mock().WithPathf("/api/users").WithHeader(auth.SessionParamName, session.SessionID).JSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").JSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
+}
+
+func TestAPIUsersNonAdmin(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	session := authUser(assert, tx, MockModeratorLogin)
+	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testUsersResponse
+	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").JSON(&res)
+	assert.Nil(err)
+	assert.Empty(res.Response)
+}
+
+func TestAPIUserSearch(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	session := authUser(assert, tx, MockAdminLogin)
+	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testUsersResponse
+	err = app.Mock().
+		WithHeader(auth.SessionParamName, session.SessionID).
+		WithPathf("/api/users.search").
+		WithQueryString("query", "will").
+		JSON(&res)
+	assert.Nil(err)
+	assert.NotEmpty(res.Response)
+}
+
+func TestAPIUserSearchNonAdmin(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	session := authUser(assert, tx, MockModeratorLogin)
+	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testUsersResponse
+	err = app.Mock().
+		WithHeader(auth.SessionParamName, session.SessionID).
+		WithPathf("/api/users.search").
+		WithQueryString("query", "will").
+		JSON(&res)
+	assert.Nil(err)
+	assert.Empty(res.Response)
 }
 
 func TestAPIUser(t *testing.T) {
@@ -86,6 +151,23 @@ func TestAPIImages(t *testing.T) {
 
 	var res testImagesResponse
 	err = app.Mock().WithPathf("/api/images").JSON(&res)
+	assert.Nil(err)
+	assert.NotNil(res)
+	assert.NotEmpty(res.Response)
+}
+
+func TestAPIImagesRandom(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testImagesResponse
+	err = app.Mock().WithPathf("/api/images/random/10").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
