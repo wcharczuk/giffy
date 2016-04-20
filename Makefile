@@ -4,7 +4,7 @@ BLUE_COLOR=\033[94;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 
-all: test-bot test-server
+all: test
 
 run:
 	@echo "$(OK_COLOR)==> Running$(NO_COLOR)"
