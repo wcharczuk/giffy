@@ -296,6 +296,15 @@ func (api API) getImagesAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(images)
 }
 
+// GET "/api/images.censored"
+func (api API) getImagesCensoredAction(r *web.RequestContext) web.ControllerResult {
+	images, err := model.GetAllImagesCensored(r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().JSON(images)
+}
+
 // POST "/api/images"
 func (api API) createImageAction(r *web.RequestContext) web.ControllerResult {
 	files, filesErr := r.PostedFiles()
@@ -903,6 +912,7 @@ func (api API) Register(app *web.App) {
 	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, auth.SessionRequired, web.InjectAPIProvider)
 
 	app.GET("/api/images", api.getImagesAction)
+	app.GET("/api/images.censored", api.getImagesCensoredAction)
 	app.POST("/api/images", api.createImageAction, auth.SessionRequired, web.InjectAPIProvider)
 	app.GET("/api/images/random/:count", api.getRandomImagesAction)
 	app.GET("/api/images.search", api.searchImagesAction)

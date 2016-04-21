@@ -162,6 +162,40 @@ func TestAPIImages(t *testing.T) {
 	assert.NotEmpty(res.Response)
 }
 
+func TestAPIImagesCensored(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	u, err := model.CreateTestUser(tx)
+	assert.Nil(err)
+
+	i, err := model.CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i.IsCensored = true
+	err = spiffy.DefaultDb().UpdateInTransaction(i, tx)
+	assert.Nil(err)
+
+	i2, err := model.CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(API{})
+
+	var res testImagesResponse
+	err = app.Mock().WithPathf("/api/images.censored").JSON(&res)
+	assert.Nil(err)
+	assert.NotNil(res)
+	assert.NotEmpty(res.Response)
+
+	assert.None(res.Response, model.NewImagePredicate(func(img model.Image) bool {
+		return img.ID == i2.ID
+	}))
+}
+
 func TestAPIImagesRandom(t *testing.T) {
 	assert := assert.New(t)
 	tx, err := spiffy.DefaultDb().Begin()

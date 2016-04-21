@@ -17,7 +17,6 @@ import (
 	_ "image/jpeg"
 
 	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-util/linq"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -104,7 +103,7 @@ func (i *Image) Populate(r *sql.Rows) error {
 type ImagePredicate func(i Image) bool
 
 // NewImagePredicate creates a new ImagePredicate that resolves to a linq.Predicate
-func NewImagePredicate(predicate ImagePredicate) linq.Predicate {
+func NewImagePredicate(predicate ImagePredicate) func(item interface{}) bool {
 	return func(item interface{}) bool {
 		if typed, isTyped := item.(Image); isTyped {
 			return predicate(typed)
@@ -166,6 +165,22 @@ func NewImageFromPostedFile(userID int64, shouldValidate bool, fileContents []by
 // GetAllImages returns all the images in the database.
 func GetAllImages(tx *sql.Tx) ([]Image, error) {
 	return GetImagesByID(nil, tx)
+}
+
+// GetAllImagesCensored gets all censored images
+func GetAllImagesCensored(tx *sql.Tx) ([]Image, error) {
+	var imageIDs []imageSignature
+	query := `select id from image where image.is_censored = true`
+	err := spiffy.DefaultDb().QueryInTransaction(query, tx).OutMany(&imageIDs)
+
+	if err != nil {
+		return nil, err
+	}
+	images, err := GetImagesByID(imageSignatures(imageIDs).AsInt64s(), tx)
+	if err != nil {
+		return nil, err
+	}
+	return images, nil
 }
 
 // GetRandomImages returns an image by uuid.

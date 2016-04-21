@@ -434,3 +434,19 @@ giffyControllers.controller("statsController",  ["$scope", "$http", "currentUser
 		});
 	}
 ]);
+
+giffyControllers.controller('imagesCensoredController', ["$scope", "$http", "$routeParams", "$location", "currentUser",
+	function($scope, $http, $routeParams, $location, currentUser) {
+		currentUser($scope, function() {
+			if (!$scope.currentUser.is_admin) {
+				window.location = "/";
+			}
+		});
+
+		$scope.pageTitle = "Censored Images";
+
+		$http.get("/api/images.censored").success(function(datums) {
+			$scope.images = datums.response;
+		});
+	}
+]);

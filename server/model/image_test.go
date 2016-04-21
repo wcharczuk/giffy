@@ -323,3 +323,29 @@ func TestSortImagesByIndex(t *testing.T) {
 	sort.Sort(newImagesByIndex(&images, ids))
 	assert.Equal(4, images[0].ID)
 }
+
+func TestGetAllImagesCensored(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := CreateTestUser(tx)
+	assert.Nil(err)
+
+	i, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i2, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i.IsCensored = true
+	err = spiffy.DefaultDb().UpdateInTransaction(i, tx)
+	assert.Nil(err)
+
+	censored, err := GetAllImagesCensored(tx)
+	assert.NotEmpty(censored)
+	assert.None(censored, NewImagePredicate(func(img Image) bool {
+		return img.ID == i2.ID
+	}))
+}
