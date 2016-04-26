@@ -1,7 +1,7 @@
 var giffyApp = angular.module('giffyApp', [ 'ngRoute', 'ngSanitize', 'ngTagsInput', 'giffy.controllers', 'giffy.directives', 'giffy.services', 'templates-dist' ]);
 
-giffyApp.config(["$routeProvider",
-	function($routeProvider) {
+giffyApp.config(["$routeProvider", "$locationProvider",
+	function($routeProvider, $locationProvider) {
 		$routeProvider
 		.when("/", {
 			templateUrl: '/static/partials/home.html',
@@ -58,9 +58,12 @@ giffyApp.config(["$routeProvider",
 			templateUrl: '/static/partials/stats.html',
 			controller: 'statsController'
 		}).otherwise({
-			templateUrl: '/static/partials/home.html',
-			controller: 'homeController'
+			templateUrl: '/static/partials/not_found.html',
+			controller: 'notFoundController'
 		});
+
+		// use the HTML5 History API
+        $locationProvider.html5Mode(true);
 }]);
 
 var copyElement = function(element) {

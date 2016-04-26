@@ -425,6 +425,8 @@ giffyControllers.controller("aboutController",  ["$scope", "$http", "currentUser
 	}
 ]);
 
+giffyControllers.controller("notFoundController", function() {});
+
 giffyControllers.controller("statsController",  ["$scope", "$http", "currentUser",
 	function($scope, $http, currentUser) {
 		currentUser($scope);

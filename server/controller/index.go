@@ -31,7 +31,7 @@ func (i Index) methodNotAllowedHandler(r *web.RequestContext) web.ControllerResu
 }
 
 func (i Index) notFoundHandler(r *web.RequestContext) web.ControllerResult {
-	return r.View().NotFound()
+	return i.indexAction(r)
 }
 
 func (i Index) panicHandler(r *web.RequestContext, err interface{}) web.ControllerResult {
