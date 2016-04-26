@@ -46,9 +46,9 @@ func Init() *web.App {
 	if viewCacheErr != nil {
 		log.Fatal(viewCacheErr)
 	}
-	if !core.ConfigIsProduction() {
-		app.SetLogger(web.NewStandardOutputLogger())
-	}
+	//if !core.ConfigIsProduction() {
+	app.SetLogger(web.NewStandardOutputLogger())
+	//}
 
 	app.RequestCompleteHandler(func(r *web.RequestContext) {
 		external.StatHatRequestTiming(r.Elapsed())
