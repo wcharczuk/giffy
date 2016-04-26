@@ -26,6 +26,13 @@ func NewStandardOutputLogger() Logger {
 	}
 }
 
+// NewStandardOutputErrorLogger returns a new logger just to stderr.
+func NewStandardOutputErrorLogger() Logger {
+	return &logger{
+		errorLog: log.New(os.Stderr, "", 0),
+	}
+}
+
 // NewLogger returns a Logger writing to the given io.Writers.
 func NewLogger(output io.Writer, errorOutput io.Writer) Logger {
 	if errorOutput != nil {
@@ -45,7 +52,7 @@ type logger struct {
 }
 
 func (l *logger) Log(args ...interface{}) {
-	if l != nil && l.log != nil {
+	if l.log != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprint(args...)
 		l.log.Printf("%s %s\n", timestamp, output)
@@ -53,7 +60,7 @@ func (l *logger) Log(args ...interface{}) {
 }
 
 func (l *logger) Logf(format string, args ...interface{}) {
-	if l != nil && l.log != nil {
+	if l.log != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprintf(format, args...)
 		l.log.Printf("%s %s\n", timestamp, output)
@@ -61,7 +68,7 @@ func (l *logger) Logf(format string, args ...interface{}) {
 }
 
 func (l *logger) Error(args ...interface{}) {
-	if l != nil && l.errorLog != nil {
+	if l.errorLog != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprint(args...)
 		l.errorLog.Printf("%s %s\n", timestamp, output)
@@ -69,7 +76,7 @@ func (l *logger) Error(args ...interface{}) {
 }
 
 func (l *logger) Errorf(format string, args ...interface{}) {
-	if l != nil && l.errorLog != nil {
+	if l.errorLog != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprintf(format, args...)
 		l.errorLog.Printf("%s %s\n", timestamp, output)

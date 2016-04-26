@@ -42,7 +42,9 @@ If you want to run some steps before controller actions fire (such as for auth e
 	app.GET("/admin/dashboard", c.dashboardAction, middle2, middle1, web.InjectViewProvider)
 ```
 
-This will then run `web.InjectViewProvider` (which does something useful) and then call `middle1` and then `middle2`.
+This will then run `web.InjectViewProvider` (which does something useful) and then call `middle1` and then `middle2`, finally the controller action.
+An important detail is that the "cascading" nature of the calls depends on how you structure your middleware functions. If any of the middleware functions
+return without calling the `action` parameter, execution stops there and subsequent middleware steps do not get called (ditto the controller action).
 
 What do `middle1` and `middle2` look like? They are `ControllerMiddleware` and are just functions that take an action and return an action.
 
