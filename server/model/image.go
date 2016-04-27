@@ -262,7 +262,7 @@ func searchImagesInternal(query string, tx *sql.Tx) ([]imageSignature, error) {
 	searchImageQuery := `
 select
 	vs.image_id as id
-	, sum(tag_similarities.score) as score
+	, sum(tag_similarities.score * vs.votes_total) as score
 from
 	(
 		select
