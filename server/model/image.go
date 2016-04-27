@@ -573,16 +573,18 @@ func (is imageSignatures) WeightedRandom(count int) imageSignatures {
 		return is
 	}
 
-	normalizedScores := is.NormalizeScores(is.TotalScore())
-	sort.Sort(imageSignaturesScoreDescending(normalizedScores))
+	total := is.TotalScore()
+
+	// descending == highest scores first ...
+	sort.Sort(imageSignaturesScoreDescending(is))
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 
 	selections := SetOfInt64{}
 	var finalIds []imageSignature
 	for len(finalIds) < count {
-		randomValue := r.Float64()
-		for x := 0; x < len(normalizedScores); x++ {
-			i := normalizedScores[x]
+		randomValue := r.Float64() * total
+		for x := 0; x < len(is); x++ {
+			i := is[x]
 			if i.Score > randomValue {
 				if !selections.Contains(i.ID) {
 					selections.Add(i.ID)

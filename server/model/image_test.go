@@ -252,7 +252,7 @@ func TestSearchImagesRandom(t *testing.T) {
 
 	image := images[0]
 	assert.False(image.IsZero())
-	assert.Equal(i.ID, image.ID)
+	assert.True(i.ID == image.ID || i2.ID == image.ID)
 	assert.NotNil(image.CreatedByUser)
 	assert.NotEmpty(image.Tags)
 }
