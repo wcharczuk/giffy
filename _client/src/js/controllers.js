@@ -38,7 +38,7 @@ giffyControllers.controller("searchSlackController",  ["$scope", "$http", "$rout
 	function($scope, $http, $routeParams, $location, currentUser) {
 		currentUser($scope);
 
-		$http.get("/api/images.search/random/1?query=" + $routeParams.search_query).success(function(datums) {
+		$http.get("/integrations/slack?text=" + $routeParams.search_query).success(function(datums) {
 			$scope.image_uuid = datums.image_uuid;
 			$scope.image_url = datums.attachments[0].image_url;
 			$scope.searchQuery = $routeParams.search_query;
