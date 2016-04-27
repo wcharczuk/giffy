@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/core/auth"
 	"github.com/wcharczuk/giffy/server/model"
 )
 

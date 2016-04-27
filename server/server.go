@@ -9,7 +9,7 @@ import (
 
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/core/external"
+	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/jobs"
 )
 

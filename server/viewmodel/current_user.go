@@ -1,7 +1,7 @@
 package viewmodel
 
 import (
-	"github.com/wcharczuk/giffy/server/core/external"
+	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/model"
 )
 

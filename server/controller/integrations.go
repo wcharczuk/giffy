@@ -7,7 +7,7 @@ import (
 
 	"github.com/blendlabs/go-util"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/core/external"
+	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/go-web"
 )

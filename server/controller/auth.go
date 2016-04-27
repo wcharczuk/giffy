@@ -5,8 +5,8 @@ import (
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/go-web"
 
-	"github.com/wcharczuk/giffy/server/core/auth"
-	"github.com/wcharczuk/giffy/server/core/external"
+	"github.com/wcharczuk/giffy/server/auth"
+	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 )

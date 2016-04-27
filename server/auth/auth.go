@@ -96,6 +96,10 @@ func VerifySession(sessionID string, tx *sql.Tx) (*Session, error) {
 // SessionAware is an action that injects the session into the context.
 func SessionAware(action web.ControllerAction) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
+		if context.CurrentProvider() == nil {
+			panic("You must provide a content provider as middleware to use `SessionAware`")
+		}
+
 		sessionID := context.Param(SessionParamName)
 		if len(sessionID) != 0 {
 			session, err := VerifySession(sessionID, context.Tx())
@@ -116,6 +120,10 @@ func SessionAware(action web.ControllerAction) web.ControllerAction {
 // SessionRequired is an action that requires session.
 func SessionRequired(action web.ControllerAction) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
+		if context.CurrentProvider() == nil {
+			panic("You must provide a content provider as middleware to use `SessionRequired`")
+		}
+
 		sessionID := context.Param(SessionParamName)
 		if len(sessionID) == 0 {
 			return context.CurrentProvider().NotAuthorized()
