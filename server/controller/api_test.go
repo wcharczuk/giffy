@@ -249,7 +249,7 @@ func TestAPISessionUser(t *testing.T) {
 
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/session.user").JSON(&res)

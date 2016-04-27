@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"image"
+	"math/rand"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -256,34 +257,38 @@ func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction(`delete from image where id = $1`, tx, imageID)
 }
 
+func searchImagesInternal(query string, tx *sql.Tx) ([]imageSignature, error) {
+	var imageIDs []imageSignature
+	searchImageQuery := `
+select
+	vs.image_id as id
+	, sum(tag_similarities.score) as score
+from
+	(
+		select
+			t.id as tag_id
+			, similarity(t.tag_value, $1) as score
+		from
+			tag t
+	) tag_similarities
+	join vote_summary vs on vs.tag_id = tag_similarities.tag_id
+	join image i on vs.image_id = i.id
+where
+	vs.votes_total > 0
+	and i.is_censored = false
+	and score > 0
+group by
+	vs.image_id
+order by
+	score desc;
+`
+	err := spiffy.DefaultDb().QueryInTransaction(searchImageQuery, tx, query).OutMany(&imageIDs)
+	return imageIDs, err
+}
+
 // SearchImages searches for an image.
 func SearchImages(query string, tx *sql.Tx) ([]Image, error) {
-	var imageIDs []imageSignature
-
-	imageQuery := `
-select
-	id
-from
-(
-	select
-		vs.image_id as id
-		, similarity(t.tag_value, $1) as relevance
-		, vs.votes_total as votes_total
-	from
-		tag t
-		join vote_summary vs on t.id = vs.tag_id
-		join image i on vs.image_id = i.id
-	where
-		vs.votes_total > 0
-		and t.tag_value % $1
-		and i.is_censored = false
-) as results
-order by
-	relevance desc,
-	votes_total desc
-`
-	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query).OutMany(&imageIDs)
-
+	imageIDs, err := searchImagesInternal(query, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -298,39 +303,7 @@ order by
 
 // SearchImagesRandom pulls a random count of images based on a search query. The most common `count` is 1.
 func SearchImagesRandom(query string, count int, tx *sql.Tx) ([]Image, error) {
-	imageQuery := `
-select
-	id
-from
-	(
-		select
-			vs.image_id as id
-		from
-			(
-				select
-					t.id as tag_id
-				from
-					tag t
-				where
-					t.tag_value % $1
-				order by
-					similarity(t.tag_value, $1) desc
-				limit 1
-			) best_tag
-			join vote_summary vs on vs.tag_id = best_tag.tag_id
-			join image i on vs.image_id = i.id
-		where
-			vs.votes_total > 0
-			and i.is_censored = false
-		order by
-			gen_random_uuid()
-		limit $2
-	) results
-limit $2
-`
-	var imageIDs []imageSignature
-	err := spiffy.DefaultDb().QueryInTransaction(imageQuery, tx, query, count).OutMany(&imageIDs)
-
+	imageIDs, err := searchImagesInternal(query, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +312,15 @@ limit $2
 		return []Image{}, nil
 	}
 
-	return GetImagesByID(imageSignatures(imageIDs).AsInt64s(), tx)
+	var finalImages []imageSignature
+
+	if len(imageIDs) == 1 {
+		finalImages = imageIDs
+	} else {
+		finalImages = imageSignatures(imageIDs).WeightedRandom(count)
+	}
+
+	return GetImagesByID(imageSignatures(finalImages).AsInt64s(), tx)
 }
 
 // GetImagesForUserID returns images for a user.
@@ -540,7 +521,8 @@ func csvOfInt(input []int64) string {
 }
 
 type imageSignature struct {
-	ID int64 `json:"-" db:"id"`
+	ID    int64   `db:"id,readonly"`
+	Score float64 `db:"score,readonly"`
 }
 
 func (i imageSignature) TableName() string {
@@ -555,4 +537,121 @@ func (is imageSignatures) AsInt64s() []int64 {
 		all = append(all, is[x].ID)
 	}
 	return all
+}
+
+func (is imageSignatures) TotalScore() float64 {
+	var totalScore float64
+	for x := 0; x < len(is); x++ {
+		totalScore += is[x].Score
+	}
+	return totalScore
+}
+
+func (is imageSignatures) NormalizeScores(totalScore float64) imageSignatures {
+	var normalizedScores []imageSignature
+	for x := 0; x < len(is); x++ {
+		i := is[x]
+		normalizedScores = append(normalizedScores, imageSignature{
+			ID:    i.ID,
+			Score: i.Score / totalScore,
+		})
+	}
+	return imageSignatures(normalizedScores)
+}
+
+func (is imageSignatures) String() string {
+	var values []string
+	for x := 0; x < len(is); x++ {
+		v := is[x]
+		values = append(values, fmt.Sprintf("%d:%0.5f", v.ID, v.Score))
+	}
+	return strings.Join(values, ", ")
+}
+
+func (is imageSignatures) WeightedRandom(count int) imageSignatures {
+	if count >= len(is) {
+		return is
+	}
+
+	normalizedScores := is.NormalizeScores(is.TotalScore())
+	sort.Sort(imageSignaturesScoreDescending(normalizedScores))
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+
+	selections := SetOfInt64{}
+	var finalIds []imageSignature
+	for len(finalIds) < count {
+		randomValue := r.Float64()
+		for x := 0; x < len(normalizedScores); x++ {
+			i := normalizedScores[x]
+			if i.Score > randomValue {
+				if !selections.Contains(i.ID) {
+					selections.Add(i.ID)
+					finalIds = append(finalIds, i)
+					break
+				}
+			}
+		}
+	}
+
+	return imageSignatures(finalIds)
+}
+
+// sort ascending
+
+type imageSignaturesScoreAscending []imageSignature
+
+func (issa imageSignaturesScoreAscending) Len() int {
+	return len(issa)
+}
+
+func (issa imageSignaturesScoreAscending) Swap(i, j int) {
+	issa[i], issa[j] = issa[j], issa[i]
+}
+
+func (issa imageSignaturesScoreAscending) Less(i, j int) bool {
+	return issa[i].Score < issa[j].Score
+}
+
+// sort descending
+
+type imageSignaturesScoreDescending []imageSignature
+
+func (isda imageSignaturesScoreDescending) Len() int {
+	return len(isda)
+}
+
+func (isda imageSignaturesScoreDescending) Swap(i, j int) {
+	isda[i], isda[j] = isda[j], isda[i]
+}
+
+func (isda imageSignaturesScoreDescending) Less(i, j int) bool {
+	return isda[i].Score < isda[j].Score
+}
+
+// NewSetOfInt64 returns a new SetOfInt64
+func NewSetOfInt64(values []int64) SetOfInt64 {
+	set := SetOfInt64{}
+	for _, v := range values {
+		set.Add(v)
+	}
+	return set
+}
+
+// SetOfInt64 is a type alias for map[int]int
+type SetOfInt64 map[int64]bool
+
+// Add adds an element to the set, replaceing a previous value.
+func (is SetOfInt64) Add(i int64) {
+	is[i] = true
+}
+
+// Remove removes an element from the set.
+func (is SetOfInt64) Remove(i int64) {
+	delete(is, i)
+}
+
+// Contains returns if the element is in the set.
+func (is SetOfInt64) Contains(i int64) bool {
+	_, ok := is[i]
+	return ok
 }

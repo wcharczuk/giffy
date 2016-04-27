@@ -185,7 +185,7 @@ func TestSearchImages(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, "not__test_foo_bar", tx)
+	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, "not_foo_bar", tx)
 	assert.Nil(err)
 
 	_, err = CreateTestTagForImageWithVote(u.ID, i3.ID, "__test_foo_bar", tx)
@@ -249,6 +249,7 @@ func TestSearchImagesRandom(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(images)
 	assert.NotEmpty(images)
+
 	image := images[0]
 	assert.False(image.IsZero())
 	assert.Equal(i.ID, image.ID)
@@ -348,4 +349,29 @@ func TestGetAllImagesCensored(t *testing.T) {
 	assert.None(censored, NewImagePredicate(func(img Image) bool {
 		return img.ID == i2.ID
 	}))
+}
+
+func TestImageWeightedRandom(t *testing.T) {
+	assert := assert.New(t)
+
+	images := []imageSignature{
+		imageSignature{1, 1.0},
+		imageSignature{2, 0.675},
+		imageSignature{3, 0.325},
+		imageSignature{4, 0.125},
+		imageSignature{5, 0.075},
+	}
+
+	random1 := imageSignatures(images).WeightedRandom(1)
+	assert.Len(random1, 1)
+	random2 := imageSignatures(images).WeightedRandom(2)
+	assert.Len(random2, 2)
+	random3 := imageSignatures(images).WeightedRandom(3)
+	assert.Len(random3, 3)
+	random4 := imageSignatures(images).WeightedRandom(4)
+	assert.Len(random4, 4)
+	random5 := imageSignatures(images).WeightedRandom(5)
+	assert.Len(random5, 5)
+	randomN := imageSignatures(images).WeightedRandom(10)
+	assert.Len(randomN, 5)
 }
