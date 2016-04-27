@@ -262,7 +262,7 @@ func searchImagesInternal(query string, tx *sql.Tx) ([]imageSignature, error) {
 	searchImageQuery := `
 select
 	vs.image_id as id
-	, sum(tag_similarities.score * vs.votes_total) as score
+	, sum(ts.score * vs.votes_total) as score
 from
 	(
 		select
@@ -272,13 +272,12 @@ from
 			tag t
 		where
 			similarity(t.tag_value, $1) > show_limit()
-	) tag_similarities
-	join vote_summary vs on vs.tag_id = tag_similarities.tag_id
+	) ts
+	join vote_summary vs on vs.tag_id = ts.tag_id
 	join image i on vs.image_id = i.id
 where
 	vs.votes_total > 0
 	and i.is_censored = false
-	and score > 0
 group by
 	vs.image_id
 order by
@@ -309,7 +308,6 @@ func SearchImagesRandom(query string, count int, tx *sql.Tx) ([]Image, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if len(imageIDs) == 0 {
 		return []Image{}, nil
 	}
