@@ -270,6 +270,8 @@ from
 			, similarity(t.tag_value, $1) as score
 		from
 			tag t
+		where
+			similarity(t.tag_value, $1) > show_limit()
 	) tag_similarities
 	join vote_summary vs on vs.tag_id = tag_similarities.tag_id
 	join image i on vs.image_id = i.id
