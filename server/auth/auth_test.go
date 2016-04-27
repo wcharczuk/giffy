@@ -37,7 +37,7 @@ func TestLogout(t *testing.T) {
 	assert.Nil(session)
 }
 
-func TestVerifySession(t *testing.T) {
+func TestLoginAndVerifySession(t *testing.T) {
 	assert := assert.New(t)
 	tx, err := spiffy.DefaultDb().Begin()
 	assert.Nil(err)

@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/core"
@@ -17,6 +18,13 @@ func TestMain(m *testing.M) {
 	core.Setwd("../../")
 	core.DBInit()
 	os.Exit(m.Run())
+}
+
+func MockAuth(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (*auth.Session, error)) *auth.Session {
+	session, err := mockUserProvider(tx)
+	a.Nil(err)
+	a.NotNil(session)
+	return session
 }
 
 func MockAdminLogin(tx *sql.Tx) (*auth.Session, error) {

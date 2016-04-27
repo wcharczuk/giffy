@@ -25,11 +25,11 @@ type SiteStats struct {
 
 // GetSiteStats returns the stats for the site.
 func GetSiteStats(tx *sql.Tx) (*SiteStats, error) {
-	imageCountQuery := `select count(*) as value from image;`
-	tagCountQuery := `select count(*) as value from tag;`
-	userCountQuery := `select count(*) as value from users;`
-	karmaTotalQuery := `select sum(votes_total) as value from vote_summary;`
-	orphanedTagCountQuery := `select count(*) from tag t where not exists (select 1 from vote_summary vs where vs.tag_id = t.id);`
+	imageCountQuery := `select coalesce(count(*), 0) as value from image;`
+	tagCountQuery := `select coalesce(count(*), 0) as value from tag;`
+	userCountQuery := `select coalesce(count(*), 0) as value from users;`
+	karmaTotalQuery := `select coalesce(sum(votes_total), 0) as value from vote_summary;`
+	orphanedTagCountQuery := `select coalesce(count(*), 0) from tag t where not exists (select 1 from vote_summary vs where vs.tag_id = t.id);`
 
 	var userCount int
 	var imageCount int

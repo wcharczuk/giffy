@@ -26,6 +26,15 @@ const (
 
 	// OAuthProviderSlack is the google auth provider.
 	OAuthProviderSlack = "slack"
+
+	// SessionLockFree is a lock-free policy.
+	SessionLockFree = 0
+
+	// SessionReadLock is a lock policy that acquires a read lock on session.
+	SessionReadLock = 1
+
+	// SessionReadWriteLock is a lock policy that acquires both a read and a write lock on session.
+	SessionReadWriteLock = 2
 )
 
 // InjectSession injects the session object into a request context.
@@ -93,8 +102,22 @@ func VerifySession(sessionID string, tx *sql.Tx) (*Session, error) {
 	return SessionState().Add(session.UserID, session.SessionID, tx)
 }
 
-// SessionAware is an action that injects the session into the context.
+// SessionAware is an action that injects the session into the context, it acquires a read lock on session.
 func SessionAware(action web.ControllerAction) web.ControllerAction {
+	return sessionAware(action, SessionReadLock)
+}
+
+// SessionAwareMutating is an action that injects the session into the context and requires a write lock.
+func SessionAwareMutating(action web.ControllerAction) web.ControllerAction {
+	return sessionAware(action, SessionReadWriteLock)
+}
+
+// SessionAwareLockFree is an action that injects the session into the context without acquiring a lock.
+func SessionAwareLockFree(action web.ControllerAction) web.ControllerAction {
+	return sessionAware(action, SessionLockFree)
+}
+
+func sessionAware(action web.ControllerAction, sessionLockPolicy int) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
 		if context.CurrentProvider() == nil {
 			panic("You must provide a content provider as middleware to use `SessionAware`")
@@ -106,9 +129,22 @@ func SessionAware(action web.ControllerAction) web.ControllerAction {
 			if err != nil {
 				return context.CurrentProvider().InternalError(err)
 			}
+
 			if session != nil {
-				session.Lock()
-				defer session.Unlock()
+				switch sessionLockPolicy {
+				case SessionReadLock:
+					{
+						session.RLock()
+						defer session.RUnlock()
+						break
+					}
+				case SessionReadWriteLock:
+					{
+						session.Lock()
+						defer session.Unlock()
+						break
+					}
+				}
 			}
 
 			InjectSession(session, context)
@@ -117,8 +153,23 @@ func SessionAware(action web.ControllerAction) web.ControllerAction {
 	}
 }
 
-// SessionRequired is an action that requires session.
+// SessionRequired is an action that requires a (valid) session to be present
+// or identified in some form on the request, and acquires a read lock on session.
 func SessionRequired(action web.ControllerAction) web.ControllerAction {
+	return sessionRequired(action, SessionReadLock)
+}
+
+// SessionRequiredMutating is an action that requires the session to present and also requires a write lock.
+func SessionRequiredMutating(action web.ControllerAction) web.ControllerAction {
+	return sessionRequired(action, SessionReadWriteLock)
+}
+
+// SessionRequiredLockFree is an action that requires the session to present and does not acquire any lock.
+func SessionRequiredLockFree(action web.ControllerAction) web.ControllerAction {
+	return sessionRequired(action, SessionLockFree)
+}
+
+func sessionRequired(action web.ControllerAction, sessionLockPolicy int) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
 		if context.CurrentProvider() == nil {
 			panic("You must provide a content provider as middleware to use `SessionRequired`")
@@ -140,8 +191,20 @@ func SessionRequired(action web.ControllerAction) web.ControllerAction {
 			return context.CurrentProvider().NotAuthorized()
 		}
 
-		session.Lock()
-		defer session.Unlock()
+		switch sessionLockPolicy {
+		case SessionReadLock:
+			{
+				session.RLock()
+				defer session.RUnlock()
+				break
+			}
+		case SessionReadWriteLock:
+			{
+				session.Lock()
+				defer session.Unlock()
+				break
+			}
+		}
 
 		InjectSession(session, context)
 		return action(context)

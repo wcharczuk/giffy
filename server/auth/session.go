@@ -14,7 +14,7 @@ func NewSession(userID int64, sessionID string) *Session {
 		SessionID:  sessionID,
 		CreatedUTC: time.Now().UTC(),
 		State:      map[string]interface{}{},
-		lock:       sync.Mutex{},
+		lock:       &sync.RWMutex{},
 	}
 }
 
@@ -26,7 +26,7 @@ type Session struct {
 	User       *model.User            `json:"user"`
 	State      map[string]interface{} `json:"-"`
 
-	lock sync.Mutex
+	lock *sync.RWMutex
 }
 
 // Lock locks the session.
@@ -37,4 +37,14 @@ func (s *Session) Lock() {
 // Unlock unlocks the session.
 func (s *Session) Unlock() {
 	s.lock.Unlock()
+}
+
+// RLock read locks the session.
+func (s *Session) RLock() {
+	s.lock.RLock()
+}
+
+// RUnlock read unlocks the session.
+func (s *Session) RUnlock() {
+	s.lock.RUnlock()
 }

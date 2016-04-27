@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"database/sql"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
@@ -36,11 +35,9 @@ type testCurrentUserResponse struct {
 	Response *viewmodel.CurrentUser `json:"response"`
 }
 
-func authUser(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (*auth.Session, error)) *auth.Session {
-	session, err := mockUserProvider(tx)
-	a.Nil(err)
-	a.NotNil(session)
-	return session
+type testSiteStatsResponse struct {
+	Meta     *web.APIResponseMeta `json:"meta"`
+	Response *viewmodel.SiteStats `json:"response"`
 }
 
 func TestAPIUsers(t *testing.T) {
@@ -49,12 +46,12 @@ func TestAPIUsers(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := authUser(assert, tx, MockAdminLogin)
+	session := MockAuth(assert, tx, MockAdminLogin)
 	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
 
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testUsersResponse
 	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").JSON(&res)
@@ -68,7 +65,7 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := authUser(assert, tx, MockModeratorLogin)
+	session := MockAuth(assert, tx, MockModeratorLogin)
 	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
 
 	app := web.New()
@@ -87,12 +84,12 @@ func TestAPIUserSearch(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := authUser(assert, tx, MockAdminLogin)
+	session := MockAuth(assert, tx, MockAdminLogin)
 	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
 
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testUsersResponse
 	err = app.Mock().
@@ -110,12 +107,12 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := authUser(assert, tx, MockModeratorLogin)
+	session := MockAuth(assert, tx, MockModeratorLogin)
 	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
 
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testUsersResponse
 	err = app.Mock().
@@ -135,7 +132,7 @@ func TestAPIUser(t *testing.T) {
 
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testUserResponse
 	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
@@ -151,9 +148,15 @@ func TestAPIImages(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
+	u, err := CreateTestModeratorUser(tx)
+	assert.Nil(err)
+
+	_, err = model.CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testImagesResponse
 	err = app.Mock().WithPathf("/api/images").JSON(&res)
@@ -183,7 +186,7 @@ func TestAPIImagesCensored(t *testing.T) {
 
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testImagesResponse
 	err = app.Mock().WithPathf("/api/images.censored").JSON(&res)
@@ -202,9 +205,15 @@ func TestAPIImagesRandom(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
+	u, err := CreateTestModeratorUser(tx)
+	assert.Nil(err)
+
+	_, err = model.CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testImagesResponse
 	err = app.Mock().WithPathf("/api/images/random/10").JSON(&res)
@@ -213,13 +222,29 @@ func TestAPIImagesRandom(t *testing.T) {
 	assert.NotEmpty(res.Response)
 }
 
-func TestAPICurrentUser(t *testing.T) {
+func TestAPISiteStats(t *testing.T) {
 	assert := assert.New(t)
 	tx, err := spiffy.DefaultDb().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := authUser(assert, tx, MockAdminLogin)
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(new(API))
+
+	var res testSiteStatsResponse
+	err = app.Mock().WithPathf("/api/stats").JSON(&res)
+	assert.Nil(err)
+	assert.NotNil(res.Response, "stats response is nil")
+}
+
+func TestAPISessionUser(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	session := MockAuth(assert, tx, MockAdminLogin)
 	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
 
 	app := web.New()
@@ -234,7 +259,7 @@ func TestAPICurrentUser(t *testing.T) {
 	assert.NotEmpty(res.Response.UUID)
 }
 
-func TestAPICurrentUserLoggedOut(t *testing.T) {
+func TestAPISessionUserLoggedOut(t *testing.T) {
 	assert := assert.New(t)
 	tx, err := spiffy.DefaultDb().Begin()
 	assert.Nil(err)
@@ -242,7 +267,7 @@ func TestAPICurrentUserLoggedOut(t *testing.T) {
 
 	app := web.New()
 	app.IsolateTo(tx)
-	app.Register(API{})
+	app.Register(new(API))
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithPathf("/api/session.user").JSON(&res)
