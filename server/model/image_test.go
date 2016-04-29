@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/linq"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
@@ -245,16 +246,54 @@ func TestSearchImagesRandom(t *testing.T) {
 	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
-	images, err := SearchImagesRandom("__test", 1, tx)
+	images, err := SearchImagesRandom("__test", 2, tx)
 	assert.Nil(err)
 	assert.NotNil(images)
 	assert.NotEmpty(images)
+}
 
-	image := images[0]
-	assert.False(image.IsZero())
-	assert.True(i.ID == image.ID || i2.ID == image.ID)
-	assert.NotNil(image.CreatedByUser)
-	assert.NotEmpty(image.Tags)
+func TestSearchImagesBestResult(t *testing.T) {
+	assert := assert.New(t)
+	tx, txErr := spiffy.DefaultDb().Begin()
+	assert.Nil(txErr)
+	defer tx.Rollback()
+
+	u, err := CreateTestUser(tx)
+	assert.Nil(err)
+
+	i4, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i3, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i2, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	i, err := CreateTestImage(u.ID, tx)
+	assert.Nil(err)
+
+	tag4value := fmt.Sprintf("__test_foo_bar_%s", util.RandomString(4))
+	tag3value := fmt.Sprintf("__test_bar_%s", util.RandomString(4))
+	tag2value := fmt.Sprintf("__test_foo_%s", util.RandomString(4))
+	tag1value := fmt.Sprintf("__test_%s", util.RandomString(4))
+
+	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, tag4value, tx)
+	assert.Nil(err)
+
+	_, err = CreateTestTagForImageWithVote(u.ID, i3.ID, tag3value, tx)
+	assert.Nil(err)
+
+	_, err = CreateTestTagForImageWithVote(u.ID, i2.ID, tag2value, tx)
+	assert.Nil(err)
+
+	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, tag1value, tx)
+	assert.Nil(err)
+
+	image, err := SearchImagesBestResult(tag1value, tx)
+	assert.Nil(err)
+	assert.NotNil(image)
+	assert.Equal(i.ID, image.ID)
 }
 
 func TestGetImagesByID(t *testing.T) {

@@ -323,6 +323,53 @@ func SearchImagesRandom(query string, count int, tx *sql.Tx) ([]Image, error) {
 	return GetImagesByID(imageSignatures(finalImages).AsInt64s(), tx)
 }
 
+// SearchImagesBestResult pulls the best result for a query.
+// This method is used for slack searches.
+func SearchImagesBestResult(query string, tx *sql.Tx) (*Image, error) {
+	imageIDs, err := searchImagesInternal(query, tx)
+	if err != nil {
+		return nil, err
+	}
+	if len(imageIDs) == 0 {
+		println("no results", query)
+		return nil, nil
+	}
+
+	var imagesWithBestScore []imageSignature
+	if len(imageIDs) == 1 {
+		imagesWithBestScore = imageIDs
+	} else {
+		var bestScore float64
+		for _, i := range imageIDs {
+			if i.Score > bestScore {
+				bestScore = i.Score
+			}
+		}
+
+		for _, i := range imageIDs {
+			if i.Score == bestScore {
+				imagesWithBestScore = append(imagesWithBestScore)
+			}
+		}
+	}
+
+	images, err := GetImagesByID(
+		imageSignatures(imagesWithBestScore).
+			WeightedRandom(1).
+			AsInt64s(), tx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(images) > 0 {
+		return &images[0], nil
+	}
+
+	println("no results after GetImagesByID")
+	return nil, nil
+}
+
 // GetImagesForUserID returns images for a user.
 func GetImagesForUserID(userID int64, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature

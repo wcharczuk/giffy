@@ -5,6 +5,7 @@ import (
 
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 func TestGetVotesForUser(t *testing.T) {
@@ -17,7 +18,7 @@ func TestGetVotesForUser(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
@@ -38,7 +39,7 @@ func TestGetVotesForImage(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
@@ -59,7 +60,7 @@ func TestGetVotesForTag(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
@@ -80,7 +81,7 @@ func TestGetVotesForUserForImage(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
@@ -101,7 +102,7 @@ func TestGetVotesForUserForTag(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
@@ -122,7 +123,7 @@ func TestGetVote(t *testing.T) {
 	assert.Nil(err)
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "winning", tx)
+	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
 	assert.Nil(err)
 
 	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
