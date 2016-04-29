@@ -331,7 +331,6 @@ func SearchImagesBestResult(query string, tx *sql.Tx) (*Image, error) {
 		return nil, err
 	}
 	if len(imageIDs) == 0 {
-		println("no results", query)
 		return nil, nil
 	}
 
@@ -348,15 +347,14 @@ func SearchImagesBestResult(query string, tx *sql.Tx) (*Image, error) {
 
 		for _, i := range imageIDs {
 			if i.Score == bestScore {
-				imagesWithBestScore = append(imagesWithBestScore)
+				imagesWithBestScore = append(imagesWithBestScore, i)
 			}
 		}
 	}
 
-	images, err := GetImagesByID(
-		imageSignatures(imagesWithBestScore).
-			WeightedRandom(1).
-			AsInt64s(), tx)
+	bestImage := imageSignatures(imagesWithBestScore).WeightedRandom(1).AsInt64s()
+
+	images, err := GetImagesByID(bestImage, tx)
 
 	if err != nil {
 		return nil, err
@@ -366,7 +364,6 @@ func SearchImagesBestResult(query string, tx *sql.Tx) (*Image, error) {
 		return &images[0], nil
 	}
 
-	println("no results after GetImagesByID")
 	return nil, nil
 }
 
