@@ -76,7 +76,6 @@ func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
 	res.ResponseType = "in_channel"
 
 	if !strings.HasPrefix(query, "img:") {
-
 		if len(result.Tags) > 0 {
 			tagID = &result.Tags[0].ID
 		}

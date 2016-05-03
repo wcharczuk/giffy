@@ -66,6 +66,11 @@ giffyApp.config(["$routeProvider", "$locationProvider",
         $locationProvider.html5Mode(true);
 }]);
 
+
+giffyApp.config(['$compileProvider', function ($compileProvider) {
+  $compileProvider.debugInfoEnabled(false);
+}]);
+
 var copyElement = function(element) {
 	var selection = window.getSelection();
 	var range = document.createRange();
