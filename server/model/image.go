@@ -53,8 +53,8 @@ type Image struct {
 	CreatedBy     int64     `json:"-" db:"created_by"`
 	CreatedByUser *User     `json:"created_by,omitempty" db:"-"`
 
-	DisplayName string `json:"display_name" db:"display_name"`
-	IsCensored  bool   `json:"is_censored" db:"is_censored"`
+	DisplayName   string `json:"display_name" db:"display_name"`
+	ContentRating int    `json:"content_rating" db:"content_rating"`
 
 	MD5       []byte `json:"md5" db:"md5"`
 	S3ReadURL string `json:"s3_read_url" db:"s3_read_url"`
@@ -88,7 +88,7 @@ func (i *Image) Populate(r *sql.Rows) error {
 		&i.CreatedUTC,
 		&i.CreatedBy,
 		&i.DisplayName,
-		&i.IsCensored,
+		&i.ContentRating,
 		&i.MD5,
 		&i.S3ReadURL,
 		&i.S3Bucket,
@@ -168,11 +168,11 @@ func GetAllImages(tx *sql.Tx) ([]Image, error) {
 	return GetImagesByID(nil, tx)
 }
 
-// GetAllImagesCensored gets all censored images
-func GetAllImagesCensored(tx *sql.Tx) ([]Image, error) {
+// GetAllImagesWithContentRating gets all censored images
+func GetAllImagesWithContentRating(contentRating int, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
-	query := `select id from image where image.is_censored = true`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx).OutMany(&imageIDs)
+	query := `select id from image where image.content_rating = $1`
+	err := spiffy.DefaultDb().QueryInTransaction(query, tx, contentRating).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func GetAllImagesCensored(tx *sql.Tx) ([]Image, error) {
 func GetRandomImages(count int, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	err := spiffy.DefaultDb().
-		QueryInTransaction(`select id from (select id, row_number() over (order by gen_random_uuid()) as rank from image where is_censored = false) data where rank <= $1`, tx, count).OutMany(&imageIDs)
+		QueryInTransaction(`select id from (select id, row_number() over (order by gen_random_uuid()) as rank from image where content_rating < 5) data where rank <= $1`, tx, count).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ from
 	join image i on vs.image_id = i.id
 where
 	vs.votes_total > 0
-	and i.is_censored = false
+	and i.content_rating < 5
 group by
 	vs.image_id
 order by

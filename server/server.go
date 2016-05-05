@@ -1,8 +1,6 @@
 package server
 
 import (
-	"log"
-
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-util"
 	"github.com/wcharczuk/go-web"
@@ -11,18 +9,17 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/jobs"
+	"github.com/wcharczuk/giffy/server/model/migrate"
 )
 
-// Init inits the app.
-func Init() *web.App {
-	core.DBInit()
+const (
+	// AppName is the name of the app.
+	AppName = "giffy"
+)
 
-	util.StartProcessQueueDispatchers(1)
-
-	chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
-	chronometer.Default().Start()
-
-	paths := []string{
+var (
+	// ViewPaths are paths to load into the view cache.
+	ViewPaths = []string{
 		"server/_views/footer.html",
 		"server/_views/not_found.html",
 		"server/_views/error.html",
@@ -32,20 +29,24 @@ func Init() *web.App {
 		"server/_views/upload_image.html",
 		"server/_views/upload_image_complete.html",
 	}
+)
 
-	if core.ConfigIsProduction() {
-		paths = append(paths, "server/_views/header_prod.html")
-	} else {
-		paths = append(paths, "server/_views/header.html")
+// Migrate migrates the db
+func Migrate() error {
+	migrate.Register()
+	err := migrate.Run()
+	if err != nil {
+		return err
 	}
+	return nil
+}
 
+// Init inits the web app.
+func Init() *web.App {
 	app := web.New()
-	app.SetName("giffy")
+	app.SetName(AppName)
 	app.SetPort(core.ConfigPort())
-	viewCacheErr := app.InitViewCache(paths...)
-	if viewCacheErr != nil {
-		log.Fatal(viewCacheErr)
-	}
+
 	if core.ConfigIsProduction() {
 		app.SetLogger(web.NewStandardOutputErrorLogger())
 	} else {
@@ -65,6 +66,34 @@ func Init() *web.App {
 	app.Register(new(controller.Integrations))
 	app.Register(new(controller.Auth))
 	app.Register(new(controller.UploadImage))
+
+	app.OnStart(func(app *web.App) error {
+		err := core.DBInit()
+		if err != nil {
+			return err
+		}
+
+		if core.ConfigIsProduction() {
+			ViewPaths = append(ViewPaths, "server/_views/header_prod.html")
+		} else {
+			ViewPaths = append(ViewPaths, "server/_views/header.html")
+		}
+
+		err = app.InitViewCache(ViewPaths...)
+		if err != nil {
+			return err
+		}
+
+		err = Migrate()
+		if err != nil {
+			return err
+		}
+
+		util.StartProcessQueueDispatchers(1)
+		chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
+		chronometer.Default().Start()
+		return nil
+	})
 
 	return app
 }

@@ -32,6 +32,9 @@ func New() *App {
 	}
 }
 
+// AppStartDelegate is a function that is run on start. Typically you use this to initialize the app.
+type AppStartDelegate func(app *App) error
+
 // App is the server for the app.
 type App struct {
 	name string
@@ -42,6 +45,8 @@ type App struct {
 
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
+
+	startDelegate AppStartDelegate
 
 	requestStartHandlers    []RequestEventHandler
 	requestCompleteHandlers []RequestEventHandler
@@ -101,6 +106,12 @@ func (a *App) SetPort(port string) {
 	a.port = port
 }
 
+// OnStart lets you register a task that is run before the server starts.
+// Typically this delegate sets up the database connection and other init items.
+func (a *App) OnStart(action AppStartDelegate) {
+	a.startDelegate = action
+}
+
 // Start starts the server and binds to the given address.
 func (a *App) Start() error {
 	bindAddr := fmt.Sprintf(":%s", a.port)
@@ -115,12 +126,21 @@ func (a *App) Start() error {
 // This lets you configure things like TLS keys and
 // other options.
 func (a *App) StartWithServer(server *http.Server) error {
+	if a.startDelegate != nil {
+		a.Logf("%s Startup tasks starting", a.Name())
+		err := a.startDelegate(a)
+		if err != nil {
+			a.Errorf("%s Startup tasks error: %v", a.Name(), err)
+			return err
+		}
+		a.Logf("%s Startup tasks complete", a.Name())
+	}
+
 	// this is the only property we will set of the server
 	// i.e. the server handler (which is this app)
 	server.Handler = a
-	if a.logger != nil {
-		a.logger.Logf("%s Started, listening on %s", a.Name(), server.Addr)
-	}
+	a.Logf("%s Started, listening on %s", a.Name(), server.Addr)
+
 	return server.ListenAndServe()
 }
 
@@ -167,6 +187,38 @@ func (a *App) POST(path string, action ControllerAction, middleware ...Controlle
 // DELETE registers a DELETE request handler.
 func (a *App) DELETE(path string, action ControllerAction, middleware ...ControllerMiddleware) {
 	a.router.DELETE(path, a.renderAction(a.nestMiddleware(action, middleware...)))
+}
+
+// --------------------------------------------------------------------------------
+// Logging methods
+// --------------------------------------------------------------------------------
+
+// Log logs a message to the logger if one is provisioned.
+func (a *App) Log(args ...interface{}) {
+	if a.logger != nil {
+		a.logger.Log(args...)
+	}
+}
+
+// Logf logs a message to the logger if one is provisioned.
+func (a *App) Logf(format string, args ...interface{}) {
+	if a.logger != nil {
+		a.logger.Logf(format, args...)
+	}
+}
+
+// Error logs a message to the logger if one is provisioned.
+func (a *App) Error(args ...interface{}) {
+	if a.logger != nil {
+		a.logger.Error(args...)
+	}
+}
+
+// Errorf logs a message to the logger if one is provisioned.
+func (a *App) Errorf(format string, args ...interface{}) {
+	if a.logger != nil {
+		a.logger.Errorf(format, args...)
+	}
 }
 
 // --------------------------------------------------------------------------------

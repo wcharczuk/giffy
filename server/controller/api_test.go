@@ -177,7 +177,7 @@ func TestAPIImagesCensored(t *testing.T) {
 	i, err := model.CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i.IsCensored = true
+	i.ContentRating = model.ContentRatingNR
 	err = spiffy.DefaultDb().UpdateInTransaction(i, tx)
 	assert.Nil(err)
 

@@ -403,26 +403,27 @@ func (api API) updateImageAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().NotFound()
 	}
 
+	didUpdate := false
+
 	updatedImage := model.Image{}
 	err = r.PostBodyAsJSON(&updatedImage)
 
 	if len(updatedImage.DisplayName) != 0 {
 		image.DisplayName = updatedImage.DisplayName
+		didUpdate = true
 	}
 
-	if updatedImage.IsCensored != image.IsCensored {
-		if updatedImage.IsCensored {
-			model.QueueModerationEntry(session.UserID, model.ModerationVerbCensor, model.ModerationObjectImage, image.UUID)
-		} else {
-			model.QueueModerationEntry(session.UserID, model.ModerationVerbUncensor, model.ModerationObjectImage, image.UUID)
+	if updatedImage.ContentRating != image.ContentRating {
+		image.ContentRating = updatedImage.ContentRating
+		didUpdate = true
+	}
+
+	if didUpdate {
+		model.QueueModerationEntry(session.UserID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID)
+		err = spiffy.DefaultDb().Update(image)
+		if err != nil {
+			return r.API().InternalError(err)
 		}
-
-		image.IsCensored = updatedImage.IsCensored
-	}
-
-	err = spiffy.DefaultDb().Update(image)
-	if err != nil {
-		return r.API().InternalError(err)
 	}
 
 	return r.API().JSON(image)

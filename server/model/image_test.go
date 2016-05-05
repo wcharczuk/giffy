@@ -379,7 +379,7 @@ func TestGetAllImagesCensored(t *testing.T) {
 	i2, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	i.IsCensored = true
+	i.ContentRating = ContentRatingG
 	err = spiffy.DefaultDb().UpdateInTransaction(i, tx)
 	assert.Nil(err)
 

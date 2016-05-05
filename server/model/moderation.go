@@ -15,6 +15,9 @@ const (
 	// ModerationVerbCreate = "create"
 	ModerationVerbCreate = "create"
 
+	// ModerationVerbUpdate = "update"
+	ModerationVerbUpdate = "update"
+
 	// ModerationVerbDelete = "delete"
 	ModerationVerbDelete = "delete"
 
@@ -32,12 +35,6 @@ const (
 
 	// ModerationVerbUnban = "unban"
 	ModerationVerbUnban = "unban"
-
-	// ModerationVerbCensor = "censor"
-	ModerationVerbCensor = "censor"
-
-	// ModerationVerbUncensor = "uncensor"
-	ModerationVerbUncensor = "uncensor"
 
 	// ModerationObjectImage = "image"
 	ModerationObjectImage = "image"
