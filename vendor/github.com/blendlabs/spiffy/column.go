@@ -61,48 +61,56 @@ func (c Column) SetValue(object DatabaseMapped, value interface{}) error {
 	objValue := reflectValue(object)
 	field := objValue.FieldByName(c.FieldName)
 	fieldType := field.Type()
-	if field.CanSet() {
-		valueReflected := reflectValue(value)
-		if valueReflected.IsValid() {
-			if c.IsJSON {
-				valueAsString, ok := valueReflected.Interface().(string)
-				if ok && len(valueAsString) != 0 {
-					fieldAddr := field.Addr().Interface()
-					jsonErr := json.Unmarshal([]byte(valueAsString), fieldAddr)
-					if jsonErr != nil {
-						return exception.Wrap(jsonErr)
-					}
-					field.Set(reflect.ValueOf(fieldAddr).Elem())
-				}
-			} else {
-				if valueReflected.Type().AssignableTo(fieldType) {
-					if field.Kind() == reflect.Ptr && valueReflected.CanAddr() {
-						field.Set(valueReflected.Addr())
-					} else {
-						field.Set(valueReflected)
-					}
-				} else {
-					if field.Kind() == reflect.Ptr {
-						if valueReflected.CanAddr() {
-							if fieldType.Elem() == valueReflected.Type() {
-								field.Set(valueReflected.Addr())
-							} else {
-								convertedValue := valueReflected.Convert(fieldType.Elem())
-								if convertedValue.CanAddr() {
-									field.Set(convertedValue.Addr())
-								}
-							}
-						}
-					} else {
-						convertedValue := valueReflected.Convert(fieldType)
-						field.Set(convertedValue)
-					}
-				}
-			}
-		}
-	} else {
+	if !field.CanSet() {
 		return exception.New("hit a field we can't set: '" + c.FieldName + "', did you forget to pass the object as a reference?")
 	}
+
+	valueReflected := reflectValue(value)
+	if !valueReflected.IsValid() {
+		return nil
+	}
+
+	if c.IsJSON {
+		valueAsString, ok := valueReflected.Interface().(string)
+		if ok && len(valueAsString) != 0 {
+			fieldAddr := field.Addr().Interface()
+			jsonErr := json.Unmarshal([]byte(valueAsString), fieldAddr)
+			if jsonErr != nil {
+				return exception.Wrap(jsonErr)
+			}
+			field.Set(reflect.ValueOf(fieldAddr).Elem())
+		}
+		return nil
+	}
+
+	if valueReflected.Type().AssignableTo(fieldType) {
+		if field.Kind() == reflect.Ptr && valueReflected.CanAddr() {
+			field.Set(valueReflected.Addr())
+		} else {
+			field.Set(valueReflected)
+		}
+		return nil
+	}
+
+	if field.Kind() == reflect.Ptr {
+		if valueReflected.CanAddr() {
+			if fieldType.Elem() == valueReflected.Type() {
+				field.Set(valueReflected.Addr())
+			} else {
+				convertedValue := valueReflected.Convert(fieldType.Elem())
+				if convertedValue.CanAddr() {
+					field.Set(convertedValue.Addr())
+				}
+			}
+			return nil
+		}
+
+		return exception.Newf("Cannot take address of value: %#v", value)
+	}
+
+	convertedValue := valueReflected.Convert(fieldType)
+	field.Set(convertedValue)
+
 	return nil
 }
 

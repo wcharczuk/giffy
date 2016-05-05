@@ -15,23 +15,59 @@ const (
 	// StringEmpty is the empty string
 	StringEmpty = ""
 
-	// ColorRed is the posix escape code fragment for red.
-	ColorRed = "31"
+	// ColorBlack is the posix escape code fragment for black.
+	ColorBlack = "0;30m"
 
-	// ColorBlue is the posix escape code fragment for blue.
-	ColorBlue = "94"
+	// ColorRed is the posix escape code fragment for red.
+	ColorRed = "0;31m"
 
 	// ColorGreen is the posix escape code fragment for green.
-	ColorGreen = "32"
+	ColorGreen = "0;32m"
 
 	// ColorYellow is the posix escape code fragment for yellow.
-	ColorYellow = "33"
+	ColorYellow = "0;33m"
+
+	// ColorBlue is the posix escape code fragment for blue.
+	ColorBlue = "0;34m"
+
+	// ColorPurple is the posix escape code fragement for magenta (purple)
+	ColorPurple = "0;35m"
+
+	// ColorCyan is the posix escape code fragement for cyan.
+	ColorCyan = "0;36m"
 
 	// ColorWhite is the posix escape code fragment for white.
-	ColorWhite = "37"
+	ColorWhite = "0;37m"
 
-	// ColorGray is the posix escape code fragment for white.
-	ColorGray = "90"
+	// ColorLightBlack is the posix escape code fragment for black.
+	ColorLightBlack = "1;30m"
+
+	// ColorLightRed is the posix escape code fragment for red.
+	ColorLightRed = "1;31m"
+
+	// ColorLightGreen is the posix escape code fragment for green.
+	ColorLightGreen = "1;32m"
+
+	// ColorLightYellow is the posix escape code fragment for yellow.
+	ColorLightYellow = "1;33m"
+
+	// ColorLightBlue is the posix escape code fragment for blue.
+	ColorLightBlue = "1;34m"
+
+	// ColorLightPurple is the posix escape code fragement for magenta (purple)
+	ColorLightPurple = "1;35m"
+
+	// ColorLightCyan is the posix escape code fragement for cyan.
+	ColorLightCyan = "1;36m"
+
+	// ColorLightWhite is the posix escape code fragment for white.
+	ColorLightWhite = "1;37m"
+
+	// ColorGray is an alias to ColorLightWhite to preserve backwards compatibility.
+	ColorGray = ColorLightWhite
+
+	// ColorReset is the posix escape code fragment to reset all formatting.
+	ColorReset = "0m"
 )
 
 var (
@@ -40,7 +76,9 @@ var (
 	// LowerZ is the ascii int value for 'z'
 	LowerZ = uint('z')
 
-	letters           = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	lowerLetters      = []rune("abcdefghijklmnopqrstuvwxyz")
+	upperLetters      = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	letters           = append(lowerLetters, upperLetters...)
 	numbers           = []rune("0123456789")
 	lettersAndNumbers = append(letters, numbers...)
 	lowerDiff         = (LowerZ - LowerA)
@@ -280,21 +318,26 @@ func Base64Decode(blob string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(blob)
 }
 
+//AnsiEscapeCode prefixes a color or text formatting code with the ESC keyboard code and a `[` character.
+func AnsiEscapeCode(code string) string {
+	return fmt.Sprintf("\033[%s", code)
+}
+
 // Color returns a posix color code escaled string.
 func Color(input string, colorCode string) string {
-	return fmt.Sprintf("\033[%s;01m%s\033[0m", colorCode, input)
+	return fmt.Sprintf("%s%s%s", AnsiEscapeCode(colorCode), input, AnsiEscapeCode(ColorReset))
 }
 
 // ColorFixedWidth returns a posix color code escaled string of a fixed width.
 func ColorFixedWidth(input string, colorCode string, width int) string {
 	fixedToken := fmt.Sprintf("%%%d.%ds", width, width)
 	fixedMessage := fmt.Sprintf(fixedToken, input)
-	return fmt.Sprintf("\033[%s;01m%s\033[0m", colorCode, fixedMessage)
+	return fmt.Sprintf("%s%s%s", AnsiEscapeCode(colorCode), fixedMessage, AnsiEscapeCode(ColorReset))
 }
 
 // ColorFixedWidthLeftAligned returns a posix color code escaled string of a fixed width left aligned.
 func ColorFixedWidthLeftAligned(input string, colorCode string, width int) string {
 	fixedToken := fmt.Sprintf("%%-%ds", width)
 	fixedMessage := fmt.Sprintf(fixedToken, input)
-	return fmt.Sprintf("\033[%s;01m%s\033[0m", colorCode, fixedMessage)
+	return fmt.Sprintf("%s%s%s", AnsiEscapeCode(colorCode), fixedMessage, AnsiEscapeCode(ColorReset))
 }

@@ -114,7 +114,7 @@ func (dbc *DbConnection) Begin() (*sql.Tx, error) {
 		return nil, exception.New(DBAliasNilError)
 	}
 
-	if dbc.Tx != nil {
+	if dbc.IsIsolatedToTransaction() {
 		return dbc.Tx, nil
 	}
 
@@ -257,35 +257,35 @@ func (dbc *DbConnection) Query(statement string, args ...interface{}) *QueryResu
 
 // QueryInTransaction runs the selected statement in a transaction and returns a QueryResult.
 func (dbc *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, args ...interface{}) (result *QueryResult) {
-	result = &QueryResult{Conn: dbc}
+	result = &QueryResult{conn: dbc}
 	if dbc == nil {
-		result.Error = exception.New(DBAliasNilError)
+		result.err = exception.New(DBAliasNilError)
 		return
 	}
 	dbc.txLock()
 
 	stmt, stmtErr := dbc.Prepare(statement, tx)
 	if stmtErr != nil {
-		result.Error = exception.Wrap(stmtErr)
+		result.err = exception.Wrap(stmtErr)
 		return
 	}
 	defer func() {
 		if r := recover(); r != nil {
 			closeErr := stmt.Close()
-			result.Error = exception.WrapMany(result.Error, exception.New(r), closeErr)
+			result.err = exception.WrapMany(result.err, exception.New(r), closeErr)
 			dbc.txUnlock()
 		}
 	}()
 
 	rows, queryErr := stmt.Query(args...)
 	if queryErr != nil {
-		result.Error = exception.Wrap(queryErr)
+		result.err = exception.Wrap(queryErr)
 		return
 	}
 
 	// the result MUST close these.
-	result.Stmt = stmt
-	result.Rows = rows
+	result.stmt = stmt
+	result.rows = rows
 	return
 }
 

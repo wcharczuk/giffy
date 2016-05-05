@@ -13,10 +13,10 @@ import (
 
 // QueryResult is the intermediate result of a query.
 type QueryResult struct {
-	Rows  *sql.Rows
-	Stmt  *sql.Stmt
-	Conn  *DbConnection
-	Error error
+	rows *sql.Rows
+	stmt *sql.Stmt
+	conn *DbConnection
+	err  error
 }
 
 // Close closes and releases any resources retained by the QueryResult.
@@ -24,18 +24,18 @@ func (q *QueryResult) Close() error {
 	var rowsErr error
 	var stmtErr error
 
-	if q.Rows != nil {
-		rowsErr = q.Rows.Close()
-		q.Rows = nil
+	if q.rows != nil {
+		rowsErr = q.rows.Close()
+		q.rows = nil
 	}
-	if q.Stmt != nil {
-		stmtErr = q.Stmt.Close()
-		q.Stmt = nil
+	if q.stmt != nil {
+		stmtErr = q.stmt.Close()
+		q.stmt = nil
 	}
 
 	//yes this is gross.
 	//release the tx lock on the connection for this query.
-	q.Conn.txUnlock()
+	q.conn.txUnlock()
 	return exception.WrapMany(rowsErr, stmtErr)
 }
 
@@ -52,20 +52,20 @@ func (q *QueryResult) Any() (hasRows bool, err error) {
 		}
 	}()
 
-	if q.Error != nil {
+	if q.err != nil {
 		hasRows = false
-		err = exception.Wrap(q.Error)
+		err = exception.Wrap(q.err)
 		return
 	}
 
-	rowsErr := q.Rows.Err()
+	rowsErr := q.rows.Err()
 	if rowsErr != nil {
 		hasRows = false
 		err = exception.Wrap(rowsErr)
 		return
 	}
 
-	hasRows = q.Rows.Next()
+	hasRows = q.rows.Next()
 	return
 }
 
@@ -82,20 +82,20 @@ func (q *QueryResult) None() (hasRows bool, err error) {
 		}
 	}()
 
-	if q.Error != nil {
+	if q.err != nil {
 		hasRows = false
-		err = exception.Wrap(q.Error)
+		err = exception.Wrap(q.err)
 		return
 	}
 
-	rowsErr := q.Rows.Err()
+	rowsErr := q.rows.Err()
 	if rowsErr != nil {
 		hasRows = false
 		err = exception.Wrap(rowsErr)
 		return
 	}
 
-	hasRows = !q.Rows.Next()
+	hasRows = !q.rows.Next()
 	return
 }
 
@@ -112,19 +112,19 @@ func (q *QueryResult) Scan(args ...interface{}) (err error) {
 		}
 	}()
 
-	if q.Error != nil {
-		err = exception.Wrap(q.Error)
+	if q.err != nil {
+		err = exception.Wrap(q.err)
 		return
 	}
 
-	rowsErr := q.Rows.Err()
+	rowsErr := q.rows.Err()
 	if rowsErr != nil {
 		err = exception.Wrap(rowsErr)
 		return
 	}
 
-	if q.Rows.Next() {
-		scanErr := q.Rows.Scan(args...)
+	if q.rows.Next() {
+		scanErr := q.rows.Scan(args...)
 		if scanErr != nil {
 			err = exception.Wrap(scanErr)
 		}
@@ -146,12 +146,12 @@ func (q *QueryResult) Out(object DatabaseMapped) (err error) {
 		}
 	}()
 
-	if q.Error != nil {
-		err = exception.Wrap(q.Error)
+	if q.err != nil {
+		err = exception.Wrap(q.err)
 		return
 	}
 
-	rowsErr := q.Rows.Err()
+	rowsErr := q.rows.Err()
 	if rowsErr != nil {
 		err = exception.Wrap(rowsErr)
 		return
@@ -159,11 +159,11 @@ func (q *QueryResult) Out(object DatabaseMapped) (err error) {
 
 	columnMeta := CachedColumnCollectionFromInstance(object)
 	var popErr error
-	if q.Rows.Next() {
+	if q.rows.Next() {
 		if populatable, isPopulatable := object.(Populatable); isPopulatable {
-			popErr = populatable.Populate(q.Rows)
+			popErr = populatable.Populate(q.rows)
 		} else {
-			popErr = PopulateByName(object, q.Rows, columnMeta)
+			popErr = PopulateByName(object, q.rows, columnMeta)
 		}
 		if popErr != nil {
 			err = popErr
@@ -187,12 +187,12 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 		}
 	}()
 
-	if q.Error != nil {
-		err = exception.Wrap(q.Error)
+	if q.err != nil {
+		err = exception.Wrap(q.err)
 		return err
 	}
 
-	rowsErr := q.Rows.Err()
+	rowsErr := q.rows.Err()
 	if rowsErr != nil {
 		err = exception.Wrap(rowsErr)
 		return
@@ -214,13 +214,13 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 
 	var popErr error
 	didSetRows := false
-	for q.Rows.Next() {
+	for q.rows.Next() {
 		newObj, _ := MakeNew(sliceInnerType)
 
 		if isPopulatable {
-			popErr = AsPopulatable(newObj).Populate(q.Rows)
+			popErr = AsPopulatable(newObj).Populate(q.rows)
 		} else {
-			popErr = PopulateByName(newObj, q.Rows, meta)
+			popErr = PopulateByName(newObj, q.rows, meta)
 		}
 
 		if popErr != nil {
@@ -251,18 +251,18 @@ func (q *QueryResult) Each(consumer RowsConsumer) (err error) {
 		}
 	}()
 
-	if q.Error != nil {
-		return q.Error
+	if q.err != nil {
+		return q.err
 	}
 
-	rowsErr := q.Rows.Err()
+	rowsErr := q.rows.Err()
 	if rowsErr != nil {
 		err = exception.Wrap(rowsErr)
 		return
 	}
 
-	for q.Rows.Next() {
-		err = consumer(q.Rows)
+	for q.rows.Next() {
+		err = consumer(q.rows)
 		if err != nil {
 			return err
 		}

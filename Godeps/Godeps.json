@@ -1,6 +1,9 @@
 {
 	"ImportPath": "github.com/wcharczuk/giffy",
 	"GoVersion": "go1.6",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws",
@@ -123,6 +126,10 @@
 			"Rev": "3f4f1c88d84f524dfefa4bb6980320d418e5a2b4"
 		},
 		{
+			"ImportPath": "github.com/blendlabs/go-assert",
+			"Rev": "818eedc5570589009f6d8804b4670b0a369fd9b4"
+		},
+		{
 			"ImportPath": "github.com/blendlabs/go-chronometer",
 			"Rev": "7e3da6aecf2c51c7354eaec8ec89a303f23fd5ec"
 		},
@@ -136,16 +143,25 @@
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-util",
-			"Rev": "66b67f5a9e13b732e41525c44feb6d4c7a5d94bd"
+			"Rev": "9da1b61a6950687d41a9be01b120fba32dd59541"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/go-util/collections",
-			"Rev": "66b67f5a9e13b732e41525c44feb6d4c7a5d94bd"
+			"Rev": "9da1b61a6950687d41a9be01b120fba32dd59541"
+		},
+		{
+			"ImportPath": "github.com/blendlabs/go-util/linq",
+			"Rev": "9da1b61a6950687d41a9be01b120fba32dd59541"
 		},
 		{
 			"ImportPath": "github.com/blendlabs/spiffy",
-			"Comment": "v1.0-116-g84e24da",
-			"Rev": "84e24da805cf412855f25aed30a747cda2c2cc47"
+			"Comment": "v1.0-145-g30f6b6e",
+			"Rev": "30f6b6ebb6258c5972a6c95e22c0b2427b1576e0"
+		},
+		{
+			"ImportPath": "github.com/blendlabs/spiffy/migration",
+			"Comment": "v1.0-145-g30f6b6e",
+			"Rev": "30f6b6ebb6258c5972a6c95e22c0b2427b1576e0"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",
