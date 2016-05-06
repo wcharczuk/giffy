@@ -1,6 +1,10 @@
 package model
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"github.com/blendlabs/spiffy"
+)
 
 const (
 	// ContentRatingG = 1
@@ -39,4 +43,18 @@ func (cr *ContentRating) TableName() string {
 // Populate skips spiffy reflection lookups for populting rows.
 func (cr *ContentRating) Populate(rows *sql.Rows) error {
 	return rows.Scan(&cr.ID, &cr.Name, &cr.Description)
+}
+
+// IsZero returns if the object is empty or not.
+func (cr *ContentRating) IsZero() bool {
+	return cr.ID == 0 && len(cr.Name) == 0
+}
+
+// GetContentRatingByName gets a content rating by name.
+func GetContentRatingByName(name string, tx *sql.Tx) (*ContentRating, error) {
+	var rating ContentRating
+	err := spiffy.DefaultDb().QueryInTransaction(
+		`SELECT * from content_rating where name = $1`, tx, name,
+	).Out(&rating)
+	return &rating, err
 }

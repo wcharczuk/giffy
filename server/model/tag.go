@@ -63,6 +63,13 @@ func GetAllTags(tx *sql.Tx) ([]Tag, error) {
 	return all, err
 }
 
+// GetRandomTags gets a random selection of tags.
+func GetRandomTags(count int, tx *sql.Tx) ([]Tag, error) {
+	tags := []Tag{}
+	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag order by gen_random_uuid() limit $1;`, tx, count).OutMany(&tags)
+	return tags, err
+}
+
 // GetTagByID returns a tag for a id.
 func GetTagByID(id int64, tx *sql.Tx) (*Tag, error) {
 	tag := Tag{}
@@ -87,10 +94,17 @@ func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
 	return &tag, err
 }
 
-// SearchTags searches tags
+// SearchTags searches tags.
 func SearchTags(query string, tx *sql.Tx) ([]Tag, error) {
 	tags := []Tag{}
 	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag where tag_value % $1 order by similarity(tag_value, $1) desc;`, tx, query).OutMany(&tags)
+	return tags, err
+}
+
+// SearchTagsRandom searches tags taking a randomly selected count.
+func SearchTagsRandom(query string, count int, tx *sql.Tx) ([]Tag, error) {
+	tags := []Tag{}
+	err := spiffy.DefaultDb().QueryInTransaction(`select * from tag where tag_value % $1 order by gen_random_uuid() limit $2;`, tx, query, count).OutMany(&tags)
 	return tags, err
 }
 
@@ -104,8 +118,8 @@ func DeleteTagByID(tagID int64, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
 }
 
-// DeleteTagWithVotesByID deletes an tag fully.
-func DeleteTagWithVotesByID(tagID int64, tx *sql.Tx) error {
+// DeleteTagAndVotesByID deletes an tag fully.
+func DeleteTagAndVotesByID(tagID int64, tx *sql.Tx) error {
 	err := spiffy.DefaultDb().ExecInTransaction(`delete from vote_summary where tag_id = $1`, tx, tagID)
 	if err != nil {
 		return err

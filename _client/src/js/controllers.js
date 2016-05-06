@@ -8,9 +8,9 @@ giffyControllers.controller('homeController', ["$scope", "$http", "$routeParams"
 			$scope.images = datums.response;
 		});
 
-		$scope.searchImages = function(searchQuery) {
-			$location.path("/search/" + searchQuery).replace();
-		};
+		$http.get("/api/tags/random/24").success(function(datums) {
+			$scope.tags = datums.response;
+		});
 	}
 ]);
 
@@ -433,22 +433,6 @@ giffyControllers.controller("statsController",  ["$scope", "$http", "currentUser
 
 		$http.get("/api/stats").success(function(datums) {
 			$scope.stats = datums.response;
-		});
-	}
-]);
-
-giffyControllers.controller('imagesCensoredController', ["$scope", "$http", "$routeParams", "$location", "currentUser",
-	function($scope, $http, $routeParams, $location, currentUser) {
-		currentUser($scope, function() {
-			if (!$scope.currentUser.is_admin) {
-				window.location = "/";
-			}
-		});
-
-		$scope.pageTitle = "Censored Images";
-
-		$http.get("/api/images.censored").success(function(datums) {
-			$scope.images = datums.response;
 		});
 	}
 ]);

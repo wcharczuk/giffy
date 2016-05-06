@@ -119,7 +119,7 @@ func SessionAwareLockFree(action web.ControllerAction) web.ControllerAction {
 
 func sessionAware(action web.ControllerAction, sessionLockPolicy int) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
-		if context.CurrentProvider() == nil {
+		if context.DefaultResultProvider() == nil {
 			panic("You must provide a content provider as middleware to use `SessionAware`")
 		}
 
@@ -127,7 +127,7 @@ func sessionAware(action web.ControllerAction, sessionLockPolicy int) web.Contro
 		if len(sessionID) != 0 {
 			session, err := VerifySession(sessionID, context.Tx())
 			if err != nil {
-				return context.CurrentProvider().InternalError(err)
+				return context.DefaultResultProvider().InternalError(err)
 			}
 
 			if session != nil {
@@ -171,24 +171,24 @@ func SessionRequiredLockFree(action web.ControllerAction) web.ControllerAction {
 
 func sessionRequired(action web.ControllerAction, sessionLockPolicy int) web.ControllerAction {
 	return func(context *web.RequestContext) web.ControllerResult {
-		if context.CurrentProvider() == nil {
+		if context.DefaultResultProvider() == nil {
 			panic("You must provide a content provider as middleware to use `SessionRequired`")
 		}
 
 		sessionID := context.Param(SessionParamName)
 		if len(sessionID) == 0 {
-			return context.CurrentProvider().NotAuthorized()
+			return context.DefaultResultProvider().NotAuthorized()
 		}
 
 		session, sessionErr := VerifySession(sessionID, context.Tx())
 		if sessionErr != nil {
-			return context.CurrentProvider().InternalError(sessionErr)
+			return context.DefaultResultProvider().InternalError(sessionErr)
 		}
 		if session == nil {
-			return context.CurrentProvider().NotAuthorized()
+			return context.DefaultResultProvider().NotAuthorized()
 		}
 		if session.User != nil && session.User.IsBanned {
-			return context.CurrentProvider().NotAuthorized()
+			return context.DefaultResultProvider().NotAuthorized()
 		}
 
 		switch sessionLockPolicy {

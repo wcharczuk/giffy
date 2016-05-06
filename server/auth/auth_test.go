@@ -80,7 +80,7 @@ func TestSessionAware(t *testing.T) {
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
 		return r.Raw([]byte("ok!"))
-	}, SessionAware, web.InjectAPIProvider)
+	}, SessionAware, web.APIProviderAsDefault)
 
 	err = app.Mock().WithPathf("/").WithHeader(SessionParamName, sessionID).Execute()
 	assert.Nil(err)
@@ -110,7 +110,7 @@ func TestSessionAwareInvalid(t *testing.T) {
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
 		return r.Raw([]byte("ok!"))
-	}, SessionAware, web.InjectAPIProvider)
+	}, SessionAware, web.APIProviderAsDefault)
 
 	err = app.Mock().WithPathf("/").WithHeader(SessionParamName, "not_"+sessionID).Execute()
 	assert.Nil(err)
@@ -140,7 +140,7 @@ func TestSessionRequired(t *testing.T) {
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
 		return r.Raw([]byte("ok!"))
-	}, SessionRequired, web.InjectAPIProvider)
+	}, SessionRequired, web.APIProviderAsDefault)
 
 	err = app.Mock().WithPathf("/").WithHeader(SessionParamName, sessionID).Execute()
 	assert.Nil(err)
@@ -170,7 +170,7 @@ func TestSessionRequiredInvalid(t *testing.T) {
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
 		return r.Raw([]byte("ok!"))
-	}, SessionRequired, web.InjectAPIProvider)
+	}, SessionRequired, web.APIProviderAsDefault)
 
 	err = app.Mock().WithPathf("/").WithHeader(SessionParamName, "not_"+sessionID).Execute()
 	assert.Nil(err)

@@ -14,3 +14,10 @@ func TestAllContentRatings(t *testing.T) {
 	assert.Nil(err)
 	assert.NotEmpty(all)
 }
+
+func TestGetContentRatingByName(t *testing.T) {
+	assert := assert.New(t)
+	rating, err := GetContentRatingByName("G", nil)
+	assert.Nil(err)
+	assert.False(rating.IsZero())
+}

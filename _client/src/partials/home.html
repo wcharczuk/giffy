@@ -3,19 +3,11 @@
 <div id="giffy-home" class="row page-body">
 	<div class="col-md-12">
 		<div class="row">
-			<div class="col-xs-10 col-xs-offset-1 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
-				<form>
-					<input type="text" tabindex="0" class="giffy-search-box form-control input-lg" placeholder="Search" ng-model="searchQuery" ng-enter="searchImages(searchQuery)" required/>
-				</form>
-			</div>
-		</div>
-
-		<div class="row">
 			<div id="giffy-home-images"" class="col-md-12 align-center">
-				<div class="page-header">
-					<h3>Here are some random images</h3>
-				</div>
 				<giffy-image class="image-result" image="image"  ng-repeat="image in images"></giffy-image>
+			</div>
+			<div id="giffy-home-tags"" class="col-md-10 col-md-offset-1 align-center">
+				<a class="label label-primary" href="/#/tag/{{tag.tag_value}}" ng-repeat="tag in tags">#{{tag.tag_value}}</a>
 			</div>
 		</div>
 	</div>

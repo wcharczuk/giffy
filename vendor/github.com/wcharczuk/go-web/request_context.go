@@ -15,7 +15,7 @@ const (
 	PostBodySize = int64(1 << 26) //64mb
 
 	// PostBodySizeMax is the absolute maximum file size the server can handle.
-	PostBodySizeMax = int64(1 << 32)
+	PostBodySizeMax = int64(1 << 32) //fucking enormous.
 )
 
 // PostedFile is a file that has been posted to an hc endpoint.
@@ -37,10 +37,11 @@ type RequestEventErrorHandler func(r *RequestContext, err interface{})
 // NewRequestContext returns a new hc context.
 func NewRequestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	ctx := &RequestContext{
-		Response:        w,
-		Request:         r,
-		routeParameters: p,
-		state:           State{},
+		Response:         w,
+		Request:          r,
+		routeParameters:  p,
+		state:            State{},
+		requestLogFormat: DefaultRequestLogFormat,
 	}
 
 	return ctx
@@ -48,24 +49,23 @@ func NewRequestContext(w ResponseWriter, r *http.Request, p RouteParameters) *Re
 
 // RequestContext is the struct that represents the context for an hc request.
 type RequestContext struct {
+	//Public fields
 	Response ResponseWriter
 	Request  *http.Request
 
-	api             *APIResultProvider
-	view            *ViewResultProvider
-	currentProvider ControllerResultProvider
-
-	logger Logger
-
-	tx *sql.Tx
-
-	state           State
-	routeParameters RouteParameters
-
-	statusCode    int
-	contentLength int
-	requestStart  time.Time
-	requestEnd    time.Time
+	//Private fields
+	api                   *APIResultProvider
+	view                  *ViewResultProvider
+	defaultResultProvider ControllerResultProvider
+	logger                Logger
+	tx                    *sql.Tx
+	state                 State
+	routeParameters       RouteParameters
+	statusCode            int
+	contentLength         int
+	requestStart          time.Time
+	requestEnd            time.Time
+	requestLogFormat      string
 }
 
 // isolateTo isolates a request context to a transaction.
@@ -113,16 +113,16 @@ func (rc *RequestContext) View() *ViewResultProvider {
 	return rc.view
 }
 
-// CurrentProvider returns the current result provider for the context. This is
-// set by calling SetCurrentProvider or using one of the pre-built middleware
+// DefaultResultProvider returns the current result provider for the context. This is
+// set by calling SetDefaultResultProvider or using one of the pre-built middleware
 // steps that set it for you.
-func (rc *RequestContext) CurrentProvider() ControllerResultProvider {
-	return rc.currentProvider
+func (rc *RequestContext) DefaultResultProvider() ControllerResultProvider {
+	return rc.defaultResultProvider
 }
 
-// SetCurrentProvider sets the current result provider.
-func (rc *RequestContext) SetCurrentProvider(provider ControllerResultProvider) {
-	rc.currentProvider = provider
+// SetDefaultResultProvider sets the current result provider.
+func (rc *RequestContext) SetDefaultResultProvider(provider ControllerResultProvider) {
+	rc.defaultResultProvider = provider
 }
 
 // State returns an object in the state cache.
@@ -290,7 +290,7 @@ func (rc *RequestContext) ExpireCookie(name string) {
 // LogRequest consumes the context and writes a log message for the request.
 func (rc *RequestContext) LogRequest() {
 	if rc.logger != nil {
-		rc.logger.Log(FormatRequestLog(DefaultRequestLogFormat, rc))
+		rc.logger.Write(FormatRequestLog(rc.requestLogFormat, rc))
 	}
 }
 

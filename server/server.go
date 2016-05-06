@@ -9,7 +9,7 @@ import (
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/jobs"
-	"github.com/wcharczuk/giffy/server/model/migrate"
+	"github.com/wcharczuk/giffy/server/migrate"
 )
 
 const (

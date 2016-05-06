@@ -12,6 +12,7 @@ import (
 
 // Logger is a type that implements basic logging methods.
 type Logger interface {
+	Write(args ...interface{})
 	Log(args ...interface{})
 	Logf(format string, args ...interface{})
 	Error(args ...interface{})
@@ -49,6 +50,13 @@ func NewLogger(output io.Writer, errorOutput io.Writer) Logger {
 type logger struct {
 	log      *log.Logger
 	errorLog *log.Logger
+}
+
+func (l *logger) Write(args ...interface{}) {
+	if l.log != nil {
+		output := fmt.Sprint(args...)
+		l.log.Printf("%s\n", output)
+	}
 }
 
 func (l *logger) Log(args ...interface{}) {

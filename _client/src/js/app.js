@@ -21,9 +21,6 @@ giffyApp.config(["$routeProvider", "$locationProvider",
 		}).when("/search.slack/:search_query", {
 			templateUrl: '/static/partials/search_slack.html',
 			controller: 'searchSlackController'
-		}).when("/images.censored", {
-			templateUrl: "/static/partials/images.html",
-			controller: 'imagesCensoredController'
 		}).when("/add_tag", {
 			templateUrl: '/static/partials/add_tag.html',
 			controller: 'addTagController'

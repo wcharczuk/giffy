@@ -99,6 +99,21 @@ giffyDirectives.directive("userDetail", function() {
 giffyDirectives.controller('UserDetailElementController', ["$scope", function($scope) { } ]);
 
 // --------------------------------------------------------------------------------
+// Search Box
+// --------------------------------------------------------------------------------
+
+giffyDirectives.directive("searchBox", function() {
+	return {
+		restrict: 'E',
+		scope: {},
+		controller: "SearchBoxController",
+		templateUrl: "/static/partials/controls/search.html"
+	}
+});
+giffyDirectives.controller('SearchBoxController', ["$scope", function($scope) { } ]);
+
+
+// --------------------------------------------------------------------------------
 // Vote Button
 // --------------------------------------------------------------------------------
 

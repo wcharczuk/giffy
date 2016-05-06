@@ -52,6 +52,8 @@ type App struct {
 	requestCompleteHandlers []RequestEventHandler
 	requestErrorHandlers    []RequestEventErrorHandler
 
+	requestLogFormat string
+
 	staticRewriteRules map[string][]*RewriteRule
 	staticHeaders      map[string]http.Header
 
@@ -68,6 +70,16 @@ func (a *App) Name() string {
 // SetName sets the app name
 func (a *App) SetName(name string) {
 	a.name = name
+}
+
+// RequestLogFormat returns a custom w3c request log format if set.
+func (a *App) RequestLogFormat() string {
+	return a.requestLogFormat
+}
+
+// SetRequestLogFormat sets a custom w3c request log format.
+func (a *App) SetRequestLogFormat(format string) {
+	a.requestLogFormat = format
 }
 
 // Logger returns the logger for the app.
@@ -383,6 +395,9 @@ func (a *App) Mock() *MockRequestBuilder {
 // RequestContext creates an http context.
 func (a *App) requestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	hc := NewRequestContext(w, r, p)
+	if len(a.requestLogFormat) != 0 {
+		hc.requestLogFormat = a.requestLogFormat
+	}
 	hc.tx = a.tx
 	hc.logger = a.logger
 	hc.api = NewAPIResultProvider(a, hc)

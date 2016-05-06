@@ -144,7 +144,7 @@ func TestMergeTagsWithExisting(t *testing.T) {
 	assert.Equal(2, verify.VotesTotal)
 }
 
-func TestDeleteTagWithVotesByID(t *testing.T) {
+func TestDeleteTagAndVotesByID(t *testing.T) {
 	assert := assert.New(t)
 	tx, err := spiffy.DefaultDb().Begin()
 	assert.Nil(err)
@@ -159,7 +159,7 @@ func TestDeleteTagWithVotesByID(t *testing.T) {
 	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_tag_value", tx)
 	assert.Nil(err)
 
-	err = DeleteTagWithVotesByID(tag.ID, tx)
+	err = DeleteTagAndVotesByID(tag.ID, tx)
 
 	verify, err := GetTagByID(tag.ID, tx)
 	assert.Nil(err)
