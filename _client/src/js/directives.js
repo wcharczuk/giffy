@@ -90,7 +90,8 @@ giffyDirectives.directive("userDetail", function() {
 	return {
 		restrict: 'E',
 		scope: {
-			user: '='
+			user: '=',
+
 		},
 		controller: "UserDetailElementController",
 		templateUrl: "/static/partials/controls/username.html"
@@ -105,12 +106,21 @@ giffyDirectives.controller('UserDetailElementController', ["$scope", function($s
 giffyDirectives.directive("searchBox", function() {
 	return {
 		restrict: 'E',
-		scope: {},
+		scope: {
+			searchQuery: '='
+		},
 		controller: "SearchBoxController",
 		templateUrl: "/static/partials/controls/search.html"
 	}
 });
-giffyDirectives.controller('SearchBoxController', ["$scope", function($scope) { } ]);
+giffyDirectives.controller('SearchBoxController', ["$scope", "$location",
+function($scope, $location) {
+	$scope.search = function(query) {
+		if (query && query.length > 0) {
+			$location.path("/search/" + query).replace();
+		}
+	};
+}]);
 
 
 // --------------------------------------------------------------------------------

@@ -1,15 +1,15 @@
 <div id="giffy-header" class="row">
 	<div class="col-sm-12 col-md-10 col-md-offset-1">
 		<div class="row">
-			<div id="giffy-header-logo-cell" class="header-cell col-xs-12 col-sm-4 col-md-4">
+			<div id="giffy-header-logo-cell" class="header-cell col-xs-12 col-sm-3 col-md-3">
 				<div id="giffy-header-logo">
 					<a href="/#/"><img id="giffy-logo" src="/static/images/logo.png"/></a>
 				</div>
 			</div>
-			<div id="giffy-header-search-cell" class="header-cell col-xs-12 col-sm-4 col-md-4">
-				<search-box/>
+			<div id="giffy-header-search-cell" class="header-cell col-xs-12 col-sm-6 col-md-6">
+				<search-box search-query="searchQuery"/>
 			</div>
-			<div id="giffy-header-add-image-cell" class="header-cell col-xs-12 col-sm-4 col-md-4">
+			<div id="giffy-header-add-image-cell" class="header-cell col-xs-12 col-sm-3 col-md-3">
 				<a id="#giffy-header-add-image" class="btn btn-primary" ng-if="currentUser.is_moderator" href="/#/add_image" >
 					<span class="glyphicon glyphicon-upload" aria-hidden="true"></span>Add Image
 				</a>
