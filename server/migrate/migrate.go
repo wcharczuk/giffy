@@ -60,7 +60,7 @@ func Register() {
 // Run applies all migrations
 func Run() error {
 	return migration.Default(func(suite migration.Migration) error {
-		suite.SetLogger(migration.NewLogger())
+		suite.Logged(migration.NewLogger())
 		return suite.Apply(spiffy.DefaultDb())
 	})
 }
