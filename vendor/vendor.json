@@ -245,5 +245,12 @@
 			"revisionTime": "2016-06-10T00:10:46Z"
 		}
 	],
+	"goVersion": "go1.6",
+	"heroku": {
+		"goVersion": "go1.6",
+		"install": [
+			"."
+		]
+	},
 	"rootPath": "github.com/wcharczuk/giffy"
 }
