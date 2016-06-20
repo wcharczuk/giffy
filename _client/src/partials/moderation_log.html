@@ -13,7 +13,8 @@
 			</thead>
 			<tbody>
 				<tr ng-repeat="entry in log">
-					<td><user-detail user="entry.moderator"/></td>
+					<td ng-show="currentUser.is_moderator"><user-detail user="entry.moderator"/></td>
+					<td ng-show="!currentUser.is_moderator">{{entry.moderator.first_name}} {{entry.moderator.last_name}}</td>
 					<td>{{entry.timestamp_utc | date:'short' }}</td>
 					<td>{{entry.verb}}</td>
 					<td>{{entry.object}}</td>
@@ -25,7 +26,7 @@
 					<td>
 						<a href="/#/tag/{{entry.tag.tag_value}}" ng-if="entry.object === 'link'">{{entry.tag.tag_value}}</a>
 					</td>
-				</tr> 
+				</tr>
 			</tbody>
 		</table>
 		<div class="row">
