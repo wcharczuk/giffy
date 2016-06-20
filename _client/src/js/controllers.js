@@ -106,7 +106,7 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
 		$scope.censorImage = function() {
 			if ($scope.currentUser.is_moderator) {
 				if (confirm("are you sure?")) {
-					$http.put("/api/image/" + $scope.image.uuid, {is_censored: true}).success(function(datums){
+					$http.put("/api/image/" + $scope.image.uuid, {content_rating: 5}).success(function(datums){
 						$scope.image = datums.response;
 					});
 				}
@@ -116,7 +116,7 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
 		$scope.uncensorImage = function() {
 			if ($scope.currentUser.is_moderator) {
 				if (confirm("are you sure?")) {
-					$http.put("/api/image/" + $scope.image.uuid, {is_censored: false}).success(function(datums){
+					$http.put("/api/image/" + $scope.image.uuid, {content_rating: 1}).success(function(datums){
 						$scope.image = datums.response;
 					});
 				}
