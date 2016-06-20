@@ -28,8 +28,11 @@
 			<div class="row" ng-if="currentUser.is_moderator">
 				<div class="col-sm-6 col-md-6 col-lg-5 align-right">Status:</div>
 				<div class="col-sm-6 col-md-6 col-lg-7 align-left">
-					<span class="label label-danger" ng-if="image.is_censored">Censored</span>
-					<span class="label label-info" ng-if="!image.is_censored">Live</span>
+					<span class="label label-danger" ng-if="image.content_rating == 5">NR</span>
+					<span class="label label-danger" ng-if="image.content_rating == 4">R</span>
+					<span class="label label-info" ng-if="image.content_rating == 3">PG-13</span>
+					<span class="label label-info" ng-if="image.content_rating == 2">PG</span>
+					<span class="label label-default" ng-if="image.content_rating == 1">G</span>
 				</div>
 			</div>
 			<div class="row">
@@ -55,8 +58,8 @@
 			<div class="row" ng-if="currentUser.is_moderator || currentUser.user_uuid == image.created_by.uuid">
 				<div class="col-sm-6 col-md-6 col-lg-5 align-right">Moderator Controls:</div>
 				<div class="col-sm-6 col-md-6 col-lg-7 align-left">
-					<button class="btn btn-default btn-xs" ng-click="censorImage()" ng-if="!image.is_censored">Censor Image</button>
-					<button class="btn btn-default btn-xs" ng-click="uncensorImage()" ng-if="image.is_censored">Uncensor Image</button>
+					<button class="btn btn-default btn-xs" ng-click="censorImage()" ng-if="image.content_rating == 1">Censor Image</button>
+					<button class="btn btn-default btn-xs" ng-click="uncensorImage()" ng-if="image.content_rating == 5">Uncensor Image</button>
 					<button class="btn btn-danger btn-xs" ng-click="deleteImage()">Delete Image</button>
 				</div>
 			</div>
