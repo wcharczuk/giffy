@@ -8,13 +8,12 @@
 		<table id="moderation-log" class="table table-responsive">
 			<thead>
 				<tr>
-					<th>User</th><th>Time</th><th>Verb</th><th>Object</th><th>Noun</th><th>Secondary Noun</th>
+					<th ng-show="currentUser.is_moderator">User</th><th>Time</th><th>Verb</th><th>Object</th><th>Noun</th><th>Secondary Noun</th>
 				</tr>
 			</thead>
 			<tbody>
 				<tr ng-repeat="entry in log">
 					<td ng-show="currentUser.is_moderator"><user-detail user="entry.moderator"/></td>
-					<td ng-show="!currentUser.is_moderator">{{entry.moderator.first_name}} {{entry.moderator.last_name}}</td>
 					<td>{{entry.timestamp_utc | date:'short' }}</td>
 					<td>{{entry.verb}}</td>
 					<td>{{entry.object}}</td>
