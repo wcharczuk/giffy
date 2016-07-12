@@ -56,7 +56,7 @@ func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
 		uuid := strings.Replace(query, "img:", "", -1)
 		result, err = model.GetImageByUUID(uuid, r.Tx())
 	} else {
-		result, err = model.SearchImagesBestResult(query, r.Tx())
+		result, err = model.SearchImagesBestResult(query, model.ContentRatingNR, r.Tx())
 	}
 	if err != nil {
 		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)

@@ -21,6 +21,9 @@ const (
 
 	// ContentRatingNR = 5
 	ContentRatingNR = 5
+
+	// ContentRatingAll will returns all images
+	ContentRatingAll = 6
 )
 
 // NewContentRating returns a new ContentRating instance.

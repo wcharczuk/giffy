@@ -257,7 +257,7 @@ func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction(`delete from image where id = $1`, tx, imageID)
 }
 
-func searchImagesInternal(query string, tx *sql.Tx) ([]imageSignature, error) {
+func searchImagesInternal(query string, contentRating int, tx *sql.Tx) ([]imageSignature, error) {
 	var imageIDs []imageSignature
 	searchImageQuery := `
 select
@@ -277,19 +277,19 @@ from
 	join image i on vs.image_id = i.id
 where
 	vs.votes_total > 0
-	and i.content_rating < 5
+	and i.content_rating < $2
 group by
 	vs.image_id
 order by
 	score desc;
 `
-	err := spiffy.DefaultDb().QueryInTransaction(searchImageQuery, tx, query).OutMany(&imageIDs)
+	err := spiffy.DefaultDb().QueryInTransaction(searchImageQuery, tx, query, contentRating).OutMany(&imageIDs)
 	return imageIDs, err
 }
 
 // SearchImages searches for an image.
-func SearchImages(query string, tx *sql.Tx) ([]Image, error) {
-	imageIDs, err := searchImagesInternal(query, tx)
+func SearchImages(query string, contentRating int, tx *sql.Tx) ([]Image, error) {
+	imageIDs, err := searchImagesInternal(query, contentRating, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -303,8 +303,8 @@ func SearchImages(query string, tx *sql.Tx) ([]Image, error) {
 }
 
 // SearchImagesRandom pulls a random count of images based on a search query. The most common `count` is 1.
-func SearchImagesRandom(query string, count int, tx *sql.Tx) ([]Image, error) {
-	imageIDs, err := searchImagesInternal(query, tx)
+func SearchImagesRandom(query string, contentRating, count int, tx *sql.Tx) ([]Image, error) {
+	imageIDs, err := searchImagesInternal(query, contentRating, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -325,8 +325,8 @@ func SearchImagesRandom(query string, count int, tx *sql.Tx) ([]Image, error) {
 
 // SearchImagesBestResult pulls the best result for a query.
 // This method is used for slack searches.
-func SearchImagesBestResult(query string, tx *sql.Tx) (*Image, error) {
-	imageIDs, err := searchImagesInternal(query, tx)
+func SearchImagesBestResult(query string, contentRating int, tx *sql.Tx) (*Image, error) {
+	imageIDs, err := searchImagesInternal(query, contentRating, tx)
 	if err != nil {
 		return nil, err
 	}

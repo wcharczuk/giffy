@@ -341,8 +341,12 @@ func (api API) getRandomImagesAction(r *web.RequestContext) web.ControllerResult
 
 // GET "/api/images.search?query=<query>"
 func (api API) searchImagesAction(r *web.RequestContext) web.ControllerResult {
+	contentRating := model.ContentRatingNR
+	if !auth.GetSession(r).User.IsModerator {
+		contentRating = model.ContentRatingAll
+	}
 	query := r.Param("query")
-	results, err := model.SearchImages(query, r.Tx())
+	results, err := model.SearchImages(query, contentRating, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -351,10 +355,14 @@ func (api API) searchImagesAction(r *web.RequestContext) web.ControllerResult {
 
 // GET "/api/images.search/random/:count?query=<query>"
 func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerResult {
+	contentRating := model.ContentRatingNR
+	if !auth.GetSession(r).User.IsModerator {
+		contentRating = model.ContentRatingAll
+	}
 	count := r.RouteParameterInt("count")
 
 	query := r.Param("query")
-	results, err := model.SearchImagesRandom(query, count, r.Tx())
+	results, err := model.SearchImagesRandom(query, contentRating, count, r.Tx())
 
 	if err != nil {
 		return r.API().InternalError(err)
