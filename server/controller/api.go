@@ -342,7 +342,7 @@ func (api API) getRandomImagesAction(r *web.RequestContext) web.ControllerResult
 // GET "/api/images.search?query=<query>"
 func (api API) searchImagesAction(r *web.RequestContext) web.ControllerResult {
 	contentRating := model.ContentRatingDefault
-	if !auth.GetSession(r).User.IsModerator {
+	if auth.GetSession(r) != nil && auth.GetSession(r).User.IsModerator {
 		contentRating = model.ContentRatingAll
 	}
 	query := r.Param("query")
@@ -356,7 +356,7 @@ func (api API) searchImagesAction(r *web.RequestContext) web.ControllerResult {
 // GET "/api/images.search/random/:count?query=<query>"
 func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerResult {
 	contentRating := model.ContentRatingDefault
-	if !auth.GetSession(r).User.IsModerator {
+	if auth.GetSession(r) != nil && auth.GetSession(r).User.IsModerator {
 		contentRating = model.ContentRatingAll
 	}
 	count := r.RouteParameterInt("count")
