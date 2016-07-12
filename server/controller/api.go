@@ -948,9 +948,9 @@ func (api API) Register(app *web.App) {
 
 	app.GET("/api/images", api.getImagesAction)
 	app.POST("/api/images", api.createImageAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/images/random/:count", api.getRandomImagesAction)
-	app.GET("/api/images.search", api.searchImagesAction)
-	app.GET("/api/images.search/random/:count", api.searchImagesRandomAction)
+	app.GET("/api/images/random/:count", api.getRandomImagesAction, auth.SessionAware, web.APIProviderAsDefault)
+	app.GET("/api/images.search", api.searchImagesAction, auth.SessionAware, web.APIProviderAsDefault)
+	app.GET("/api/images.search/random/:count", api.searchImagesRandomAction, auth.SessionAware, web.APIProviderAsDefault)
 
 	app.GET("/api/image/:image_id", api.getImageAction)
 	app.PUT("/api/image/:image_id", api.updateImageAction, auth.SessionRequired, web.APIProviderAsDefault)
