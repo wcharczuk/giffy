@@ -22,6 +22,9 @@ const (
 	// ContentRatingNR = 5
 	ContentRatingNR = 5
 
+	// ContentRatingDefault == ContentRatingNR
+	ContentRatingDefault = ContentRatingNR
+
 	// ContentRatingAll will returns all images
 	ContentRatingAll = 6
 )
