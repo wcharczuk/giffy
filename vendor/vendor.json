@@ -252,10 +252,10 @@
 			"revisionTime": "2016-03-04T02:46:57Z"
 		},
 		{
-			"checksumSHA1": "O7DbvWqXNLaCgA7H9wqEZfIPq6k=",
+			"checksumSHA1": "IDu5tfAmt9SgvlixVvsbNtxbIko=",
 			"path": "github.com/wcharczuk/go-web",
-			"revision": "bd5c388b496228c12e9237a9628d199027f77cab",
-			"revisionTime": "2016-09-17T06:58:24Z"
+			"revision": "c8b773dfc5d2e4bbb2b82fbdce82ec6fa896f024",
+			"revisionTime": "2016-09-17T07:07:31Z"
 		}
 	],
 	"rootPath": "github.com/wcharczuk/giffy"

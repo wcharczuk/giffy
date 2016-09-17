@@ -366,6 +366,7 @@ func (a *App) commonResponseHeaders(w http.ResponseWriter) {
 
 func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	context := a.requestContext(w, r, p)
+	context.onRequestStart()
 	a.diagnostics.OnEvent(logger.EventRequest, context)
 	return context
 }
@@ -385,8 +386,8 @@ func (a *App) pipelineComplete(context *RequestContext) {
 	if closer, isCloser := context.Response.(io.Closer); isCloser {
 		closer.Close()
 	}
+	context.onRequestEnd()
 	context.setLoggedStatusCode(context.Response.StatusCode())
 	context.setLoggedContentLength(context.Response.ContentLength())
-
 	a.diagnostics.OnEvent(logger.EventRequestComplete, context)
 }
