@@ -2,7 +2,8 @@ package server
 
 import (
 	"github.com/blendlabs/go-chronometer"
-	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-logger"
+	"github.com/blendlabs/go-workqueue"
 	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/controller"
@@ -42,22 +43,22 @@ func Migrate() error {
 }
 
 // Init inits the web app.
-func Init() *web.App {
+func Init() (*web.App, error) {
+	diagnostics, err := logger.NewDiagnosticsAgentFromEnvironment()
+	if err != nil {
+		return nil, err
+	}
 	app := web.New()
-	app.SetName(AppName)
+	app.SetDiagnostics(diagnostics)
+	app.SetAppName(AppName)
 	app.SetPort(core.ConfigPort())
 
-	if core.ConfigIsProduction() {
-		app.SetLogger(web.NewStandardOutputErrorLogger())
-	} else {
-		app.SetLogger(web.NewStandardOutputLogger())
-	}
-
-	app.RequestCompleteHandler(func(r *web.RequestContext) {
-		external.StatHatRequestTiming(r.Elapsed())
+	app.Diagnostics().AddEventListener(logger.EventRequestComplete, func(wr logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+		context := state[0].(*web.RequestContext)
+		external.StatHatRequestTiming(context.Elapsed())
 	})
 
-	app.RequestErrorHandler(func(r *web.RequestContext, err interface{}) {
+	app.Diagnostics().AddEventListener(logger.EventError, func(wr logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
 		external.StatHatError()
 	})
 
@@ -89,11 +90,13 @@ func Init() *web.App {
 			return err
 		}
 
-		util.StartProcessQueueDispatchers(1)
+		workQueue.Default().UseAsyncDispatch()
+		workQueue.Default().Start()
+
 		chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
 		chronometer.Default().Start()
 		return nil
 	})
 
-	return app
+	return app, nil
 }

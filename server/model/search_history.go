@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-workqueue"
 	"github.com/blendlabs/spiffy"
 )
 
@@ -51,8 +51,8 @@ func (sh SearchHistory) TableName() string {
 
 func searchHistoryQuery(whereClause string) string {
 	searchColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(SearchHistory{}).NotReadOnly().ColumnNamesFromAlias("sh"))
-	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_").ColumnNamesFromAlias("i"))
-	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
+	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesFromAlias("i"))
+	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
 	return fmt.Sprintf(`
 select
 	%s,
@@ -69,8 +69,8 @@ order by timestamp_utc desc
 
 func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
 	searchColumns := spiffy.CachedColumnCollectionFromInstance(SearchHistory{}).NotReadOnly()
-	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_")
-	tagColumns := spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_")
+	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
+	tagColumns := spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
 
 	return func(r *sql.Rows) error {
 		var sh SearchHistory
@@ -114,8 +114,8 @@ func GetSearchHistoryByCountAndOffset(count, offset int, tx *sql.Tx) ([]SearchHi
 	return searchHistory, err
 }
 
-func writeSearchHistoryEntry(state interface{}) error {
-	if typed, isTyped := state.(*SearchHistory); isTyped {
+func writeSearchHistoryEntry(state ...interface{}) error {
+	if typed, isTyped := state[0].(*SearchHistory); isTyped {
 		return spiffy.DefaultDb().Create(typed)
 	}
 	return exception.New("`state` was not of the correct type.")
@@ -132,5 +132,5 @@ func QueueSearchHistoryEntry(source, sourceTeamID, sourceTeamName, sourceChannel
 	sh.SourceChannelName = sourceChannelName
 	sh.SourceUserName = sourceUserName
 
-	util.QueueWorkItem(writeSearchHistoryEntry, sh)
+	workQueue.Default().Enqueue(writeSearchHistoryEntry, sh)
 }

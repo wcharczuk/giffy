@@ -69,7 +69,9 @@ func (a *App) Diagnostics() *logger.DiagnosticsAgent {
 // SetDiagnostics sets the diagnostics agent.
 func (a *App) SetDiagnostics(da *logger.DiagnosticsAgent) {
 	a.diagnostics = da
-	a.diagnostics.AddEventListener(logger.EventRequestComplete, a.onRequestComplete)
+	if a.diagnostics != nil {
+		a.diagnostics.AddEventListener(logger.EventRequestComplete, a.onRequestComplete)
+	}
 }
 
 func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {

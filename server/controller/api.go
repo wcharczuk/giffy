@@ -54,8 +54,14 @@ func (api API) getUsersByCountAndOffsetAction(r *web.RequestContext) web.Control
 		return r.API().NotAuthorized()
 	}
 
-	count := r.RouteParameterInt("count")
-	offset := r.RouteParameterInt("offset")
+	count, err := r.RouteParameterInt("count")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+	offset, err := r.RouteParameterInt("offset")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	users, err := model.GetUsersByCountAndOffset(count, offset, r.Tx())
 	if err != nil {
@@ -66,7 +72,10 @@ func (api API) getUsersByCountAndOffsetAction(r *web.RequestContext) web.Control
 
 // GET "/api/user/:user_id"
 func (api API) getUserAction(r *web.RequestContext) web.ControllerResult {
-	userUUID := r.RouteParameter("user_id")
+	userUUID, err := r.RouteParameter("user_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	user, err := model.GetUserByUUID(userUUID, r.Tx())
 	if err != nil {
@@ -84,7 +93,10 @@ func (api API) getUserAction(r *web.RequestContext) web.ControllerResult {
 func (api API) updateUserAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	userUUID := r.RouteParameter("user_id")
+	userUUID, err := r.RouteParameter("user_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
@@ -143,7 +155,10 @@ func (api API) updateUserAction(r *web.RequestContext) web.ControllerResult {
 
 // GET "/api/user.images/:user_id"
 func (api API) getUserImagesAction(r *web.RequestContext) web.ControllerResult {
-	userUUID := r.RouteParameter("user_id")
+	userUUID, err := r.RouteParameter("user_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	user, err := model.GetUserByUUID(userUUID, r.Tx())
 	if err != nil {
@@ -164,7 +179,10 @@ func (api API) getUserImagesAction(r *web.RequestContext) web.ControllerResult {
 
 // GET "/api/user.moderation/:user_id"
 func (api API) getModerationForUserAction(r *web.RequestContext) web.ControllerResult {
-	userUUID := r.RouteParameter("user_id")
+	userUUID, err := r.RouteParameter("user_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	user, err := model.GetUserByUUID(userUUID, r.Tx())
 	if err != nil {
@@ -185,7 +203,10 @@ func (api API) getModerationForUserAction(r *web.RequestContext) web.ControllerR
 func (api API) getVotesForUserForImageAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	imageUUID := r.RouteParameter("image_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -204,7 +225,10 @@ func (api API) getVotesForUserForImageAction(r *web.RequestContext) web.Controll
 func (api API) getVotesForUserForTagAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	tagUUID := r.RouteParameter("tag_id")
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -223,8 +247,14 @@ func (api API) getVotesForUserForTagAction(r *web.RequestContext) web.Controller
 func (api API) deleteUserVoteAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	imageUUID := r.RouteParameter("image_id")
-	tagUUID := r.RouteParameter("tag_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	userID := session.UserID
 
 	image, err := model.GetImageByUUID(imageUUID, r.Tx())
@@ -330,7 +360,10 @@ func (api API) createImageAction(r *web.RequestContext) web.ControllerResult {
 
 // GET "/api/images/random/:count"
 func (api API) getRandomImagesAction(r *web.RequestContext) web.ControllerResult {
-	count := r.RouteParameterInt("count")
+	count, err := r.RouteParameterInt("count")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	images, err := model.GetRandomImages(count, r.Tx())
 	if err != nil {
@@ -359,7 +392,10 @@ func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerRes
 	if auth.GetSession(r) != nil && auth.GetSession(r).User.IsModerator {
 		contentRating = model.ContentRatingAll
 	}
-	count := r.RouteParameterInt("count")
+	count, err := r.RouteParameterInt("count")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	query := r.Param("query")
 	results, err := model.SearchImagesRandom(query, contentRating, count, r.Tx())
@@ -373,7 +409,10 @@ func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerRes
 
 // GET "/api/image/:image_id"
 func (api API) getImageAction(r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -388,7 +427,10 @@ func (api API) getImageAction(r *web.RequestContext) web.ControllerResult {
 func (api API) updateImageAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	imageUUID := r.RouteParameter("image_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	if !session.User.IsModerator {
 		return r.API().NotAuthorized()
@@ -437,7 +479,10 @@ func (api API) deleteImageAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().InternalError(err)
 	}
 
-	imageUUID := r.RouteParameter("image_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
@@ -467,7 +512,10 @@ func (api API) deleteImageAction(r *web.RequestContext) web.ControllerResult {
 
 // GET "/api/image.votes/:image_id"
 func (api API) getLinksForImageAction(r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -484,7 +532,10 @@ func (api API) getLinksForImageAction(r *web.RequestContext) web.ControllerResul
 
 // GET "/api/image.tags/:image_id"
 func (api API) getTagsForImageAction(r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -502,7 +553,10 @@ func (api API) getTagsForImageAction(r *web.RequestContext) web.ControllerResult
 
 // GET "/api/tags"
 func (api API) getRandomTagsAction(r *web.RequestContext) web.ControllerResult {
-	count := r.RouteParameterInt("count")
+	count, err := r.RouteParameterInt("count")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	tags, err := model.GetRandomTags(count, r.Tx())
 	if err != nil {
@@ -581,7 +635,10 @@ func (api API) searchTagsAction(r *web.RequestContext) web.ControllerResult {
 
 // GET "/api/tags.search/random/:count?query=<query>"
 func (api API) searchTagsRandomAction(r *web.RequestContext) web.ControllerResult {
-	count := r.RouteParameterInt("count")
+	count, err := r.RouteParameterInt("count")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	query := r.Param("query")
 	results, err := model.SearchTagsRandom(query, count, r.Tx())
 	if err != nil {
@@ -592,7 +649,10 @@ func (api API) searchTagsRandomAction(r *web.RequestContext) web.ControllerResul
 
 // GET "/api/tag/:tag_id"
 func (api API) getTagAction(r *web.RequestContext) web.ControllerResult {
-	tagUUID := r.RouteParameter("tag_id")
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -620,7 +680,10 @@ func (api API) deleteTagAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().InternalError(err)
 	}
 
-	tagUUID := r.RouteParameter("tag_id")
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
@@ -644,7 +707,10 @@ func (api API) deleteTagAction(r *web.RequestContext) web.ControllerResult {
 
 // GET "/api/tag.images/:tag_id"
 func (api API) getImagesForTagAction(r *web.RequestContext) web.ControllerResult {
-	tagUUID := r.RouteParameter("tag_id")
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -662,7 +728,10 @@ func (api API) getImagesForTagAction(r *web.RequestContext) web.ControllerResult
 
 // GET "/api/tag.votes/:tag_id"
 func (api API) getLinksForTagAction(r *web.RequestContext) web.ControllerResult {
-	tagUUID := r.RouteParameter("tag_id")
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
@@ -686,8 +755,14 @@ func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().InternalError(err)
 	}
 
-	imageUUID := r.RouteParameter("image_id")
-	tagUUID := r.RouteParameter("tag_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	image, err := model.GetImageByUUID(imageUUID, r.Tx())
 	if err != nil {
@@ -733,8 +808,14 @@ func (api API) downvoteAction(r *web.RequestContext) web.ControllerResult {
 }
 
 func (api API) voteAction(isUpvote bool, session *auth.Session, r *web.RequestContext) web.ControllerResult {
-	imageUUID := r.RouteParameter("image_id")
-	tagUUID := r.RouteParameter("tag_id")
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+	tagUUID, err := r.RouteParameter("tag_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	userID := session.UserID
 
 	tag, err := model.GetTagByUUID(tagUUID, r.Tx())
@@ -786,8 +867,14 @@ func (api API) getRecentModerationLogAction(r *web.RequestContext) web.Controlle
 
 // GET "/api/moderation.log/pages/:count/:offset"
 func (api API) getModerationLogByCountAndOffsetAction(r *web.RequestContext) web.ControllerResult {
-	count := r.RouteParameterInt("count")
-	offset := r.RouteParameterInt("offset")
+	count, err := r.RouteParameterInt("count")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+	offset, err := r.RouteParameterInt("offset")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	log, err := model.GetModerationLogByCountAndOffset(count, offset, r.Tx())
 	if err != nil {
@@ -821,8 +908,14 @@ func (api API) getSearchHistoryByCountAndOffsetAction(r *web.RequestContext) web
 		return r.API().NotAuthorized()
 	}
 
-	count := r.RouteParameterInt("count")
-	offset := r.RouteParameterInt("offset")
+	count, err := r.RouteParameterInt("count")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+	offset, err := r.RouteParameterInt("offset")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
 	searchHistory, err := model.GetSearchHistoryByCountAndOffset(count, offset, r.Tx())
 	if err != nil {
@@ -859,7 +952,10 @@ func (api API) getCurrentUserAction(r *web.RequestContext) web.ControllerResult 
 func (api API) getSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	key := r.RouteParameter("key")
+	key, err := r.RouteParameter("key")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	value, hasValue := session.State[key]
 	if !hasValue {
 		return r.API().NotFound()
@@ -872,7 +968,10 @@ func (api API) getSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 func (api API) setSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	key := r.RouteParameter("key")
+	key, err := r.RouteParameter("key")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	session.State[key] = r.PostBodyAsString()
 	return r.API().OK()
 }
@@ -881,7 +980,10 @@ func (api API) setSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 func (api API) deleteSessionKeyAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
 
-	key := r.RouteParameter("key")
+	key, err := r.RouteParameter("key")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 	if _, hasKey := session.State[key]; !hasKey {
 		return r.API().NotFound()
 	}
@@ -907,9 +1009,12 @@ func (api API) runJobAction(r *web.RequestContext) web.ControllerResult {
 	if !session.User.IsAdmin {
 		return r.API().NotAuthorized()
 	}
-	jobID := r.RouteParameter("job_id")
+	jobID, err := r.RouteParameter("job_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
 
-	err := chronometer.Default().RunJob(jobID)
+	err = chronometer.Default().RunJob(jobID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}

@@ -29,18 +29,3 @@ db-dev:
 	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
 	@GIFFY_APP=giffy-dev-db GIFFY_HOST=45.33.5.126 sh ./_db/init.sh
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
-
-migrate:
-	@echo "$(OK_COLOR)==> Migrating Database with configuration from config.json file$(NO_COLOR)"
-	@genv -f="./_config/config.json" sh ./_db/migrate.sh
-	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"
-
-migrate-dev:
-	@echo "$(OK_COLOR)==> Migrating Database with configuration from config.json file$(NO_COLOR)"
-	@GIFFY_APP=giffy-dev-db GIFFY_HOST=45.33.5.126 sh ./_db/migrate.sh
-	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"
-
-migrate-prod:
-	@echo "$(OK_COLOR)==> Migrating Database with configuration from config.json file$(NO_COLOR)"
-	@GIFFY_APP=giffy-db GIFFY_HOST=45.33.5.126 sh ./_db/migrate.sh
-	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"

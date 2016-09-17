@@ -7,6 +7,7 @@ import (
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-workqueue"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -89,8 +90,8 @@ func (m Moderation) IsZero() bool {
 	return m.UserID == 0
 }
 
-func writeModerationLogEntry(state interface{}) error {
-	if typed, isTyped := state.(*Moderation); isTyped {
+func writeModerationLogEntry(state ...interface{}) error {
+	if typed, isTyped := state[0].(*Moderation); isTyped {
 		return spiffy.DefaultDb().Create(typed)
 	}
 	return exception.New("`state` was not of the correct type.")
@@ -107,14 +108,14 @@ func QueueModerationEntry(userID int64, verb, object string, nouns ...string) {
 		m = NewModeration(userID, verb, object, util.StringEmpty, util.StringEmpty)
 	}
 
-	util.QueueWorkItem(writeModerationLogEntry, m)
+	workQueue.Default().Enqueue(writeModerationLogEntry, m)
 }
 
 func getModerationQuery(whereClause string) string {
-	moderatorColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
-	userColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_").ColumnNamesFromAlias("u"))
-	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_").ColumnNamesFromAlias("i"))
-	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
+	moderatorColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
+	userColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_").ColumnNamesFromAlias("u"))
+	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesFromAlias("i"))
+	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
 
 	return fmt.Sprintf(`
 select
@@ -166,10 +167,10 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 
 func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
 	moderationColumns := spiffy.CachedColumnCollectionFromInstance(Moderation{})
-	moderatorColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("moderator_")
-	userColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().WithColumnPrefix("target_user_")
-	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().WithColumnPrefix("image_")
-	tagColumns := spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().WithColumnPrefix("tag_")
+	moderatorColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_")
+	userColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_")
+	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
+	tagColumns := spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
 
 	return func(r *sql.Rows) error {
 		var m Moderation

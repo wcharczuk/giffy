@@ -60,7 +60,7 @@ func (i Integrations) slackAction(r *web.RequestContext) web.ControllerResult {
 	}
 	if err != nil {
 		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)
-		r.Logger().Error(err)
+		r.Diagnostics().Error(err)
 		return r.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
 	}
 

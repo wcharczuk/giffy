@@ -12,6 +12,9 @@ var (
 	// DefaultDiagnosticsAgentQueueWorkers is the number of consumers
 	// for the diagnostics agent work queue.
 	DefaultDiagnosticsAgentQueueWorkers = 1
+
+	// DefaultDiagnosticsAgentQueueLength is the maximum number of items to buffer in the event queue.
+	DefaultDiagnosticsAgentQueueLength = 1 << 20
 )
 
 var (
@@ -34,11 +37,11 @@ func InitializeDiagnosticsFromEnvironment() error {
 	_diagnosticsAgentLock.Lock()
 	defer _diagnosticsAgentLock.Unlock()
 
-	eventFlag, err := ParseEventFlagNameSet(os.Getenv("LOG_VERBOSITY"))
+	agent, err := NewDiagnosticsAgentFromEnvironment()
 	if err != nil {
 		return err
 	}
-	_diagnosticsAgent = NewDiagnosticsAgent(eventFlag, NewLogWriterFromEnvironment())
+	_diagnosticsAgent = agent
 	return nil
 }
 
@@ -60,8 +63,8 @@ func NewDiagnosticsAgent(verbosity uint64, writers ...Logger) *DiagnosticsAgent 
 		verbosity:  verbosity,
 		eventQueue: workQueue.NewQueueWithWorkers(DefaultDiagnosticsAgentQueueWorkers),
 	}
-	diag.eventQueue.UseSynchronousDispatch() //dispatch items in order
-	diag.eventQueue.SetMaxWorkItems(1 << 20) //more than this and queuing will block
+	diag.eventQueue.UseSynchronousDispatch()                            //dispatch items in order
+	diag.eventQueue.SetMaxWorkItems(DefaultDiagnosticsAgentQueueLength) //more than this and queuing will block
 	diag.eventQueue.Start()
 
 	if len(writers) > 0 {
@@ -70,6 +73,29 @@ func NewDiagnosticsAgent(verbosity uint64, writers ...Logger) *DiagnosticsAgent 
 		diag.writer = NewLogWriter(os.Stdout, os.Stderr)
 	}
 	return diag
+}
+
+// NewDiagnosticsAgentFromEnvironment returns a new diagnostics with a given bitflag verbosity.
+func NewDiagnosticsAgentFromEnvironment() (*DiagnosticsAgent, error) {
+	var err error
+	envEventFlag := os.Getenv("LOG_VERBOSITY")
+	eventFlag := EventFlagCombine(EventFatalError, EventError, EventRequestComplete, EventInfo)
+	if len(envEventFlag) > 0 {
+		eventFlag, err = ParseEventFlagNameSet(envEventFlag)
+		if err != nil {
+			return nil, err
+		}
+	}
+	diag := &DiagnosticsAgent{
+		verbosity:  eventFlag,
+		eventQueue: workQueue.NewQueueWithWorkers(DefaultDiagnosticsAgentQueueWorkers),
+		writer:     NewLogWriterFromEnvironment(),
+	}
+	diag.eventQueue.UseSynchronousDispatch()                            //dispatch items in order
+	diag.eventQueue.SetMaxWorkItems(DefaultDiagnosticsAgentQueueLength) //more than this and queuing will block
+	diag.eventQueue.Start()
+
+	return diag, nil
 }
 
 // DiagnosticsAgent is a handler for various logging events with descendent handlers.
