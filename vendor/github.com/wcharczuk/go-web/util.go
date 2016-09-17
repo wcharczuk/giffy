@@ -1,16 +1,12 @@
 package web
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-util"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -51,48 +47,33 @@ func NestMiddleware(action ControllerAction, middleware ...ControllerMiddleware)
 }
 
 // WriteNoContent writes http.StatusNoContent for a request.
-func WriteNoContent(w http.ResponseWriter) (int, error) {
+func WriteNoContent(w http.ResponseWriter) error {
 	w.WriteHeader(http.StatusNoContent)
 	w.Write([]byte{})
-	return 0, nil
+	return nil
 }
 
 // WriteRawContent writes raw content for the request.
-func WriteRawContent(w http.ResponseWriter, statusCode int, content []byte) (int, error) {
+func WriteRawContent(w http.ResponseWriter, statusCode int, content []byte) error {
 	w.WriteHeader(statusCode)
-	count, err := w.Write(content)
-	return count, exception.Wrap(err)
+	_, err := w.Write(content)
+	return exception.Wrap(err)
 }
 
 // WriteJSON marshalls an object to json.
-func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response interface{}) (int, error) {
-	bytes, err := json.Marshal(response)
-	if err != nil {
-		return 0, exception.Wrap(err)
-	}
-
-	if requestConnectionHeader := r.Header.Get(HeaderConnection); !util.IsEmpty(requestConnectionHeader) {
-		if strings.ToLower(requestConnectionHeader) == ConnectionKeepAlive {
-			w.Header().Set(HeaderConnection, ConnectionKeepAlive)
-		}
-	}
-
+func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response interface{}) error {
 	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	w.WriteHeader(statusCode)
 
-	count, err := w.Write(bytes)
-	return count, exception.Wrap(err)
+	enc := json.NewEncoder(w)
+	err := enc.Encode(response)
+	return exception.Wrap(err)
 }
 
 // DeserializeReaderAsJSON deserializes a post body as json to a given object.
 func DeserializeReaderAsJSON(object interface{}, body io.ReadCloser) error {
 	defer body.Close()
-	bodyBytes, err := ioutil.ReadAll(body)
-	if err != nil {
-		return exception.Wrap(err)
-	}
-	decoder := json.NewDecoder(bytes.NewBuffer(bodyBytes))
-	return exception.Wrap(decoder.Decode(object))
+	return exception.Wrap(json.NewDecoder(body).Decode(object))
 }
 
 // LocalIP returns the local server ip.
