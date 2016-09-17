@@ -13,9 +13,18 @@ var (
 )
 
 // --------------------------------------------------------------------------------
-// Column Collection
+// Utility
 // --------------------------------------------------------------------------------
 
+// ColumnNames returns a csv of column names.
+func ColumnNames(object DatabaseMapped) string {
+	columns := CachedColumnCollectionFromInstance(object)
+	return CSV(columns.ColumnNames())
+}
+
+// --------------------------------------------------------------------------------
+// Column Collection
+// --------------------------------------------------------------------------------
 // func NewColumnCollection() *ColumnCollection { return &ColumnCollection{lookup: map[string]*Column} }
 
 // NewColumnCollectionWithPrefix makes a new column collection with a column prefix.
@@ -33,6 +42,11 @@ func NewColumnCollectionFromColumns(columns []Column) *ColumnCollection {
 	}
 	cc.lookup = lookup
 	return &cc
+}
+
+// Meta is an alias to CachedColumnCollectionFromInstance
+func Meta(obj DatabaseMapped) *ColumnCollection {
+	return CachedColumnCollectionFromInstance(obj)
 }
 
 // CachedColumnCollectionFromInstance reflects an object instance into a new column collection.
@@ -99,17 +113,35 @@ func (cc *ColumnCollection) Add(c Column) {
 	cc.lookup[c.ColumnName] = &c
 }
 
-// WithColumnPrefix applies a column prefix to column names.
-func (cc ColumnCollection) WithColumnPrefix(prefix string) *ColumnCollection {
-	newCC := NewColumnCollectionFromColumns(cc.columns)
-	newCC.columnPrefix = prefix
-	return newCC
+// Remove removes a column (by column name) from the collection.
+func (cc *ColumnCollection) Remove(columnName string) {
+	var newColumns []Column
+	for _, c := range cc.columns {
+		if c.ColumnName != columnName {
+			newColumns = append(newColumns, c)
+		}
+	}
+	cc.columns = newColumns
+	delete(cc.lookup, columnName)
 }
 
-// Copy copies the metadata.
+// HasColumn returns if a column name is present in the collection.
+func (cc *ColumnCollection) HasColumn(columnName string) bool {
+	_, hasColumn := cc.lookup[columnName]
+	return hasColumn
+}
+
+// Copy creates a new column collection instance and carries over an existing column prefix.
 func (cc ColumnCollection) Copy() *ColumnCollection {
 	newCC := NewColumnCollectionFromColumns(cc.columns)
 	newCC.columnPrefix = cc.columnPrefix
+	return newCC
+}
+
+// CopyWithColumnPrefix applies a column prefix to column names and returns a new column collection.
+func (cc ColumnCollection) CopyWithColumnPrefix(prefix string) *ColumnCollection {
+	newCC := NewColumnCollectionFromColumns(cc.columns)
+	newCC.columnPrefix = prefix
 	return newCC
 }
 

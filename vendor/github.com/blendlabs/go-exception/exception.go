@@ -16,11 +16,19 @@ type Exception struct {
 
 // MarshalJSON is a custom json marshaler.
 func (e *Exception) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.Decompose())
+}
+
+// Decompose returns a decomposed version of the exception object.
+func (e *Exception) Decompose() map[string]interface{} {
 	values := map[string]interface{}{}
 	values["message"] = e.message
 	values["stack_trace"] = e.StackTrace()
 
-	return json.Marshal(values)
+	if e.innerException != nil {
+		values["inner_exception"] = e.innerException.Decompose()
+	}
+	return values
 }
 
 // Message returns the exception message.
@@ -28,7 +36,7 @@ func (e *Exception) Message() string {
 	if e.innerException == nil {
 		return e.message
 	}
-	return fmt.Sprintf("%s Nested: %s", e.message, e.innerException.Message())
+	return fmt.Sprintf("%s Inner Exception: %s", e.message, e.innerException.Message())
 }
 
 // StackTrace returns the exception stack trace.
@@ -89,27 +97,31 @@ func Wrap(err error) error {
 
 	if typedEx, isException := err.(*Exception); isException {
 		return typedEx
-	} else if e, isError := err.(error); isError {
-		return WrapError(e)
-	} else {
-		return New("Tried to wrap something that wasn't an error or an Exception")
 	}
+	return WrapError(err)
 }
 
-// WrapMany wraps an arbitrary number of exceptions.
+// WrapMany is vestigal and is an API compatability shim for `Nest(...)`.
 func WrapMany(err ...error) error {
-	var ex *Exception //(*Exception)(nil) != nil
-	didSet := false
+	return Nest(err...)
+}
+
+// Nest nests an arbitrary number of exceptions.
+func Nest(err ...error) error {
+	var ex *Exception
+	var last *Exception
+	var didSet bool //(*Exception)(nil) != nil
 
 	for _, e := range err {
 		if e != nil {
-			typedException := Wrap(e).(*Exception)
-			if typedException != nil && typedException != ex {
+			wrappedError := Wrap(e).(*Exception)
+			if wrappedError != nil && wrappedError != ex {
 				if ex == nil {
-					ex = typedException
+					ex = wrappedError
+					last = wrappedError
 				} else {
-					typedException.innerException = ex
-					ex = typedException
+					last.innerException = wrappedError
+					last = wrappedError
 				}
 				didSet = true
 			}

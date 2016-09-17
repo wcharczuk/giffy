@@ -3,6 +3,7 @@ package spiffy
 import (
 	"database/sql"
 	"reflect"
+	"time"
 
 	"github.com/blendlabs/go-exception"
 )
@@ -13,10 +14,12 @@ import (
 
 // QueryResult is the intermediate result of a query.
 type QueryResult struct {
-	rows *sql.Rows
-	stmt *sql.Stmt
-	conn *DbConnection
-	err  error
+	start     time.Time
+	rows      *sql.Rows
+	queryBody string
+	stmt      *sql.Stmt
+	conn      *DbConnection
+	err       error
 }
 
 // Close closes and releases any resources retained by the QueryResult.
@@ -50,6 +53,7 @@ func (q *QueryResult) Any() (hasRows bool, err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
+		q.conn.FireEvent(q.conn.queryListeners, q.queryBody, time.Now().Sub(q.start), err)
 	}()
 
 	if q.err != nil {
@@ -110,6 +114,7 @@ func (q *QueryResult) Scan(args ...interface{}) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
+		q.conn.FireEvent(q.conn.queryListeners, q.queryBody, time.Now().Sub(q.start), err)
 	}()
 
 	if q.err != nil {
@@ -144,6 +149,7 @@ func (q *QueryResult) Out(object DatabaseMapped) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
+		q.conn.FireEvent(q.conn.queryListeners, q.queryBody, time.Now().Sub(q.start), err)
 	}()
 
 	if q.err != nil {
@@ -185,6 +191,7 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
+		q.conn.FireEvent(q.conn.queryListeners, q.queryBody, time.Now().Sub(q.start), err)
 	}()
 
 	if q.err != nil {
@@ -249,6 +256,7 @@ func (q *QueryResult) Each(consumer RowsConsumer) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
+		q.conn.FireEvent(q.conn.queryListeners, q.queryBody, time.Now().Sub(q.start), err)
 	}()
 
 	if q.err != nil {

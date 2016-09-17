@@ -14,6 +14,15 @@ import (
 // Utility Methods
 // --------------------------------------------------------------------------------
 
+// OptionalTx returns the first of a variadic set of txs.
+// It is useful if you want to have a tx an optional parameter.
+func OptionalTx(txs ...*sql.Tx) *sql.Tx {
+	if len(txs) > 0 {
+		return txs[0]
+	}
+	return nil
+}
+
 // AsPopulatable casts an object as populatable.
 func AsPopulatable(object DatabaseMapped) Populatable {
 	return object.(Populatable)

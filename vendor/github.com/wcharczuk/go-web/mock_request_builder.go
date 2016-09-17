@@ -102,7 +102,6 @@ func (mrb *MockRequestBuilder) AsRequest() (*http.Request, error) {
 	}
 
 	reqURL.RawQuery = mrb.queryString.Encode()
-
 	req.Method = mrb.verb
 	req.URL = reqURL
 	req.RequestURI = reqURL.String()
@@ -150,7 +149,28 @@ func (mrb *MockRequestBuilder) AsRequestContext(p RouteParameters) (*RequestCont
 }
 
 // Response runs the mock request.
-func (mrb *MockRequestBuilder) Response() (*http.Response, error) {
+func (mrb *MockRequestBuilder) Response() (res *http.Response, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if mrb.app.panicHandler != nil {
+				rc, _ := mrb.AsRequestContext(nil)
+				controllerResult := mrb.app.panicHandler(rc, r)
+				panicRecoveryBuffer := bytes.NewBuffer([]byte{})
+				panicRecoveryWriter := NewMockResponseWriter(panicRecoveryBuffer)
+				err = controllerResult.Render(panicRecoveryWriter, rc.Request)
+				res = &http.Response{
+					Body:          ioutil.NopCloser(bytes.NewBuffer(panicRecoveryBuffer.Bytes())),
+					ContentLength: int64(panicRecoveryWriter.ContentLength()),
+					Header:        http.Header{},
+					StatusCode:    panicRecoveryWriter.StatusCode(),
+					Proto:         "http",
+					ProtoMajor:    1,
+					ProtoMinor:    1,
+				}
+			}
+		}
+	}()
+
 	handle, params, addTrailingSlash := mrb.app.router.Lookup(mrb.verb, mrb.path)
 	if addTrailingSlash {
 		mrb.path = mrb.path + "/"
@@ -175,10 +195,14 @@ func (mrb *MockRequestBuilder) Response() (*http.Response, error) {
 
 	w := NewMockResponseWriter(buffer)
 	handle(w, req, params)
-	res := http.Response{
+	res = &http.Response{
 		Body:          ioutil.NopCloser(bytes.NewBuffer(buffer.Bytes())),
 		ContentLength: int64(w.ContentLength()),
 		Header:        http.Header{},
+		StatusCode:    w.statusCode,
+		Proto:         "http",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
 	}
 
 	for key, values := range w.Header() {
@@ -187,12 +211,7 @@ func (mrb *MockRequestBuilder) Response() (*http.Response, error) {
 		}
 	}
 
-	res.StatusCode = w.statusCode
-	res.Proto = "http"
-	res.ProtoMajor = 1
-	res.ProtoMinor = 1
-
-	return &res, nil
+	return
 }
 
 // JSON executes the mock request and reads the response to the given object as json.
@@ -223,4 +242,19 @@ func (mrb *MockRequestBuilder) Bytes() ([]byte, error) {
 func (mrb *MockRequestBuilder) Execute() error {
 	_, err := mrb.Bytes()
 	return err
+}
+
+// ExecuteWithMeta returns basic metadata for a response.
+func (mrb *MockRequestBuilder) ExecuteWithMeta() (*ResponseMeta, error) {
+	res, err := mrb.Response()
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	_, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	return NewResponseMetaFromResponse(res), nil
 }

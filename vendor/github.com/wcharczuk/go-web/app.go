@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -57,6 +58,8 @@ type App struct {
 
 	staticRewriteRules map[string][]*RewriteRule
 	staticHeaders      map[string]http.Header
+
+	panicHandler PanicControllerAction
 
 	tx *sql.Tx
 
@@ -182,32 +185,37 @@ func (a *App) InitViewCache(paths ...string) error {
 
 // GET registers a GET request handler.
 func (a *App) GET(path string, action ControllerAction, middleware ...ControllerMiddleware) {
-	a.router.GET(path, a.renderAction(a.nestMiddleware(action, middleware...)))
+	a.router.GET(path, a.renderAction(NestMiddleware(action, middleware...)))
 }
 
 // OPTIONS registers a OPTIONS request handler.
 func (a *App) OPTIONS(path string, action ControllerAction, middleware ...ControllerMiddleware) {
-	a.router.OPTIONS(path, a.renderAction(a.nestMiddleware(action, middleware...)))
+	a.router.OPTIONS(path, a.renderAction(NestMiddleware(action, middleware...)))
 }
 
 // HEAD registers a HEAD request handler.
 func (a *App) HEAD(path string, action ControllerAction, middleware ...ControllerMiddleware) {
-	a.router.HEAD(path, a.renderAction(a.nestMiddleware(action, middleware...)))
+	a.router.HEAD(path, a.renderAction(NestMiddleware(action, middleware...)))
 }
 
 // PUT registers a PUT request handler.
 func (a *App) PUT(path string, action ControllerAction, middleware ...ControllerMiddleware) {
-	a.router.PUT(path, a.renderAction(a.nestMiddleware(action, middleware...)))
+	a.router.PUT(path, a.renderAction(NestMiddleware(action, middleware...)))
+}
+
+// PATCH registers a PATCH request handler.
+func (a *App) PATCH(path string, action ControllerAction, middleware ...ControllerMiddleware) {
+	a.router.PATCH(path, a.renderAction(NestMiddleware(action, middleware...)))
 }
 
 // POST registers a POST request actions.
 func (a *App) POST(path string, action ControllerAction, middleware ...ControllerMiddleware) {
-	a.router.POST(path, a.renderAction(a.nestMiddleware(action, middleware...)))
+	a.router.POST(path, a.renderAction(NestMiddleware(action, middleware...)))
 }
 
 // DELETE registers a DELETE request handler.
 func (a *App) DELETE(path string, action ControllerAction, middleware ...ControllerMiddleware) {
-	a.router.DELETE(path, a.renderAction(a.nestMiddleware(action, middleware...)))
+	a.router.DELETE(path, a.renderAction(NestMiddleware(action, middleware...)))
 }
 
 // --------------------------------------------------------------------------------
@@ -305,8 +313,10 @@ func (a *App) staticAction(path string, root http.FileSystem) ControllerAction {
 			staticHeaders = headers
 		}
 
+		filePath, _ := r.RouteParameter("filepath")
+
 		return &StaticResult{
-			FilePath:     r.RouteParameter("filepath"),
+			FilePath:     filePath,
 			FileServer:   fileServer,
 			RewriteRules: staticRewriteRules,
 			Headers:      staticHeaders,
@@ -330,6 +340,7 @@ func (a *App) SetMethodNotAllowedHandler(handler ControllerAction) {
 
 // SetPanicHandler sets the not found handler.
 func (a *App) SetPanicHandler(handler PanicControllerAction) {
+	a.panicHandler = handler
 	a.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		a.renderAction(func(r *RequestContext) ControllerResult {
 			a.onRequestError(r, err)
@@ -414,28 +425,6 @@ func (a *App) requestContext(w ResponseWriter, r *http.Request, p RouteParameter
 	return hc
 }
 
-// nestMiddleware reads the middleware variadic args and organizes the calls recursively in the order they appear.
-func (a *App) nestMiddleware(action ControllerAction, middleware ...ControllerMiddleware) ControllerAction {
-	if len(middleware) == 0 {
-		return action
-	}
-
-	var nest = func(a, b ControllerMiddleware) ControllerMiddleware {
-		if b == nil {
-			return a
-		}
-		return func(action ControllerAction) ControllerAction {
-			return a(b(action))
-		}
-	}
-
-	var metaAction ControllerMiddleware
-	for _, step := range middleware {
-		metaAction = nest(step, metaAction)
-	}
-	return metaAction(action)
-}
-
 // renderAction is the translation step from ControllerAction to httprouter.Handle.
 func (a *App) renderAction(action ControllerAction) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -475,18 +464,23 @@ func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters)
 
 func (a *App) renderResult(action ControllerAction, context *RequestContext) {
 	result := action(context)
-	err := result.Render(context.Response, context.Request)
-	if err != nil {
-		if a.logger != nil {
-			a.logger.Error(err)
+	if result != nil {
+		err := result.Render(context.Response, context.Request)
+		if err != nil {
+			if a.logger != nil {
+				a.logger.Error(err)
+			}
 		}
 	}
 }
 
 func (a *App) pipelineComplete(context *RequestContext) {
 	context.Response.Flush()
-	context.setStatusCode(context.Response.StatusCode())
-	context.setContentLength(context.Response.ContentLength())
+	if closer, isCloser := context.Response.(io.Closer); isCloser {
+		closer.Close()
+	}
+	context.setLoggedStatusCode(context.Response.StatusCode())
+	context.setLoggedContentLength(context.Response.ContentLength())
 	a.onRequestComplete(context)
 	context.LogRequest()
 }

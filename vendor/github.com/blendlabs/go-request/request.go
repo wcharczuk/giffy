@@ -32,6 +32,46 @@ const (
 )
 
 //--------------------------------------------------------------------------------
+// HTTPTransport
+//--------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------
+// HTTPRequestMeta
+//--------------------------------------------------------------------------------
+
+// NewHTTPRequestMeta returns a new meta object for a request.
+func NewHTTPRequestMeta(req *http.Request) *HTTPRequestMeta {
+	return &HTTPRequestMeta{
+		Verb:    req.Method,
+		URL:     req.URL,
+		Headers: req.Header,
+	}
+}
+
+// NewHTTPRequestMetaWithBody returns a new meta object for a request and reads the body.
+func NewHTTPRequestMetaWithBody(req *http.Request) (*HTTPRequestMeta, error) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	defer req.Body.Close()
+	return &HTTPRequestMeta{
+		Verb:    req.Method,
+		URL:     req.URL,
+		Headers: req.Header,
+		Body:    body,
+	}, nil
+}
+
+// HTTPRequestMeta is a summary of the request meta useful for logging.
+type HTTPRequestMeta struct {
+	Verb    string
+	URL     *url.URL
+	Headers http.Header
+	Body    []byte
+}
+
+//--------------------------------------------------------------------------------
 // HttpResponseMeta
 //--------------------------------------------------------------------------------
 
@@ -60,14 +100,6 @@ func NewHTTPResponseMeta(res *http.Response) *HTTPResponseMeta {
 	return meta
 }
 
-// HTTPRequestMeta is a summary of the request meta useful for logging.
-type HTTPRequestMeta struct {
-	Verb    string
-	URL     *url.URL
-	Headers http.Header
-	Body    []byte
-}
-
 // HTTPResponseMeta is just the meta information for an http response.
 type HTTPResponseMeta struct {
 	StatusCode      int
@@ -82,6 +114,9 @@ type CreateTransportHandler func(host *url.URL, transport *http.Transport)
 
 // ResponseHandler is a receiver for `OnResponse`.
 type ResponseHandler func(meta *HTTPResponseMeta, content []byte)
+
+// StatefulResponseHandler is a receiver for `OnResponse`.
+type StatefulResponseHandler func(req *HTTPRequestMeta, res *HTTPResponseMeta, content []byte, state interface{})
 
 // OutgoingRequestHandler is a receiver for `OnRequest`.
 type OutgoingRequestHandler func(req *HTTPRequestMeta)
@@ -110,39 +145,48 @@ func NewHTTPRequest() *HTTPRequest {
 
 // HTTPRequest makes http requests.
 type HTTPRequest struct {
-	Scheme            string
-	Host              string
-	Path              string
-	QueryString       url.Values
-	Header            http.Header
-	PostData          url.Values
-	Cookies           []*http.Cookie
-	BasicAuthUsername string
-	BasicAuthPassword string
-	Verb              string
-	ContentType       string
-	Timeout           time.Duration
-	TLSCertPath       string
-	TLSKeyPath        string
-	Body              []byte
-	KeepAlive         bool
+	Scheme              string
+	Host                string
+	Path                string
+	QueryString         url.Values
+	Header              http.Header
+	PostData            url.Values
+	Cookies             []*http.Cookie
+	BasicAuthUsername   string
+	BasicAuthPassword   string
+	Verb                string
+	ContentType         string
+	Timeout             time.Duration
+	TLSCertPath         string
+	TLSKeyPath          string
+	SkipTLSVerification bool
+	Body                []byte
+	KeepAlive           bool
 
 	Label string
 
 	Logger   *log.Logger
 	LogLevel int
 
-	transport *http.Transport
+	state interface{}
 
-	createTransportHandler  CreateTransportHandler
-	incomingResponseHandler ResponseHandler
-	outgoingRequestHandler  OutgoingRequestHandler
-	mockHandler             MockedResponseHandler
+	transport                       *http.Transport
+	createTransportHandler          CreateTransportHandler
+	incomingResponseHandler         ResponseHandler
+	statefulIncomingResponseHandler StatefulResponseHandler
+	outgoingRequestHandler          OutgoingRequestHandler
+	mockHandler                     MockedResponseHandler
 }
 
 // OnResponse configures an event receiver.
 func (hr *HTTPRequest) OnResponse(hook ResponseHandler) *HTTPRequest {
 	hr.incomingResponseHandler = hook
+	return hr
+}
+
+// OnResponseStateful configures an event receiver that includes the request state.
+func (hr *HTTPRequest) OnResponseStateful(hook StatefulResponseHandler) *HTTPRequest {
+	hr.statefulIncomingResponseHandler = hook
 	return hr
 }
 
@@ -158,9 +202,21 @@ func (hr *HTTPRequest) OnRequest(hook OutgoingRequestHandler) *HTTPRequest {
 	return hr
 }
 
+// WithState adds a state object to the request for later usage.
+func (hr *HTTPRequest) WithState(state interface{}) *HTTPRequest {
+	hr.state = state
+	return hr
+}
+
 // WithLabel gives the request a logging label.
 func (hr *HTTPRequest) WithLabel(label string) *HTTPRequest {
 	hr.Label = label
+	return hr
+}
+
+// ShouldSkipTLSVerification skips the bad certificate checking on TLS requests.
+func (hr *HTTPRequest) ShouldSkipTLSVerification() *HTTPRequest {
+	hr.SkipTLSVerification = true
 	return hr
 }
 
@@ -410,7 +466,7 @@ func (hr *HTTPRequest) WithXMLBody(object interface{}) *HTTPRequest {
 	return hr.WithSerializedBody(object, serializeXML).WithContentType("application/xml")
 }
 
-// WithBody sets the post body with the results of the given serializer.
+// WithSerializedBody sets the post body with the results of the given serializer.
 func (hr *HTTPRequest) WithSerializedBody(object interface{}, serialize Serializer) *HTTPRequest {
 	body, _ := serialize(object)
 	return hr.WithRawBody(body)
@@ -429,7 +485,8 @@ func (hr *HTTPRequest) CreateURL() *url.URL {
 	return workingURL
 }
 
-func (hr *HTTPRequest) RequestMeta() *HTTPRequestMeta {
+// AsMeta returns the request as meta.
+func (hr *HTTPRequest) AsMeta() *HTTPRequestMeta {
 	return &HTTPRequestMeta{
 		Verb:    hr.Verb,
 		URL:     hr.CreateURL(),
@@ -448,6 +505,7 @@ func (hr *HTTPRequest) RequestBody() []byte {
 	return nil
 }
 
+// Headers returns the headers on the request.
 func (hr *HTTPRequest) Headers() http.Header {
 	headers := http.Header{}
 	for key, values := range hr.Header {
@@ -546,14 +604,21 @@ func (hr *HTTPRequest) Execute() error {
 // ExecuteWithMeta makes the request and returns the meta of the response.
 func (hr *HTTPRequest) ExecuteWithMeta() (*HTTPResponseMeta, error) {
 	res, err := hr.FetchRawResponse()
-	if res != nil && res.Body != nil {
-		closeErr := res.Body.Close()
-		if closeErr != nil {
-			return nil, exception.WrapMany(exception.Wrap(err), exception.Wrap(closeErr))
-		}
+	if err != nil {
+		return nil, exception.Wrap(err)
 	}
 	meta := NewHTTPResponseMeta(res)
-	return meta, exception.Wrap(err)
+	if res != nil && res.Body != nil {
+		defer res.Body.Close()
+		contents, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return nil, exception.Wrap(err)
+		}
+		meta.ContentLength = int64(len(contents))
+		hr.logResponse(meta, contents, hr.state)
+	}
+
+	return meta, nil
 }
 
 // FetchString returns the body of the response as a string.
@@ -565,20 +630,20 @@ func (hr *HTTPRequest) FetchString() (string, error) {
 // FetchStringWithMeta returns the body of the response as a string in addition to the response metadata.
 func (hr *HTTPRequest) FetchStringWithMeta() (string, *HTTPResponseMeta, error) {
 	res, err := hr.FetchRawResponse()
-	meta := NewHTTPResponseMeta(res)
+	resMeta := NewHTTPResponseMeta(res)
 	if err != nil {
-		return util.StringEmpty, meta, exception.Wrap(err)
+		return util.StringEmpty, resMeta, exception.Wrap(err)
 	}
 	defer res.Body.Close()
 
 	bytes, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
-		return util.StringEmpty, meta, exception.Wrap(readErr)
+		return util.StringEmpty, resMeta, exception.Wrap(readErr)
 	}
 
-	meta.ContentLength = int64(len(bytes))
-	hr.logResponse(meta, bytes)
-	return string(bytes), meta, nil
+	resMeta.ContentLength = int64(len(bytes))
+	hr.logResponse(resMeta, bytes, hr.state)
+	return string(bytes), resMeta, nil
 }
 
 // FetchJSONToObject unmarshals the response as json to an object.
@@ -627,7 +692,10 @@ func (hr *HTTPRequest) FetchObjectWithSerializer(deserialize Deserializer) (*HTT
 }
 
 func (hr *HTTPRequest) requiresCustomTransport() bool {
-	return (!isEmpty(hr.TLSCertPath) && !isEmpty(hr.TLSKeyPath)) || hr.transport != nil || hr.createTransportHandler != nil
+	return (!isEmpty(hr.TLSCertPath) && !isEmpty(hr.TLSKeyPath)) ||
+		hr.transport != nil ||
+		hr.createTransportHandler != nil ||
+		hr.SkipTLSVerification
 }
 
 func (hr *HTTPRequest) getHTTPTransport() (*http.Transport, error) {
@@ -666,7 +734,13 @@ func (hr *HTTPRequest) createHTTPTransport() (*http.Transport, error) {
 			return nil, exception.Wrap(err)
 		}
 		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cert},
+			InsecureSkipVerify: hr.SkipTLSVerification,
+			Certificates:       []tls.Certificate{cert},
+		}
+		transport.TLSClientConfig = tlsConfig
+	} else {
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: hr.SkipTLSVerification,
 		}
 		transport.TLSClientConfig = tlsConfig
 	}
@@ -693,7 +767,7 @@ func (hr *HTTPRequest) deserialize(handler Deserializer) (*HTTPResponseMeta, err
 	}
 
 	meta.ContentLength = int64(len(body))
-	hr.logResponse(meta, body)
+	hr.logResponse(meta, body, hr.state)
 	if handler != nil {
 		err = handler(body)
 	}
@@ -715,7 +789,7 @@ func (hr *HTTPRequest) deserializeWithError(okHandler Deserializer, errorHandler
 	}
 
 	meta.ContentLength = int64(len(body))
-	hr.logResponse(meta, body)
+	hr.logResponse(meta, body, hr.state)
 	if res.StatusCode == http.StatusOK {
 		if okHandler != nil {
 			err = okHandler(body)
@@ -727,18 +801,21 @@ func (hr *HTTPRequest) deserializeWithError(okHandler Deserializer, errorHandler
 }
 
 func (hr *HTTPRequest) logRequest() {
-	meta := hr.RequestMeta()
+	meta := hr.AsMeta()
 	if hr.outgoingRequestHandler != nil {
 		hr.outgoingRequestHandler(meta)
 	}
 	hr.logf(HTTPRequestLogLevelVerbose, "Service Request ==> %s %s\n", meta.Verb, meta.URL.String())
 }
 
-func (hr *HTTPRequest) logResponse(meta *HTTPResponseMeta, responseBody []byte) {
-	if hr.incomingResponseHandler != nil {
-		hr.incomingResponseHandler(meta, responseBody)
+func (hr *HTTPRequest) logResponse(res *HTTPResponseMeta, responseBody []byte, state interface{}) {
+	if hr.statefulIncomingResponseHandler != nil {
+		hr.statefulIncomingResponseHandler(hr.AsMeta(), res, responseBody, state)
 	}
-	hr.logf(HTTPRequestLogLevelVerbose, "Service Response ==> %s", responseBody)
+	if hr.incomingResponseHandler != nil {
+		hr.incomingResponseHandler(res, responseBody)
+	}
+	hr.logf(HTTPRequestLogLevelVerbose, "Service Response ==> %s", string(responseBody))
 }
 
 //--------------------------------------------------------------------------------

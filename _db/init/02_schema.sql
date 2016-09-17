@@ -51,7 +51,7 @@ CREATE TABLE image (
 	s3_bucket varchar(64) not null,
 	s3_key varchar(64) not null,
 
-	is_censored boolean not null default false,
+	content_rating int not null default 3,
 
 	width int not null,
 	height int not null,
@@ -142,3 +142,10 @@ create table search_history (
 	image_id bigint,
 	tag_id bigint
 );
+
+CREATE TABLE content_rating (
+	id int not null,
+	name varchar(32) not null,
+	description varchar(1024) not null
+);
+ALTER TABLE content_rating ADD CONSTRAINT pk_content_rating_id PRIMARY KEY (id);

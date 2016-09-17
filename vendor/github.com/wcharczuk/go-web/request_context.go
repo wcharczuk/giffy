@@ -2,12 +2,12 @@ package web
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/blendlabs/go-util"
 )
 
 const (
@@ -15,7 +15,10 @@ const (
 	PostBodySize = int64(1 << 26) //64mb
 
 	// PostBodySizeMax is the absolute maximum file size the server can handle.
-	PostBodySizeMax = int64(1 << 32) //fucking enormous.
+	PostBodySizeMax = int64(1 << 32) //enormous.
+
+	// StringEmpty is the empty string.
+	StringEmpty = ""
 )
 
 // PostedFile is a file that has been posted to an hc endpoint.
@@ -52,6 +55,8 @@ type RequestContext struct {
 	//Public fields
 	Response ResponseWriter
 	Request  *http.Request
+
+	postBody []byte
 
 	//Private fields
 	api                   *APIResultProvider
@@ -160,19 +165,27 @@ func (rc *RequestContext) Param(name string) string {
 		return cookie.Value
 	}
 
-	return util.StringEmpty
+	return ""
 }
 
-// PostBodyAsString is the string post body.
+// PostBody returns the bytes in a post body.
+func (rc *RequestContext) PostBody() []byte {
+	if len(rc.postBody) == 0 {
+		defer rc.Request.Body.Close()
+		rc.postBody, _ = ioutil.ReadAll(rc.Request.Body)
+	}
+
+	return rc.postBody
+}
+
+// PostBodyAsString returns the post body as a string.
 func (rc *RequestContext) PostBodyAsString() string {
-	defer rc.Request.Body.Close()
-	bytes, _ := ioutil.ReadAll(rc.Request.Body)
-	return string(bytes)
+	return string(rc.PostBody())
 }
 
 // PostBodyAsJSON reads the incoming post body (closing it) and marshals it to the target object as json.
 func (rc *RequestContext) PostBodyAsJSON(response interface{}) error {
-	return DeserializeReaderAsJSON(response, rc.Request.Body)
+	return json.Unmarshal(rc.PostBody(), response)
 }
 
 // PostedFiles returns any files posted
@@ -209,28 +222,116 @@ func (rc *RequestContext) PostedFiles() ([]PostedFile, error) {
 	return files, nil
 }
 
-// RouteParameterInt returns a route parameter as an integer
-func (rc *RequestContext) RouteParameterInt(key string) int {
+// RouteParameterInt returns a route parameter as an integer.
+func (rc *RequestContext) RouteParameterInt(key string) (int, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
-		return util.ParseInt(value)
+		return strconv.Atoi(value)
 	}
-	return int(0)
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
 }
 
-// RouteParameterInt64 returns a route parameter as an integer
-func (rc *RequestContext) RouteParameterInt64(key string) int64 {
+// RouteParameterInt64 returns a route parameter as an integer.
+func (rc *RequestContext) RouteParameterInt64(key string) (int64, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
-		valueAsInt, err := strconv.ParseInt(value, 10, 64)
-		if err == nil {
-			return valueAsInt
-		}
+		return strconv.ParseInt(value, 10, 64)
 	}
-	return int64(0)
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// RouteParameterFloat64 returns a route parameter as an float64.
+func (rc *RequestContext) RouteParameterFloat64(key string) (float64, error) {
+	if value, hasKey := rc.routeParameters[key]; hasKey {
+		return strconv.ParseFloat(value, 64)
+	}
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
 }
 
 // RouteParameter returns a string route parameter
-func (rc *RequestContext) RouteParameter(key string) string {
-	return rc.routeParameters[key]
+func (rc *RequestContext) RouteParameter(key string) (string, error) {
+	if value, hasKey := rc.routeParameters[key]; hasKey {
+		return value, nil
+	}
+	return StringEmpty, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// QueryParam returns a query parameter.
+func (rc *RequestContext) QueryParam(key string) (string, error) {
+	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+		return value, nil
+	}
+	return StringEmpty, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// QueryParamInt returns a query parameter as an integer.
+func (rc *RequestContext) QueryParamInt(key string) (int, error) {
+	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+		return strconv.Atoi(value)
+	}
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// QueryParamInt64 returns a query parameter as an int64.
+func (rc *RequestContext) QueryParamInt64(key string) (int64, error) {
+	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+		return strconv.ParseInt(value, 10, 64)
+	}
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// QueryParamFloat64 returns a query parameter as a float64.
+func (rc *RequestContext) QueryParamFloat64(key string) (float64, error) {
+	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+		return strconv.ParseFloat(value, 64)
+	}
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// QueryParamTime returns a query parameter as a time.Time.
+func (rc *RequestContext) QueryParamTime(key, format string) (time.Time, error) {
+	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+		return time.Parse(format, value)
+	}
+	return time.Time{}, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// HeaderParam returns a header parameter value.
+func (rc *RequestContext) HeaderParam(key string) (string, error) {
+	if value := rc.Request.Header.Get(key); len(value) > 0 {
+		return value, nil
+	}
+	return StringEmpty, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// HeaderParamInt returns a header parameter value as an integer.
+func (rc *RequestContext) HeaderParamInt(key string) (int, error) {
+	if value := rc.Request.Header.Get(key); len(value) > 0 {
+		return strconv.Atoi(value)
+	}
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// HeaderParamInt64 returns a header parameter value as an integer.
+func (rc *RequestContext) HeaderParamInt64(key string) (int64, error) {
+	if value := rc.Request.Header.Get(key); len(value) > 0 {
+		return strconv.ParseInt(value, 10, 64)
+	}
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// HeaderParamFloat64 returns a header parameter value as an float64.
+func (rc *RequestContext) HeaderParamFloat64(key string) (float64, error) {
+	if value := rc.Request.Header.Get(key); len(value) > 0 {
+		return strconv.ParseFloat(value, 64)
+	}
+	return 0, fmt.Errorf("`%s` parameter is missing", key)
+}
+
+// HeaderParamTime returns a header parameter value as an float64.
+func (rc *RequestContext) HeaderParamTime(key, format string) (time.Time, error) {
+	if value := rc.Request.Header.Get(key); len(value) > 0 {
+		return time.Parse(format, key)
+	}
+	return time.Time{}, fmt.Errorf("`%s` parameter is missing", key)
 }
 
 // GetCookie returns a named cookie from the request.
@@ -351,22 +452,22 @@ func (rc *RequestContext) Redirect(path string) *RedirectResult {
 // --------------------------------------------------------------------------------
 
 // StatusCode returns the status code for the request, this is used for logging.
-func (rc *RequestContext) getStatusCode() int {
+func (rc *RequestContext) getLoggedStatusCode() int {
 	return rc.statusCode
 }
 
 // SetStatusCode sets the status code for the request, this is used for logging.
-func (rc *RequestContext) setStatusCode(code int) {
+func (rc *RequestContext) setLoggedStatusCode(code int) {
 	rc.statusCode = code
 }
 
 // ContentLength returns the content length for the request, this is used for logging.
-func (rc *RequestContext) getContentLength() int {
+func (rc *RequestContext) getLoggedContentLength() int {
 	return rc.contentLength
 }
 
 // SetContentLength sets the content length, this is used for logging.
-func (rc *RequestContext) setContentLength(length int) {
+func (rc *RequestContext) setLoggedContentLength(length int) {
 	rc.contentLength = length
 }
 

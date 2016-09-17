@@ -15,13 +15,20 @@ import (
 )
 
 const (
-	RED    = "31"
-	BLUE   = "94"
-	GREEN  = "32"
+	// RED is the ansi escape code fragment for red.
+	RED = "31"
+	// BLUE is the ansi escape code fragment for blue.
+	BLUE = "94"
+	// GREEN is the ansi escape code fragment for green.
+	GREEN = "32"
+	// YELLOW is the ansi escape code fragment for yellow.
 	YELLOW = "33"
-	WHITE  = "37"
-	GRAY   = "90"
+	// WHITE is the ansi escape code fragment for white.
+	WHITE = "37"
+	// GRAY is the ansi escape code fragment for gray.
+	GRAY = "90"
 
+	// EMPTY is a constant for the empty (0 length) string.
 	EMPTY = ""
 )
 
@@ -36,20 +43,33 @@ func Count() int {
 	return int(assertCount)
 }
 
+// Predicate is a func that returns a bool.
 type Predicate func(item interface{}) bool
+
+//PredicateOfInt is a func that takes an int and returns a bool.
 type PredicateOfInt func(item int) bool
+
+// PredicateOfFloat is a func that takes a float64 and returns a bool.
 type PredicateOfFloat func(item float64) bool
+
+// PredicateOfString is a func that takes a string and returns a bool.
 type PredicateOfString func(item string) bool
 
+// PredicateOfTime is a func that takes a time.Time and returns a bool.
+type PredicateOfTime func(item time.Time) bool
+
+// Assertions is the main entry point for using the assertions library.
 type Assertions struct {
 	t           *testing.T
 	didComplete bool
 }
 
+// Empty returns an empty assertions class; useful when you want to apply assertions w/o hooking into the testing framework.
 func Empty() *Assertions {
 	return &Assertions{}
 }
 
+// New returns a new instance of `Assertions`.
 func New(t *testing.T) *Assertions {
 	return &Assertions{t: t}
 }
@@ -58,203 +78,234 @@ func (a *Assertions) assertion() {
 	incrementAssertCount()
 }
 
-func (a *Assertions) NonFatal() *optional {
-	return &optional{a.t}
+// NonFatal transitions the assertion into a `NonFatal` assertion; that is, one that will not cause the test to abort if it fails.
+// NonFatal assertions are useful when you want to check many properties during a test, but only on an informational basis.
+func (a *Assertions) NonFatal() *Optional { //golint you can bite me.
+	return &Optional{a.t}
 }
 
+// NotNil asserts that a reference is not nil.
 func (a *Assertions) NotNil(object interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldNotBeNil(object); did_fail {
+	if didFail, message := shouldNotBeNil(object); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// Nil asserts that a reference is nil.
 func (a *Assertions) Nil(object interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeNil(object); did_fail {
+	if didFail, message := shouldBeNil(object); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// Len asserts that a collection has a given length.
 func (a *Assertions) Len(collection interface{}, length int, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldHaveLength(collection, length); did_fail {
+	if didFail, message := shouldHaveLength(collection, length); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// Empty asserts that a collection is empty.
 func (a *Assertions) Empty(collection interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeEmpty(collection); did_fail {
+	if didFail, message := shouldBeEmpty(collection); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// NotEmpty asserts that a collection is not empty.
 func (a *Assertions) NotEmpty(collection interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldNotBeEmpty(collection); did_fail {
+	if didFail, message := shouldNotBeEmpty(collection); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// Equal asserts that two objects are deeply equal.
 func (a *Assertions) Equal(expected interface{}, actual interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeEqual(expected, actual); did_fail {
+	if didFail, message := shouldBeEqual(expected, actual); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// NotEqual asserts that two objects are not deeply equal.
 func (a *Assertions) NotEqual(expected interface{}, actual interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldNotBeEqual(expected, actual); did_fail {
+	if didFail, message := shouldNotBeEqual(expected, actual); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// Zero asserts that a value is equal to it's default value.
 func (a *Assertions) Zero(value interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeZero(value); did_fail {
+	if didFail, message := shouldBeZero(value); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// NotZero asserts that a value is not equal to it's default value.
 func (a *Assertions) NotZero(value interface{}, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeNonZero(value); did_fail {
+	if didFail, message := shouldBeNonZero(value); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// True asserts a boolean is true.
 func (a *Assertions) True(object bool, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeTrue(object); did_fail {
+	if didFail, message := shouldBeTrue(object); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// False asserts a boolean is false.
 func (a *Assertions) False(object bool, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeFalse(object); did_fail {
+	if didFail, message := shouldBeFalse(object); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
-func (a *Assertions) InDelta(from, to, delta float64, userMessageComponents ...interface{}) {
+// InDelta asserts that two floats are within a delta.
+func (a *Assertions) InDelta(f1, f2, delta float64, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeInDelta(from, to, delta); did_fail {
+	if didFail, message := shouldBeInDelta(f1, f2, delta); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
-func (a *Assertions) InTimeDelta(from, to time.Time, delta time.Duration, userMessageComponents ...interface{}) {
+// InTimeDelta asserts that times t1 and t2 are within a delta.
+func (a *Assertions) InTimeDelta(t1, t2 time.Time, delta time.Duration, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldBeInTimeDelta(from, to, delta); did_fail {
+	if didFail, message := shouldBeInTimeDelta(t1, t2, delta); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
-func (a *Assertions) FileExists(filePath string, userMessageComponents ...interface{}) {
+// FileExists asserts that a file exists at a given filepath on disk.
+func (a *Assertions) FileExists(filepath string, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := fileShouldExist(filePath); did_fail {
+	if didFail, message := fileShouldExist(filepath); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
-func (a *Assertions) Contains(subString, corpus string, userMessageComponents ...interface{}) {
+// Contains asserts that a substring is present in a corpus.
+func (a *Assertions) Contains(substring, corpus string, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldContain(subString, corpus); did_fail {
+	if didFail, message := shouldContain(substring, corpus); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// Any applies a predicate.
 func (a *Assertions) Any(target interface{}, predicate Predicate, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAny(target, predicate); did_fail {
+	if didFail, message := shouldAny(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// AnyOfInt applies a predicate.
 func (a *Assertions) AnyOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAnyOfInt(target, predicate); did_fail {
+	if didFail, message := shouldAnyOfInt(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// AnyOfFloat applies a predicate.
 func (a *Assertions) AnyOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAnyOfFloat(target, predicate); did_fail {
+	if didFail, message := shouldAnyOfFloat(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// AnyOfString applies a predicate.
 func (a *Assertions) AnyOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAnyOfString(target, predicate); did_fail {
+	if didFail, message := shouldAnyOfString(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// All applies a predicate.
 func (a *Assertions) All(target interface{}, predicate Predicate, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAll(target, predicate); did_fail {
+	if didFail, message := shouldAll(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// AllOfInt applies a predicate.
 func (a *Assertions) AllOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAllOfInt(target, predicate); did_fail {
+	if didFail, message := shouldAllOfInt(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// AllOfFloat applies a predicate.
 func (a *Assertions) AllOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAllOfFloat(target, predicate); did_fail {
+	if didFail, message := shouldAllOfFloat(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// AllOfString applies a predicate.
 func (a *Assertions) AllOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldAllOfString(target, predicate); did_fail {
+	if didFail, message := shouldAllOfString(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// None applies a predicate.
 func (a *Assertions) None(target interface{}, predicate Predicate, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldNone(target, predicate); did_fail {
+	if didFail, message := shouldNone(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// NoneOfInt applies a predicate.
 func (a *Assertions) NoneOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldNoneOfInt(target, predicate); did_fail {
+	if didFail, message := shouldNoneOfInt(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// NoneOfFloat applies a predicate.
 func (a *Assertions) NoneOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldNoneOfFloat(target, predicate); did_fail {
+	if didFail, message := shouldNoneOfFloat(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// NoneOfString applies a predicate.
 func (a *Assertions) NoneOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) {
 	a.assertion()
-	if did_fail, message := shouldNoneOfString(target, predicate); did_fail {
+	if didFail, message := shouldNoneOfString(target, predicate); didFail {
 		failNow(a.t, message, userMessageComponents...)
 	}
 }
 
+// FailNow forces a test failure (useful for debugging).
 func (a *Assertions) FailNow(userMessageComponents ...interface{}) {
 	failNow(a.t, "Fatal Assertion Failed", userMessageComponents...)
 }
 
+// StartTimeout starts a timed block.
 func (a *Assertions) StartTimeout(timeout time.Duration, userMessageComponents ...interface{}) {
 	sleepFor := 1 * time.Millisecond
 	waited := time.Duration(0)
@@ -271,262 +322,292 @@ func (a *Assertions) StartTimeout(timeout time.Duration, userMessageComponents .
 	}()
 }
 
+// EndTimeout marks a timed block as complete.
 func (a *Assertions) EndTimeout() {
 	a.didComplete = true
 }
 
-type optional struct {
+// Optional is an assertion type that does not stop a test if an assertion fails, simply outputs the error.
+type Optional struct {
 	t *testing.T
 }
 
-func (o *optional) assertion() {
+func (o *Optional) assertion() {
 	incrementAssertCount()
 }
 
-func (o *optional) Nil(object interface{}, userMessageComponents ...interface{}) bool {
+// Nil asserts the object is nil.
+func (o *Optional) Nil(object interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeNil(object); did_fail {
+	if didFail, message := shouldBeNil(object); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) NotNil(object interface{}, userMessageComponents ...interface{}) bool {
+// NotNil asserts the object is not nil.
+func (o *Optional) NotNil(object interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldNotBeNil(object); did_fail {
+	if didFail, message := shouldNotBeNil(object); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) Len(collection interface{}, length int, userMessageComponents ...interface{}) bool {
+// Len asserts that the collection has a specified length.
+func (o *Optional) Len(collection interface{}, length int, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldHaveLength(collection, length); did_fail {
+	if didFail, message := shouldHaveLength(collection, length); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) Empty(collection interface{}, userMessageComponents ...interface{}) bool {
+// Empty asserts that a collection is empty.
+func (o *Optional) Empty(collection interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeEmpty(collection); did_fail {
+	if didFail, message := shouldBeEmpty(collection); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) NotEmpty(collection interface{}, userMessageComponents ...interface{}) bool {
+// NotEmpty asserts that a collection is not empty.
+func (o *Optional) NotEmpty(collection interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldNotBeEmpty(collection); did_fail {
+	if didFail, message := shouldNotBeEmpty(collection); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) Equal(expected interface{}, actual interface{}, userMessageComponents ...interface{}) bool {
+// Equal asserts that two objects are equal.
+func (o *Optional) Equal(expected interface{}, actual interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeEqual(expected, actual); did_fail {
+	if didFail, message := shouldBeEqual(expected, actual); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) NotEqual(expected interface{}, actual interface{}, userMessageComponents ...interface{}) bool {
+// NotEqual asserts that two objects are not equal.
+func (o *Optional) NotEqual(expected interface{}, actual interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldNotBeEqual(expected, actual); did_fail {
+	if didFail, message := shouldNotBeEqual(expected, actual); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) Zero(value interface{}, userMessageComponents ...interface{}) bool {
+// Zero asserts that a value is the default value.
+func (o *Optional) Zero(value interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeZero(value); did_fail {
+	if didFail, message := shouldBeZero(value); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) NotZero(value interface{}, userMessageComponents ...interface{}) bool {
+// NotZero asserts that a value is not the default value.
+func (o *Optional) NotZero(value interface{}, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeNonZero(value); did_fail {
+	if didFail, message := shouldBeNonZero(value); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) True(object bool, userMessageComponents ...interface{}) bool {
+// True asserts that a bool is false.
+func (o *Optional) True(object bool, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeTrue(object); did_fail {
+	if didFail, message := shouldBeTrue(object); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) False(object bool, userMessageComponents ...interface{}) bool {
+// False asserts that a bool is false.
+func (o *Optional) False(object bool, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeFalse(object); did_fail {
+	if didFail, message := shouldBeFalse(object); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) InDelta(from, to, delta float64, userMessageComponents ...interface{}) bool {
+// InDelta returns if two float64s are separated by a given delta.
+func (o *Optional) InDelta(a, b, delta float64, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeInDelta(from, to, delta); did_fail {
+	if didFail, message := shouldBeInDelta(a, b, delta); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) InTimeDelta(from, to time.Time, delta time.Duration, userMessageComponents ...interface{}) bool {
+// InTimeDelta returns if two times are separated by a given delta.
+func (o *Optional) InTimeDelta(a, b time.Time, delta time.Duration, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldBeInTimeDelta(from, to, delta); did_fail {
+	if didFail, message := shouldBeInTimeDelta(a, b, delta); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) FileExists(filePath string, userMessageComponents ...interface{}) bool {
+// FileExists asserts that a file exists on disk at a given filepath.
+func (o *Optional) FileExists(filepath string, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := fileShouldExist(filePath); did_fail {
+	if didFail, message := fileShouldExist(filepath); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) Contains(subString, corpus string, userMessageComponents ...interface{}) bool {
+// Contains checks if a substring is present in a corpus.
+func (o *Optional) Contains(substring, corpus string, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldContain(subString, corpus); did_fail {
+	if didFail, message := shouldContain(substring, corpus); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) Any(target interface{}, predicate Predicate, userMessageComponents ...interface{}) bool {
+// Any applies a predicate.
+func (o *Optional) Any(target interface{}, predicate Predicate, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAny(target, predicate); did_fail {
+	if didFail, message := shouldAny(target, predicate); didFail {
 		fail(o.t, prefixOptional(message), userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) AnyOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) bool {
+// AnyOfInt applies a predicate.
+func (o *Optional) AnyOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAnyOfInt(target, predicate); did_fail {
+	if didFail, message := shouldAnyOfInt(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) AnyOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) bool {
+// AnyOfFloat applies a predicate.
+func (o *Optional) AnyOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAnyOfFloat(target, predicate); did_fail {
+	if didFail, message := shouldAnyOfFloat(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) AnyOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) bool {
+// AnyOfString applies a predicate.
+func (o *Optional) AnyOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAnyOfString(target, predicate); did_fail {
+	if didFail, message := shouldAnyOfString(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) All(target interface{}, predicate Predicate, userMessageComponents ...interface{}) bool {
+// All applies a predicate.
+func (o *Optional) All(target interface{}, predicate Predicate, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAll(target, predicate); did_fail {
+	if didFail, message := shouldAll(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) AllOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) bool {
+// AllOfInt applies a predicate.
+func (o *Optional) AllOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAllOfInt(target, predicate); did_fail {
+	if didFail, message := shouldAllOfInt(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) AllOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) bool {
+// AllOfFloat applies a predicate.
+func (o *Optional) AllOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAllOfFloat(target, predicate); did_fail {
+	if didFail, message := shouldAllOfFloat(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) AllOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) bool {
+// AllOfString applies a predicate.
+func (o *Optional) AllOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldAllOfString(target, predicate); did_fail {
+	if didFail, message := shouldAllOfString(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) None(target interface{}, predicate Predicate, userMessageComponents ...interface{}) bool {
+// None applies a predicate.
+func (o *Optional) None(target interface{}, predicate Predicate, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldNone(target, predicate); did_fail {
+	if didFail, message := shouldNone(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) NoneOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) bool {
+// NoneOfInt applies a predicate.
+func (o *Optional) NoneOfInt(target []int, predicate PredicateOfInt, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldNoneOfInt(target, predicate); did_fail {
+	if didFail, message := shouldNoneOfInt(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) NoneOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) bool {
+// NoneOfFloat applies a predicate.
+func (o *Optional) NoneOfFloat(target []float64, predicate PredicateOfFloat, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldNoneOfFloat(target, predicate); did_fail {
+	if didFail, message := shouldNoneOfFloat(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) NoneOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) bool {
+// NoneOfString applies a predicate.
+func (o *Optional) NoneOfString(target []string, predicate PredicateOfString, userMessageComponents ...interface{}) bool {
 	o.assertion()
-	if did_fail, message := shouldNoneOfString(target, predicate); did_fail {
+	if didFail, message := shouldNoneOfString(target, predicate); didFail {
 		failNow(o.t, message, userMessageComponents...)
 		return false
 	}
 	return true
 }
 
-func (o *optional) Fail(userMessageComponents ...interface{}) {
+// Fail manually injects a failure.
+func (o *Optional) Fail(userMessageComponents ...interface{}) {
 	fail(o.t, prefixOptional("Assertion Failed"), userMessageComponents...)
 }
 
@@ -544,23 +625,23 @@ func failNow(t *testing.T, message string, userMessageComponents ...interface{})
 }
 
 func fail(t *testing.T, message string, userMessageComponents ...interface{}) {
-	error_trace := strings.Join(callerInfo(), "\n\t")
+	errorTrace := strings.Join(callerInfo(), "\n\t")
 
-	if len(error_trace) == 0 {
-		error_trace = "Unknown"
+	if len(errorTrace) == 0 {
+		errorTrace = "Unknown"
 	}
 
-	assertion_failed_label := color("Assertion Failed!", RED)
-	location_label := color("Assert Location", GRAY)
-	assertion_label := color("Assertion", GRAY)
-	message_label := color("Message", GRAY)
+	assertionFailedLabel := color("Assertion Failed!", RED)
+	locationLabel := color("Assert Location", GRAY)
+	assertionLabel := color("Assertion", GRAY)
+	messageLabel := color("Message", GRAY)
 
 	erasure := fmt.Sprintf("\r%s", getClearString())
 
 	if len(userMessageComponents) != 0 {
-		user_message := fmt.Sprint(userMessageComponents...)
+		userMessage := fmt.Sprint(userMessageComponents...)
 
-		error_format := `%s
+		errorFormat := `%s
 %s
 %s:
 	%s
@@ -568,25 +649,27 @@ func fail(t *testing.T, message string, userMessageComponents ...interface{}) {
 	%s
 %s: 
 	%s
+
 `
 		if t != nil {
-			t.Errorf(error_format, erasure, assertion_failed_label, location_label, error_trace, assertion_label, message, message_label, user_message)
+			t.Errorf(errorFormat, erasure, assertionFailedLabel, locationLabel, errorTrace, assertionLabel, message, messageLabel, userMessage)
 		} else {
-			fmt.Errorf(error_format, "", assertion_failed_label, location_label, error_trace, assertion_label, message, message_label, user_message)
+			fmt.Fprintf(os.Stderr, errorFormat, "", assertionFailedLabel, locationLabel, errorTrace, assertionLabel, message, messageLabel, userMessage)
 		}
 
 	} else {
-		error_format := `%s
+		errorFormat := `%s
 %s
 %s: 
 	%s
 %s: 
 	%s
+
 `
 		if t != nil {
-			t.Errorf(error_format, erasure, assertion_failed_label, location_label, error_trace, assertion_label, message)
+			t.Errorf(errorFormat, erasure, assertionFailedLabel, locationLabel, errorTrace, assertionLabel, message)
 		} else {
-			fmt.Errorf(error_format, "", assertion_failed_label, location_label, error_trace, assertion_label, message)
+			fmt.Fprintf(os.Stderr, errorFormat, "", assertionFailedLabel, locationLabel, errorTrace, assertionLabel, message)
 		}
 	}
 }
@@ -676,10 +759,10 @@ func shouldBeNonZero(value interface{}) (bool, string) {
 }
 
 func fileShouldExist(filePath string) (bool, string) {
-	_, file_err := os.Stat(filePath)
-	if file_err != nil {
+	_, err := os.Stat(filePath)
+	if err != nil {
 		pwd, _ := os.Getwd()
-		message := fmt.Sprintf("File doesnt exist: %d, `pwd`: %s", filePath, pwd)
+		message := fmt.Sprintf("File doesnt exist: %s, `pwd`: %s", filePath, pwd)
 		return true, message
 	}
 	return false, EMPTY
@@ -688,7 +771,7 @@ func fileShouldExist(filePath string) (bool, string) {
 func shouldBeInDelta(from, to, delta float64) (bool, string) {
 	diff := math.Abs(from - to)
 	if diff > delta {
-		message := fmt.Sprintf("Difference of %d and %d should be less than %d", from, to, delta)
+		message := fmt.Sprintf("Difference of %0.5f and %0.5f should be less than %0.5f", from, to, delta)
 		return true, message
 	}
 	return false, EMPTY
@@ -905,18 +988,18 @@ func prefixOptional(message string) string {
 }
 
 func shouldBeMultipleMessage(expected, actual interface{}, message string) string {
-	expected_label := color("Expected", WHITE)
-	actual_label := color("Actual", WHITE)
+	expectedLabel := color("Expected", WHITE)
+	actualLabel := color("Actual", WHITE)
 
 	return fmt.Sprintf(`%s
 	%s: 	%v
-	%s: 	%v`, message, expected_label, expected, actual_label, actual)
+	%s: 	%v`, message, expectedLabel, expected, actualLabel, actual)
 }
 
 func shouldBeMessage(object interface{}, message string) string {
-	actual_label := color("Actual", WHITE)
+	actualLabel := color("Actual", WHITE)
 	return fmt.Sprintf(`%s
-	%s: 	%v`, message, actual_label, object)
+	%s: 	%v`, message, actualLabel, object)
 }
 
 func notEqualMessage(actual, expected interface{}) string {

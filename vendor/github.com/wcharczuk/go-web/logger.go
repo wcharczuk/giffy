@@ -35,27 +35,34 @@ func NewStandardOutputErrorLogger() Logger {
 }
 
 // NewLogger returns a Logger writing to the given io.Writers.
-func NewLogger(output io.Writer, errorOutput io.Writer) Logger {
+func NewLogger(output io.Writer, errorOutput io.Writer, block bool) Logger {
 	if errorOutput != nil {
 		return &logger{
 			log:      log.New(output, "", 0),
 			errorLog: log.New(errorOutput, "", 0),
+			block:    block,
 		}
 	}
 	return &logger{
-		log: log.New(output, "", 0),
+		log:   log.New(output, "", 0),
+		block: block,
 	}
 }
 
 type logger struct {
 	log      *log.Logger
 	errorLog *log.Logger
+	block    bool
 }
 
 func (l *logger) Write(args ...interface{}) {
 	if l.log != nil {
 		output := fmt.Sprint(args...)
-		l.log.Printf("%s\n", output)
+		if l.block {
+			l.log.Printf("%s\n", output)
+		} else {
+			go l.log.Printf("%s\n", output)
+		}
 	}
 }
 
@@ -63,7 +70,11 @@ func (l *logger) Log(args ...interface{}) {
 	if l.log != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprint(args...)
-		l.log.Printf("%s %s\n", timestamp, output)
+		if l.block {
+			l.log.Printf("%s %s\n", timestamp, output)
+		} else {
+			go l.log.Printf("%s %s\n", timestamp, output)
+		}
 	}
 }
 
@@ -71,7 +82,11 @@ func (l *logger) Logf(format string, args ...interface{}) {
 	if l.log != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprintf(format, args...)
-		l.log.Printf("%s %s\n", timestamp, output)
+		if l.block {
+			l.log.Printf("%s %s\n", timestamp, output)
+		} else {
+			go l.log.Printf("%s %s\n", timestamp, output)
+		}
 	}
 }
 
@@ -79,7 +94,11 @@ func (l *logger) Error(args ...interface{}) {
 	if l.errorLog != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprint(args...)
-		l.errorLog.Printf("%s %s\n", timestamp, output)
+		if l.block {
+			l.errorLog.Printf("%s %s\n", timestamp, output)
+		} else {
+			go l.errorLog.Printf("%s %s\n", timestamp, output)
+		}
 	}
 }
 
@@ -87,7 +106,11 @@ func (l *logger) Errorf(format string, args ...interface{}) {
 	if l.errorLog != nil {
 		timestamp := getLoggingTimestamp()
 		output := fmt.Sprintf(format, args...)
-		l.errorLog.Printf("%s %s\n", timestamp, output)
+		if l.block {
+			l.errorLog.Printf("%s %s\n", timestamp, output)
+		} else {
+			go l.errorLog.Printf("%s %s\n", timestamp, output)
+		}
 	}
 }
 

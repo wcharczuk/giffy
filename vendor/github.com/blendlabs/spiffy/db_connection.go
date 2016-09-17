@@ -6,10 +6,13 @@ package spiffy
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/blendlabs/go-exception"
 
@@ -26,67 +29,143 @@ const (
 // DbConnection
 // --------------------------------------------------------------------------------
 
-// NewUnauthenticatedDbConnection creates a new DbConnection without Username or Password or SSLMode
-func NewUnauthenticatedDbConnection(host, schema string) *DbConnection {
-	conn := &DbConnection{}
-	conn.Host = host
-	conn.Schema = schema
-	conn.Username = ""
-	conn.Password = ""
-	conn.SSLMode = "disable"
-	conn.MetaLock = &sync.Mutex{}
-	conn.TxLock = &sync.RWMutex{}
-	return conn
+// NewDbConnection creates a new DbConnection using current user peer authentication.
+func NewDbConnection(host, dbName string) *DbConnection {
+	return &DbConnection{
+		Host:     host,
+		Database: dbName,
+		SSLMode:  "disable",
+		MetaLock: &sync.Mutex{},
+		TxLock:   &sync.RWMutex{},
+	}
 }
 
-// NewDbConnection creates a new connection with SSLMode set to "disable"
-func NewDbConnection(host, schema, username, password string) *DbConnection {
-	conn := &DbConnection{}
-	conn.Host = host
-	conn.Schema = schema
-	conn.Username = username
-	conn.Password = password
-	conn.SSLMode = "disable"
-	conn.MetaLock = &sync.Mutex{}
-	conn.TxLock = &sync.RWMutex{}
-	return conn
+// NewDbConnectionWithPassword creates a new connection with SSLMode set to "disable"
+func NewDbConnectionWithPassword(host, dbName, username, password string) *DbConnection {
+	return &DbConnection{
+		Host:     host,
+		Database: dbName,
+		Username: username,
+		Password: password,
+		SSLMode:  "disable",
+		MetaLock: &sync.Mutex{},
+		TxLock:   &sync.RWMutex{},
+	}
+}
+
+// NewDbConnectionWithSSLMode creates a new connection with all available options (including SSLMode)
+func NewDbConnectionWithSSLMode(host, dbName, username, password, sslMode string) *DbConnection {
+	return &DbConnection{
+		Host:     host,
+		Database: dbName,
+		Username: username,
+		Password: password,
+		SSLMode:  sslMode,
+		MetaLock: &sync.Mutex{},
+		TxLock:   &sync.RWMutex{},
+	}
 }
 
 // NewDbConnectionFromDSN creates a new connection with SSLMode set to "disable"
 func NewDbConnectionFromDSN(dsn string) *DbConnection {
-	conn := &DbConnection{}
-	conn.DSN = dsn
-	conn.MetaLock = &sync.Mutex{}
-	conn.TxLock = &sync.RWMutex{}
-	return conn
+	return &DbConnection{
+		DSN:      dsn,
+		MetaLock: &sync.Mutex{},
+		TxLock:   &sync.RWMutex{},
+	}
 }
 
-// NewSSLDbConnection creates a new connection with all available options (including SSLMode)
-func NewSSLDbConnection(host, schema, username, password, sslMode string) *DbConnection {
-	conn := &DbConnection{}
-	conn.Host = host
-	conn.Schema = schema
-	conn.Username = username
-	conn.Password = password
-	conn.SSLMode = sslMode
-	conn.MetaLock = &sync.Mutex{}
-	conn.TxLock = &sync.RWMutex{}
-	return conn
+func envVarWithDefault(varName, defaultValue string) string {
+	envVarValue := os.Getenv(varName)
+	if len(envVarValue) > 0 {
+		return envVarValue
+	}
+	return defaultValue
+}
+
+// NewDbConnectionFromEnvironment creates a new db connection from environment variables.
+//
+// The environment variable mappings are as follows:
+//	-	DATABSE_URL 	= DSN 	//note that this trumps other vars (!!)
+// 	-	DB_HOST 		= Host
+//	-	DB_PORT 		= Port
+//	- 	DB_NAME 		= Database
+//	-	DB_SCHEMA		= Schema
+//	-	DB_USER 		= Username
+//	-	DB_PASSWORD 	= Password
+//	-	DB_SSLMODE 		= SSLMode
+func NewDbConnectionFromEnvironment() *DbConnection {
+	if len(os.Getenv("DATABASE_URL")) > 0 {
+		return &DbConnection{
+			DSN:      os.Getenv("DATABASE_URL"),
+			MetaLock: &sync.Mutex{},
+			TxLock:   &sync.RWMutex{},
+		}
+	}
+
+	return &DbConnection{
+		Host:     envVarWithDefault("DB_HOST", "localhost"),
+		Port:     os.Getenv("DB_PORT"),
+		Database: os.Getenv("DB_NAME"),
+		Schema:   os.Getenv("DB_SCHEMA"),
+		Username: os.Getenv("DB_USER"),
+		Password: os.Getenv("DB_PASSWORD"),
+		SSLMode:  envVarWithDefault("DB_SSLMODE", "disable"),
+		MetaLock: &sync.Mutex{},
+		TxLock:   &sync.RWMutex{},
+	}
 }
 
 // DbConnection is the basic wrapper for connection parameters and saves a reference to the created sql.Connection.
 type DbConnection struct {
-	Host       string
-	Schema     string
-	Username   string
-	Password   string
-	SSLMode    string
-	DSN        string
+	// DSN is a fully formed DSN (this skips DSN formation from other variables).
+	DSN string
+
+	// Host is the server to connect to.
+	Host string
+	// Port is the port to connect to.
+	Port string
+	// DBName is the database name
+	Database string
+	// Schema is the application schema within the database, defaults to `public`.
+	Schema string
+	// Username is the username for the connection via password auth.
+	Username string
+	// Password is the password for the connection via password auth.
+	Password string
+	// SSLMode is the sslmode for the connection.
+	SSLMode string
+
 	Connection *sql.DB
 	MetaLock   *sync.Mutex
 
 	Tx     *sql.Tx
 	TxLock *sync.RWMutex
+
+	executeListeners []DbEventListener
+	queryListeners   []DbEventListener
+}
+
+// AddExecuteListener adds and execute listener.
+// Events fire on statement completion.
+func (dbc *DbConnection) AddExecuteListener(listener DbEventListener) {
+	dbc.executeListeners = append(dbc.executeListeners, listener)
+}
+
+// AddQueryListener adds and execute listener.
+// Events fire on statement completion.
+func (dbc *DbConnection) AddQueryListener(listener DbEventListener) {
+	dbc.queryListeners = append(dbc.queryListeners, listener)
+}
+
+// FireEvent fires an event for a given set of listeners.
+// It is generally used internally by the DbConnection and shouldn't be called directly.
+// It is exported so it can be shared with QueryResult.
+func (dbc *DbConnection) FireEvent(listeners []DbEventListener, query string, elapsed time.Duration, err error) {
+	for x := 0; x < len(listeners); x++ {
+		listener := listeners[x]
+		go listener(&DbEvent{DbConnection: dbc, Query: query, Elapsed: elapsed, Error: err})
+	}
 }
 
 // CreatePostgresConnectionString returns a sql connection string from a given set of DbConnection parameters.
@@ -95,17 +174,22 @@ func (dbc *DbConnection) CreatePostgresConnectionString() string {
 		return dbc.DSN
 	}
 	sslMode := "?sslmode=disable"
-	if dbc.SSLMode != "" {
-		sslMode = fmt.Sprintf("?sslmode=%s", dbc.SSLMode)
+	if len(dbc.SSLMode) > 0 {
+		sslMode = fmt.Sprintf("?sslmode=%s", url.QueryEscape(dbc.SSLMode))
+	}
+
+	portSegment := ""
+	if len(dbc.Port) > 0 {
+		portSegment = fmt.Sprintf(":%s", dbc.Port)
 	}
 
 	if dbc.Username != "" {
 		if dbc.Password != "" {
-			return fmt.Sprintf("postgres://%s:%s@%s/%s%s", dbc.Username, dbc.Password, dbc.Host, dbc.Schema, sslMode)
+			return fmt.Sprintf("postgres://%s:%s@%s%s/%s%s", url.QueryEscape(dbc.Username), url.QueryEscape(dbc.Password), dbc.Host, portSegment, dbc.Database, sslMode)
 		}
-		return fmt.Sprintf("postgres://%s@%s/%s%s", dbc.Username, dbc.Host, dbc.Schema, sslMode)
+		return fmt.Sprintf("postgres://%s@%s%s/%s%s", url.QueryEscape(dbc.Username), dbc.Host, portSegment, dbc.Database, sslMode)
 	}
-	return fmt.Sprintf("postgres://%s/%s%s", dbc.Host, dbc.Schema, sslMode)
+	return fmt.Sprintf("postgres://%s%s/%s%s", dbc.Host, portSegment, dbc.Database, sslMode)
 }
 
 // Begin starts a new transaction.
@@ -189,6 +273,14 @@ func (dbc *DbConnection) OpenNew() (*sql.DB, error) {
 	if err != nil {
 		return nil, exception.Wrap(err)
 	}
+
+	if len(dbc.Schema) > 0 {
+		_, err = dbConn.Exec(fmt.Sprintf("SET search_path TO %s,public;", dbc.Schema))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return dbConn, nil
 }
 
@@ -216,11 +308,13 @@ func (dbc *DbConnection) Exec(statement string, args ...interface{}) error {
 
 // ExecInTransaction runs a statement within a transaction.
 func (dbc *DbConnection) ExecInTransaction(statement string, tx *sql.Tx, args ...interface{}) (err error) {
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
 			err = exception.WrapMany(err, recoveryException)
 		}
+		dbc.FireEvent(dbc.executeListeners, statement, time.Now().Sub(start), err)
 	}()
 
 	if dbc == nil {
@@ -257,7 +351,7 @@ func (dbc *DbConnection) Query(statement string, args ...interface{}) *QueryResu
 
 // QueryInTransaction runs the selected statement in a transaction and returns a QueryResult.
 func (dbc *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, args ...interface{}) (result *QueryResult) {
-	result = &QueryResult{conn: dbc}
+	result = &QueryResult{queryBody: statement, start: time.Now(), conn: dbc}
 	if dbc == nil {
 		result.err = exception.New(DBAliasNilError)
 		return
@@ -296,11 +390,14 @@ func (dbc *DbConnection) GetByID(object DatabaseMapped, ids ...interface{}) erro
 
 // GetByIDInTransaction returns a given object based on a group of primary key ids within a transaction.
 func (dbc *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql.Tx, ids ...interface{}) (err error) {
+	var queryBody string
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
 			err = exception.WrapMany(err, recoveryException)
 		}
+		dbc.FireEvent(dbc.queryListeners, queryBody, time.Now().Sub(start), err)
 	}()
 
 	if dbc == nil {
@@ -325,7 +422,7 @@ func (dbc *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql.Tx,
 		return
 	}
 
-	queryBody := fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(columnNames, ","), tableName, makeWhereClause(pks, 1))
+	queryBody = fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(columnNames, ","), tableName, makeWhereClause(pks, 1))
 
 	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
@@ -376,11 +473,14 @@ func (dbc *DbConnection) GetAll(collection interface{}) error {
 
 // GetAllInTransaction returns all rows of an object mapped table wrapped in a transaction.
 func (dbc *DbConnection) GetAllInTransaction(collection interface{}, tx *sql.Tx) (err error) {
+	var queryBody string
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
 			err = exception.WrapMany(err, recoveryException)
 		}
+		dbc.FireEvent(dbc.queryListeners, queryBody, time.Now().Sub(start), err)
 	}()
 
 	if dbc == nil {
@@ -396,9 +496,9 @@ func (dbc *DbConnection) GetAllInTransaction(collection interface{}, tx *sql.Tx)
 	meta := CachedColumnCollectionFromType(tableName, t).NotReadOnly()
 
 	columnNames := meta.ColumnNames()
-	sqlStmt := fmt.Sprintf("SELECT %s FROM %s", strings.Join(columnNames, ","), tableName)
+	queryBody = fmt.Sprintf("SELECT %s FROM %s", strings.Join(columnNames, ","), tableName)
 
-	stmt, stmtErr := dbc.Prepare(sqlStmt, tx)
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -453,11 +553,14 @@ func (dbc *DbConnection) Create(object DatabaseMapped) error {
 
 // CreateInTransaction writes an object to the database within a transaction.
 func (dbc *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) (err error) {
+	var queryBody string
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
 			err = exception.WrapMany(err, recoveryException)
 		}
+		dbc.FireEvent(dbc.executeListeners, queryBody, time.Now().Sub(start), err)
 	}()
 
 	if dbc == nil {
@@ -477,9 +580,8 @@ func (dbc *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 	colValues := writeCols.ColumnValues(object)
 	tokens := ParamTokensCSV(writeCols.Len())
 
-	var sqlStmt string
 	if serials.Len() == 0 {
-		sqlStmt = fmt.Sprintf(
+		queryBody = fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s)",
 			tableName,
 			strings.Join(colNames, ","),
@@ -487,7 +589,7 @@ func (dbc *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 		)
 	} else {
 		serial := serials.FirstOrDefault()
-		sqlStmt = fmt.Sprintf(
+		queryBody = fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s) RETURNING %s",
 			tableName,
 			strings.Join(colNames, ","),
@@ -496,7 +598,7 @@ func (dbc *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 		)
 	}
 
-	stmt, stmtErr := dbc.Prepare(sqlStmt, tx)
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -540,11 +642,14 @@ func (dbc *DbConnection) Update(object DatabaseMapped) error {
 
 // UpdateInTransaction updates an object wrapped in a transaction.
 func (dbc *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.Tx) (err error) {
+	var queryBody string
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
 			err = exception.WrapMany(err, recoveryException)
 		}
+		dbc.FireEvent(dbc.executeListeners, queryBody, time.Now().Sub(start), err)
 	}()
 
 	if dbc == nil {
@@ -562,18 +667,18 @@ func (dbc *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 	totalValues := allCols.ColumnValues(object)
 	numColumns := writeCols.Len()
 
-	sqlStmt := "UPDATE " + tableName + " SET "
+	queryBody = "UPDATE " + tableName + " SET "
 	for i, col := range writeCols.Columns() {
-		sqlStmt = sqlStmt + col.ColumnName + " = $" + strconv.Itoa(i+1)
+		queryBody = queryBody + col.ColumnName + " = $" + strconv.Itoa(i+1)
 		if i != numColumns-1 {
-			sqlStmt = sqlStmt + ","
+			queryBody = queryBody + ","
 		}
 	}
 
 	whereClause := makeWhereClause(pks, numColumns+1)
-	sqlStmt = sqlStmt + whereClause
+	queryBody = queryBody + whereClause
 
-	stmt, stmtErr := dbc.Prepare(sqlStmt, tx)
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -601,11 +706,14 @@ func (dbc *DbConnection) Exists(object DatabaseMapped) (bool, error) {
 
 // ExistsInTransaction returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
 func (dbc *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.Tx) (exists bool, err error) {
+	var queryBody string
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
 			err = exception.WrapMany(err, recoveryException)
 		}
+		dbc.FireEvent(dbc.queryListeners, queryBody, time.Now().Sub(start), err)
 	}()
 
 	if dbc == nil {
@@ -625,8 +733,8 @@ func (dbc *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.Tx) 
 		return
 	}
 	whereClause := makeWhereClause(pks, 1)
-	sqlStmt := fmt.Sprintf("SELECT 1 FROM %s %s", tableName, whereClause)
-	stmt, stmtErr := dbc.Prepare(sqlStmt, tx)
+	queryBody = fmt.Sprintf("SELECT 1 FROM %s %s", tableName, whereClause)
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		exists = false
 		err = exception.Wrap(stmtErr)
@@ -665,11 +773,14 @@ func (dbc *DbConnection) Delete(object DatabaseMapped) error {
 
 // DeleteInTransaction deletes an object from the database wrapped in a transaction.
 func (dbc *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.Tx) (err error) {
+	var queryBody string
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
 			err = exception.WrapMany(err, recoveryException)
 		}
+		dbc.FireEvent(dbc.executeListeners, queryBody, time.Now().Sub(start), err)
 	}()
 
 	if dbc == nil {
@@ -689,9 +800,9 @@ func (dbc *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.Tx) 
 	}
 
 	whereClause := makeWhereClause(pks, 1)
-	sqlStmt := fmt.Sprintf("DELETE FROM %s %s", tableName, whereClause)
+	queryBody = fmt.Sprintf("DELETE FROM %s %s", tableName, whereClause)
 
-	stmt, stmtErr := dbc.Prepare(sqlStmt, tx)
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -716,7 +827,7 @@ func (dbc *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.Tx) 
 // NOTE: causes locking around the transaction.
 func (dbc *DbConnection) IsolateToTransaction(tx *sql.Tx) {
 	if dbc == nil {
-		panic(DBAliasNilError)
+		return
 	}
 
 	dbc.TxLock.Lock()
@@ -727,7 +838,7 @@ func (dbc *DbConnection) IsolateToTransaction(tx *sql.Tx) {
 // ReleaseIsolation reverses `IsolateToTransaction`
 func (dbc *DbConnection) ReleaseIsolation() {
 	if dbc == nil {
-		panic(DBAliasNilError)
+		return
 	}
 
 	dbc.TxLock.Lock()
@@ -738,7 +849,7 @@ func (dbc *DbConnection) ReleaseIsolation() {
 // IsIsolatedToTransaction returns if the connection is isolated to a transaction.
 func (dbc *DbConnection) IsIsolatedToTransaction() bool {
 	if dbc == nil {
-		panic(DBAliasNilError)
+		return false
 	}
 
 	dbc.TxLock.RLock()
@@ -750,7 +861,7 @@ func (dbc *DbConnection) IsIsolatedToTransaction() bool {
 // Commit commits a transaction if the connection is not currently isolated to one already.
 func (dbc *DbConnection) Commit(tx *sql.Tx) error {
 	if dbc == nil {
-		panic(DBAliasNilError)
+		return exception.New(DBAliasNilError)
 	}
 
 	if dbc.IsIsolatedToTransaction() {
@@ -762,7 +873,7 @@ func (dbc *DbConnection) Commit(tx *sql.Tx) error {
 // Rollback commits a transaction if the connection is not currently isolated to one already.
 func (dbc *DbConnection) Rollback(tx *sql.Tx) error {
 	if dbc == nil {
-		panic(DBAliasNilError)
+		return exception.New(DBAliasNilError)
 	}
 
 	if dbc.IsIsolatedToTransaction() {
@@ -773,7 +884,7 @@ func (dbc *DbConnection) Rollback(tx *sql.Tx) error {
 
 func (dbc *DbConnection) txLock() {
 	if dbc == nil {
-		panic(DBAliasNilError)
+		return
 	}
 
 	if dbc.Tx != nil {
@@ -783,7 +894,7 @@ func (dbc *DbConnection) txLock() {
 
 func (dbc *DbConnection) txUnlock() {
 	if dbc == nil {
-		panic(DBAliasNilError)
+		return
 	}
 
 	if dbc.Tx != nil {

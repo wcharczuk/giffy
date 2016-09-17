@@ -28,6 +28,28 @@ const (
 	ContentTypeJSON = "application/json; charset=utf-8"
 )
 
+// NestMiddleware reads the middleware variadic args and organizes the calls recursively in the order they appear.
+func NestMiddleware(action ControllerAction, middleware ...ControllerMiddleware) ControllerAction {
+	if len(middleware) == 0 {
+		return action
+	}
+
+	var nest = func(a, b ControllerMiddleware) ControllerMiddleware {
+		if b == nil {
+			return a
+		}
+		return func(action ControllerAction) ControllerAction {
+			return a(b(action))
+		}
+	}
+
+	var metaAction ControllerMiddleware
+	for _, step := range middleware {
+		metaAction = nest(step, metaAction)
+	}
+	return metaAction(action)
+}
+
 // WriteNoContent writes http.StatusNoContent for a request.
 func WriteNoContent(w http.ResponseWriter) (int, error) {
 	w.WriteHeader(http.StatusNoContent)

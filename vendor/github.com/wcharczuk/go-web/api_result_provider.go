@@ -79,7 +79,7 @@ func (ar *APIResultProvider) BadRequest(message string) ControllerResult {
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{
 				HTTPCode: http.StatusBadRequest,
-				Message:  "User error / Bad request",
+				Message:  message,
 			},
 		},
 	}

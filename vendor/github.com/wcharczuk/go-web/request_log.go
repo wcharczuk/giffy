@@ -96,7 +96,7 @@ func FormatRequestLog(format string, context *RequestContext) string {
 	output = strings.Replace(output, RequestLogItemTimeTaken, timeTakenStr, -1)
 
 	//log item: bytes
-	contentLengthStr := fmt.Sprintf("%v", FormatFileSize(context.getContentLength()))
+	contentLengthStr := fmt.Sprintf("%v", FormatFileSize(context.getLoggedContentLength()))
 	output = strings.Replace(output, RequestLogItemBytes, contentLengthStr, -1)
 
 	//log item: cached
@@ -108,11 +108,11 @@ func FormatRequestLog(format string, context *RequestContext) string {
 	serverIP := LocalIP()
 	output = strings.Replace(output, RequestLogItemPrefixServer+"-"+RequestLogItemIP, serverIP, -1)
 
-	status := util.Color(util.IntToString(context.getStatusCode()), util.ColorYellow)
-	if context.getStatusCode() == http.StatusOK {
-		status = util.Color(util.IntToString(context.getStatusCode()), util.ColorGreen)
-	} else if context.getStatusCode() == http.StatusInternalServerError {
-		status = util.Color(util.IntToString(context.getStatusCode()), util.ColorRed)
+	status := util.Color(util.IntToString(context.getLoggedStatusCode()), util.ColorYellow)
+	if context.getLoggedStatusCode() == http.StatusOK {
+		status = util.Color(util.IntToString(context.getLoggedStatusCode()), util.ColorGreen)
+	} else if context.getLoggedStatusCode() == http.StatusInternalServerError {
+		status = util.Color(util.IntToString(context.getLoggedStatusCode()), util.ColorRed)
 	}
 
 	for _, prefix := range RequestLogPrefixes {

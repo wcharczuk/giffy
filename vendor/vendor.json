@@ -1,5 +1,12 @@
 {
 	"comment": "",
+	"goVersion": "go1.7",
+	"heroku": {
+		"goVersion": "go1.7",
+		"install": [
+			"."
+		]
+	},
 	"ignore": "test",
 	"package": [
 		{
@@ -147,10 +154,10 @@
 			"revisionTime": "2016-03-10T20:58:59Z"
 		},
 		{
-			"checksumSHA1": "VBwAtJoOqCuy19CVUPgtGHLqYvg=",
+			"checksumSHA1": "cUB1gu3ZOBu0/f9Rd6GShGEkYTI=",
 			"path": "github.com/blendlabs/go-assert",
-			"revision": "818eedc5570589009f6d8804b4670b0a369fd9b4",
-			"revisionTime": "2016-03-23T23:33:47Z"
+			"revision": "928e5acf01dd2bb7a01c30ffb73911950bad900b",
+			"revisionTime": "2016-07-23T19:36:15Z"
 		},
 		{
 			"checksumSHA1": "f9EdLevxpny9TJUP/AAtOjDYZ9Y=",
@@ -159,16 +166,16 @@
 			"revisionTime": "2016-05-26T18:13:42Z"
 		},
 		{
-			"checksumSHA1": "lAsqE8ZJ3titP59fFMt8jmx6BXY=",
+			"checksumSHA1": "Pw+v4G19YXsujHcCADOTe3pZxTg=",
 			"path": "github.com/blendlabs/go-exception",
-			"revision": "4f8219ce4d9bf0a7074e988fb5dc8d71d536db13",
-			"revisionTime": "2016-03-23T23:34:35Z"
+			"revision": "a2d44f35a0a226b5fe120e99ccd70ef1eca8fd36",
+			"revisionTime": "2016-08-16T03:47:15Z"
 		},
 		{
-			"checksumSHA1": "oqDdDQF2OY2pzj4F3NdccjHyjh0=",
+			"checksumSHA1": "Bfpqn3RUxjx5XibSBuzSizlpiyQ=",
 			"path": "github.com/blendlabs/go-request",
-			"revision": "d99acfe45d6afdd681b86696523f66395e03af58",
-			"revisionTime": "2016-05-17T19:40:19Z"
+			"revision": "5141bfabafcfbaa6b2d8fdc3000d11df0465be35",
+			"revisionTime": "2016-08-17T20:45:28Z"
 		},
 		{
 			"checksumSHA1": "gO7RbvXh/Cwpbtv61gs0sO4ZIFs=",
@@ -189,10 +196,10 @@
 			"revisionTime": "2016-06-06T22:38:45Z"
 		},
 		{
-			"checksumSHA1": "aCb9XQkK4uIJRW6497iOsZRkzS0=",
+			"checksumSHA1": "fLUF1bPab13483V2AqZAnRGkzU0=",
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "bdbc91b8d750960f81e40da002813aae1384d61e",
-			"revisionTime": "2016-05-26T22:17:38Z"
+			"revision": "2b07d69d9e89169ea7e906c04cd419d6e04c1b18",
+			"revisionTime": "2016-09-02T02:15:19Z"
 		},
 		{
 			"checksumSHA1": "UaJBJ8Ywv+DIDBmh6Cy8ocCRPxs=",
@@ -239,18 +246,11 @@
 			"revisionTime": "2016-03-04T02:46:57Z"
 		},
 		{
-			"checksumSHA1": "fpwwvfjkU+P1+026dkZh2Kt5YcI=",
+			"checksumSHA1": "kSgFOAtrF6BBs8toeoeEmj2fZ58=",
 			"path": "github.com/wcharczuk/go-web",
-			"revision": "c96f3ead15844d7803e1f3eaf99ae6b056f91df6",
-			"revisionTime": "2016-06-10T00:10:46Z"
+			"revision": "dab27a6619b03fd60ad6055f2cef807692f9f712",
+			"revisionTime": "2016-08-19T21:22:21Z"
 		}
 	],
-	"goVersion": "go1.7",
-	"heroku": {
-		"goVersion": "go1.7",
-		"install": [
-			"."
-		]
-	},
 	"rootPath": "github.com/wcharczuk/giffy"
 }
