@@ -12,11 +12,13 @@ import (
 const (
 	verbCreate = "create"
 	verbAlter  = "alter"
+	verbRun    = "run"
 
 	nounColumn     = "column"
 	nounTable      = "table"
 	nounIndex      = "index"
 	nounConstraint = "constraint"
+	nounAlways     = "always"
 )
 
 // actionName joins a noun and a verb
@@ -29,6 +31,23 @@ type guard1 func(c *spiffy.DbConnection, tx *sql.Tx, arg string) (bool, error)
 
 // guard2 is for guards that require (2) args such as `create column` and `create index`
 type guard2 func(c *spiffy.DbConnection, tx *sql.Tx, arg1, arg2 string) (bool, error)
+
+func actionImpl(verb, noun string, stack []string, l *Logger, c *spiffy.DbConnection, tx *sql.Tx, body Invocable) error {
+	action := actionName(verb, noun)
+	newStack := append(stack, action)
+	err := body.Invoke(c, tx)
+
+	if err != nil {
+		if l != nil {
+			return l.Errorf(newStack, err)
+		}
+		return nil
+	}
+	if l != nil {
+		return l.Applyf(newStack, "done")
+	}
+	return nil
+}
 
 func action1impl(verb, noun string, guard guard1, guardArgName string, stack []string, l *Logger, c *spiffy.DbConnection, tx *sql.Tx, body Invocable, args ...string) error {
 	action := actionName(verb, noun)
@@ -59,7 +78,7 @@ func action1impl(verb, noun string, guard guard1, guardArgName string, stack []s
 		return nil
 	}
 	if l != nil {
-		return l.Skipf(newStack, "skipping `%s`", subject)
+		return l.Skipf(newStack, "`%s`", subject)
 	}
 	return nil
 }
@@ -96,7 +115,7 @@ func action2impl(verb, noun string, guard guard2, guardArgNames, stack []string,
 		return nil
 	}
 	if l != nil {
-		return l.Skipf(newStack, "skipping `%s` on `%s`", subject2, subject1)
+		return l.Skipf(newStack, "`%s` on `%s`", subject2, subject1)
 	}
 	return nil
 }
@@ -104,6 +123,11 @@ func action2impl(verb, noun string, guard guard2, guardArgNames, stack []string,
 // --------------------------------------------------------------------------------
 // Actions
 // --------------------------------------------------------------------------------
+
+// AlwaysRun always runs a step.
+func AlwaysRun(stack []string, l *Logger, c *spiffy.DbConnection, tx *sql.Tx, body Invocable, args ...string) error {
+	return actionImpl(verbRun, nounAlways, stack, l, c, tx, body)
+}
 
 // CreateColumn creates a table on the given connection if it does not exist.
 func CreateColumn(stack []string, l *Logger, c *spiffy.DbConnection, tx *sql.Tx, body Invocable, args ...string) error {
