@@ -50,7 +50,7 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
 	if vr.app != nil {
-		vr.app.onRequestError(vr.requestContext, err)
+		vr.app.diagnostics.Error(err)
 	}
 
 	return &ViewResult{

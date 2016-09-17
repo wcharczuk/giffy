@@ -46,7 +46,7 @@ func (ar *APIResultProvider) NotAuthorized() ControllerResult {
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) ControllerResult {
 	if ar.app != nil {
-		ar.app.onRequestError(ar.requestContext, err)
+		ar.app.diagnostics.Error(err)
 	}
 
 	if exPtr, isException := err.(*exception.Exception); isException {

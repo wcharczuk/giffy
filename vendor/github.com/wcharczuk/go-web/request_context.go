@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	logger "github.com/blendlabs/go-logger"
 )
 
 const (
@@ -31,20 +33,13 @@ type PostedFile struct {
 // State is the collection of state objects on a context.
 type State map[string]interface{}
 
-// RequestEventHandler is an event handler for requests.
-type RequestEventHandler func(r *RequestContext)
-
-// RequestEventErrorHandler is fired when an error occurs.
-type RequestEventErrorHandler func(r *RequestContext, err interface{})
-
 // NewRequestContext returns a new hc context.
 func NewRequestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	ctx := &RequestContext{
-		Response:         w,
-		Request:          r,
-		routeParameters:  p,
-		state:            State{},
-		requestLogFormat: DefaultRequestLogFormat,
+		Response:        w,
+		Request:         r,
+		routeParameters: p,
+		state:           State{},
 	}
 
 	return ctx
@@ -62,7 +57,7 @@ type RequestContext struct {
 	api                   *APIResultProvider
 	view                  *ViewResultProvider
 	defaultResultProvider ControllerResultProvider
-	logger                Logger
+	diagnostics           *logger.DiagnosticsAgent
 	tx                    *sql.Tx
 	state                 State
 	routeParameters       RouteParameters
@@ -385,26 +380,12 @@ func (rc *RequestContext) ExpireCookie(name string) {
 }
 
 // --------------------------------------------------------------------------------
-// Logging
+// Diagnostics
 // --------------------------------------------------------------------------------
 
-// LogRequest consumes the context and writes a log message for the request.
-func (rc *RequestContext) LogRequest() {
-	if rc.logger != nil {
-		rc.logger.Write(FormatRequestLog(rc.requestLogFormat, rc))
-	}
-}
-
-// LogRequestWithW3CFormat consumes the context and writes a log message for the request.
-func (rc *RequestContext) LogRequestWithW3CFormat(format string) {
-	if rc.logger != nil {
-		rc.logger.Log(FormatRequestLog(format, rc))
-	}
-}
-
-// Logger returns the logger.
-func (rc *RequestContext) Logger() Logger {
-	return rc.logger
+// Diagnostics returns the diagnostics agent.
+func (rc *RequestContext) Diagnostics() *logger.DiagnosticsAgent {
+	return rc.diagnostics
 }
 
 // --------------------------------------------------------------------------------

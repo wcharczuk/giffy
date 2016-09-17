@@ -10,28 +10,19 @@ import (
 	"regexp"
 	"strings"
 
+	logger "github.com/blendlabs/go-logger"
 	"github.com/julienschmidt/httprouter"
 )
 
 // New returns a new app.
 func New() *App {
-	return &App{
+	app := &App{
 		router:             httprouter.New(),
-		name:               "Web",
 		staticRewriteRules: map[string][]*RewriteRule{},
 		staticHeaders:      map[string]http.Header{},
-		requestStartHandlers: []RequestEventHandler{func(r *RequestContext) {
-			r.onRequestStart()
-		}},
-		requestCompleteHandlers: []RequestEventHandler{func(r *RequestContext) {
-			r.onRequestEnd()
-		}},
-		requestErrorHandlers: []RequestEventErrorHandler{func(r *RequestContext, err interface{}) {
-			if r != nil && r.logger != nil {
-				r.logger.Error(err)
-			}
-		}},
 	}
+	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.EventNone))
+	return app
 }
 
 // AppStartDelegate is a function that is run on start. Typically you use this to initialize the app.
@@ -41,20 +32,14 @@ type AppStartDelegate func(app *App) error
 type App struct {
 	name string
 
-	logger    Logger
-	router    *httprouter.Router
-	viewCache *template.Template
+	diagnostics *logger.DiagnosticsAgent
+	router      *httprouter.Router
+	viewCache   *template.Template
 
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
 
 	startDelegate AppStartDelegate
-
-	requestStartHandlers    []RequestEventHandler
-	requestCompleteHandlers []RequestEventHandler
-	requestErrorHandlers    []RequestEventErrorHandler
-
-	requestLogFormat string
 
 	staticRewriteRules map[string][]*RewriteRule
 	staticHeaders      map[string]http.Header
@@ -66,34 +51,36 @@ type App struct {
 	port string
 }
 
-// Name returns the app name.``
-func (a *App) Name() string {
-	return a.name
+// AppName returns the app name.
+func (a *App) AppName() string {
+	return a.diagnostics.Label()
 }
 
-// SetName sets the app name
-func (a *App) SetName(name string) {
-	a.name = name
+// SetAppName sets a log label for the app.
+func (a *App) SetAppName(appName string) {
+	a.diagnostics.SetLabel(appName)
 }
 
-// RequestLogFormat returns a custom w3c request log format if set.
-func (a *App) RequestLogFormat() string {
-	return a.requestLogFormat
+// Diagnostics returns the diagnostics agent for the app.
+func (a *App) Diagnostics() *logger.DiagnosticsAgent {
+	return a.diagnostics
 }
 
-// SetRequestLogFormat sets a custom w3c request log format.
-func (a *App) SetRequestLogFormat(format string) {
-	a.requestLogFormat = format
+// SetDiagnostics sets the diagnostics agent.
+func (a *App) SetDiagnostics(da *logger.DiagnosticsAgent) {
+	a.diagnostics = da
+	a.diagnostics.AddEventListener(logger.EventRequestComplete, a.onRequestComplete)
 }
 
-// Logger returns the logger for the app.
-func (a *App) Logger() Logger {
-	return a.logger
-}
-
-// SetLogger sets the logger.
-func (a *App) SetLogger(l Logger) {
-	a.logger = l
+func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+	if len(state) < 1 {
+		return
+	}
+	context, isContext := state[0].(*RequestContext)
+	if !isContext {
+		return
+	}
+	logger.WriteRequestComplete(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
 }
 
 // ViewCache gets the view cache for the app.
@@ -151,19 +138,19 @@ func (a *App) Start() error {
 // other options.
 func (a *App) StartWithServer(server *http.Server) error {
 	if a.startDelegate != nil {
-		a.Logf("%s Startup tasks starting", a.Name())
+		a.diagnostics.Infof("Startup tasks starting")
 		err := a.startDelegate(a)
 		if err != nil {
-			a.Errorf("%s Startup tasks error: %v", a.Name(), err)
+			a.diagnostics.Errorf("Startup tasks error: %v", err)
 			return err
 		}
-		a.Logf("%s Startup tasks complete", a.Name())
+		a.diagnostics.Infof("Startup tasks complete")
 	}
 
 	// this is the only property we will set of the server
 	// i.e. the server handler (which is this app)
 	server.Handler = a
-	a.Logf("%s Started, listening on %s", a.Name(), server.Addr)
+	a.diagnostics.Infof("Started, listening on %s", server.Addr)
 
 	return server.ListenAndServe()
 }
@@ -216,38 +203,6 @@ func (a *App) POST(path string, action ControllerAction, middleware ...Controlle
 // DELETE registers a DELETE request handler.
 func (a *App) DELETE(path string, action ControllerAction, middleware ...ControllerMiddleware) {
 	a.router.DELETE(path, a.renderAction(NestMiddleware(action, middleware...)))
-}
-
-// --------------------------------------------------------------------------------
-// Logging methods
-// --------------------------------------------------------------------------------
-
-// Log logs a message to the logger if one is provisioned.
-func (a *App) Log(args ...interface{}) {
-	if a.logger != nil {
-		a.logger.Log(args...)
-	}
-}
-
-// Logf logs a message to the logger if one is provisioned.
-func (a *App) Logf(format string, args ...interface{}) {
-	if a.logger != nil {
-		a.logger.Logf(format, args...)
-	}
-}
-
-// Error logs a message to the logger if one is provisioned.
-func (a *App) Error(args ...interface{}) {
-	if a.logger != nil {
-		a.logger.Error(args...)
-	}
-}
-
-// Errorf logs a message to the logger if one is provisioned.
-func (a *App) Errorf(format string, args ...interface{}) {
-	if a.logger != nil {
-		a.logger.Errorf(format, args...)
-	}
 }
 
 // --------------------------------------------------------------------------------
@@ -343,7 +298,7 @@ func (a *App) SetPanicHandler(handler PanicControllerAction) {
 	a.panicHandler = handler
 	a.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		a.renderAction(func(r *RequestContext) ControllerResult {
-			a.onRequestError(r, err)
+			a.diagnostics.Fatal(err)
 			return handler(r, err)
 		})(w, r, httprouter.Params{})
 	}
@@ -351,52 +306,6 @@ func (a *App) SetPanicHandler(handler PanicControllerAction) {
 
 func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	a.router.ServeHTTP(w, req)
-}
-
-// --------------------------------------------------------------------------------
-// Events
-// --------------------------------------------------------------------------------
-
-// OnRequestStart triggers the onRequestStart event.
-func (a *App) onRequestStart(r *RequestContext) {
-	if len(a.requestStartHandlers) > 0 {
-		for _, handler := range a.requestStartHandlers {
-			handler(r)
-		}
-	}
-}
-
-// OnRequestComplete triggers the onRequestStart event.
-func (a *App) onRequestComplete(r *RequestContext) {
-	if len(a.requestCompleteHandlers) > 0 {
-		for _, handler := range a.requestCompleteHandlers {
-			handler(r)
-		}
-	}
-}
-
-// OnRequestError triggers the onRequestStart event.
-func (a *App) onRequestError(r *RequestContext, err interface{}) {
-	if len(a.requestErrorHandlers) > 0 {
-		for _, handler := range a.requestErrorHandlers {
-			handler(r, err)
-		}
-	}
-}
-
-// RequestStartHandler fires before an action handler is run.
-func (a *App) RequestStartHandler(handler RequestEventHandler) {
-	a.requestStartHandlers = append(a.requestStartHandlers, handler)
-}
-
-// RequestCompleteHandler fires after an action handler is run.
-func (a *App) RequestCompleteHandler(handler RequestEventHandler) {
-	a.requestCompleteHandlers = append(a.requestCompleteHandlers, handler)
-}
-
-// RequestErrorHandler fires if there is an error logged.
-func (a *App) RequestErrorHandler(handler RequestEventErrorHandler) {
-	a.requestErrorHandlers = append(a.requestErrorHandlers, handler)
 }
 
 // --------------------------------------------------------------------------------
@@ -415,11 +324,8 @@ func (a *App) Mock() *MockRequestBuilder {
 // RequestContext creates an http context.
 func (a *App) requestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	hc := NewRequestContext(w, r, p)
-	if len(a.requestLogFormat) != 0 {
-		hc.requestLogFormat = a.requestLogFormat
-	}
 	hc.tx = a.tx
-	hc.logger = a.logger
+	hc.diagnostics = a.diagnostics
 	hc.api = NewAPIResultProvider(a, hc)
 	hc.view = NewViewResultProvider(a, hc)
 	return hc
@@ -458,7 +364,7 @@ func (a *App) commonResponseHeaders(w http.ResponseWriter) {
 
 func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	context := a.requestContext(w, r, p)
-	a.onRequestStart(context)
+	a.diagnostics.OnEvent(logger.EventRequest, context)
 	return context
 }
 
@@ -467,9 +373,7 @@ func (a *App) renderResult(action ControllerAction, context *RequestContext) {
 	if result != nil {
 		err := result.Render(context.Response, context.Request)
 		if err != nil {
-			if a.logger != nil {
-				a.logger.Error(err)
-			}
+			a.diagnostics.Error(err)
 		}
 	}
 }
@@ -481,6 +385,6 @@ func (a *App) pipelineComplete(context *RequestContext) {
 	}
 	context.setLoggedStatusCode(context.Response.StatusCode())
 	context.setLoggedContentLength(context.Response.ContentLength())
-	a.onRequestComplete(context)
-	context.LogRequest()
+
+	a.diagnostics.OnEvent(logger.EventRequestComplete, context)
 }
