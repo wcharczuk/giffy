@@ -43,13 +43,10 @@ func Migrate() error {
 }
 
 // Init inits the web app.
-func Init() (*web.App, error) {
-	diagnostics, err := logger.NewDiagnosticsAgentFromEnvironment()
-	if err != nil {
-		return nil, err
-	}
+func Init() *web.App {
 	app := web.New()
-	app.SetDiagnostics(diagnostics)
+	app.SetDiagnostics(logger.NewDiagnosticsAgentFromEnvironment())
+	app.Diagnostics().EventQueue().SetMaxWorkItems(1 << 18)
 	app.SetAppName(AppName)
 	app.SetPort(core.ConfigPort())
 
@@ -98,5 +95,5 @@ func Init() (*web.App, error) {
 		return nil
 	})
 
-	return app, nil
+	return app
 }
