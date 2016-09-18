@@ -57,24 +57,36 @@ func NewQueueWithMaxWorkItems(workItems int) *Queue {
 	return &Queue{numWorkers: runtime.NumCPU(), maxRetries: DefaultMaxRetries, maxWorkItems: workItems}
 }
 
+// NewQueueWithOptions returns a new queue with customizable options.
+func NewQueueWithOptions(numWorkers, retryCount, maxWorkItems int) *Queue {
+	return &Queue{numWorkers: numWorkers, maxRetries: retryCount, maxWorkItems: maxWorkItems}
+}
+
 // Queue is the container for work items, it dispatches work to the workers.
 type Queue struct {
-	maxRetries   int
-	maxWorkItems int
+	synchronousDispatch bool
+	numWorkers          int
+	maxRetries          int
+	maxWorkItems        int
+
+	running bool
 
 	actionQueue chan Entry
 
-	synchronousDispatch bool
-	numWorkers          int
-	workers             []*Worker
-	abortSignal         chan bool
+	workers     []*Worker
+	abortSignal chan bool
 }
 
 // Start starts the dispatcher workers for the process quere.
 func (q *Queue) Start() {
+	if q.running {
+		return
+	}
+
 	q.workers = make([]*Worker, q.numWorkers)
 	q.actionQueue = make(chan Entry, q.maxWorkItems)
 	q.abortSignal = make(chan bool)
+	q.running = true
 
 	for id := 0; id < q.numWorkers; id++ {
 		q.newWorker(id)
@@ -100,6 +112,11 @@ func (q *Queue) UseAsyncDispatch() {
 	q.synchronousDispatch = false
 }
 
+// IsDispatchSynchronous returns if the queue is using SynchronousDispatch or not.
+func (q *Queue) IsDispatchSynchronous() bool {
+	return q.synchronousDispatch
+}
+
 // Len returns the number of items in the work queue.
 func (q *Queue) Len() int {
 	total := len(q.actionQueue)
@@ -109,9 +126,24 @@ func (q *Queue) Len() int {
 	return total
 }
 
+// NumWorkers returns the number of worker routines.
+func (q *Queue) NumWorkers() int {
+	return q.numWorkers
+}
+
+// MaxWorkItems returns the maximum length of the work item queue.
+func (q *Queue) MaxWorkItems() int {
+	return q.maxWorkItems
+}
+
 // MaxRetries returns the maximum number of retries.
 func (q *Queue) MaxRetries() int {
 	return q.maxRetries
+}
+
+// Running returns if the queue has started or not.
+func (q *Queue) Running() bool {
+	return q.running
 }
 
 // Enqueue adds a work item to the process queue.
@@ -119,21 +151,23 @@ func (q *Queue) Enqueue(action Action, args ...interface{}) error {
 	if q.actionQueue == nil {
 		return exception.New("Work Queue has not been initialized; make sure to call `Start(...)` first.")
 	}
-	if len(q.actionQueue) > q.maxWorkItems {
-		return exception.New("Work Queue is full, cannot enqueue.")
-	}
 	q.actionQueue <- Entry{Action: action, Args: args}
 	return nil
 }
 
 // Drain drains the queue and stops the workers.
 func (q *Queue) Drain() error {
+	if !q.running {
+		return fmt.Errorf("Work Queue is not running, cannot draing.")
+	}
+
 	for x := 0; x < len(q.workers); x++ {
 		q.workers[x].Stop()
 	}
 	q.abortSignal <- true
 	q.workers = nil
 	q.actionQueue = nil
+	q.running = false
 	return nil
 }
 
@@ -163,7 +197,7 @@ func (q *Queue) VisitEach(visitor func(entry Entry)) {
 }
 
 func (q *Queue) newWorker(id int) {
-	q.workers[id] = NewWorker(id, q, q.maxWorkItems)
+	q.workers[id] = NewWorker(id, q, q.maxWorkItems/q.numWorkers)
 	q.workers[id].Start()
 }
 

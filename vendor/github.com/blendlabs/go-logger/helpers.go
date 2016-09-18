@@ -55,3 +55,14 @@ func WriteRequestBody(writer Logger, ts TimeSource, body []byte) {
 
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }
+
+// WriteResponseBody is a helper method to write request start events to a writer.
+func WriteResponseBody(writer Logger, ts TimeSource, body []byte) {
+	buffer := writer.GetBuffer()
+	defer writer.PutBuffer(buffer)
+	buffer.WriteString(writer.Colorize("Response", ColorGreen))
+	buffer.WriteRune(RuneSpace)
+	buffer.Write(body)
+
+	writer.WriteWithTimeSource(ts, buffer.Bytes())
+}

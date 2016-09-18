@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 )
@@ -12,14 +13,16 @@ import (
 // NewMockResponseWriter returns a mocked response writer.
 func NewMockResponseWriter(buffer io.Writer) *MockResponseWriter {
 	return &MockResponseWriter{
-		contents: buffer,
-		headers:  http.Header{},
+		innerWriter: buffer,
+		contents:    bytes.NewBuffer([]byte{}),
+		headers:     http.Header{},
 	}
 }
 
 // MockResponseWriter is an object that satisfies response writer but uses an internal buffer.
 type MockResponseWriter struct {
-	contents      io.Writer
+	innerWriter   io.Writer
+	contents      *bytes.Buffer
 	statusCode    int
 	contentLength int
 	headers       http.Header
@@ -42,8 +45,8 @@ func (res *MockResponseWriter) WriteHeader(statusCode int) {
 	res.statusCode = statusCode
 }
 
-// InnerWriter returns the backing httpresponse writer.
-func (res *MockResponseWriter) InnerWriter() http.ResponseWriter {
+// InnerResponse returns the backing httpresponse writer.
+func (res *MockResponseWriter) InnerResponse() http.ResponseWriter {
 	return res
 }
 
@@ -57,7 +60,18 @@ func (res *MockResponseWriter) ContentLength() int {
 	return res.contentLength
 }
 
+// Bytes returns the raw response.
+func (res *MockResponseWriter) Bytes() []byte {
+	return res.contents.Bytes()
+}
+
 // Flush is a no-op.
 func (res *MockResponseWriter) Flush() error {
+	_, err := res.contents.WriteTo(res.innerWriter)
+	return err
+}
+
+// Close is a no-op.
+func (res *MockResponseWriter) Close() error {
 	return nil
 }

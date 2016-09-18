@@ -3,19 +3,21 @@ package workQueue
 // NewWorker creates a new worker.
 func NewWorker(id int, parent *Queue, maxWorkItems int) *Worker {
 	return &Worker{
-		ID:        id,
-		WorkItems: make(chan Entry, maxWorkItems),
-		Parent:    parent,
-		Abort:     make(chan bool),
+		ID:           id,
+		MaxWorkItems: maxWorkItems,
+		WorkItems:    make(chan Entry, maxWorkItems),
+		Parent:       parent,
+		Abort:        make(chan bool),
 	}
 }
 
 // Worker is a consumer of the work queue.
 type Worker struct {
-	ID        int
-	WorkItems chan Entry
-	Parent    *Queue
-	Abort     chan bool
+	ID           int
+	MaxWorkItems int
+	WorkItems    chan Entry
+	Parent       *Queue
+	Abort        chan bool
 }
 
 // Start starts the worker.

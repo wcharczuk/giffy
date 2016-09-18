@@ -168,6 +168,9 @@ func (rc *RequestContext) PostBody() []byte {
 	if len(rc.postBody) == 0 {
 		defer rc.Request.Body.Close()
 		rc.postBody, _ = ioutil.ReadAll(rc.Request.Body)
+		if rc.diagnostics != nil {
+			rc.diagnostics.OnEvent(logger.EventRequestBody, rc.postBody)
+		}
 	}
 
 	return rc.postBody

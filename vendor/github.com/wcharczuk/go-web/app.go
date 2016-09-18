@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -53,12 +52,12 @@ type App struct {
 
 // AppName returns the app name.
 func (a *App) AppName() string {
-	return a.diagnostics.Label()
+	return a.diagnostics.Writer().Label()
 }
 
 // SetAppName sets a log label for the app.
 func (a *App) SetAppName(appName string) {
-	a.diagnostics.SetLabel(appName)
+	a.diagnostics.Writer().SetLabel(appName)
 }
 
 // Diagnostics returns the diagnostics agent for the app.
@@ -70,8 +69,21 @@ func (a *App) Diagnostics() *logger.DiagnosticsAgent {
 func (a *App) SetDiagnostics(da *logger.DiagnosticsAgent) {
 	a.diagnostics = da
 	if a.diagnostics != nil {
+		a.diagnostics.AddEventListener(logger.EventRequest, a.onRequestStart)
 		a.diagnostics.AddEventListener(logger.EventRequestComplete, a.onRequestComplete)
+		a.diagnostics.AddEventListener(logger.EventResponse, a.onResponse)
 	}
+}
+
+func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+	if len(state) < 1 {
+		return
+	}
+	context, isContext := state[0].(*RequestContext)
+	if !isContext {
+		return
+	}
+	logger.WriteRequest(writer, ts, context.Request)
 }
 
 func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
@@ -83,6 +95,17 @@ func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, even
 		return
 	}
 	logger.WriteRequestComplete(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
+}
+
+func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+	if len(state) < 1 {
+		return
+	}
+	body, stateIsBody := state[0].([]byte)
+	if !stateIsBody {
+		return
+	}
+	logger.WriteResponseBody(writer, ts, body)
 }
 
 // ViewCache gets the view cache for the app.
@@ -153,6 +176,7 @@ func (a *App) StartWithServer(server *http.Server) error {
 	// i.e. the server handler (which is this app)
 	server.Handler = a
 	a.diagnostics.Infof("Started, listening on %s", server.Addr)
+	a.diagnostics.Infof("Diagnostics Verbosity %s", logger.ExpandEventNames(a.diagnostics.Verbosity()))
 
 	return server.ListenAndServe()
 }
@@ -341,9 +365,17 @@ func (a *App) renderAction(action ControllerAction) httprouter.Handle {
 		var response ResponseWriter
 		if a.shouldCompressOutput(r) {
 			w.Header().Set("Content-Encoding", "gzip")
-			response = NewCompressedResponseWriter(w)
+			if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+				response = NewBufferedCompressedResponseWriter(w)
+			} else {
+				response = NewCompressedResponseWriter(w)
+			}
 		} else {
-			response = NewRawResponseWriter(w)
+			if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+				response = NewBufferedResponseWriter(w)
+			} else {
+				response = NewResponseWriter(w)
+			}
 		}
 
 		context := a.pipelineInit(response, r, NewRouteParameters(p))
@@ -382,12 +414,20 @@ func (a *App) renderResult(action ControllerAction, context *RequestContext) {
 }
 
 func (a *App) pipelineComplete(context *RequestContext) {
-	context.Response.Flush()
-	if closer, isCloser := context.Response.(io.Closer); isCloser {
-		closer.Close()
+	err := context.Response.Flush()
+	if err != nil {
+		a.diagnostics.Error(err)
 	}
 	context.onRequestEnd()
 	context.setLoggedStatusCode(context.Response.StatusCode())
 	context.setLoggedContentLength(context.Response.ContentLength())
+	if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+		a.diagnostics.OnEvent(logger.EventResponse, context.Response.Bytes())
+	}
 	a.diagnostics.OnEvent(logger.EventRequestComplete, context)
+
+	err = context.Response.Close()
+	if err != nil {
+		a.diagnostics.Error(err)
+	}
 }

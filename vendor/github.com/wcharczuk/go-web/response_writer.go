@@ -8,8 +8,11 @@ type ResponseWriter interface {
 	Header() http.Header
 	Write([]byte) (int, error)
 	WriteHeader(int)
-	InnerWriter() http.ResponseWriter
-	Flush() error
+	InnerResponse() http.ResponseWriter
 	StatusCode() int
 	ContentLength() int
+	Bytes() []byte
+
+	Flush() error
+	Close() error
 }

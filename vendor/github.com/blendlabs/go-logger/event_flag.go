@@ -1,47 +1,51 @@
 package logger
 
 import (
-	"strconv"
+	"os"
 	"strings"
-
-	exception "github.com/blendlabs/go-exception"
 )
 
+// EventFlags
 const (
 	// EventNone is effectively logging disabled.
 	EventNone = uint64(0)
 	// EventAll represents every flag being enabled.
 	EventAll = ^EventNone
 	// EventFatalError enables logging errors
-	EventFatalError = 1 << iota
+	EventFatalError uint64 = 1 << iota
 	// EventError enables logging errors
-	EventError = 1 << iota
+	EventError uint64 = 1 << iota
 	// EventWarning enables logging for warning messages.
-	EventWarning = 1 << iota
+	EventWarning uint64 = 1 << iota
 	// EventDebug enables logging for debug messages.
-	EventDebug = 1 << iota
+	EventDebug uint64 = 1 << iota
 	// EventInfo enables logging for informational messages.
-	EventInfo = 1 << iota
+	EventInfo uint64 = 1 << iota
 
 	// EventRequest is a helper event for logging request events.
-	EventRequest = 1 << iota
+	EventRequest uint64 = 1 << iota
 	// EventRequestComplete is a helper event for logging request events with stats.
-	EventRequestComplete = 1 << iota
+	EventRequestComplete uint64 = 1 << iota
 	// EventRequestBody is a helper event for logging incoming post bodies.
-	EventRequestBody = 1 << iota
+	EventRequestBody uint64 = 1 << iota
 
 	// EventResponse is a helper event for logging response bodies.
-	EventResponse = 1 << iota
+	EventResponse uint64 = 1 << iota
 
 	// EventUserError enables output for user error events.
-	EventUserError = 1 << iota
+	EventUserError uint64 = 1 << iota
 )
 
+// EnvironmentVariables
+const (
+	// EnvironmentVariableLogVerbosity is the log verbosity environment variable.
+	EnvironmentVariableLogVerbosity = "LOG_VERBOSITY"
+)
+
+// EventFlagName Lookup
 var (
 	// EventFlagNames is a map of event flag values to their plaintext names.
 	EventFlagNames = map[string]uint64{
-		"NONE":                   EventNone,
-		"ALL":                    EventAll,
 		"LOG_SHOW_FATAL":         EventFatalError,
 		"LOG_SHOW_ERROR":         EventError,
 		"LOG_SHOW_WARNING":       EventWarning,
@@ -75,54 +79,54 @@ func EventFlagCombine(values ...uint64) uint64 {
 }
 
 // ParseEventFlagNameSet parses an event name csv.
-func ParseEventFlagNameSet(flagValue string) (uint64, error) {
+func ParseEventFlagNameSet(flagValue string) uint64 {
 	if len(flagValue) == 0 {
-		return EventNone, exception.New("Empty `flagValue`")
+		return EventNone
 	}
 
-	if value, parseError := strconv.ParseInt(flagValue, 10, 64); parseError == nil {
-		return uint64(value), nil
+	flagValueCleaned := strings.Trim(strings.ToUpper(flagValue), " \t\n")
+	switch flagValueCleaned {
+	case "ALL":
+		return EventAll
+	case "NONE":
+		return EventNone
 	}
 
 	return ParseEventNames(strings.Split(flagValue, ",")...)
 }
 
 // ParseEventNames parses an array of names into a bit-mask.
-func ParseEventNames(flagValues ...string) (uint64, error) {
-	var result uint64
+func ParseEventNames(flagValues ...string) uint64 {
+	result := EventNone
 	for _, flagValue := range flagValues {
-		if parsedValue, parseError := ParseEventName(flagValue); parseError == nil {
-			result = result | parsedValue
-		} else {
-			return result, parseError
-		}
+		result = EventFlagCombine(result, ParseEventName(flagValue))
 	}
-	return result, nil
+	return result
 }
 
 // ParseEventName parses a single verbosity flag name
-func ParseEventName(flagValue string) (uint64, error) {
+func ParseEventName(flagValue string) uint64 {
 	flagValueCleaned := strings.Trim(strings.ToUpper(flagValue), " \t\n")
 	switch flagValueCleaned {
 	case "ALL":
-		return EventAll, nil
+		return EventAll
 	case "NONE":
-		return EventNone, nil
+		return EventNone
 	default:
 		if eventFlag, hasEventFlag := EventFlagNames[flagValueCleaned]; hasEventFlag {
-			return eventFlag, nil
+			return eventFlag
 		}
-		return EventNone, exception.Newf("Invalid Flag Value: %s", flagValueCleaned)
+		return EventNone
 	}
 }
 
 // ExpandEventNames expands an event flag set into plaintext names.
 func ExpandEventNames(eventFlag uint64) string {
-	if eventFlag == EventNone {
-		return "NONE"
-	}
 	if eventFlag == EventAll {
 		return "ALL"
+	}
+	if eventFlag == EventNone {
+		return "NONE"
 	}
 	var names []string
 	for name, flag := range EventFlagNames {
@@ -131,4 +135,13 @@ func ExpandEventNames(eventFlag uint64) string {
 		}
 	}
 	return strings.Join(names, ",")
+}
+
+// EventsFromEnvironment parses the environment variable for log verbosity.
+func EventsFromEnvironment(defaultEvents ...uint64) uint64 {
+	envEventFlag := os.Getenv(EnvironmentVariableLogVerbosity)
+	if len(envEventFlag) > 0 {
+		return ParseEventFlagNameSet(envEventFlag)
+	}
+	return EventFlagCombine(defaultEvents...)
 }

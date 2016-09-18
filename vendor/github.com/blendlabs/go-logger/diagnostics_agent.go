@@ -14,7 +14,7 @@ var (
 	DefaultDiagnosticsAgentQueueWorkers = 1
 
 	// DefaultDiagnosticsAgentQueueLength is the maximum number of items to buffer in the event queue.
-	DefaultDiagnosticsAgentQueueLength = 1 << 20
+	DefaultDiagnosticsAgentQueueLength = 1 << 10 // 1024
 )
 
 var (
@@ -22,53 +22,40 @@ var (
 	_diagnosticsAgentLock sync.Mutex
 )
 
-// InitializeDiagnostics initializes the Diagnostics() agent with a given verbosity
-// and optionally a targeted writer (only the first variadic writer will be used).
-func InitializeDiagnostics(verbosity uint64, writers ...Logger) {
-	_diagnosticsAgentLock.Lock()
-	defer _diagnosticsAgentLock.Unlock()
-
-	_diagnosticsAgent = NewDiagnosticsAgent(verbosity, writers...)
-}
-
-// InitializeDiagnosticsFromEnvironment initializes the Diagnostics() agent with a given verbosity
-// and optionally a targeted writer (only the first variadic writer will be used).
-func InitializeDiagnosticsFromEnvironment() error {
-	_diagnosticsAgentLock.Lock()
-	defer _diagnosticsAgentLock.Unlock()
-
-	agent, err := NewDiagnosticsAgentFromEnvironment()
-	if err != nil {
-		return err
-	}
-	_diagnosticsAgent = agent
-	return nil
-}
+var (
+	// DefaultDiagnosticsAgentVerbosity is the default verbosity for a diagnostics agent inited from the environment.
+	DefaultDiagnosticsAgentVerbosity = EventFlagCombine(EventFatalError, EventError, EventRequestComplete, EventInfo)
+)
 
 // Diagnostics returnes a default DiagnosticsAgent singleton.
 func Diagnostics() *DiagnosticsAgent {
-	if _diagnosticsAgent == nil {
-		_diagnosticsAgentLock.Lock()
-		defer _diagnosticsAgentLock.Unlock()
-		if _diagnosticsAgent == nil {
-			_diagnosticsAgent = NewDiagnosticsAgent(EventNone) // do this so .Diagnostics() calls don't panic
-		}
-	}
 	return _diagnosticsAgent
 }
 
-// NewDiagnosticsAgent returns a new diagnostics with a given bitflag verbosity.
-func NewDiagnosticsAgent(verbosity uint64, writers ...Logger) *DiagnosticsAgent {
-	diag := &DiagnosticsAgent{
-		verbosity:  verbosity,
-		eventQueue: workQueue.NewQueueWithWorkers(DefaultDiagnosticsAgentQueueWorkers),
-	}
-	diag.eventQueue.UseSynchronousDispatch()                            //dispatch items in order
-	diag.eventQueue.SetMaxWorkItems(DefaultDiagnosticsAgentQueueLength) //more than this and queuing will block
-	diag.eventQueue.Start()
+// SetDiagnostics sets the diagnostics singleton.
+func SetDiagnostics(diagnostics *DiagnosticsAgent) {
+	_diagnosticsAgentLock.Lock()
+	defer _diagnosticsAgentLock.Unlock()
+	_diagnosticsAgent = diagnostics
+}
 
-	if len(writers) > 0 {
-		diag.writer = writers[0]
+func newDiagnosticsEventQueue() *workQueue.Queue {
+	eq := workQueue.NewQueueWithWorkers(DefaultDiagnosticsAgentQueueWorkers)
+	eq.UseSynchronousDispatch()                            //dispatch items in order
+	eq.SetMaxWorkItems(DefaultDiagnosticsAgentQueueLength) //more than this and queuing will block
+	return eq
+}
+
+// NewDiagnosticsAgent returns a new diagnostics with a given bitflag verbosity.
+func NewDiagnosticsAgent(verbosity uint64, optionalWriter ...Logger) *DiagnosticsAgent {
+	diag := &DiagnosticsAgent{
+		verbosity:      verbosity,
+		eventQueue:     newDiagnosticsEventQueue(),
+		eventListeners: map[uint64][]EventListener{},
+	}
+
+	if len(optionalWriter) > 0 {
+		diag.writer = optionalWriter[0]
 	} else {
 		diag.writer = NewLogWriter(os.Stdout, os.Stderr)
 	}
@@ -76,26 +63,9 @@ func NewDiagnosticsAgent(verbosity uint64, writers ...Logger) *DiagnosticsAgent 
 }
 
 // NewDiagnosticsAgentFromEnvironment returns a new diagnostics with a given bitflag verbosity.
-func NewDiagnosticsAgentFromEnvironment() (*DiagnosticsAgent, error) {
-	var err error
-	envEventFlag := os.Getenv("LOG_VERBOSITY")
-	eventFlag := EventFlagCombine(EventFatalError, EventError, EventRequestComplete, EventInfo)
-	if len(envEventFlag) > 0 {
-		eventFlag, err = ParseEventFlagNameSet(envEventFlag)
-		if err != nil {
-			return nil, err
-		}
-	}
-	diag := &DiagnosticsAgent{
-		verbosity:  eventFlag,
-		eventQueue: workQueue.NewQueueWithWorkers(DefaultDiagnosticsAgentQueueWorkers),
-		writer:     NewLogWriterFromEnvironment(),
-	}
-	diag.eventQueue.UseSynchronousDispatch()                            //dispatch items in order
-	diag.eventQueue.SetMaxWorkItems(DefaultDiagnosticsAgentQueueLength) //more than this and queuing will block
-	diag.eventQueue.Start()
-
-	return diag, nil
+func NewDiagnosticsAgentFromEnvironment() *DiagnosticsAgent {
+	eventFlag := EventsFromEnvironment(DefaultDiagnosticsAgentVerbosity)
+	return NewDiagnosticsAgent(eventFlag, NewLogWriterFromEnvironment())
 }
 
 // DiagnosticsAgent is a handler for various logging events with descendent handlers.
@@ -106,21 +76,45 @@ type DiagnosticsAgent struct {
 	eventQueue     *workQueue.Queue
 }
 
-// Label returns the label for the diagnostics agent.
-func (da *DiagnosticsAgent) Label() string {
-	return da.writer.Label()
+// Writer returns the inner Logger for the diagnostics agent.
+func (da *DiagnosticsAgent) Writer() Logger {
+	return da.writer
 }
 
-// SetLabel sets the logging label for the diagnostics agent.
-func (da *DiagnosticsAgent) SetLabel(label string) {
-	da.writer.SetLabel(label)
+// EventQueue returns the inner event queue for the agent.
+func (da *DiagnosticsAgent) EventQueue() *workQueue.Queue {
+	return da.eventQueue
+}
+
+// Verbosity sets the agent verbosity synchronously.
+func (da *DiagnosticsAgent) Verbosity() uint64 {
+	return da.verbosity
+}
+
+// SetVerbosity sets the agent verbosity synchronously.
+func (da *DiagnosticsAgent) SetVerbosity(verbosity uint64) {
+	da.verbosity = verbosity
+}
+
+// CheckVerbosity asserts if a flag value is set or not.
+func (da *DiagnosticsAgent) CheckVerbosity(flagValue uint64) bool {
+	return EventFlagAny(da.verbosity, flagValue)
+}
+
+// CheckHasHandler returns if there are registered handlers for an event.
+func (da *DiagnosticsAgent) CheckHasHandler(event uint64) bool {
+	if da.eventListeners == nil {
+		return false
+	}
+	listeners, hasHandler := da.eventListeners[event]
+	if !hasHandler {
+		return false
+	}
+	return len(listeners) > 0
 }
 
 // AddEventListener adds a listener for errors.
 func (da *DiagnosticsAgent) AddEventListener(eventFlag uint64, listener EventListener) {
-	if da.eventListeners == nil {
-		da.eventListeners = map[uint64][]EventListener{}
-	}
 	da.eventListeners[eventFlag] = append(da.eventListeners[eventFlag], listener)
 }
 
@@ -128,6 +122,10 @@ func (da *DiagnosticsAgent) AddEventListener(eventFlag uint64, listener EventLis
 func (da *DiagnosticsAgent) OnEvent(eventFlag uint64, state ...interface{}) {
 	if da.CheckVerbosity(eventFlag) {
 		if da.CheckHasHandler(eventFlag) {
+			if !da.eventQueue.Running() {
+				da.eventQueue.Start()
+			}
+
 			da.eventQueue.Enqueue(da.fireEvent, append([]interface{}{Now(), eventFlag}, state...)...)
 		}
 	}
@@ -158,36 +156,14 @@ func (da *DiagnosticsAgent) fireEvent(actionState ...interface{}) error {
 	return nil
 }
 
-// QueueLen returns the length of the queue.
-func (da *DiagnosticsAgent) QueueLen() int {
-	return da.eventQueue.Len()
-}
-
-// Verbosity sets the agent verbosity synchronously.
-func (da *DiagnosticsAgent) Verbosity() uint64 {
-	return da.verbosity
-}
-
-// SetVerbosity sets the agent verbosity synchronously.
-func (da *DiagnosticsAgent) SetVerbosity(verbosity uint64) {
-	da.verbosity = verbosity
-}
-
-// CheckVerbosity asserts if a flag value is set or not.
-func (da *DiagnosticsAgent) CheckVerbosity(flagValue uint64) bool {
-	return EventFlagAny(da.verbosity, flagValue)
-}
-
-// CheckHasHandler returns if there are registered handlers for an event.
-func (da *DiagnosticsAgent) CheckHasHandler(event uint64) bool {
-	_, hasHandler := da.eventListeners[event]
-	return hasHandler
-}
-
 // Eventf checks an event flag and writes a message with a given label and color.
 func (da *DiagnosticsAgent) Eventf(eventFlag uint64, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
 	if da.CheckVerbosity(eventFlag) && len(format) > 0 {
 		defer da.OnEvent(eventFlag)
+
+		if !da.eventQueue.Running() {
+			da.eventQueue.Start()
+		}
 		da.eventQueue.Enqueue(da.writeEventMessage, append([]interface{}{Now(), label, labelColor, format}, args...)...)
 	}
 }
@@ -196,6 +172,10 @@ func (da *DiagnosticsAgent) Eventf(eventFlag uint64, label string, labelColor An
 func (da *DiagnosticsAgent) ErrorEventf(eventFlag uint64, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
 	if da.CheckVerbosity(eventFlag) && len(format) > 0 {
 		defer da.OnEvent(eventFlag)
+
+		if !da.eventQueue.Running() {
+			da.eventQueue.Start()
+		}
 		da.eventQueue.Enqueue(da.writeErrorEventMessage, append([]interface{}{Now(), label, labelColor, format}, args...)...)
 	}
 }
@@ -286,4 +266,9 @@ func (da *DiagnosticsAgent) Fatal(err interface{}) {
 	if err != nil {
 		da.Fatalf("%v", err)
 	}
+}
+
+// Close releases shared resources for the agent.
+func (da *DiagnosticsAgent) Close() error {
+	return da.eventQueue.Drain()
 }
