@@ -415,7 +415,7 @@ func (a *App) renderResult(action ControllerAction, context *RequestContext) {
 
 func (a *App) pipelineComplete(context *RequestContext) {
 	err := context.Response.Flush()
-	if err != nil {
+	if err != nil && err != http.ErrBodyNotAllowed {
 		a.diagnostics.Error(err)
 	}
 	context.onRequestEnd()
@@ -427,7 +427,7 @@ func (a *App) pipelineComplete(context *RequestContext) {
 	a.diagnostics.OnEvent(logger.EventRequestComplete, context)
 
 	err = context.Response.Close()
-	if err != nil {
+	if err != nil && err != http.ErrBodyNotAllowed {
 		a.diagnostics.Error(err)
 	}
 }
