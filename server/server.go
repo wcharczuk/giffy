@@ -50,14 +50,13 @@ func Init() *web.App {
 	app.SetAppName(AppName)
 	app.SetPort(core.ConfigPort())
 
-	app.Diagnostics().AddEventListener(logger.EventRequestComplete, func(wr logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
-		context := state[0].(*web.RequestContext)
-		external.StatHatRequestTiming(context.Elapsed())
-	})
+	app.Diagnostics().AddEventListener(logger.EventRequestComplete, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.RequestContext) {
+		external.StatHatRequestTiming(rc.Elapsed())
+	}))
 
-	app.Diagnostics().AddEventListener(logger.EventError, func(wr logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+	app.Diagnostics().AddEventListener(logger.EventError, web.NewDiagnosticsErrorHandler(func(rc *web.RequestContext, err error) {
 		external.StatHatError()
-	})
+	}))
 
 	app.Register(new(controller.Index))
 	app.Register(new(controller.API))
