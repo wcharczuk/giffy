@@ -42,6 +42,15 @@ func SetDefaultAlias(alias string) {
 	defaultAlias = alias
 }
 
+// SetDefaultDb sets the default db to a connection
+func SetDefaultDb(conn *DbConnection) error {
+	aliasName := UUIDv4().ToShortString()
+	CreateDbAlias(aliasName, conn)
+	SetDefaultAlias(aliasName)
+	_, err := conn.Open()
+	return err
+}
+
 // DefaultDb returns a reference to the DbConnection set as default.
 //
 //	spiffy.DefaultDb().Exec("select 'ok!")

@@ -207,3 +207,92 @@ func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols *ColumnCollectio
 func CSV(names []string) string {
 	return strings.Join(names, ",")
 }
+
+var (
+	// LowerA is the ascii int value for 'a'
+	LowerA = uint('a')
+	// LowerZ is the ascii int value for 'z'
+	LowerZ = uint('z')
+
+	lowerDiff = (LowerZ - LowerA)
+)
+
+// HasPrefixCaseInsensitive returns if a corpus has a prefix regardless of casing.
+func HasPrefixCaseInsensitive(corpus, prefix string) bool {
+	corpusLen := len(corpus)
+	prefixLen := len(prefix)
+
+	if corpusLen < prefixLen {
+		return false
+	}
+
+	for x := 0; x < prefixLen; x++ {
+		charCorpus := uint(corpus[x])
+		charPrefix := uint(prefix[x])
+
+		if charCorpus-LowerA <= lowerDiff {
+			charCorpus = charCorpus - 0x20
+		}
+
+		if charPrefix-LowerA <= lowerDiff {
+			charPrefix = charPrefix - 0x20
+		}
+		if charCorpus != charPrefix {
+			return false
+		}
+	}
+	return true
+}
+
+// HasSuffixCaseInsensitive returns if a corpus has a suffix regardless of casing.
+func HasSuffixCaseInsensitive(corpus, suffix string) bool {
+	corpusLen := len(corpus)
+	suffixLen := len(suffix)
+
+	if corpusLen < suffixLen {
+		return false
+	}
+
+	for x := 0; x < suffixLen; x++ {
+		charCorpus := uint(corpus[corpusLen-(x+1)])
+		charSuffix := uint(suffix[suffixLen-(x+1)])
+
+		if charCorpus-LowerA <= lowerDiff {
+			charCorpus = charCorpus - 0x20
+		}
+
+		if charSuffix-LowerA <= lowerDiff {
+			charSuffix = charSuffix - 0x20
+		}
+		if charCorpus != charSuffix {
+			return false
+		}
+	}
+	return true
+}
+
+// CaseInsensitiveEquals compares two strings regardless of case.
+func CaseInsensitiveEquals(a, b string) bool {
+	aLen := len(a)
+	bLen := len(b)
+	if aLen != bLen {
+		return false
+	}
+
+	for x := 0; x < aLen; x++ {
+		charA := uint(a[x])
+		charB := uint(b[x])
+
+		if charA-LowerA <= lowerDiff {
+			charA = charA - 0x20
+		}
+		if charB-LowerA <= lowerDiff {
+			charB = charB - 0x20
+		}
+		if charA != charB {
+			return false
+		}
+	}
+
+	return true
+}

@@ -12,7 +12,6 @@ type ResponseWriter interface {
 	StatusCode() int
 	ContentLength() int
 	Bytes() []byte
-
 	Flush() error
 	Close() error
 }

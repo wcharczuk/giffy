@@ -42,26 +42,26 @@ type Logger struct {
 }
 
 // Applyf active actions to the log.
-func (l *Logger) Applyf(stack []string, body string, args ...interface{}) error {
+func (l *Logger) Applyf(m Migration, body string, args ...interface{}) error {
 	l.applied = l.applied + 1
 	l.Result = "applied"
-	l.write(stack, util.ColorLightGreen, fmt.Sprintf(body, args...))
+	l.write(m, util.ColorLightGreen, fmt.Sprintf(body, args...))
 	return nil
 }
 
 // Skipf passive actions to the log.
-func (l *Logger) Skipf(stack []string, body string, args ...interface{}) error {
+func (l *Logger) Skipf(m Migration, body string, args ...interface{}) error {
 	l.skipped = l.skipped + 1
 	l.Result = "skipped"
-	l.write(stack, util.ColorGreen, fmt.Sprintf(body, args...))
+	l.write(m, util.ColorGreen, fmt.Sprintf(body, args...))
 	return nil
 }
 
 // Errorf writes errors to the log.
-func (l *Logger) Errorf(stack []string, err error) error {
+func (l *Logger) Errorf(m Migration, err error) error {
 	l.failed = l.failed + 1
 	l.Result = "failed"
-	l.write(stack, util.ColorRed, fmt.Sprintf("%v", err.Error()))
+	l.write(m, util.ColorRed, fmt.Sprintf("%v", err.Error()))
 	return err
 }
 
@@ -90,7 +90,7 @@ func (l *Logger) WriteStats() {
 	)
 }
 
-func (l *Logger) write(stack []string, color, body string) {
+func (l *Logger) write(m Migration, color, body string) {
 	if l.Output == nil {
 		return
 	}
@@ -108,33 +108,27 @@ func (l *Logger) write(stack []string, color, body string) {
 		timestamp = l.colorize(time.Now().UTC().Format(time.RFC3339), util.ColorGray) + " "
 	}
 
-	l.Output.Printf("%s%s %s %s %s %s %s %s %s",
+	l.Output.Printf("%s%s %s %s %s %s %s %s",
 		timestamp,
 		l.colorize("migrate", util.ColorBlue),
 		l.colorizeFixedWidthLeftAligned(l.Phase, util.ColorBlue, 5),
 		l.colorize("--", util.ColorLightBlack),
 		l.colorizeFixedWidthLeftAligned(l.Result, resultColor, 5),
-		l.colorize("--", util.ColorLightBlack),
-		l.renderStack(stack, color),
+		l.renderStack(m, color),
 		l.colorize("--", util.ColorLightBlack),
 		body,
 	)
 }
 
-func (l *Logger) renderStack(stack []string, color string) string {
+func (l *Logger) renderStack(m Migration, color string) string {
 	stackSeparator := l.colorize(" > ", util.ColorLightBlack)
 	var renderedStack string
-	for index, stackElement := range stack {
-		if len(stackElement) == 0 {
-			continue
+	cursor := m.Parent()
+	for cursor != nil {
+		if len(cursor.Label()) > 0 {
+			renderedStack = stackSeparator + cursor.Label() + renderedStack
 		}
-
-		if index < len(stack)-1 {
-			renderedStack = renderedStack + l.colorize(stackElement, color)
-			renderedStack = renderedStack + stackSeparator
-		} else {
-			renderedStack = renderedStack + stackElement
-		}
+		cursor = cursor.Parent()
 	}
 	return renderedStack
 }

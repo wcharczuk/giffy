@@ -30,9 +30,12 @@ type MockResponseWriter struct {
 
 // Write writes data and adds to ContentLength.
 func (res *MockResponseWriter) Write(buffer []byte) (int, error) {
-	bytes, err := res.contents.Write(buffer)
-	res.contentLength = res.contentLength + bytes
-	return bytes, err
+	bytesWritten, err := res.innerWriter.Write(buffer)
+	res.contentLength += bytesWritten
+	defer func() {
+		res.contents.Write(buffer)
+	}()
+	return bytesWritten, err
 }
 
 // Header returns the response headers.
@@ -67,8 +70,7 @@ func (res *MockResponseWriter) Bytes() []byte {
 
 // Flush is a no-op.
 func (res *MockResponseWriter) Flush() error {
-	_, err := res.contents.WriteTo(res.innerWriter)
-	return err
+	return nil
 }
 
 // Close is a no-op.

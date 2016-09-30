@@ -26,8 +26,8 @@ const (
 	EventRequest uint64 = 1 << iota
 	// EventRequestComplete is a helper event for logging request events with stats.
 	EventRequestComplete uint64 = 1 << iota
-	// EventRequestBody is a helper event for logging incoming post bodies.
-	EventRequestBody uint64 = 1 << iota
+	// EventPostBody is a helper event for logging incoming post bodies.
+	EventPostBody uint64 = 1 << iota
 
 	// EventResponse is a helper event for logging response bodies.
 	EventResponse uint64 = 1 << iota
@@ -38,24 +38,30 @@ const (
 
 // EnvironmentVariables
 const (
-	// EnvironmentVariableLogVerbosity is the log verbosity environment variable.
-	EnvironmentVariableLogVerbosity = "LOG_VERBOSITY"
+	// EnvironmentVariableLogEvents is the log verbosity environment variable.
+	EnvironmentVariableLogEvents = "LOG_EVENTS"
 )
 
 // EventFlagName Lookup
 var (
+	// EventFlagNameAll is a special flag name meaning all flags set.
+	EventFlagNameAll = "ALL"
+
+	// EventFlagNameNone is a special flag name meaning no flags set.
+	EventFlagNameNone = "NONE"
+
 	// EventFlagNames is a map of event flag values to their plaintext names.
 	EventFlagNames = map[string]uint64{
-		"LOG_SHOW_FATAL":         EventFatalError,
-		"LOG_SHOW_ERROR":         EventError,
-		"LOG_SHOW_WARNING":       EventWarning,
-		"LOG_SHOW_DEBUG":         EventDebug,
-		"LOG_SHOW_INFO":          EventInfo,
-		"LOG_SHOW_REQUEST_START": EventRequest,
-		"LOG_SHOW_REQUEST":       EventRequestComplete,
-		"LOG_SHOW_REQUEST_BODY":  EventRequestBody,
-		"LOG_SHOW_RESPONSE":      EventResponse,
-		"LOG_SHOW_USER_ERROR":    EventUserError,
+		"FATAL":         EventFatalError,
+		"ERROR":         EventError,
+		"WARNING":       EventWarning,
+		"DEBUG":         EventDebug,
+		"INFO":          EventInfo,
+		"REQUEST_START": EventRequest,
+		"REQUEST":       EventRequestComplete,
+		"POST_BODY":     EventPostBody,
+		"RESPONSE":      EventResponse,
+		"USER_ERROR":    EventUserError,
 	}
 )
 
@@ -86,9 +92,9 @@ func ParseEventFlagNameSet(flagValue string) uint64 {
 
 	flagValueCleaned := strings.Trim(strings.ToUpper(flagValue), " \t\n")
 	switch flagValueCleaned {
-	case "ALL":
+	case EventFlagNameAll:
 		return EventAll
-	case "NONE":
+	case EventFlagNameNone:
 		return EventNone
 	}
 
@@ -108,9 +114,9 @@ func ParseEventNames(flagValues ...string) uint64 {
 func ParseEventName(flagValue string) uint64 {
 	flagValueCleaned := strings.Trim(strings.ToUpper(flagValue), " \t\n")
 	switch flagValueCleaned {
-	case "ALL":
+	case EventFlagNameAll:
 		return EventAll
-	case "NONE":
+	case EventFlagNameNone:
 		return EventNone
 	default:
 		if eventFlag, hasEventFlag := EventFlagNames[flagValueCleaned]; hasEventFlag {
@@ -122,12 +128,13 @@ func ParseEventName(flagValue string) uint64 {
 
 // ExpandEventNames expands an event flag set into plaintext names.
 func ExpandEventNames(eventFlag uint64) string {
-	if eventFlag == EventAll {
-		return "ALL"
+	switch eventFlag {
+	case EventAll:
+		return EventFlagNameAll
+	case EventNone:
+		return EventFlagNameNone
 	}
-	if eventFlag == EventNone {
-		return "NONE"
-	}
+
 	var names []string
 	for name, flag := range EventFlagNames {
 		if EventFlagAny(eventFlag, flag) {
@@ -139,9 +146,9 @@ func ExpandEventNames(eventFlag uint64) string {
 
 // EventsFromEnvironment parses the environment variable for log verbosity.
 func EventsFromEnvironment(defaultEvents ...uint64) uint64 {
-	envEventFlag := os.Getenv(EnvironmentVariableLogVerbosity)
-	if len(envEventFlag) > 0 {
-		return ParseEventFlagNameSet(envEventFlag)
+	envEventsFlag := os.Getenv(EnvironmentVariableLogEvents)
+	if len(envEventsFlag) > 0 {
+		return ParseEventFlagNameSet(envEventsFlag)
 	}
 	return EventFlagCombine(defaultEvents...)
 }

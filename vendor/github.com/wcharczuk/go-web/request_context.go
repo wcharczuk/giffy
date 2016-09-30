@@ -57,7 +57,9 @@ type RequestContext struct {
 	api                   *APIResultProvider
 	view                  *ViewResultProvider
 	defaultResultProvider ControllerResultProvider
+	app                   *App
 	diagnostics           *logger.DiagnosticsAgent
+	config                interface{}
 	tx                    *sql.Tx
 	state                 State
 	routeParameters       RouteParameters
@@ -105,11 +107,17 @@ func (rc *RequestContext) TxRollback(rollbacker func() error) error {
 
 // API returns the API result provider.
 func (rc *RequestContext) API() *APIResultProvider {
+	if rc.api == nil {
+		rc.api = NewAPIResultProvider(rc.app, rc)
+	}
 	return rc.api
 }
 
 // View returns the view result provider.
 func (rc *RequestContext) View() *ViewResultProvider {
+	if rc.view == nil {
+		rc.view = NewViewResultProvider(rc.app, rc)
+	}
 	return rc.view
 }
 
@@ -169,7 +177,7 @@ func (rc *RequestContext) PostBody() []byte {
 		defer rc.Request.Body.Close()
 		rc.postBody, _ = ioutil.ReadAll(rc.Request.Body)
 		if rc.diagnostics != nil {
-			rc.diagnostics.OnEvent(logger.EventRequestBody, rc.postBody)
+			rc.diagnostics.OnEvent(logger.EventPostBody, rc.postBody)
 		}
 	}
 
@@ -220,12 +228,16 @@ func (rc *RequestContext) PostedFiles() ([]PostedFile, error) {
 	return files, nil
 }
 
+func parameterMissingError(paramName string) error {
+	return fmt.Errorf("`%s` parameter is missing", paramName)
+}
+
 // RouteParameterInt returns a route parameter as an integer.
 func (rc *RequestContext) RouteParameterInt(key string) (int, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return strconv.Atoi(value)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // RouteParameterInt64 returns a route parameter as an integer.
@@ -233,7 +245,7 @@ func (rc *RequestContext) RouteParameterInt64(key string) (int64, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return strconv.ParseInt(value, 10, 64)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // RouteParameterFloat64 returns a route parameter as an float64.
@@ -241,7 +253,7 @@ func (rc *RequestContext) RouteParameterFloat64(key string) (float64, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return strconv.ParseFloat(value, 64)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // RouteParameter returns a string route parameter
@@ -249,7 +261,7 @@ func (rc *RequestContext) RouteParameter(key string) (string, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return value, nil
 	}
-	return StringEmpty, fmt.Errorf("`%s` parameter is missing", key)
+	return StringEmpty, parameterMissingError(key)
 }
 
 // QueryParam returns a query parameter.
@@ -257,7 +269,7 @@ func (rc *RequestContext) QueryParam(key string) (string, error) {
 	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
 		return value, nil
 	}
-	return StringEmpty, fmt.Errorf("`%s` parameter is missing", key)
+	return StringEmpty, parameterMissingError(key)
 }
 
 // QueryParamInt returns a query parameter as an integer.
@@ -265,7 +277,7 @@ func (rc *RequestContext) QueryParamInt(key string) (int, error) {
 	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
 		return strconv.Atoi(value)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // QueryParamInt64 returns a query parameter as an int64.
@@ -273,7 +285,7 @@ func (rc *RequestContext) QueryParamInt64(key string) (int64, error) {
 	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
 		return strconv.ParseInt(value, 10, 64)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // QueryParamFloat64 returns a query parameter as a float64.
@@ -281,7 +293,7 @@ func (rc *RequestContext) QueryParamFloat64(key string) (float64, error) {
 	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
 		return strconv.ParseFloat(value, 64)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // QueryParamTime returns a query parameter as a time.Time.
@@ -289,7 +301,7 @@ func (rc *RequestContext) QueryParamTime(key, format string) (time.Time, error) 
 	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
 		return time.Parse(format, value)
 	}
-	return time.Time{}, fmt.Errorf("`%s` parameter is missing", key)
+	return time.Time{}, parameterMissingError(key)
 }
 
 // HeaderParam returns a header parameter value.
@@ -297,7 +309,7 @@ func (rc *RequestContext) HeaderParam(key string) (string, error) {
 	if value := rc.Request.Header.Get(key); len(value) > 0 {
 		return value, nil
 	}
-	return StringEmpty, fmt.Errorf("`%s` parameter is missing", key)
+	return StringEmpty, parameterMissingError(key)
 }
 
 // HeaderParamInt returns a header parameter value as an integer.
@@ -305,7 +317,7 @@ func (rc *RequestContext) HeaderParamInt(key string) (int, error) {
 	if value := rc.Request.Header.Get(key); len(value) > 0 {
 		return strconv.Atoi(value)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // HeaderParamInt64 returns a header parameter value as an integer.
@@ -313,7 +325,7 @@ func (rc *RequestContext) HeaderParamInt64(key string) (int64, error) {
 	if value := rc.Request.Header.Get(key); len(value) > 0 {
 		return strconv.ParseInt(value, 10, 64)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // HeaderParamFloat64 returns a header parameter value as an float64.
@@ -321,7 +333,7 @@ func (rc *RequestContext) HeaderParamFloat64(key string) (float64, error) {
 	if value := rc.Request.Header.Get(key); len(value) > 0 {
 		return strconv.ParseFloat(value, 64)
 	}
-	return 0, fmt.Errorf("`%s` parameter is missing", key)
+	return 0, parameterMissingError(key)
 }
 
 // HeaderParamTime returns a header parameter value as an float64.
@@ -329,7 +341,7 @@ func (rc *RequestContext) HeaderParamTime(key, format string) (time.Time, error)
 	if value := rc.Request.Header.Get(key); len(value) > 0 {
 		return time.Parse(format, key)
 	}
-	return time.Time{}, fmt.Errorf("`%s` parameter is missing", key)
+	return time.Time{}, parameterMissingError(key)
 }
 
 // GetCookie returns a named cookie from the request.
@@ -389,6 +401,11 @@ func (rc *RequestContext) ExpireCookie(name string) {
 // Diagnostics returns the diagnostics agent.
 func (rc *RequestContext) Diagnostics() *logger.DiagnosticsAgent {
 	return rc.diagnostics
+}
+
+// Config returns the app config.
+func (rc *RequestContext) Config() interface{} {
+	return rc.config
 }
 
 // --------------------------------------------------------------------------------

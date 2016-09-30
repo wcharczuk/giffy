@@ -6,9 +6,11 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
+	exception "github.com/blendlabs/go-exception"
 	logger "github.com/blendlabs/go-logger"
 	"github.com/julienschmidt/httprouter"
 )
@@ -32,8 +34,11 @@ type App struct {
 	name string
 
 	diagnostics *logger.DiagnosticsAgent
+	config      interface{}
 	router      *httprouter.Router
 	viewCache   *template.Template
+
+	tlsCertPath, tlsKeyPath string
 
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
@@ -60,6 +65,12 @@ func (a *App) SetAppName(appName string) {
 	a.diagnostics.Writer().SetLabel(appName)
 }
 
+// UseTLS sets the app to use TLS.
+func (a *App) UseTLS(tlsCertPath, tlsKeyPath string) {
+	a.tlsCertPath = tlsCertPath
+	a.tlsKeyPath = tlsKeyPath
+}
+
 // Diagnostics returns the diagnostics agent for the app.
 func (a *App) Diagnostics() *logger.DiagnosticsAgent {
 	return a.diagnostics
@@ -73,6 +84,26 @@ func (a *App) SetDiagnostics(da *logger.DiagnosticsAgent) {
 		a.diagnostics.AddEventListener(logger.EventRequestComplete, a.onRequestComplete)
 		a.diagnostics.AddEventListener(logger.EventResponse, a.onResponse)
 	}
+}
+
+// Config returns the app config object.
+func (a *App) Config() interface{} {
+	return a.config
+}
+
+// SetConfig sets the app config object.
+func (a *App) SetConfig(config interface{}) {
+	a.config = config
+}
+
+// InitializeConfig reads a config prototype from the environment.
+func (a *App) InitializeConfig(configPrototype interface{}) error {
+	config, err := ReadConfigFromEnvironment(configPrototype)
+	if err != nil {
+		return err
+	}
+	a.config = config
+	return nil
 }
 
 func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
@@ -155,6 +186,7 @@ func (a *App) Start() error {
 		Addr:    bindAddr,
 		Handler: a,
 	}
+
 	return a.StartWithServer(server)
 }
 
@@ -178,6 +210,20 @@ func (a *App) StartWithServer(server *http.Server) error {
 	a.diagnostics.Infof("Started, listening on %s", server.Addr)
 	a.diagnostics.Infof("Diagnostics Verbosity %s", logger.ExpandEventNames(a.diagnostics.Verbosity()))
 
+	if len(a.tlsCertPath) > 0 && len(a.tlsKeyPath) > 0 {
+		_, err := os.Stat(a.tlsCertPath)
+		if os.IsNotExist(err) {
+			return exception.New("TLS Cert file not found, cannot continue.")
+		}
+
+		_, err = os.Stat(a.tlsKeyPath)
+		if os.IsNotExist(err) {
+			return exception.New("TLS Key file not found, cannot continue.")
+		}
+		a.diagnostics.Infof("Using TLS Key Pair %s:%s", filepath.Base(a.tlsCertPath), filepath.Base(a.tlsKeyPath))
+		return server.ListenAndServeTLS(a.tlsCertPath, a.tlsKeyPath)
+	}
+
 	return server.ListenAndServe()
 }
 
@@ -186,8 +232,8 @@ func (a *App) Register(c Controller) {
 	c.Register(a)
 }
 
-// InitViewCache caches templates by path.
-func (a *App) InitViewCache(paths ...string) error {
+// InitializeViewCache caches templates by path.
+func (a *App) InitializeViewCache(paths ...string) error {
 	views, err := template.ParseFiles(paths...)
 	if err != nil {
 		return err
@@ -344,51 +390,22 @@ func (a *App) Mock() *MockRequestBuilder {
 }
 
 // --------------------------------------------------------------------------------
-// Render Methods
+// Request Pipeline
 // --------------------------------------------------------------------------------
 
-// RequestContext creates an http context.
-func (a *App) requestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
-	hc := NewRequestContext(w, r, p)
-	hc.tx = a.tx
-	hc.diagnostics = a.diagnostics
-	hc.api = NewAPIResultProvider(a, hc)
-	hc.view = NewViewResultProvider(a, hc)
-	return hc
-}
-
 // renderAction is the translation step from ControllerAction to httprouter.Handle.
+// this is where the bulk of the "pipeline" happens.
 func (a *App) renderAction(action ControllerAction) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		a.commonResponseHeaders(w)
-
-		var response ResponseWriter
-		if a.shouldCompressOutput(r) {
-			w.Header().Set("Content-Encoding", "gzip")
-			if a.diagnostics.CheckVerbosity(logger.EventResponse) {
-				response = NewBufferedCompressedResponseWriter(w)
-			} else {
-				response = NewCompressedResponseWriter(w)
-			}
-		} else {
-			if a.diagnostics.CheckVerbosity(logger.EventResponse) {
-				response = NewBufferedResponseWriter(w)
-			} else {
-				response = NewResponseWriter(w)
-			}
-		}
-
+		a.setCommonResponseHeaders(w)
+		response := a.newResponse(w, r)
 		context := a.pipelineInit(response, r, NewRouteParameters(p))
 		a.renderResult(action, context)
 		a.pipelineComplete(context)
 	}
 }
 
-func (a *App) shouldCompressOutput(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-}
-
-func (a *App) commonResponseHeaders(w http.ResponseWriter) {
+func (a *App) setCommonResponseHeaders(w http.ResponseWriter) {
 	w.Header().Set("Vary", "Accept-Encoding")
 	w.Header().Set("X-Served-By", "github.com/wcharczuk/go-web")
 	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
@@ -396,11 +413,44 @@ func (a *App) commonResponseHeaders(w http.ResponseWriter) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 }
 
+func (a *App) newResponse(w http.ResponseWriter, r *http.Request) ResponseWriter {
+	var response ResponseWriter
+	if a.shouldCompressOutput(r) {
+		w.Header().Set("Content-Encoding", "gzip")
+		if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+			response = NewBufferedCompressedResponseWriter(w)
+		} else {
+			response = NewCompressedResponseWriter(w)
+		}
+	} else {
+		if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+			response = NewBufferedResponseWriter(w)
+		} else {
+			response = NewResponseWriter(w)
+		}
+	}
+	return response
+}
+
+func (a *App) shouldCompressOutput(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+}
+
 func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	context := a.requestContext(w, r, p)
 	context.onRequestStart()
 	a.diagnostics.OnEvent(logger.EventRequest, context)
 	return context
+}
+
+// RequestContext creates an http context.
+func (a *App) requestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
+	rc := NewRequestContext(w, r, p)
+	rc.app = a
+	rc.tx = a.tx
+	rc.diagnostics = a.diagnostics
+	rc.config = a.config
+	return rc
 }
 
 func (a *App) renderResult(action ControllerAction, context *RequestContext) {

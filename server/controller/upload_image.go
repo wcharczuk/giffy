@@ -44,7 +44,6 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.RequestContext) web.Contr
 
 	imageURL := r.Param("image_url")
 	if len(imageURL) != 0 {
-
 		refURL, err := url.Parse(imageURL)
 		if err != nil {
 			return r.View().BadRequest("`image_url` was malformed.")
