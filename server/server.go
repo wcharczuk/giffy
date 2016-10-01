@@ -76,7 +76,7 @@ func Init() *web.App {
 			ViewPaths = append(ViewPaths, "server/_views/header.html")
 		}
 
-		err = app.InitViewCache(ViewPaths...)
+		err = app.InitializeViewCache(ViewPaths...)
 		if err != nil {
 			return err
 		}
