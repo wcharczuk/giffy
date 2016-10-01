@@ -198,7 +198,7 @@ func TestSearchImages(t *testing.T) {
 	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
-	images, err := SearchImages("__test", ContentRatingDefault, tx)
+	images, err := SearchImages("__test", ContentRatingFilterDefault, tx)
 	assert.Nil(err)
 	assert.NotEmpty(images)
 	assert.Len(images, 3)
@@ -246,7 +246,7 @@ func TestSearchImagesRandom(t *testing.T) {
 	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
-	images, err := SearchImagesRandom("__test", ContentRatingDefault, 2, tx)
+	images, err := SearchImagesRandom("__test", ContentRatingFilterDefault, 2, tx)
 	assert.Nil(err)
 	assert.NotNil(images)
 	assert.NotEmpty(images)
@@ -290,7 +290,7 @@ func TestSearchImagesBestResult(t *testing.T) {
 	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, tag1value, tx)
 	assert.Nil(err)
 
-	image, err := SearchImagesBestResult(tag1value, ContentRatingDefault, tx)
+	image, err := SearchImagesBestResult(tag1value, ContentRatingFilterDefault, tx)
 	assert.Nil(err)
 	assert.NotNil(image)
 	assert.Equal(i.ID, image.ID)

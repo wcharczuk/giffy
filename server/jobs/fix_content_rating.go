@@ -52,7 +52,7 @@ func (fis FixContentRating) Execute(ct *chronometer.CancellationToken) error {
 
 		ct.CheckCancellation()
 
-		image.ContentRating = model.ContentRatingDefault
+		image.ContentRating = model.ContentRatingG
 		err = spiffy.DefaultDb().Update(&image)
 		if err != nil {
 			return err

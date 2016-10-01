@@ -136,7 +136,7 @@ func NewImageFromPostedFile(userID int64, shouldValidate bool, fileContents []by
 		return nil, exception.Wrap(err)
 	}
 
-	newImage.ContentRating = ContentRatingDefault
+	newImage.ContentRating = ContentRatingG
 	newImage.DisplayName = fileName
 	newImage.Extension = strings.ToLower(filepath.Ext(fileName))
 	newImage.Height = imageMeta.Height

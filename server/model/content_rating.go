@@ -22,11 +22,11 @@ const (
 	// ContentRatingNR = 5
 	ContentRatingNR = 5
 
-	// ContentRatingDefault == ContentRatingNR
-	ContentRatingDefault = ContentRatingNR
+	// ContentRatingFilterDefault < ContentRatingNR
+	ContentRatingFilterDefault = ContentRatingNR
 
-	// ContentRatingAll will returns all images
-	ContentRatingAll = 6
+	// ContentRatingFilterAll will returns all images (including NR).
+	ContentRatingFilterAll = 6
 )
 
 // NewContentRating returns a new ContentRating instance.
