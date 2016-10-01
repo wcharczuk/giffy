@@ -90,6 +90,10 @@ func Init() *web.App {
 		workQueue.Default().Start()
 
 		chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
+		chronometer.Default().LoadJob(jobs.CleanTagValues{})
+		chronometer.Default().LoadJob(jobs.FixContentRating{})
+		chronometer.Default().LoadJob(jobs.FixImageSizes{})
+
 		chronometer.Default().Start()
 		return nil
 	})

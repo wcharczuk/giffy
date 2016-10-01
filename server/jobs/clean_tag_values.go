@@ -9,7 +9,7 @@ import (
 	"github.com/wcharczuk/giffy/server/model"
 )
 
-// CleanTagValues is a job that deletes orphaned tags
+// CleanTagValues is a job that cleans tags of punctuation etc.
 type CleanTagValues struct{}
 
 // Name returns the job name
