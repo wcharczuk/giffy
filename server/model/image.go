@@ -80,6 +80,19 @@ func (i Image) IsZero() bool {
 	return i.ID == 0
 }
 
+// GetTagsSummary returns a csv of the tags for the image.
+func (i Image) GetTagsSummary() string {
+	if len(i.Tags) == 0 {
+		return "N/A"
+	}
+
+	var values []string
+	for _, t := range i.Tags {
+		values = append(values, fmt.Sprintf("(%d) %s", t.VotesTotal, t.TagValue))
+	}
+	return strings.Join(values, ", ")
+}
+
 //Populate popultes the object from rows.
 func (i *Image) Populate(r *sql.Rows) error {
 	return exception.Wrap(r.Scan(
