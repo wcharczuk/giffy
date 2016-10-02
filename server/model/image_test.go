@@ -246,7 +246,7 @@ func TestSearchImagesRandom(t *testing.T) {
 	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
 	assert.Nil(err)
 
-	images, err := SearchImagesRandom("__test", ContentRatingFilterDefault, 2, tx)
+	images, err := SearchImagesWeightedRandom("__test", ContentRatingFilterDefault, 2, tx)
 	assert.Nil(err)
 	assert.NotNil(images)
 	assert.NotEmpty(images)

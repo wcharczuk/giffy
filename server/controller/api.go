@@ -398,7 +398,7 @@ func (api API) searchImagesRandomAction(r *web.RequestContext) web.ControllerRes
 	}
 
 	query := r.Param("query")
-	results, err := model.SearchImagesRandom(query, contentRating, count, r.Tx())
+	results, err := model.SearchImagesWeightedRandom(query, contentRating, count, r.Tx())
 
 	if err != nil {
 		return r.API().InternalError(err)

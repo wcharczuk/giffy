@@ -271,39 +271,39 @@ func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 	return spiffy.DefaultDb().ExecInTransaction(`delete from image where id = $1`, tx, imageID)
 }
 
-func searchImagesInternal(query string, contentRating int, tx *sql.Tx) ([]imageSignature, error) {
+func searchImagesInternal(query string, contentRatingFilter int, tx *sql.Tx) ([]imageSignature, error) {
 	var imageIDs []imageSignature
 	searchImageQuery := `
-select
-	vs.image_id as id
-	, sum(ts.score * vs.votes_total) as score
-from
-	(
-		select
-			t.id as tag_id
-			, similarity(t.tag_value, $1) as score
-		from
-			tag t
-		where
-			similarity(t.tag_value, $1) > show_limit()
-	) ts
-	join vote_summary vs on vs.tag_id = ts.tag_id
-	join image i on vs.image_id = i.id
-where
-	vs.votes_total > 0
-	and i.content_rating < $2
-group by
-	vs.image_id
-order by
-	score desc;
-`
-	err := spiffy.DefaultDb().QueryInTransaction(searchImageQuery, tx, query, contentRating).OutMany(&imageIDs)
+	select
+		vs.image_id as id
+		, sum(ts.score * vs.votes_total) as score
+	from
+		(
+			select
+				t.id as tag_id
+				, similarity(t.tag_value, $1) as score
+			from
+				tag t
+			where
+				similarity(t.tag_value, $1) > show_limit()
+		) ts
+		join vote_summary vs on vs.tag_id = ts.tag_id
+		join image i on vs.image_id = i.id
+	where
+		vs.votes_total > 0
+		and i.content_rating < $2
+	group by
+		vs.image_id
+	order by
+		score desc;
+	`
+	err := spiffy.DefaultDb().QueryInTransaction(searchImageQuery, tx, query, contentRatingFilter).OutMany(&imageIDs)
 	return imageIDs, err
 }
 
 // SearchImages searches for an image.
-func SearchImages(query string, contentRating int, tx *sql.Tx) ([]Image, error) {
-	imageIDs, err := searchImagesInternal(query, contentRating, tx)
+func SearchImages(query string, contentRatingFilter int, tx *sql.Tx) ([]Image, error) {
+	imageIDs, err := searchImagesInternal(query, contentRatingFilter, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -316,9 +316,9 @@ func SearchImages(query string, contentRating int, tx *sql.Tx) ([]Image, error) 
 	return GetImagesByID(ids, tx)
 }
 
-// SearchImagesRandom pulls a random count of images based on a search query. The most common `count` is 1.
-func SearchImagesRandom(query string, contentRating, count int, tx *sql.Tx) ([]Image, error) {
-	imageIDs, err := searchImagesInternal(query, contentRating, tx)
+// SearchImagesWeightedRandom pulls a random count of images based on a search query. The most common `count` is 1.
+func SearchImagesWeightedRandom(query string, contentRatingFilter, count int, tx *sql.Tx) ([]Image, error) {
+	imageIDs, err := searchImagesInternal(query, contentRatingFilter, tx)
 	if err != nil {
 		return nil, err
 	}

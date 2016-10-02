@@ -118,7 +118,7 @@ func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerRe
 		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("Please type at least (3) characters."))
 	}
 
-	results, err := model.SearchImagesRandom(query, model.ContentRatingFilterDefault, 5, rc.Tx())
+	results, err := model.SearchImagesWeightedRandom(query, model.ContentRatingFilterDefault, 3, rc.Tx())
 	if err != nil {
 		rc.Diagnostics().Error(err)
 		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
