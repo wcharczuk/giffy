@@ -4,12 +4,11 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/spiffy"
 )
 
 func TestGetUsersByCountAndOffset(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -23,7 +22,7 @@ func TestGetUsersByCountAndOffset(t *testing.T) {
 
 func TestGetAllUsers(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 

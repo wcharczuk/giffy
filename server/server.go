@@ -11,6 +11,7 @@ import (
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/jobs"
 	"github.com/wcharczuk/giffy/server/migrate"
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 const (
@@ -85,6 +86,15 @@ func Init() *web.App {
 		if err != nil {
 			return err
 		}
+
+		app.Diagnostics().SetVerbosity(logger.EventFlagCombine(app.Diagnostics().Verbosity(), core.EventFlagSearch))
+		app.Diagnostics().AddEventListener(core.EventFlagSearch, func(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+			external.StatHatSearch()
+			if len(state) > 0 {
+				logger.WriteEventf(writer, ts, "Image Search", logger.ColorLightWhite, "query: %s", state[0].(*model.SearchHistory).SearchQuery)
+				workQueue.Default().Enqueue(model.CreateObject, state[0])
+			}
+		})
 
 		workQueue.Default().UseAsyncDispatch()
 		workQueue.Default().Start()

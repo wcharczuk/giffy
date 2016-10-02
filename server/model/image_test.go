@@ -8,13 +8,12 @@ import (
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/linq"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
 func TestGetAllImages(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -50,7 +49,7 @@ func TestGetAllImages(t *testing.T) {
 
 func TestGetRandomImages(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -69,7 +68,7 @@ func TestGetRandomImages(t *testing.T) {
 
 func TestGetImageByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -95,7 +94,7 @@ func TestGetImageByID(t *testing.T) {
 
 func TestGetImageByIDNotFound(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -107,7 +106,7 @@ func TestGetImageByIDNotFound(t *testing.T) {
 
 func TestUpdateImageDisplayName(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -127,7 +126,7 @@ func TestUpdateImageDisplayName(t *testing.T) {
 
 func TestDeleteImageByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -150,7 +149,7 @@ func TestDeleteImageByID(t *testing.T) {
 
 func TestImageMD5Check(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -167,7 +166,7 @@ func TestImageMD5Check(t *testing.T) {
 
 func TestSearchImages(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -215,7 +214,7 @@ func TestSearchImages(t *testing.T) {
 
 func TestSearchImagesRandom(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -254,7 +253,7 @@ func TestSearchImagesRandom(t *testing.T) {
 
 func TestSearchImagesBestResult(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -298,7 +297,7 @@ func TestSearchImagesBestResult(t *testing.T) {
 
 func TestGetImagesByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -366,7 +365,7 @@ func TestSortImagesByIndex(t *testing.T) {
 
 func TestGetAllImagesCensored(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -380,7 +379,7 @@ func TestGetAllImagesCensored(t *testing.T) {
 	assert.Nil(err)
 
 	i.ContentRating = ContentRatingNR
-	err = spiffy.DefaultDb().UpdateInTransaction(i, tx)
+	err = DB().UpdateInTransaction(i, tx)
 	assert.Nil(err)
 
 	censored, err := GetAllImagesWithContentRating(ContentRatingNR, tx)

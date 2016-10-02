@@ -1,10 +1,24 @@
 package logger
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+// WriteEventf is a helper for creating new logging messasges.
+func WriteEventf(writer Logger, ts TimeSource, label string, color AnsiColorCode, format string, args ...interface{}) {
+	buffer := writer.GetBuffer()
+	defer writer.PutBuffer(buffer)
+
+	buffer.WriteString(writer.Colorize(label, color))
+	buffer.WriteRune(RuneSpace)
+	buffer.WriteString(fmt.Sprintf(format, args...))
+	buffer.WriteRune(RuneSpace)
+
+	writer.WriteWithTimeSource(ts, buffer.Bytes())
+}
 
 // WriteRequest is a helper method to write request start events to a writer.
 func WriteRequest(writer Logger, ts TimeSource, req *http.Request) {
@@ -18,7 +32,6 @@ func WriteRequest(writer Logger, ts TimeSource, req *http.Request) {
 	buffer.WriteString(writer.Colorize(req.Method, ColorBlue))
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(req.URL.Path)
-	buffer.WriteRune(RuneSpace)
 
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }

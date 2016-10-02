@@ -34,6 +34,9 @@ const (
 
 	// EventUserError enables output for user error events.
 	EventUserError uint64 = 1 << iota
+
+	// EventFlagMax is the top (biggest) event flag.
+	EventFlagMax = EventUserError
 )
 
 // EnvironmentVariables
@@ -41,6 +44,11 @@ const (
 	// EnvironmentVariableLogEvents is the log verbosity environment variable.
 	EnvironmentVariableLogEvents = "LOG_EVENTS"
 )
+
+// CreateEventFlagConstant creates a new event flag constant.
+func CreateEventFlagConstant(iotaOffset uint) uint64 {
+	return uint64(EventFlagMax * (1 << (iotaOffset + 1)))
+}
 
 // EventFlagName Lookup
 var (

@@ -4,12 +4,11 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/spiffy"
 )
 
 func TestSetVoteSummaryVoteCounts(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -34,7 +33,7 @@ func TestSetVoteSummaryVoteCounts(t *testing.T) {
 
 func TestSetVoteSummaryTagID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -62,7 +61,7 @@ func TestSetVoteSummaryTagID(t *testing.T) {
 
 func TestCreateOrUpdateVote(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -87,7 +86,7 @@ func TestCreateOrUpdateVote(t *testing.T) {
 
 func TestGetImagesForTagID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -105,7 +104,7 @@ func TestGetImagesForTagID(t *testing.T) {
 
 func TestGetTagsForImageID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -123,7 +122,7 @@ func TestGetTagsForImageID(t *testing.T) {
 
 func TestGetSummariesForImage(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -144,7 +143,7 @@ func TestGetSummariesForImage(t *testing.T) {
 
 func TestGetSummariesForTag(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -165,7 +164,7 @@ func TestGetSummariesForTag(t *testing.T) {
 
 func TestReconcileVoteSummaryTotals(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 

@@ -87,14 +87,14 @@ func (mrb *MockRequestBuilder) WithPostBodyAsJSON(object interface{}) *MockReque
 	return mrb
 }
 
-// WithResponseBuffer optionally sets a response buffer to write to during Execute and AsRequestContext.
+// WithResponseBuffer optionally sets a response buffer to write to during ??????
 func (mrb *MockRequestBuilder) WithResponseBuffer(buffer *bytes.Buffer) *MockRequestBuilder {
 	mrb.responseBuffer = buffer
 	return mrb
 }
 
-// AsRequest returns the mock request builder settings as an http.Request.
-func (mrb *MockRequestBuilder) AsRequest() (*http.Request, error) {
+// Request returns the mock request builder settings as an http.Request.
+func (mrb *MockRequestBuilder) Request() (*http.Request, error) {
 	req := &http.Request{}
 	reqURL, err := url.Parse(fmt.Sprintf("http://localhost/%s", mrb.path))
 	if err != nil {
@@ -122,9 +122,9 @@ func (mrb *MockRequestBuilder) AsRequest() (*http.Request, error) {
 	return req, nil
 }
 
-// AsRequestContext returns the mock request as a request context.
-func (mrb *MockRequestBuilder) AsRequestContext(p RouteParameters) (*RequestContext, error) {
-	r, err := mrb.AsRequest()
+// RequestContext returns the mock request as a request context.
+func (mrb *MockRequestBuilder) RequestContext(p RouteParameters) (*RequestContext, error) {
+	r, err := mrb.Request()
 
 	if err != nil {
 		return nil, err
@@ -148,12 +148,12 @@ func (mrb *MockRequestBuilder) AsRequestContext(p RouteParameters) (*RequestCont
 	return rc, nil
 }
 
-// Response runs the mock request.
-func (mrb *MockRequestBuilder) Response() (res *http.Response, err error) {
+// FetchResponse runs the mock request.
+func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if mrb.app.panicHandler != nil {
-				rc, _ := mrb.AsRequestContext(nil)
+				rc, _ := mrb.RequestContext(nil)
 				controllerResult := mrb.app.panicHandler(rc, r)
 				panicRecoveryBuffer := bytes.NewBuffer([]byte{})
 				panicRecoveryWriter := NewMockResponseWriter(panicRecoveryBuffer)
@@ -181,7 +181,7 @@ func (mrb *MockRequestBuilder) Response() (res *http.Response, err error) {
 		return nil, exception.Newf("No matching route for path %s `%s`", mrb.verb, mrb.path)
 	}
 
-	req, err := mrb.AsRequest()
+	req, err := mrb.Request()
 	if err != nil {
 		return nil, err
 	}
@@ -214,9 +214,9 @@ func (mrb *MockRequestBuilder) Response() (res *http.Response, err error) {
 	return
 }
 
-// JSON executes the mock request and reads the response to the given object as json.
-func (mrb *MockRequestBuilder) JSON(object interface{}) error {
-	res, err := mrb.Response()
+// FetchResponseAsJSON executes the mock request and reads the response to the given object as json.
+func (mrb *MockRequestBuilder) FetchResponseAsJSON(object interface{}) error {
+	res, err := mrb.FetchResponse()
 	if err != nil {
 		return err
 	}
@@ -228,9 +228,9 @@ func (mrb *MockRequestBuilder) JSON(object interface{}) error {
 	return json.Unmarshal(contents, object)
 }
 
-// Bytes returns the response as bytes.
-func (mrb *MockRequestBuilder) Bytes() ([]byte, error) {
-	res, err := mrb.Response()
+// FetchResponseAsBytes returns the response as bytes.
+func (mrb *MockRequestBuilder) FetchResponseAsBytes() ([]byte, error) {
+	res, err := mrb.FetchResponse()
 	if err != nil {
 		return nil, err
 	}
@@ -240,13 +240,13 @@ func (mrb *MockRequestBuilder) Bytes() ([]byte, error) {
 
 // Execute just runs the request.
 func (mrb *MockRequestBuilder) Execute() error {
-	_, err := mrb.Bytes()
+	_, err := mrb.FetchResponseAsBytes()
 	return err
 }
 
 // ExecuteWithMeta returns basic metadata for a response.
 func (mrb *MockRequestBuilder) ExecuteWithMeta() (*ResponseMeta, error) {
-	res, err := mrb.Response()
+	res, err := mrb.FetchResponse()
 	if err != nil {
 		return nil, err
 	}

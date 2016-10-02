@@ -4,12 +4,11 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/spiffy"
 )
 
 func TestGetUserAuthByToken(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -29,7 +28,7 @@ func TestGetUserAuthByToken(t *testing.T) {
 
 func TestDeleteUserAuthForProvider(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 

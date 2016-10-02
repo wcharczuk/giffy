@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/spiffy"
 
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
@@ -12,8 +11,8 @@ import (
 
 func TestGetSiteStats(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
-	assert.Nil(txErr)
+	tx, err := model.DB().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
 
 	u, err := model.CreateTestUser(tx)

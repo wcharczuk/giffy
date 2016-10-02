@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 // StatAtTime is a stat value at a time.
@@ -37,23 +37,23 @@ func GetSiteStats(tx *sql.Tx) (*SiteStats, error) {
 	var karmaTotal int
 	var orphanedTagCount int
 
-	err := spiffy.DefaultDb().QueryInTransaction(userCountQuery, tx).Scan(&userCount)
+	err := model.DB().QueryInTransaction(userCountQuery, tx).Scan(&userCount)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().QueryInTransaction(imageCountQuery, tx).Scan(&imageCount)
+	err = model.DB().QueryInTransaction(imageCountQuery, tx).Scan(&imageCount)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().QueryInTransaction(tagCountQuery, tx).Scan(&tagCount)
+	err = model.DB().QueryInTransaction(tagCountQuery, tx).Scan(&tagCount)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().QueryInTransaction(karmaTotalQuery, tx).Scan(&karmaTotal)
+	err = model.DB().QueryInTransaction(karmaTotalQuery, tx).Scan(&karmaTotal)
 	if err != nil {
 		return nil, err
 	}
-	err = spiffy.DefaultDb().QueryInTransaction(orphanedTagCountQuery, tx).Scan(&orphanedTagCount)
+	err = model.DB().QueryInTransaction(orphanedTagCountQuery, tx).Scan(&orphanedTagCount)
 	if err != nil {
 		return nil, err
 	}

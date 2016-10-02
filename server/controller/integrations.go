@@ -7,9 +7,17 @@ import (
 
 	"github.com/blendlabs/go-util"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/go-web"
+)
+
+const (
+	slackErrorInvalidQuery = "Please type at least (3) characters."
+	slackErrorInternal     = "There was an error processing your request. Sadness."
+)
+
+var (
+	slackErrorNoResults = fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())
 )
 
 type slackField struct {
@@ -51,29 +59,36 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 	query := rc.Param("text")
 
 	if len(query) < 3 {
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("Please type at least (3) characters."))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInvalidQuery))
 	}
 
 	var result *model.Image
+	var resultID *int64
+	var tagID *int64
+	var foundResult bool
 	var err error
+
+	defer func() {
+		rc.Diagnostics().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", teamID, teamName, channelID, channelName, userID, userName, query, foundResult, resultID, tagID))
+	}()
+
 	if strings.HasPrefix(query, "img:") {
-		uuid := strings.Replace(query, "img:", "", -1)
+		uuid := strings.TrimPrefix(query, "img:")
 		result, err = model.GetImageByUUID(uuid, rc.Tx())
 	} else {
 		result, err = model.SearchImagesBestResult(query, model.ContentRatingNR, rc.Tx())
 	}
 	if err != nil {
-		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
 	}
 
 	if result == nil || result.IsZero() {
-		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorNoResults))
 	}
 
-	var tagID *int64
+	foundResult = true
+	resultID = util.OptionalInt64(result.ID)
 
 	res := slackResponse{}
 	res.ImageUUID = result.UUID
@@ -88,45 +103,40 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 			slackImageAttachment{Title: query, ImageURL: result.S3ReadURL},
 		}
 	} else {
-		res.Attachments = []interface{}{
-			slackImageAttachment{Title: result.Tags[0].TagValue, ImageURL: result.S3ReadURL},
+		if len(result.Tags) > 0 {
+			res.Attachments = []interface{}{
+				slackImageAttachment{Title: result.Tags[0].TagValue, ImageURL: result.S3ReadURL},
+			}
+		} else {
+			res.Attachments = []interface{}{
+				slackImageAttachment{Title: query, ImageURL: result.S3ReadURL},
+			}
 		}
 	}
 
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
 	}
 
-	model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, true, util.OptionalInt64(result.ID), tagID)
-	external.StatHatSearch()
 	return rc.RawWithContentType("application/json; charset=utf-8", responseBytes)
 }
 
 func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerResult {
-	teamID := rc.Param("team_id")
-	channelID := rc.Param("channel_id")
-	userID := rc.Param("user_id")
-
-	teamName := rc.Param("team_domain")
-	channelName := rc.Param("channel_name")
-	userName := rc.Param("user_name")
-
 	query := rc.Param("text")
 	if len(query) < 3 {
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("Please type at least (3) characters."))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInvalidQuery))
 	}
 
 	results, err := model.SearchImagesWeightedRandom(query, model.ContentRatingFilterDefault, 3, rc.Tx())
 	if err != nil {
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
 	}
 
 	if len(results) == 0 {
-		model.QueueSearchHistoryEntry("slack", teamID, teamName, channelID, channelName, userID, userName, query, false, nil, nil)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorNoResults))
 	}
 
 	res := slackResponse{}
@@ -140,7 +150,7 @@ func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerRe
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte("There was an error processing your request. Sadness."))
+		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
 	}
 	return rc.RawWithContentType("application/json; charset=utf-8", responseBytes)
 }

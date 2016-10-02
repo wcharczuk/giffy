@@ -4,13 +4,12 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
 func TestGetVotesForUser(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -31,7 +30,7 @@ func TestGetVotesForUser(t *testing.T) {
 
 func TestGetVotesForImage(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -52,7 +51,7 @@ func TestGetVotesForImage(t *testing.T) {
 
 func TestGetVotesForTag(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -73,7 +72,7 @@ func TestGetVotesForTag(t *testing.T) {
 
 func TestGetVotesForUserForImage(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -94,7 +93,7 @@ func TestGetVotesForUserForImage(t *testing.T) {
 
 func TestGetVotesForUserForTag(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -115,7 +114,7 @@ func TestGetVotesForUserForTag(t *testing.T) {
 
 func TestGetVote(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 

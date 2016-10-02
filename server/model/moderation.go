@@ -92,7 +92,7 @@ func (m Moderation) IsZero() bool {
 
 func writeModerationLogEntry(state ...interface{}) error {
 	if typed, isTyped := state[0].(*Moderation); isTyped {
-		return spiffy.DefaultDb().Create(typed)
+		return DB().Create(typed)
 	}
 	return exception.New("`state` was not of the correct type.")
 }
@@ -144,7 +144,7 @@ order by timestamp_utc desc
 func GetModerationForUserID(userID int64, tx *sql.Tx) ([]Moderation, error) {
 	var moderationLog []Moderation
 	whereClause := `where user_id = $1`
-	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(moderationConsumer(&moderationLog))
+	err := DB().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(moderationConsumer(&moderationLog))
 	return moderationLog, err
 }
 
@@ -152,7 +152,7 @@ func GetModerationForUserID(userID int64, tx *sql.Tx) ([]Moderation, error) {
 func GetModerationsByTime(after time.Time, tx *sql.Tx) ([]Moderation, error) {
 	var moderationLog []Moderation
 	whereClause := `where timestamp_utc > $1`
-	err := spiffy.DefaultDb().QueryInTransaction(getModerationQuery(whereClause), tx, after).Each(moderationConsumer(&moderationLog))
+	err := DB().QueryInTransaction(getModerationQuery(whereClause), tx, after).Each(moderationConsumer(&moderationLog))
 	return moderationLog, err
 }
 
@@ -161,7 +161,7 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 	var moderationLog []Moderation
 	query := getModerationQuery("")
 	query = query + `limit $1 offset $2`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).Each(moderationConsumer(&moderationLog))
+	err := DB().QueryInTransaction(query, tx, count, offset).Each(moderationConsumer(&moderationLog))
 	return moderationLog, err
 }
 

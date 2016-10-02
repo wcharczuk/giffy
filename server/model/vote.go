@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-
-	"github.com/blendlabs/spiffy"
 )
 
 // Vote is a vote by a user for an image and tag.
@@ -67,51 +65,51 @@ order by
 // GetVotesForUser gets all the vote log entries for a user.
 func GetVotesForUser(userID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1"), tx, userID).OutMany(&votes)
+	err := DB().QueryInTransaction(getVotesQuery("where v.user_id = $1"), tx, userID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVotesForImage gets all the votes log entries for an image.
 func GetVotesForImage(imageID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.image_id = $1"), tx, imageID).OutMany(&votes)
+	err := DB().QueryInTransaction(getVotesQuery("where v.image_id = $1"), tx, imageID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVotesForTag gets all the votes log entries for an image.
 func GetVotesForTag(tagID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.tag_id = $1"), tx, tagID).OutMany(&votes)
+	err := DB().QueryInTransaction(getVotesQuery("where v.tag_id = $1"), tx, tagID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVotesForUserForImage gets the votes for an image by a user.
 func GetVotesForUserForImage(userID, imageID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.image_id = $2"), tx, userID, imageID).OutMany(&votes)
+	err := DB().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.image_id = $2"), tx, userID, imageID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVotesForUserForTag gets the votes for an image by a user.
 func GetVotesForUserForTag(userID, tagID int64, tx *sql.Tx) ([]Vote, error) {
 	votes := []Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.tag_id = $2"), tx, userID, tagID).OutMany(&votes)
+	err := DB().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.tag_id = $2"), tx, userID, tagID).OutMany(&votes)
 	return votes, err
 }
 
 // GetVote gets a user's vote for an image and a tag.
 func GetVote(userID, imageID, tagID int64, tx *sql.Tx) (*Vote, error) {
 	voteLog := Vote{}
-	err := spiffy.DefaultDb().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.image_id = $2 and v.tag_id = $3"), tx, userID, imageID, tagID).Out(&voteLog)
+	err := DB().QueryInTransaction(getVotesQuery("where v.user_id = $1 and v.image_id = $2 and v.tag_id = $3"), tx, userID, imageID, tagID).Out(&voteLog)
 	return &voteLog, err
 }
 
 // SetVoteTagID sets the tag_id for a vote object.
 func SetVoteTagID(userID, imageID, oldTagID, newTagID int64, tx *sql.Tx) error {
-	return spiffy.DefaultDb().ExecInTransaction(`update vote set tag_id = $1 where user_id = $2 and image_id = $3 and tag_id = $4`, tx, newTagID, userID, imageID, oldTagID)
+	return DB().ExecInTransaction(`update vote set tag_id = $1 where user_id = $2 and image_id = $3 and tag_id = $4`, tx, newTagID, userID, imageID, oldTagID)
 }
 
 // DeleteVote deletes a vote.
 func DeleteVote(userID, imageID, tagID int64, tx *sql.Tx) error {
-	return spiffy.DefaultDb().ExecInTransaction(`DELETE from vote where user_id = $1 and image_id = $2 and tag_id = $3`, tx, userID, imageID, tagID)
+	return DB().ExecInTransaction(`DELETE from vote where user_id = $1 and image_id = $2 and tag_id = $3`, tx, userID, imageID, tagID)
 }

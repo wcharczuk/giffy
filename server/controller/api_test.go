@@ -54,7 +54,7 @@ func TestAPIUsers(t *testing.T) {
 	app.Register(new(API))
 
 	var res testUsersResponse
-	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").JSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
@@ -73,7 +73,7 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 	app.Register(API{})
 
 	var res testUsersResponse
-	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").JSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
@@ -96,7 +96,7 @@ func TestAPIUserSearch(t *testing.T) {
 		WithHeader(auth.SessionParamName, session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
-		JSON(&res)
+		FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
@@ -119,7 +119,7 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 		WithHeader(auth.SessionParamName, session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
-		JSON(&res)
+		FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
@@ -135,7 +135,7 @@ func TestAPIUser(t *testing.T) {
 	app.Register(new(API))
 
 	var res testUserResponse
-	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
+	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotNil(res.Response)
@@ -159,7 +159,7 @@ func TestAPIImages(t *testing.T) {
 	app.Register(new(API))
 
 	var res testImagesResponse
-	err = app.Mock().WithPathf("/api/images").JSON(&res)
+	err = app.Mock().WithPathf("/api/images").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
@@ -182,7 +182,7 @@ func TestAPIImagesRandom(t *testing.T) {
 	app.Register(new(API))
 
 	var res testImagesResponse
-	err = app.Mock().WithPathf("/api/images/random/10").JSON(&res)
+	err = app.Mock().WithPathf("/api/images/random/10").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
@@ -199,7 +199,7 @@ func TestAPISiteStats(t *testing.T) {
 	app.Register(new(API))
 
 	var res testSiteStatsResponse
-	err = app.Mock().WithPathf("/api/stats").JSON(&res)
+	err = app.Mock().WithPathf("/api/stats").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response, "stats response is nil")
 }
@@ -218,7 +218,7 @@ func TestAPISessionUser(t *testing.T) {
 	app.Register(new(API))
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/session.user").JSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/session.user").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.True(res.Response.IsLoggedIn)
@@ -236,7 +236,7 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	app.Register(new(API))
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithPathf("/api/session.user").JSON(&res)
+	err = app.Mock().WithPathf("/api/session.user").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.False(res.Response.IsLoggedIn)

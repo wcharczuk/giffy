@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
@@ -66,28 +65,28 @@ func NewUser(username string) *User {
 // GetAllUsers returns all the users.
 func GetAllUsers(tx *sql.Tx) ([]User, error) {
 	var all []User
-	err := spiffy.DefaultDb().GetAllInTransaction(&all, tx)
+	err := DB().GetAllInTransaction(&all, tx)
 	return all, err
 }
 
 // GetUsersByCountAndOffset returns users by count and offset.
 func GetUsersByCountAndOffset(count, offset int, tx *sql.Tx) ([]User, error) {
 	var all []User
-	err := spiffy.DefaultDb().QueryInTransaction(`select * from users order by created_utc desc limit $1 offset $2`, tx, count, offset).OutMany(&all)
+	err := DB().QueryInTransaction(`select * from users order by created_utc desc limit $1 offset $2`, tx, count, offset).OutMany(&all)
 	return all, err
 }
 
 // GetUserByID returns a user by id.
 func GetUserByID(id int64, tx *sql.Tx) (*User, error) {
 	var user User
-	err := spiffy.DefaultDb().GetByIDInTransaction(&user, tx, id)
+	err := DB().GetByIDInTransaction(&user, tx, id)
 	return &user, err
 }
 
 // GetUserByUUID returns a user for a uuid.
 func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
 	var user User
-	err := spiffy.DefaultDb().
+	err := DB().
 		QueryInTransaction(`select * from users where uuid = $1`, tx, uuid).Out(&user)
 	return &user, err
 }
@@ -97,14 +96,14 @@ func SearchUsers(query string, tx *sql.Tx) ([]User, error) {
 	var users []User
 	queryFormat := fmt.Sprintf("%%%s%%", query)
 	sqlQuery := `select * from users where username ilike $1 or first_name ilike $1 or last_name ilike $1 or email_address ilike $1`
-	err := spiffy.DefaultDb().QueryInTransaction(sqlQuery, tx, queryFormat).OutMany(&users)
+	err := DB().QueryInTransaction(sqlQuery, tx, queryFormat).OutMany(&users)
 	return users, err
 }
 
 // GetUserByUsername returns a user for a uuid.
 func GetUserByUsername(username string, tx *sql.Tx) (*User, error) {
 	var user User
-	err := spiffy.DefaultDb().
+	err := DB().
 		QueryInTransaction(`select * from users where username = $1`, tx, username).Out(&user)
 	return &user, err
 }

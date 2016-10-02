@@ -5,12 +5,11 @@ import (
 
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-util"
-	"github.com/blendlabs/spiffy"
 )
 
 func TestGetSearchHistory(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 

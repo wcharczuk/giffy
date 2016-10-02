@@ -1,10 +1,6 @@
 package model
 
-import (
-	"database/sql"
-
-	"github.com/blendlabs/spiffy"
-)
+import "database/sql"
 
 const (
 	// ContentRatingG = 1
@@ -59,7 +55,7 @@ func (cr *ContentRating) IsZero() bool {
 // GetContentRatingByName gets a content rating by name.
 func GetContentRatingByName(name string, tx *sql.Tx) (*ContentRating, error) {
 	var rating ContentRating
-	err := spiffy.DefaultDb().QueryInTransaction(
+	err := DB().QueryInTransaction(
 		`SELECT * from content_rating where name = $1`, tx, name,
 	).Out(&rating)
 	return &rating, err

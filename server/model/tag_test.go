@@ -4,12 +4,11 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/spiffy"
 )
 
 func TestGetAllTags(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -26,7 +25,7 @@ func TestGetAllTags(t *testing.T) {
 
 func TestGetTagByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -43,7 +42,7 @@ func TestGetTagByID(t *testing.T) {
 
 func TestGetTagByUUID(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -60,7 +59,7 @@ func TestGetTagByUUID(t *testing.T) {
 
 func TestGetTagByValue(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -78,7 +77,7 @@ func TestGetTagByValue(t *testing.T) {
 
 func TestMergeTags(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -113,7 +112,7 @@ func TestMergeTags(t *testing.T) {
 
 func TestMergeTagsWithExisting(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -146,7 +145,7 @@ func TestMergeTagsWithExisting(t *testing.T) {
 
 func TestDeleteTagAndVotesByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -168,7 +167,7 @@ func TestDeleteTagAndVotesByID(t *testing.T) {
 
 func TestSetTagValue(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 

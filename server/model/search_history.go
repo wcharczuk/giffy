@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-workqueue"
 	"github.com/blendlabs/spiffy"
 )
 
@@ -19,6 +17,26 @@ func NewSearchHistory(source, searchQuery string, didFindMatch bool, imageID, ta
 		DidFindMatch: didFindMatch,
 		ImageID:      imageID,
 		TagID:        tagID,
+	}
+}
+
+// NewSearchHistoryDetailed queues logging a new moderation log entry.
+func NewSearchHistoryDetailed(source, sourceTeamID, sourceTeamName, sourceChannelID, sourceChannelName, sourceUserID, sourceUserName, searchQuery string, didFindMatch bool, imageID, tagID *int64) *SearchHistory {
+	return &SearchHistory{
+		Source:       source,
+		TimestampUTC: time.Now().UTC(),
+		SearchQuery:  searchQuery,
+		DidFindMatch: didFindMatch,
+		ImageID:      imageID,
+		TagID:        tagID,
+
+		//below are the "detailed" fields
+		SourceTeamIdentifier:    sourceTeamID,
+		SourceChannelIdentifier: sourceChannelID,
+		SourceUserIdentifier:    sourceUserID,
+		SourceTeamName:          sourceTeamName,
+		SourceChannelName:       sourceChannelName,
+		SourceUserName:          sourceUserName,
 	}
 }
 
@@ -49,22 +67,27 @@ func (sh SearchHistory) TableName() string {
 	return "search_history"
 }
 
-func searchHistoryQuery(whereClause string) string {
+func createSearchHistoryQuery(whereClause ...string) string {
 	searchColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(SearchHistory{}).NotReadOnly().ColumnNamesFromAlias("sh"))
 	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesFromAlias("i"))
 	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
-	return fmt.Sprintf(`
-select
-	%s,
-	%s,
+
+	query := `
+	select
+		%s,
+		%s,
+		%s
+	from
+		search_history sh
+		left join image i on i.id = sh.image_id
+		left join tag t on t.id = sh.tag_id
 	%s
-from
-	search_history sh
-	left join image i on i.id = sh.image_id
-	left join tag t on t.id = sh.tag_id
-%s
-order by timestamp_utc desc
-`, searchColumns, imageColumns, tagColumns, whereClause)
+	order by timestamp_utc desc
+	`
+	if len(whereClause) > 0 {
+		return fmt.Sprintf(query, searchColumns, imageColumns, tagColumns, whereClause[0])
+	}
+	return fmt.Sprintf(query, searchColumns, imageColumns, tagColumns, "")
 }
 
 func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
@@ -98,39 +121,18 @@ func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
 }
 
 // GetSearchHistory returns the entire search history in chrono order.
-func GetSearchHistory(tx *sql.Tx) ([]SearchHistory, error) {
+func GetSearchHistory(txs ...*sql.Tx) ([]SearchHistory, error) {
 	var searchHistory []SearchHistory
-	query := searchHistoryQuery("")
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx).Each(searchHistoryConsumer(&searchHistory))
+	query := createSearchHistoryQuery()
+	err := DB().QueryInTransaction(query, spiffy.OptionalTx(txs...)).Each(searchHistoryConsumer(&searchHistory))
 	return searchHistory, err
 }
 
 // GetSearchHistoryByCountAndOffset returns the search history in chrono order by count and offset.
 func GetSearchHistoryByCountAndOffset(count, offset int, tx *sql.Tx) ([]SearchHistory, error) {
 	var searchHistory []SearchHistory
-	query := searchHistoryQuery("")
+	query := createSearchHistoryQuery()
 	query = query + `limit $1 offset $2`
-	err := spiffy.DefaultDb().QueryInTransaction(query, tx, count, offset).Each(searchHistoryConsumer(&searchHistory))
+	err := DB().QueryInTransaction(query, tx, count, offset).Each(searchHistoryConsumer(&searchHistory))
 	return searchHistory, err
-}
-
-func writeSearchHistoryEntry(state ...interface{}) error {
-	if typed, isTyped := state[0].(*SearchHistory); isTyped {
-		return spiffy.DefaultDb().Create(typed)
-	}
-	return exception.New("`state` was not of the correct type.")
-}
-
-// QueueSearchHistoryEntry queues logging a new moderation log entry.
-func QueueSearchHistoryEntry(source, sourceTeamID, sourceTeamName, sourceChannelID, sourceChannelName, sourceUserID, sourceUserName, searchQuery string, didFindMatch bool, imageID, tagID *int64) {
-	sh := NewSearchHistory(source, searchQuery, didFindMatch, imageID, tagID)
-	sh.SourceTeamIdentifier = sourceTeamID
-	sh.SourceChannelIdentifier = sourceChannelID
-	sh.SourceUserIdentifier = sourceUserID
-
-	sh.SourceTeamName = sourceTeamName
-	sh.SourceChannelName = sourceChannelName
-	sh.SourceUserName = sourceUserName
-
-	workQueue.Default().Enqueue(writeSearchHistoryEntry, sh)
 }

@@ -17,7 +17,7 @@ func TestIndex(t *testing.T) {
 
 	app := web.New()
 	app.Register(Index{})
-	res, err := app.Mock().WithPathf("/").Response()
+	res, err := app.Mock().WithPathf("/").FetchResponse()
 	assert.Nil(err)
 	assert.True(res.StatusCode == http.StatusOK || res.StatusCode == http.StatusNotModified, res.StatusCode)
 	defer res.Body.Close()
@@ -39,11 +39,11 @@ func TestStaticRewrite(t *testing.T) {
 
 	app := web.New()
 	app.Register(Index{})
-	contents, err := app.Mock().WithPathf("/static/js/giffy.min.1231231232313.js").Bytes()
+	contents, err := app.Mock().WithPathf("/static/js/giffy.min.1231231232313.js").FetchResponseAsBytes()
 	assert.Nil(err)
 	assert.NotEmpty(contents)
 
-	contents, err = app.Mock().WithPathf("/static/js/giffy.min.js").Bytes()
+	contents, err = app.Mock().WithPathf("/static/js/giffy.min.js").FetchResponseAsBytes()
 	assert.Nil(err)
 	assert.NotEmpty(contents)
 }

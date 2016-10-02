@@ -39,9 +39,28 @@ func TestSlack(t *testing.T) {
 		WithQueryString("channel_name", "test_channel").
 		WithQueryString("user_name", "test_user").
 		WithQueryString("text", "__test").
-		JSON(&res)
+		FetchResponseAsJSON(&res)
 
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Attachments)
+}
+
+func TestSlackErrorsWithShortQuery(t *testing.T) {
+	assert := assert.New(t)
+	app := web.New()
+
+	app.Register(Integrations{})
+	res, err := app.Mock().WithPathf("/integrations/slack").
+		WithQueryString("team_id", core.UUIDv4().ToShortString()).
+		WithQueryString("channel_id", core.UUIDv4().ToShortString()).
+		WithQueryString("user_id", core.UUIDv4().ToShortString()).
+		WithQueryString("team_doman", "test_domain").
+		WithQueryString("channel_name", "test_channel").
+		WithQueryString("user_name", "test_user").
+		WithQueryString("text", "do").FetchResponseAsBytes()
+
+	assert.Nil(err)
+	assert.NotNil(res)
+	assert.Equal(slackErrorInvalidQuery, string(res))
 }
