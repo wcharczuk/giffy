@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,6 +36,8 @@ type MockRequestBuilder struct {
 	headers     http.Header
 	cookies     []*http.Cookie
 	postBody    []byte
+
+	postedFiles map[string]PostedFile
 
 	responseBuffer *bytes.Buffer
 }
@@ -87,6 +91,15 @@ func (mrb *MockRequestBuilder) WithPostBodyAsJSON(object interface{}) *MockReque
 	return mrb
 }
 
+// WithPostedFile includes a file as a post parameter.
+func (mrb *MockRequestBuilder) WithPostedFile(postedFile PostedFile) *MockRequestBuilder {
+	if mrb.postedFiles == nil {
+		mrb.postedFiles = map[string]PostedFile{}
+	}
+	mrb.postedFiles[postedFile.Key] = postedFile
+	return mrb
+}
+
 // WithResponseBuffer optionally sets a response buffer to write to during ??????
 func (mrb *MockRequestBuilder) WithResponseBuffer(buffer *bytes.Buffer) *MockRequestBuilder {
 	mrb.responseBuffer = buffer
@@ -105,7 +118,6 @@ func (mrb *MockRequestBuilder) Request() (*http.Request, error) {
 	req.Method = mrb.verb
 	req.URL = reqURL
 	req.RequestURI = reqURL.String()
-	req.Body = ioutil.NopCloser(bytes.NewBuffer(mrb.postBody))
 	req.Form = mrb.formValues
 	req.Header = http.Header{}
 
@@ -117,6 +129,31 @@ func (mrb *MockRequestBuilder) Request() (*http.Request, error) {
 
 	for _, cookie := range mrb.cookies {
 		req.AddCookie(cookie)
+	}
+
+	if len(mrb.postedFiles) > 0 {
+		b := bytes.NewBuffer(nil)
+		w := multipart.NewWriter(b)
+		for _, file := range mrb.postedFiles {
+			fw, err := w.CreateFormFile(file.Key, file.FileName)
+			if err != nil {
+				return nil, err
+			}
+			_, err = io.Copy(fw, bytes.NewBuffer(file.Contents))
+			if err != nil {
+				return nil, err
+			}
+		}
+		// Don't forget to set the content type, this will contain the boundary.
+		req.Header.Set("Content-Type", w.FormDataContentType())
+
+		err = w.Close()
+		if err != nil {
+			return nil, err
+		}
+		req.Body = ioutil.NopCloser(b)
+	} else {
+		req.Body = ioutil.NopCloser(bytes.NewBuffer(mrb.postBody))
 	}
 
 	return req, nil

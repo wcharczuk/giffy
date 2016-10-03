@@ -26,7 +26,7 @@ const (
 // PostedFile is a file that has been posted to an hc endpoint.
 type PostedFile struct {
 	Key      string
-	Filename string
+	FileName string
 	Contents []byte
 }
 
@@ -209,7 +209,7 @@ func (rc *RequestContext) PostedFiles() ([]PostedFile, error) {
 			if err != nil {
 				return nil, err
 			}
-			files = append(files, PostedFile{Key: key, Filename: fileHeader.Filename, Contents: bytes})
+			files = append(files, PostedFile{Key: key, FileName: fileHeader.Filename, Contents: bytes})
 		}
 	} else {
 		err = rc.Request.ParseForm()
@@ -220,7 +220,7 @@ func (rc *RequestContext) PostedFiles() ([]PostedFile, error) {
 					if err != nil {
 						return nil, err
 					}
-					files = append(files, PostedFile{Key: key, Filename: fileHeader.Filename, Contents: bytes})
+					files = append(files, PostedFile{Key: key, FileName: fileHeader.Filename, Contents: bytes})
 				}
 			}
 		}

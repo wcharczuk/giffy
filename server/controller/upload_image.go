@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/auth"
+	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/filecache"
 	"github.com/wcharczuk/giffy/server/model"
@@ -85,7 +87,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.RequestContext) web.Contr
 			return r.View().BadRequest("Too many files posted.")
 		}
 
-		fileName = files[0].Filename
+		fileName = files[0].FileName
 		fileContents = files[0].Contents
 	}
 
@@ -99,7 +101,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.RequestContext) web.Contr
 		return r.View().View("upload_image_complete", existing)
 	}
 
-	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, fileContents, fileName)
+	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, fileContents, fileName, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -107,12 +109,12 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.RequestContext) web.Contr
 		return r.View().InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
 
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
+	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return r.View().View("upload_image_complete", image)
 }
 
 // CreateImageFromFile creates and uploads a new image.
-func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte, fileName string) (*model.Image, error) {
+func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte, fileName string, tx *sql.Tx) (*model.Image, error) {
 	newImage, err := model.NewImageFromPostedFile(userID, shouldValidate, fileContents, fileName)
 	if err != nil {
 		return nil, err
@@ -128,7 +130,7 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 	newImage.S3Key = remoteEntry.Key
 	newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
 
-	err = spiffy.DefaultDb().Create(newImage)
+	err = spiffy.DefaultDb().CreateInTransaction(newImage, tx)
 	if err != nil {
 		return nil, err
 	}

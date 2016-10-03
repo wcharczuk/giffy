@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	slackErrorInvalidQuery = "Please type at least (3) characters."
-	slackErrorInternal     = "There was an error processing your request. Sadness."
+	slackContenttypeJSON      = "application/json; charset=utf-8"
+	slackContentTypeTextPlain = "text/plain; charset=utf-8"
+	slackErrorInvalidQuery    = "Please type at least (3) characters."
+	slackErrorInternal        = "There was an error processing your request. Sadness."
 )
 
 var (
@@ -59,7 +61,7 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 	query := rc.Param("text")
 
 	if len(query) < 3 {
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInvalidQuery))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
 	}
 
 	var result *model.Image
@@ -80,11 +82,11 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 	}
 	if err != nil {
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	if result == nil || result.IsZero() {
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorNoResults))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
 	}
 
 	foundResult = true
@@ -117,26 +119,26 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
-	return rc.RawWithContentType("application/json; charset=utf-8", responseBytes)
+	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
 func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerResult {
 	query := rc.Param("text")
 	if len(query) < 3 {
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInvalidQuery))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
 	}
 
 	results, err := model.SearchImagesWeightedRandom(query, model.ContentRatingFilterDefault, 3, rc.Tx())
 	if err != nil {
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	if len(results) == 0 {
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorNoResults))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
 	}
 
 	res := slackResponse{}
@@ -150,9 +152,9 @@ func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerRe
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
 		rc.Diagnostics().Error(err)
-		return rc.RawWithContentType("text/plain; charset=utf-8", []byte(slackErrorInternal))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
-	return rc.RawWithContentType("application/json; charset=utf-8", responseBytes)
+	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
 // Register registers the controller's actions with the app.

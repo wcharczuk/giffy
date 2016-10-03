@@ -92,6 +92,11 @@ func EventFlagCombine(values ...uint64) uint64 {
 	return outputFlag
 }
 
+// EventFlagZero flips a flag value to off.
+func EventFlagZero(flagSet, flag uint64) uint64 {
+	return flagSet ^ flag
+}
+
 // ParseEventFlagNameSet parses an event name csv.
 func ParseEventFlagNameSet(flagValue string) uint64 {
 	if len(flagValue) == 0 {

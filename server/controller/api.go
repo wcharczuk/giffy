@@ -10,6 +10,7 @@ import (
 	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/auth"
+	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/filecache"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
@@ -133,17 +134,20 @@ func (api API) updateUserAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().BadRequest("Cannot ban admins.")
 	}
 
+	var moderationEntry *model.Moderation
 	if !user.IsModerator && postedUser.IsModerator {
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbPromoteAsModerator, model.ModerationObjectUser, postedUser.UUID)
+		moderationEntry = model.NewModeration(session.UserID, model.ModerationVerbPromoteAsModerator, model.ModerationObjectUser, postedUser.UUID)
 	} else if user.IsModerator && !postedUser.IsModerator {
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbDemoteAsModerator, model.ModerationObjectUser, postedUser.UUID)
+		moderationEntry = model.NewModeration(session.UserID, model.ModerationVerbDemoteAsModerator, model.ModerationObjectUser, postedUser.UUID)
 	}
 
 	if !user.IsBanned && postedUser.IsBanned {
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbBan, model.ModerationObjectUser, postedUser.UUID)
+		moderationEntry = model.NewModeration(session.UserID, model.ModerationVerbBan, model.ModerationObjectUser, postedUser.UUID)
 	} else if user.IsBanned && !postedUser.IsBanned {
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbUnban, model.ModerationObjectUser, postedUser.UUID)
+		moderationEntry = model.NewModeration(session.UserID, model.ModerationVerbUnban, model.ModerationObjectUser, postedUser.UUID)
 	}
+
+	r.Diagnostics().OnEvent(core.EventFlagModeration, moderationEntry)
 
 	err = spiffy.DefaultDb().Update(&postedUser)
 	if err != nil {
@@ -349,12 +353,12 @@ func (api API) createImageAction(r *web.RequestContext) web.ControllerResult {
 	}
 
 	session := auth.GetSession(r)
-	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, postedFile.Contents, postedFile.Filename)
+	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, postedFile.Contents, postedFile.FileName, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID)
+	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return r.API().JSON(image)
 }
 
@@ -460,7 +464,7 @@ func (api API) updateImageAction(r *web.RequestContext) web.ControllerResult {
 	}
 
 	if didUpdate {
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID)
+		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
 		err = spiffy.DefaultDb().Update(image)
 		if err != nil {
 			return r.API().InternalError(err)
@@ -506,7 +510,7 @@ func (api API) deleteImageAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().InternalError(err)
 	}
 
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID)
+	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID))
 	return r.API().OK()
 }
 
@@ -607,7 +611,7 @@ func (api API) createTagsAction(r *web.RequestContext) web.ControllerResult {
 		if err != nil {
 			return r.API().InternalError(err)
 		}
-		model.QueueModerationEntry(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID)
+		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID))
 		tags = append(tags, tag)
 	}
 
@@ -701,7 +705,7 @@ func (api API) deleteTagAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().InternalError(err)
 	}
 
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID)
+	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID))
 	return r.API().OK()
 }
 
@@ -788,7 +792,7 @@ func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().InternalError(err)
 	}
 
-	model.QueueModerationEntry(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, imageUUID, tagUUID)
+	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, imageUUID, tagUUID))
 
 	return r.API().OK()
 }
@@ -849,7 +853,7 @@ func (api API) voteAction(isUpvote bool, session *auth.Session, r *web.RequestCo
 	}
 
 	if didCreate {
-		model.QueueModerationEntry(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID)
+		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID))
 	}
 
 	return r.API().OK()

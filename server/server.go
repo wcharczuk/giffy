@@ -87,11 +87,19 @@ func Init() *web.App {
 			return err
 		}
 
-		app.Diagnostics().SetVerbosity(logger.EventFlagCombine(app.Diagnostics().Verbosity(), core.EventFlagSearch))
+		app.Diagnostics().EnableEvent(core.EventFlagSearch)
 		app.Diagnostics().AddEventListener(core.EventFlagSearch, func(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
 			external.StatHatSearch()
 			if len(state) > 0 {
 				logger.WriteEventf(writer, ts, "Image Search", logger.ColorLightWhite, "query: %s", state[0].(*model.SearchHistory).SearchQuery)
+				workQueue.Default().Enqueue(model.CreateObject, state[0])
+			}
+		})
+
+		app.Diagnostics().EnableEvent(core.EventFlagModeration)
+		app.Diagnostics().AddEventListener(core.EventFlagModeration, func(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+			if len(state) > 0 {
+				logger.WriteEventf(writer, ts, "Moderation", logger.ColorLightWhite, "verb: %s", state[0].(*model.Moderation).Verb)
 				workQueue.Default().Enqueue(model.CreateObject, state[0])
 			}
 		})

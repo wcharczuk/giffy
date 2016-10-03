@@ -96,6 +96,16 @@ func (da *DiagnosticsAgent) SetVerbosity(verbosity uint64) {
 	da.verbosity = verbosity
 }
 
+// EnableEvent flips the bit flag for a given event.
+func (da *DiagnosticsAgent) EnableEvent(eventFlag uint64) {
+	da.verbosity = EventFlagCombine(da.verbosity, eventFlag)
+}
+
+// DisableEvent flips the bit flag for a given event.
+func (da *DiagnosticsAgent) DisableEvent(eventFlag uint64) {
+	da.verbosity = EventFlagZero(da.verbosity, eventFlag)
+}
+
 // CheckVerbosity asserts if a flag value is set or not.
 func (da *DiagnosticsAgent) CheckVerbosity(flagValue uint64) bool {
 	return EventFlagAny(da.verbosity, flagValue)

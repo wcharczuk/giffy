@@ -16,6 +16,8 @@ import (
 	_ "image/gif"
 	// for image processing
 	_ "image/jpeg"
+	// for image processing
+	_ "image/png"
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/spiffy"

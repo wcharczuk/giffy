@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-workqueue"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -51,16 +48,21 @@ const (
 )
 
 // NewModeration returns a new moderation object
-func NewModeration(userID int64, verb, object, noun, secondaryNoun string) *Moderation {
-	return &Moderation{
-		UserID:        userID,
-		UUID:          core.UUIDv4().ToShortString(),
-		TimestampUTC:  time.Now().UTC(),
-		Verb:          verb,
-		Object:        object,
-		Noun:          noun,
-		SecondaryNoun: secondaryNoun,
+func NewModeration(userID int64, verb, object string, nouns ...string) *Moderation {
+	m := &Moderation{
+		UserID:       userID,
+		UUID:         core.UUIDv4().ToShortString(),
+		TimestampUTC: time.Now().UTC(),
+		Verb:         verb,
+		Object:       object,
 	}
+	if len(nouns) > 0 {
+		m.Noun = nouns[0]
+	}
+	if len(nouns) > 1 {
+		m.SecondaryNoun = nouns[1]
+	}
+	return m
 }
 
 // Moderation is the moderation log.
@@ -90,27 +92,6 @@ func (m Moderation) IsZero() bool {
 	return m.UserID == 0
 }
 
-func writeModerationLogEntry(state ...interface{}) error {
-	if typed, isTyped := state[0].(*Moderation); isTyped {
-		return DB().Create(typed)
-	}
-	return exception.New("`state` was not of the correct type.")
-}
-
-// QueueModerationEntry queues logging a new moderation log entry.
-func QueueModerationEntry(userID int64, verb, object string, nouns ...string) {
-	var m *Moderation
-	if len(nouns) == 2 {
-		m = NewModeration(userID, verb, object, nouns[0], nouns[1])
-	} else if len(nouns) == 1 {
-		m = NewModeration(userID, verb, object, nouns[0], util.StringEmpty)
-	} else {
-		m = NewModeration(userID, verb, object, util.StringEmpty, util.StringEmpty)
-	}
-
-	workQueue.Default().Enqueue(writeModerationLogEntry, m)
-}
-
 func getModerationQuery(whereClause string) string {
 	moderatorColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
 	userColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_").ColumnNamesFromAlias("u"))
@@ -118,21 +99,21 @@ func getModerationQuery(whereClause string) string {
 	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
 
 	return fmt.Sprintf(`
-select
-m.*,
-%s,
-%s,
-%s,
-%s
-from
-moderation m
-join users mu on m.user_id = mu.id
-left join users u on m.noun = u.uuid or m.secondary_noun = u.uuid
-left join image i on m.noun = i.uuid or m.secondary_noun = i.uuid
-left join tag t on m.noun = t.uuid or m.secondary_noun = t.uuid
-%s
-order by timestamp_utc desc
-`,
+	select
+	m.*,
+	%s,
+	%s,
+	%s,
+	%s
+	from
+	moderation m
+	join users mu on m.user_id = mu.id
+	left join users u on m.noun = u.uuid or m.secondary_noun = u.uuid
+	left join image i on m.noun = i.uuid or m.secondary_noun = i.uuid
+	left join tag t on m.noun = t.uuid or m.secondary_noun = t.uuid
+	%s
+	order by timestamp_utc desc
+	`,
 		moderatorColumns,
 		userColumns,
 		imageColumns,
