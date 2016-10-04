@@ -22,7 +22,7 @@ func New() *App {
 		staticRewriteRules: map[string][]*RewriteRule{},
 		staticHeaders:      map[string]http.Header{},
 	}
-	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.EventNone))
+	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()))
 	return app
 }
 
@@ -106,7 +106,7 @@ func (a *App) InitializeConfig(configPrototype interface{}) error {
 	return nil
 }
 
-func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 	if len(state) < 1 {
 		return
 	}
@@ -117,7 +117,7 @@ func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFl
 	logger.WriteRequest(writer, ts, context.Request)
 }
 
-func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 	if len(state) < 1 {
 		return
 	}
@@ -128,7 +128,7 @@ func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, even
 	logger.WriteRequestComplete(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
 }
 
-func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag uint64, state ...interface{}) {
+func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 	if len(state) < 1 {
 		return
 	}
@@ -208,7 +208,7 @@ func (a *App) StartWithServer(server *http.Server) error {
 	// i.e. the server handler (which is this app)
 	server.Handler = a
 	a.diagnostics.Infof("Started, listening on %s", server.Addr)
-	a.diagnostics.Infof("Diagnostics Verbosity %s", logger.ExpandEventNames(a.diagnostics.Verbosity()))
+	a.diagnostics.Infof("Diagnostics Verbosity %s", a.diagnostics.Events().String())
 
 	if len(a.tlsCertPath) > 0 && len(a.tlsKeyPath) > 0 {
 		_, err := os.Stat(a.tlsCertPath)
@@ -417,13 +417,13 @@ func (a *App) newResponse(w http.ResponseWriter, r *http.Request) ResponseWriter
 	var response ResponseWriter
 	if a.shouldCompressOutput(r) {
 		w.Header().Set("Content-Encoding", "gzip")
-		if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+		if a.diagnostics.IsEnabled(logger.EventResponse) {
 			response = NewBufferedCompressedResponseWriter(w)
 		} else {
 			response = NewCompressedResponseWriter(w)
 		}
 	} else {
-		if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+		if a.diagnostics.IsEnabled(logger.EventResponse) {
 			response = NewBufferedResponseWriter(w)
 		} else {
 			response = NewResponseWriter(w)
@@ -471,7 +471,7 @@ func (a *App) pipelineComplete(context *RequestContext) {
 	context.onRequestEnd()
 	context.setLoggedStatusCode(context.Response.StatusCode())
 	context.setLoggedContentLength(context.Response.ContentLength())
-	if a.diagnostics.CheckVerbosity(logger.EventResponse) {
+	if a.diagnostics.IsEnabled(logger.EventResponse) {
 		a.diagnostics.OnEvent(logger.EventResponse, context.Response.Bytes())
 	}
 	a.diagnostics.OnEvent(logger.EventRequestComplete, context)

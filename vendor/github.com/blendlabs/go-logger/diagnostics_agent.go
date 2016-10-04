@@ -24,7 +24,7 @@ var (
 
 var (
 	// DefaultDiagnosticsAgentVerbosity is the default verbosity for a diagnostics agent inited from the environment.
-	DefaultDiagnosticsAgentVerbosity = EventFlagCombine(EventFatalError, EventError, EventRequestComplete, EventInfo)
+	DefaultDiagnosticsAgentVerbosity = NewEventFlagSetWithEvents(EventFatalError, EventError, EventRequestComplete, EventInfo)
 )
 
 // Diagnostics returnes a default DiagnosticsAgent singleton.
@@ -47,11 +47,11 @@ func newDiagnosticsEventQueue() *workQueue.Queue {
 }
 
 // NewDiagnosticsAgent returns a new diagnostics with a given bitflag verbosity.
-func NewDiagnosticsAgent(verbosity uint64, optionalWriter ...Logger) *DiagnosticsAgent {
+func NewDiagnosticsAgent(events *EventFlagSet, optionalWriter ...Logger) *DiagnosticsAgent {
 	diag := &DiagnosticsAgent{
-		verbosity:      verbosity,
+		events:         events,
 		eventQueue:     newDiagnosticsEventQueue(),
-		eventListeners: map[uint64][]EventListener{},
+		eventListeners: map[EventFlag][]EventListener{},
 	}
 
 	if len(optionalWriter) > 0 {
@@ -64,15 +64,14 @@ func NewDiagnosticsAgent(verbosity uint64, optionalWriter ...Logger) *Diagnostic
 
 // NewDiagnosticsAgentFromEnvironment returns a new diagnostics with a given bitflag verbosity.
 func NewDiagnosticsAgentFromEnvironment() *DiagnosticsAgent {
-	eventFlag := EventsFromEnvironment(DefaultDiagnosticsAgentVerbosity)
-	return NewDiagnosticsAgent(eventFlag, NewLogWriterFromEnvironment())
+	return NewDiagnosticsAgent(NewEventFlagSetFromEnvironment(), NewLogWriterFromEnvironment())
 }
 
 // DiagnosticsAgent is a handler for various logging events with descendent handlers.
 type DiagnosticsAgent struct {
 	writer         Logger
-	verbosity      uint64
-	eventListeners map[uint64][]EventListener
+	events         *EventFlagSet
+	eventListeners map[EventFlag][]EventListener
 	eventQueue     *workQueue.Queue
 }
 
@@ -86,33 +85,33 @@ func (da *DiagnosticsAgent) EventQueue() *workQueue.Queue {
 	return da.eventQueue
 }
 
-// Verbosity sets the agent verbosity synchronously.
-func (da *DiagnosticsAgent) Verbosity() uint64 {
-	return da.verbosity
+// Events returns the EventFlagSet
+func (da *DiagnosticsAgent) Events() *EventFlagSet {
+	return da.events
 }
 
 // SetVerbosity sets the agent verbosity synchronously.
-func (da *DiagnosticsAgent) SetVerbosity(verbosity uint64) {
-	da.verbosity = verbosity
+func (da *DiagnosticsAgent) SetVerbosity(events *EventFlagSet) {
+	da.events = events
 }
 
 // EnableEvent flips the bit flag for a given event.
-func (da *DiagnosticsAgent) EnableEvent(eventFlag uint64) {
-	da.verbosity = EventFlagCombine(da.verbosity, eventFlag)
+func (da *DiagnosticsAgent) EnableEvent(eventFlag EventFlag) {
+	da.events.Enable(eventFlag)
 }
 
 // DisableEvent flips the bit flag for a given event.
-func (da *DiagnosticsAgent) DisableEvent(eventFlag uint64) {
-	da.verbosity = EventFlagZero(da.verbosity, eventFlag)
+func (da *DiagnosticsAgent) DisableEvent(eventFlag EventFlag) {
+	da.events.Disable(eventFlag)
 }
 
-// CheckVerbosity asserts if a flag value is set or not.
-func (da *DiagnosticsAgent) CheckVerbosity(flagValue uint64) bool {
-	return EventFlagAny(da.verbosity, flagValue)
+// IsEnabled asserts if a flag value is set or not.
+func (da *DiagnosticsAgent) IsEnabled(flagValue EventFlag) bool {
+	return da.events.IsEnabled(flagValue)
 }
 
-// CheckHasHandler returns if there are registered handlers for an event.
-func (da *DiagnosticsAgent) CheckHasHandler(event uint64) bool {
+// HasHandler returns if there are registered handlers for an event.
+func (da *DiagnosticsAgent) HasHandler(event EventFlag) bool {
 	if da.eventListeners == nil {
 		return false
 	}
@@ -124,14 +123,14 @@ func (da *DiagnosticsAgent) CheckHasHandler(event uint64) bool {
 }
 
 // AddEventListener adds a listener for errors.
-func (da *DiagnosticsAgent) AddEventListener(eventFlag uint64, listener EventListener) {
+func (da *DiagnosticsAgent) AddEventListener(eventFlag EventFlag, listener EventListener) {
 	da.eventListeners[eventFlag] = append(da.eventListeners[eventFlag], listener)
 }
 
 // OnEvent fires the currently configured event listeners.
-func (da *DiagnosticsAgent) OnEvent(eventFlag uint64, state ...interface{}) {
-	if da.CheckVerbosity(eventFlag) {
-		if da.CheckHasHandler(eventFlag) {
+func (da *DiagnosticsAgent) OnEvent(eventFlag EventFlag, state ...interface{}) {
+	if da.IsEnabled(eventFlag) {
+		if da.HasHandler(eventFlag) {
 			if !da.eventQueue.Running() {
 				da.eventQueue.Start()
 			}
@@ -167,8 +166,8 @@ func (da *DiagnosticsAgent) fireEvent(actionState ...interface{}) error {
 }
 
 // Eventf checks an event flag and writes a message with a given label and color.
-func (da *DiagnosticsAgent) Eventf(eventFlag uint64, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
-	if da.CheckVerbosity(eventFlag) && len(format) > 0 {
+func (da *DiagnosticsAgent) Eventf(eventFlag EventFlag, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
+	if da.IsEnabled(eventFlag) && len(format) > 0 {
 		defer da.OnEvent(eventFlag)
 
 		if !da.eventQueue.Running() {
@@ -179,8 +178,8 @@ func (da *DiagnosticsAgent) Eventf(eventFlag uint64, label string, labelColor An
 }
 
 // ErrorEventf checks an event flag and writes a message with a given label and color.
-func (da *DiagnosticsAgent) ErrorEventf(eventFlag uint64, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
-	if da.CheckVerbosity(eventFlag) && len(format) > 0 {
+func (da *DiagnosticsAgent) ErrorEventf(eventFlag EventFlag, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
+	if da.IsEnabled(eventFlag) && len(format) > 0 {
 		defer da.OnEvent(eventFlag)
 
 		if !da.eventQueue.Running() {

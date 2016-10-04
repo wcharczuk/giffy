@@ -5,38 +5,35 @@ import (
 	"strings"
 )
 
-// EventFlags
 const (
-	// EventNone is effectively logging disabled.
-	EventNone = uint64(0)
-	// EventAll represents every flag being enabled.
-	EventAll = ^EventNone
-	// EventFatalError enables logging errors
-	EventFatalError uint64 = 1 << iota
-	// EventError enables logging errors
-	EventError uint64 = 1 << iota
-	// EventWarning enables logging for warning messages.
-	EventWarning uint64 = 1 << iota
-	// EventDebug enables logging for debug messages.
-	EventDebug uint64 = 1 << iota
-	// EventInfo enables logging for informational messages.
-	EventInfo uint64 = 1 << iota
+	// EventAll is a special flag that allows all events to fire.
+	EventAll EventFlag = "ALL"
+	// EventNone is a special flag that allows no events to fire.
+	EventNone EventFlag = "NONE"
 
-	// EventRequest is a helper event for logging request events.
-	EventRequest uint64 = 1 << iota
-	// EventRequestComplete is a helper event for logging request events with stats.
-	EventRequestComplete uint64 = 1 << iota
-	// EventPostBody is a helper event for logging incoming post bodies.
-	EventPostBody uint64 = 1 << iota
+	// EventFatalError fires for fatal errors (panics or errors returned to users).
+	EventFatalError EventFlag = "FATAL"
+	// EventError fires for errors that are severe enough to log but not so severe as to abort a process.
+	EventError EventFlag = "ERROR"
+	// EventWarning fires for warnings.
+	EventWarning EventFlag = "WARNING"
+	// EventDebug fires for debug messages.
+	EventDebug EventFlag = "DEBUG"
+	// EventInfo fires for informational messages (app startup etc.)
+	EventInfo EventFlag = "INFO"
+	// EventRequest fires when an app starts handling a request.
+	EventRequest EventFlag = "REQUEST"
+	// EventRequestComplete fires when an app completes handling a request.
+	EventRequestComplete EventFlag = "REQUEST_COMPLETE"
+	// EventRequestPostBody fires when a request has a post body.
+	EventRequestPostBody EventFlag = "REQUEST_POST_BODY"
+	// EventResponse fires to provide the raw response to a request.
+	EventResponse EventFlag = "RESPONSE"
+	// EventUserError is a particular class of error caused by callers of a service.
+	EventUserError EventFlag = "USER_ERROR"
 
-	// EventResponse is a helper event for logging response bodies.
-	EventResponse uint64 = 1 << iota
-
-	// EventUserError enables output for user error events.
-	EventUserError uint64 = 1 << iota
-
-	// EventFlagMax is the top (biggest) event flag.
-	EventFlagMax = EventUserError
+	// EventInternalError is an alias to EventFatalError
+	EventInternalError = EventFatalError
 )
 
 // EnvironmentVariables
@@ -45,123 +42,144 @@ const (
 	EnvironmentVariableLogEvents = "LOG_EVENTS"
 )
 
-// CreateEventFlagConstant creates a new event flag constant.
-func CreateEventFlagConstant(iotaOffset uint) uint64 {
-	return uint64(EventFlagMax * (1 << (iotaOffset + 1)))
-}
-
-// EventFlagName Lookup
 var (
-	// EventFlagNameAll is a special flag name meaning all flags set.
-	EventFlagNameAll = "ALL"
-
-	// EventFlagNameNone is a special flag name meaning no flags set.
-	EventFlagNameNone = "NONE"
-
-	// EventFlagNames is a map of event flag values to their plaintext names.
-	EventFlagNames = map[string]uint64{
-		"FATAL":         EventFatalError,
-		"ERROR":         EventError,
-		"WARNING":       EventWarning,
-		"DEBUG":         EventDebug,
-		"INFO":          EventInfo,
-		"REQUEST_START": EventRequest,
-		"REQUEST":       EventRequestComplete,
-		"POST_BODY":     EventPostBody,
-		"RESPONSE":      EventResponse,
-		"USER_ERROR":    EventUserError,
+	// AllEventFlags is an array of all the event flags.
+	AllEventFlags = []EventFlag{
+		EventFatalError,
+		EventError,
+		EventWarning,
+		EventDebug,
+		EventInfo,
+		EventRequest,
+		EventRequestComplete,
+		EventResponse,
+		EventUserError,
 	}
 )
 
-// EventFlagAll returns if all the reference bits are set for a given value
-func EventFlagAll(reference, value uint64) bool {
-	return reference&value == value
-}
+// EventFlag is a flag to enable or disable triggering handlers for an event.
+type EventFlag string
 
-// EventFlagAny returns if any the reference bits are set for a given value
-func EventFlagAny(reference, value uint64) bool {
-	return reference&value > 0
-}
-
-// EventFlagCombine combines all the values into one flag.
-func EventFlagCombine(values ...uint64) uint64 {
-	var outputFlag uint64
-	for _, value := range values {
-		outputFlag = outputFlag | value
-	}
-	return outputFlag
-}
-
-// EventFlagZero flips a flag value to off.
-func EventFlagZero(flagSet, flag uint64) uint64 {
-	return flagSet ^ flag
-}
-
-// ParseEventFlagNameSet parses an event name csv.
-func ParseEventFlagNameSet(flagValue string) uint64 {
-	if len(flagValue) == 0 {
-		return EventNone
-	}
-
-	flagValueCleaned := strings.Trim(strings.ToUpper(flagValue), " \t\n")
-	switch flagValueCleaned {
-	case EventFlagNameAll:
-		return EventAll
-	case EventFlagNameNone:
-		return EventNone
-	}
-
-	return ParseEventNames(strings.Split(flagValue, ",")...)
-}
-
-// ParseEventNames parses an array of names into a bit-mask.
-func ParseEventNames(flagValues ...string) uint64 {
-	result := EventNone
-	for _, flagValue := range flagValues {
-		result = EventFlagCombine(result, ParseEventName(flagValue))
-	}
-	return result
-}
-
-// ParseEventName parses a single verbosity flag name
-func ParseEventName(flagValue string) uint64 {
-	flagValueCleaned := strings.Trim(strings.ToUpper(flagValue), " \t\n")
-	switch flagValueCleaned {
-	case EventFlagNameAll:
-		return EventAll
-	case EventFlagNameNone:
-		return EventNone
-	default:
-		if eventFlag, hasEventFlag := EventFlagNames[flagValueCleaned]; hasEventFlag {
-			return eventFlag
-		}
-		return EventNone
+// NewEventFlagSet returns a new EventFlagSet.
+func NewEventFlagSet() *EventFlagSet {
+	return &EventFlagSet{
+		flags: make(map[EventFlag]bool),
 	}
 }
 
-// ExpandEventNames expands an event flag set into plaintext names.
-func ExpandEventNames(eventFlag uint64) string {
-	switch eventFlag {
-	case EventAll:
-		return EventFlagNameAll
-	case EventNone:
-		return EventFlagNameNone
+// NewEventFlagSetAll returns a new EventFlagSet with all flags enabled.
+func NewEventFlagSetAll() *EventFlagSet {
+	return &EventFlagSet{
+		flags: make(map[EventFlag]bool),
+		all:   true,
 	}
-
-	var names []string
-	for name, flag := range EventFlagNames {
-		if EventFlagAny(eventFlag, flag) {
-			names = append(names, name)
-		}
-	}
-	return strings.Join(names, ",")
 }
 
-// EventsFromEnvironment parses the environment variable for log verbosity.
-func EventsFromEnvironment(defaultEvents ...uint64) uint64 {
+// NewEventFlagSetNone returns a new EventFlagSet with no flags enabled.
+func NewEventFlagSetNone() *EventFlagSet {
+	return &EventFlagSet{
+		flags: make(map[EventFlag]bool),
+		none:  true,
+	}
+}
+
+// NewEventFlagSetWithEvents returns a new EventFlagSet with the given events enabled.
+func NewEventFlagSetWithEvents(eventFlags ...EventFlag) *EventFlagSet {
+	efs := &EventFlagSet{
+		flags: make(map[EventFlag]bool),
+	}
+	for _, flag := range eventFlags {
+		efs.Enable(flag)
+	}
+	return efs
+}
+
+// NewEventFlagSetFromEnvironment returns a new EventFlagSet from the environment.
+func NewEventFlagSetFromEnvironment() *EventFlagSet {
 	envEventsFlag := os.Getenv(EnvironmentVariableLogEvents)
 	if len(envEventsFlag) > 0 {
-		return ParseEventFlagNameSet(envEventsFlag)
+		flags := strings.Split(envEventsFlag, ",")
+		var events []EventFlag
+		for _, flag := range flags {
+			parsedFlag := EventFlag(strings.Trim(strings.ToUpper(flag), " \t\n"))
+			if CaseInsensitiveEquals(string(parsedFlag), string(EventAll)) {
+				return NewEventFlagSetAll()
+			}
+			if CaseInsensitiveEquals(string(parsedFlag), string(EventNone)) {
+				return NewEventFlagSetNone()
+			}
+			events = append(events, parsedFlag)
+		}
+		return NewEventFlagSetWithEvents(events...)
 	}
-	return EventFlagCombine(defaultEvents...)
+	return NewEventFlagSet()
+}
+
+// EventFlagSet is a set of event flags.
+type EventFlagSet struct {
+	flags map[EventFlag]bool
+	all   bool
+	none  bool
+}
+
+// Enable enables an event flag.
+func (efs *EventFlagSet) Enable(flagValue EventFlag) {
+	efs.flags[flagValue] = true
+}
+
+// Disable disabled an event flag.
+func (efs *EventFlagSet) Disable(flagValue EventFlag) {
+	efs.flags[flagValue] = false
+}
+
+// EnableAll flips the `all` bit on the flag set.
+func (efs *EventFlagSet) EnableAll() {
+	efs.all = true
+	efs.none = false
+}
+
+// IsAllEnabled returns if the all bit is flipped on.
+func (efs *EventFlagSet) IsAllEnabled() bool {
+	return efs.all
+}
+
+// IsNoneEnabled returns if the none bit is flipped on.
+func (efs *EventFlagSet) IsNoneEnabled() bool {
+	return efs.none
+}
+
+// DisableAll flips the `none` bit on the flag set.
+func (efs *EventFlagSet) DisableAll() {
+	efs.all = false
+	efs.none = true
+}
+
+// IsEnabled checks to see if an event is enabled.
+func (efs EventFlagSet) IsEnabled(flagValue EventFlag) bool {
+	if efs.all {
+		return true
+	}
+	if efs.none {
+		return false
+	}
+	if enabled, hasFlag := efs.flags[flagValue]; hasFlag {
+		return enabled
+	}
+	return false
+}
+
+func (efs EventFlagSet) String() string {
+	if efs.all {
+		return string(EventAll)
+	}
+	if efs.none {
+		return string(EventNone)
+	}
+	var flags []string
+	for key, enabled := range efs.flags {
+		if enabled {
+			flags = append(flags, string(key))
+		}
+	}
+	return strings.Join(flags, ", ")
 }

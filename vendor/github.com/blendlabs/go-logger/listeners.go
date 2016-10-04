@@ -6,14 +6,14 @@ import (
 )
 
 // EventListener is a listener for a specific event as given by its flag.
-type EventListener func(writer Logger, ts TimeSource, eventFlag uint64, state ...interface{})
+type EventListener func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{})
 
 // ErrorListener is a handler for error events.
 type ErrorListener func(writer Logger, ts TimeSource, err error)
 
 // NewErrorHandler returns a new handler for EventFatalError and EventError events.
 func NewErrorHandler(errorHandler ErrorListener) EventListener {
-	return func(writer Logger, ts TimeSource, eventFlag uint64, state ...interface{}) {
+	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) > 0 {
 			if typedError, isTyped := state[0].(error); isTyped {
 				errorHandler(writer, ts, typedError)
@@ -27,7 +27,7 @@ type RequestListener func(writer Logger, ts TimeSource, req *http.Request)
 
 // NewRequestHandler returns a new handler for request events.
 func NewRequestHandler(reqHandler RequestListener) EventListener {
-	return func(writer Logger, ts TimeSource, eventFlag uint64, state ...interface{}) {
+	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) > 0 {
 			if typedRequest, isTyped := state[0].(*http.Request); isTyped {
 				reqHandler(writer, ts, typedRequest)
@@ -41,7 +41,7 @@ type RequestCompleteListener func(writer Logger, ts TimeSource, req *http.Reques
 
 // NewRequestCompleteHandler returns a new handler for request events.
 func NewRequestCompleteHandler(reqCompleteHandler RequestCompleteListener) EventListener {
-	return func(writer Logger, ts TimeSource, eventFlag uint64, state ...interface{}) {
+	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) < 3 {
 			return
 		}
@@ -75,7 +75,7 @@ type RequestBodyListener func(writer Logger, ts TimeSource, body []byte)
 
 // NewRequestBodyHandler returns a new handler for request body events.
 func NewRequestBodyHandler(reqBodyHandler RequestBodyListener) EventListener {
-	return func(writer Logger, ts TimeSource, eventFlag uint64, state ...interface{}) {
+	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) < 1 {
 			return
 		}

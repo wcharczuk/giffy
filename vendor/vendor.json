@@ -172,10 +172,10 @@
 			"revisionTime": "2016-08-16T03:47:15Z"
 		},
 		{
-			"checksumSHA1": "J3RoysS7EMAfMBySl1SJmEoyBtc=",
+			"checksumSHA1": "zzxmJFFqr6had3a/ji0eZZsQtW8=",
 			"path": "github.com/blendlabs/go-logger",
-			"revision": "282b4a30c9ee4824b7f86b778ab98dec5accc7ff",
-			"revisionTime": "2016-10-02T23:58:23Z"
+			"revision": "13e75d62a819c311344c7c4478b8ffe756bb81c8",
+			"revisionTime": "2016-10-04T02:14:22Z"
 		},
 		{
 			"checksumSHA1": "Bfpqn3RUxjx5XibSBuzSizlpiyQ=",
@@ -258,10 +258,10 @@
 			"revisionTime": "2016-03-04T02:46:57Z"
 		},
 		{
-			"checksumSHA1": "wU1ksDUXxKCpCOB66AFb1eMYW2c=",
+			"checksumSHA1": "3QRqo73sbwv4CB+Q9LRsYhDRVj8=",
 			"path": "github.com/wcharczuk/go-web",
-			"revision": "ce06387317b7aa830d8f5942193da30eb5d60d25",
-			"revisionTime": "2016-10-03T01:06:45Z"
+			"revision": "aa49eee6abe7e01f6810f9fa8a0ab5bedd5c9d49",
+			"revisionTime": "2016-10-04T01:12:28Z"
 		}
 	],
 	"rootPath": "github.com/wcharczuk/giffy"

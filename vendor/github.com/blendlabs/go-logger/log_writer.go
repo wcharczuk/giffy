@@ -34,9 +34,9 @@ func NewLogWriterFromEnvironment() *LogWriter {
 	return &LogWriter{
 		Output:        NewSyncWriter(os.Stdout),
 		ErrorOutput:   NewSyncWriter(os.Stderr),
-		useAnsiColors: envFlagSet(EnvironmentVariableUseAnsiColors, true),
-		showTimestamp: envFlagSet(EnvironmentVariableShowTimestamp, true),
-		showLabel:     envFlagSet(EnvironmentVariableShowLabel, true),
+		useAnsiColors: envFlagIsSet(EnvironmentVariableUseAnsiColors, true),
+		showTimestamp: envFlagIsSet(EnvironmentVariableShowTimestamp, true),
+		showLabel:     envFlagIsSet(EnvironmentVariableShowLabel, true),
 		label:         os.Getenv(EnvironmentVariableLogLabel),
 		bufferPool:    NewBufferPool(DefaultBufferPoolSize),
 	}

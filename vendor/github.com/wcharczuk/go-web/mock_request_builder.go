@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -152,7 +153,7 @@ func (mrb *MockRequestBuilder) Request() (*http.Request, error) {
 			return nil, err
 		}
 		req.Body = ioutil.NopCloser(b)
-	} else {
+	} else if len(mrb.postBody) > 0 {
 		req.Body = ioutil.NopCloser(bytes.NewBuffer(mrb.postBody))
 	}
 
@@ -263,6 +264,20 @@ func (mrb *MockRequestBuilder) FetchResponseAsJSON(object interface{}) error {
 		return err
 	}
 	return json.Unmarshal(contents, object)
+}
+
+// FetchResponseAsXML executes the mock request and reads the response to the given object as json.
+func (mrb *MockRequestBuilder) FetchResponseAsXML(object interface{}) error {
+	res, err := mrb.FetchResponse()
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	contents, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	return xml.Unmarshal(contents, object)
 }
 
 // FetchResponseAsBytes returns the response as bytes.

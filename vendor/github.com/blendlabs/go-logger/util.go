@@ -71,11 +71,11 @@ func stateAsAnsiColorCode(state interface{}) (AnsiColorCode, error) {
 	return ColorReset, errTypeConversion
 }
 
-func stateAsEventFlag(state interface{}) (uint64, error) {
-	if typed, isTyped := state.(uint64); isTyped {
+func stateAsEventFlag(state interface{}) (EventFlag, error) {
+	if typed, isTyped := state.(EventFlag); isTyped {
 		return typed, nil
 	}
-	return 0, errTypeConversion
+	return EventNone, errTypeConversion
 }
 
 func stateAsTime(state interface{}) (time.Time, error) {
@@ -113,7 +113,7 @@ func stateAsBytes(state interface{}) ([]byte, error) {
 	return nil, errTypeConversion
 }
 
-func envFlagSet(flagName string, defaultValue bool) bool {
+func envFlagIsSet(flagName string, defaultValue bool) bool {
 	flagValue := os.Getenv(flagName)
 	if len(flagValue) > 0 {
 		if strings.ToUpper(flagValue) == "TRUE" || flagValue == "1" {
@@ -122,4 +122,93 @@ func envFlagSet(flagName string, defaultValue bool) bool {
 		return false
 	}
 	return defaultValue
+}
+
+var (
+	// LowerA is the ascii int value for 'a'
+	LowerA = uint('a')
+	// LowerZ is the ascii int value for 'z'
+	LowerZ = uint('z')
+
+	lowerDiff = (LowerZ - LowerA)
+)
+
+// HasPrefixCaseInsensitive returns if a corpus has a prefix regardless of casing.
+func HasPrefixCaseInsensitive(corpus, prefix string) bool {
+	corpusLen := len(corpus)
+	prefixLen := len(prefix)
+
+	if corpusLen < prefixLen {
+		return false
+	}
+
+	for x := 0; x < prefixLen; x++ {
+		charCorpus := uint(corpus[x])
+		charPrefix := uint(prefix[x])
+
+		if charCorpus-LowerA <= lowerDiff {
+			charCorpus = charCorpus - 0x20
+		}
+
+		if charPrefix-LowerA <= lowerDiff {
+			charPrefix = charPrefix - 0x20
+		}
+		if charCorpus != charPrefix {
+			return false
+		}
+	}
+	return true
+}
+
+// HasSuffixCaseInsensitive returns if a corpus has a suffix regardless of casing.
+func HasSuffixCaseInsensitive(corpus, suffix string) bool {
+	corpusLen := len(corpus)
+	suffixLen := len(suffix)
+
+	if corpusLen < suffixLen {
+		return false
+	}
+
+	for x := 0; x < suffixLen; x++ {
+		charCorpus := uint(corpus[corpusLen-(x+1)])
+		charSuffix := uint(suffix[suffixLen-(x+1)])
+
+		if charCorpus-LowerA <= lowerDiff {
+			charCorpus = charCorpus - 0x20
+		}
+
+		if charSuffix-LowerA <= lowerDiff {
+			charSuffix = charSuffix - 0x20
+		}
+		if charCorpus != charSuffix {
+			return false
+		}
+	}
+	return true
+}
+
+// CaseInsensitiveEquals compares two strings regardless of case.
+func CaseInsensitiveEquals(a, b string) bool {
+	aLen := len(a)
+	bLen := len(b)
+	if aLen != bLen {
+		return false
+	}
+
+	for x := 0; x < aLen; x++ {
+		charA := uint(a[x])
+		charB := uint(b[x])
+
+		if charA-LowerA <= lowerDiff {
+			charA = charA - 0x20
+		}
+		if charB-LowerA <= lowerDiff {
+			charB = charB - 0x20
+		}
+		if charA != charB {
+			return false
+		}
+	}
+
+	return true
 }
