@@ -24,7 +24,7 @@ var (
 
 var (
 	// DefaultDiagnosticsAgentVerbosity is the default verbosity for a diagnostics agent inited from the environment.
-	DefaultDiagnosticsAgentVerbosity = NewEventFlagSetWithEvents(EventFatalError, EventError, EventRequestComplete, EventInfo)
+	DefaultDiagnosticsAgentVerbosity = NewEventFlagSetWithEvents(EventFatalError, EventError, EventWebRequest, EventInfo)
 )
 
 // Diagnostics returnes a default DiagnosticsAgent singleton.
@@ -135,7 +135,7 @@ func (da *DiagnosticsAgent) OnEvent(eventFlag EventFlag, state ...interface{}) {
 				da.eventQueue.Start()
 			}
 
-			da.eventQueue.Enqueue(da.fireEvent, append([]interface{}{Now(), eventFlag}, state...)...)
+			da.eventQueue.Enqueue(da.fireEvent, append([]interface{}{TimeNow(), eventFlag}, state...)...)
 		}
 	}
 }
@@ -165,27 +165,27 @@ func (da *DiagnosticsAgent) fireEvent(actionState ...interface{}) error {
 	return nil
 }
 
-// Eventf checks an event flag and writes a message with a given label and color.
-func (da *DiagnosticsAgent) Eventf(eventFlag EventFlag, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
+// Eventf checks an event flag and writes a message with a given color.
+func (da *DiagnosticsAgent) Eventf(eventFlag EventFlag, color AnsiColorCode, format string, args ...interface{}) {
 	if da.IsEnabled(eventFlag) && len(format) > 0 {
 		defer da.OnEvent(eventFlag)
 
 		if !da.eventQueue.Running() {
 			da.eventQueue.Start()
 		}
-		da.eventQueue.Enqueue(da.writeEventMessage, append([]interface{}{Now(), label, labelColor, format}, args...)...)
+		da.eventQueue.Enqueue(da.writeEventMessage, append([]interface{}{TimeNow(), eventFlag, color, format}, args...)...)
 	}
 }
 
-// ErrorEventf checks an event flag and writes a message with a given label and color.
-func (da *DiagnosticsAgent) ErrorEventf(eventFlag EventFlag, label string, labelColor AnsiColorCode, format string, args ...interface{}) {
+// ErrorEventf checks an event flag and writes a message to the error stream (if one is configured) with a given color.
+func (da *DiagnosticsAgent) ErrorEventf(eventFlag EventFlag, color AnsiColorCode, format string, args ...interface{}) {
 	if da.IsEnabled(eventFlag) && len(format) > 0 {
 		defer da.OnEvent(eventFlag)
 
 		if !da.eventQueue.Running() {
 			da.eventQueue.Start()
 		}
-		da.eventQueue.Enqueue(da.writeErrorEventMessage, append([]interface{}{Now(), label, labelColor, format}, args...)...)
+		da.eventQueue.Enqueue(da.writeErrorEventMessage, append([]interface{}{TimeNow(), eventFlag, color, format}, args...)...)
 	}
 }
 
@@ -207,41 +207,44 @@ func (da *DiagnosticsAgent) writeEventMessageWithOutput(output loggerOutputWithT
 	if err != nil {
 		return err
 	}
-	label, err := stateAsString(actionState[1])
+
+	eventFlag, err := stateAsEventFlag(actionState[1])
 	if err != nil {
 		return err
 	}
+
 	labelColor, err := stateAsAnsiColorCode(actionState[2])
 	if err != nil {
 		return err
 	}
+
 	format, err := stateAsString(actionState[3])
 	if err != nil {
 		return err
 	}
 
-	output(timeSource, "%s %s", da.writer.Colorize(label, labelColor), fmt.Sprintf(format, actionState[4:]...))
+	output(timeSource, "%s %s", da.writer.Colorize(string(eventFlag), labelColor), fmt.Sprintf(format, actionState[4:]...))
 	return nil
 }
 
 // Infof logs an informational message to the output stream.
 func (da *DiagnosticsAgent) Infof(format string, args ...interface{}) {
-	da.Eventf(EventInfo, "Info", ColorWhite, format, args...)
+	da.Eventf(EventInfo, ColorWhite, format, args...)
 }
 
 // Debugf logs a debug message to the output stream.
 func (da *DiagnosticsAgent) Debugf(format string, args ...interface{}) {
-	da.Eventf(EventDebug, "Debug", ColorLightYellow, format, args...)
+	da.Eventf(EventDebug, ColorLightYellow, format, args...)
 }
 
 // DebugDump dumps an object and fires a debug event.
 func (da *DiagnosticsAgent) DebugDump(object interface{}) {
-	da.Eventf(EventDebug, "Debug Dump", ColorLightYellow, "%v", object)
+	da.Eventf(EventDebug, ColorLightYellow, "%v", object)
 }
 
 // Warningf logs a debug message to the output stream.
 func (da *DiagnosticsAgent) Warningf(format string, args ...interface{}) {
-	da.ErrorEventf(EventWarning, "Warning", ColorYellow, format, args...)
+	da.ErrorEventf(EventWarning, ColorYellow, format, args...)
 }
 
 // Warning logs a warning error to std err.
@@ -254,7 +257,7 @@ func (da *DiagnosticsAgent) Warning(err error) error {
 
 // Errorf writes an event to the log and triggers event listeners.
 func (da *DiagnosticsAgent) Errorf(format string, args ...interface{}) {
-	da.ErrorEventf(EventError, "Error", ColorRed, format, args...)
+	da.ErrorEventf(EventError, ColorRed, format, args...)
 }
 
 // Fatal logs an error to std err.
@@ -267,7 +270,7 @@ func (da *DiagnosticsAgent) Error(err error) error {
 
 // Fatalf writes an event to the log and triggers event listeners.
 func (da *DiagnosticsAgent) Fatalf(format string, args ...interface{}) {
-	da.ErrorEventf(EventFatalError, "Fatal Error", ColorRed, format, args...)
+	da.ErrorEventf(EventFatalError, ColorRed, format, args...)
 }
 
 // Fatal logs the result of a panic to std err.

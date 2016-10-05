@@ -148,18 +148,23 @@ func (rc *RequestContext) SetState(key string, value interface{}) {
 
 // Param returns a parameter from the request.
 func (rc *RequestContext) Param(name string) string {
+	routeValue := rc.routeParameters.Get(name)
+	if len(routeValue) > 0 {
+		return routeValue
+	}
+
 	queryValue := rc.Request.URL.Query().Get(name)
-	if len(queryValue) != 0 {
+	if len(queryValue) > 0 {
 		return queryValue
 	}
 
 	headerValue := rc.Request.Header.Get(name)
-	if len(headerValue) != 0 {
+	if len(headerValue) > 0 {
 		return headerValue
 	}
 
 	formValue := rc.Request.FormValue(name)
-	if len(formValue) != 0 {
+	if len(formValue) > 0 {
 		return formValue
 	}
 
@@ -177,7 +182,7 @@ func (rc *RequestContext) PostBody() []byte {
 		defer rc.Request.Body.Close()
 		rc.postBody, _ = ioutil.ReadAll(rc.Request.Body)
 		if rc.diagnostics != nil {
-			rc.diagnostics.OnEvent(logger.EventRequestPostBody, rc.postBody)
+			rc.diagnostics.OnEvent(logger.EventWebRequestPostBody, rc.postBody)
 		}
 	}
 

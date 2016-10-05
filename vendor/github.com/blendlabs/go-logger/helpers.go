@@ -8,11 +8,11 @@ import (
 )
 
 // WriteEventf is a helper for creating new logging messasges.
-func WriteEventf(writer Logger, ts TimeSource, label string, color AnsiColorCode, format string, args ...interface{}) {
+func WriteEventf(writer Logger, ts TimeSource, event EventFlag, color AnsiColorCode, format string, args ...interface{}) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
-	buffer.WriteString(writer.Colorize(label, color))
+	buffer.WriteString(writer.Colorize(string(event), color))
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(fmt.Sprintf(format, args...))
 	buffer.WriteRune(RuneSpace)
@@ -20,12 +20,12 @@ func WriteEventf(writer Logger, ts TimeSource, label string, color AnsiColorCode
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }
 
-// WriteRequest is a helper method to write request start events to a writer.
-func WriteRequest(writer Logger, ts TimeSource, req *http.Request) {
+// WriteRequestStart is a helper method to write request start events to a writer.
+func WriteRequestStart(writer Logger, ts TimeSource, req *http.Request) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
-	buffer.WriteString(writer.Colorize("Request", ColorGreen))
+	buffer.WriteString(writer.Colorize(string(EventWebRequestStart), ColorGreen))
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(GetIP(req))
 	buffer.WriteRune(RuneSpace)
@@ -36,12 +36,12 @@ func WriteRequest(writer Logger, ts TimeSource, req *http.Request) {
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }
 
-// WriteRequestComplete is a helper method to write request complete events to a writer.
-func WriteRequestComplete(writer Logger, ts TimeSource, req *http.Request, statusCode, contentLengthBytes int, elapsed time.Duration) {
+// WriteRequest is a helper method to write request complete events to a writer.
+func WriteRequest(writer Logger, ts TimeSource, req *http.Request, statusCode, contentLengthBytes int, elapsed time.Duration) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
-	buffer.WriteString(writer.Colorize("Request Complete", ColorGreen))
+	buffer.WriteString(writer.Colorize(string(EventWebRequest), ColorGreen))
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(GetIP(req))
 	buffer.WriteRune(RuneSpace)
@@ -62,10 +62,9 @@ func WriteRequestComplete(writer Logger, ts TimeSource, req *http.Request, statu
 func WriteRequestBody(writer Logger, ts TimeSource, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize("Request Body", ColorGreen))
+	buffer.WriteString(writer.Colorize(string(EventWebRequestPostBody), ColorGreen))
 	buffer.WriteRune(RuneSpace)
 	buffer.Write(body)
-
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }
 
@@ -73,9 +72,8 @@ func WriteRequestBody(writer Logger, ts TimeSource, body []byte) {
 func WriteResponseBody(writer Logger, ts TimeSource, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize("Response", ColorGreen))
+	buffer.WriteString(writer.Colorize(string(EventWebResponse), ColorGreen))
 	buffer.WriteRune(RuneSpace)
 	buffer.Write(body)
-
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }

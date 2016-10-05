@@ -18,8 +18,8 @@ func (t timeSourceSystemClock) UTCNow() time.Time {
 	return time.Now().UTC()
 }
 
-// Now returns a historical time instance as a time source.
-func Now() TimeSource {
+// TimeNow returns a historical time instance as a time source.
+func TimeNow() TimeSource {
 	return TimeInstance(time.Now())
 }
 

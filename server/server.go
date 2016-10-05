@@ -51,7 +51,7 @@ func Init() *web.App {
 	app.SetAppName(AppName)
 	app.SetPort(core.ConfigPort())
 
-	app.Diagnostics().AddEventListener(logger.EventRequestComplete, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.RequestContext) {
+	app.Diagnostics().AddEventListener(logger.EventWebRequest, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.RequestContext) {
 		external.StatHatRequestTiming(rc.Elapsed())
 	}))
 

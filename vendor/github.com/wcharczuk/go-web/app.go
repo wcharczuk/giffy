@@ -80,9 +80,9 @@ func (a *App) Diagnostics() *logger.DiagnosticsAgent {
 func (a *App) SetDiagnostics(da *logger.DiagnosticsAgent) {
 	a.diagnostics = da
 	if a.diagnostics != nil {
-		a.diagnostics.AddEventListener(logger.EventRequest, a.onRequestStart)
-		a.diagnostics.AddEventListener(logger.EventRequestComplete, a.onRequestComplete)
-		a.diagnostics.AddEventListener(logger.EventResponse, a.onResponse)
+		a.diagnostics.AddEventListener(logger.EventWebRequestStart, a.onRequestStart)
+		a.diagnostics.AddEventListener(logger.EventWebRequest, a.onRequestComplete)
+		a.diagnostics.AddEventListener(logger.EventWebResponse, a.onResponse)
 	}
 }
 
@@ -114,7 +114,7 @@ func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFl
 	if !isContext {
 		return
 	}
-	logger.WriteRequest(writer, ts, context.Request)
+	logger.WriteRequestStart(writer, ts, context.Request)
 }
 
 func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
@@ -125,7 +125,7 @@ func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, even
 	if !isContext {
 		return
 	}
-	logger.WriteRequestComplete(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
+	logger.WriteRequest(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
 }
 
 func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
@@ -417,13 +417,13 @@ func (a *App) newResponse(w http.ResponseWriter, r *http.Request) ResponseWriter
 	var response ResponseWriter
 	if a.shouldCompressOutput(r) {
 		w.Header().Set("Content-Encoding", "gzip")
-		if a.diagnostics.IsEnabled(logger.EventResponse) {
+		if a.diagnostics.IsEnabled(logger.EventWebResponse) {
 			response = NewBufferedCompressedResponseWriter(w)
 		} else {
 			response = NewCompressedResponseWriter(w)
 		}
 	} else {
-		if a.diagnostics.IsEnabled(logger.EventResponse) {
+		if a.diagnostics.IsEnabled(logger.EventWebResponse) {
 			response = NewBufferedResponseWriter(w)
 		} else {
 			response = NewResponseWriter(w)
@@ -439,7 +439,7 @@ func (a *App) shouldCompressOutput(r *http.Request) bool {
 func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	context := a.requestContext(w, r, p)
 	context.onRequestStart()
-	a.diagnostics.OnEvent(logger.EventRequest, context)
+	a.diagnostics.OnEvent(logger.EventWebRequestStart, context)
 	return context
 }
 
@@ -471,10 +471,10 @@ func (a *App) pipelineComplete(context *RequestContext) {
 	context.onRequestEnd()
 	context.setLoggedStatusCode(context.Response.StatusCode())
 	context.setLoggedContentLength(context.Response.ContentLength())
-	if a.diagnostics.IsEnabled(logger.EventResponse) {
-		a.diagnostics.OnEvent(logger.EventResponse, context.Response.Bytes())
+	if a.diagnostics.IsEnabled(logger.EventWebResponse) {
+		a.diagnostics.OnEvent(logger.EventWebResponse, context.Response.Bytes())
 	}
-	a.diagnostics.OnEvent(logger.EventRequestComplete, context)
+	a.diagnostics.OnEvent(logger.EventWebRequest, context)
 
 	err = context.Response.Close()
 	if err != nil && err != http.ErrBodyNotAllowed {

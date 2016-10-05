@@ -7,33 +7,34 @@ import (
 
 const (
 	// EventAll is a special flag that allows all events to fire.
-	EventAll EventFlag = "ALL"
+	EventAll EventFlag = "all"
 	// EventNone is a special flag that allows no events to fire.
-	EventNone EventFlag = "NONE"
+	EventNone EventFlag = "none"
 
 	// EventFatalError fires for fatal errors (panics or errors returned to users).
-	EventFatalError EventFlag = "FATAL"
+	EventFatalError EventFlag = "fatal"
 	// EventError fires for errors that are severe enough to log but not so severe as to abort a process.
-	EventError EventFlag = "ERROR"
+	EventError EventFlag = "error"
 	// EventWarning fires for warnings.
-	EventWarning EventFlag = "WARNING"
+	EventWarning EventFlag = "warning"
 	// EventDebug fires for debug messages.
-	EventDebug EventFlag = "DEBUG"
+	EventDebug EventFlag = "debug"
 	// EventInfo fires for informational messages (app startup etc.)
-	EventInfo EventFlag = "INFO"
-	// EventRequest fires when an app starts handling a request.
-	EventRequest EventFlag = "REQUEST"
-	// EventRequestComplete fires when an app completes handling a request.
-	EventRequestComplete EventFlag = "REQUEST_COMPLETE"
-	// EventRequestPostBody fires when a request has a post body.
-	EventRequestPostBody EventFlag = "REQUEST_POST_BODY"
-	// EventResponse fires to provide the raw response to a request.
-	EventResponse EventFlag = "RESPONSE"
-	// EventUserError is a particular class of error caused by callers of a service.
-	EventUserError EventFlag = "USER_ERROR"
+	EventInfo EventFlag = "info"
 
-	// EventInternalError is an alias to EventFatalError
-	EventInternalError = EventFatalError
+	// EventWebRequestStart fires when an app starts handling a request.
+	EventWebRequestStart EventFlag = "web.request.start"
+	// EventWebRequest fires when an app completes handling a request.
+	EventWebRequest EventFlag = "web.request"
+	// EventWebRequestPostBody fires when a request has a post body.
+	EventWebRequestPostBody EventFlag = "web.request.postbody"
+	// EventWebResponse fires to provide the raw response to a request.
+	EventWebResponse EventFlag = "web.response"
+	// EventWebUserError is a particular class of error caused by callers of a service.
+	EventWebUserError EventFlag = "web.usererror"
+
+	// EventWebInternalError is an alias to EventFatalError
+	EventWebInternalError = EventFatalError
 )
 
 // EnvironmentVariables
@@ -50,10 +51,10 @@ var (
 		EventWarning,
 		EventDebug,
 		EventInfo,
-		EventRequest,
-		EventRequestComplete,
-		EventResponse,
-		EventUserError,
+		EventWebRequestStart,
+		EventWebRequest,
+		EventWebResponse,
+		EventWebUserError,
 	}
 )
 
@@ -101,7 +102,7 @@ func NewEventFlagSetFromEnvironment() *EventFlagSet {
 		flags := strings.Split(envEventsFlag, ",")
 		var events []EventFlag
 		for _, flag := range flags {
-			parsedFlag := EventFlag(strings.Trim(strings.ToUpper(flag), " \t\n"))
+			parsedFlag := EventFlag(strings.Trim(strings.ToLower(flag), " \t\n"))
 			if CaseInsensitiveEquals(string(parsedFlag), string(EventAll)) {
 				return NewEventFlagSetAll()
 			}
