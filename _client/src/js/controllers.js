@@ -70,6 +70,7 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
 	function($scope, $http, $routeParams, $q, currentUser) {
 		currentUser($scope, function() {
 			fetchImageData();
+			fetchImageStats();
 		});
 
 		$scope.addTags = function() {
@@ -118,6 +119,15 @@ giffyControllers.controller("imageController",  ["$scope", "$http", "$routeParam
 				$scope.image = res.data.response;
 				$scope.slackCommand = "/giffy img:" + $scope.image.uuid;
 				fetchTagData();
+			}, function(res) {
+				window.location = "/";
+			});
+		};
+
+		var fetchImageStats = function() {
+			delete $scope.image_stats;
+			$http.get("/api/image.stats/" + $routeParams.image_id).then(function(res) {
+				$scope.image_stats = res.data.response;
 			}, function(res) {
 				window.location = "/";
 			});

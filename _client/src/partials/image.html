@@ -62,6 +62,10 @@
 				<div class="col-sm-6 col-md-6 col-lg-5 align-right">Added By:</div>
 				<div class="col-sm-6 col-md-6 col-lg-7 align-left"><user-detail user="image.created_by"></user-detail></div>
 			</div>
+			<div class="row">
+				<div class="col-sm-6 col-md-6 col-lg-5 align-right">Searches:</div>
+				<div class="col-sm-6 col-md-6 col-lg-7 align-left">{{image_stats.searches}}</div>
+			</div>
 			<div class="row" ng-if="currentUser.is_moderator || currentUser.user_uuid == image.created_by.uuid">
 				<div class="col-sm-6 col-md-6 col-lg-5 align-right">Moderator Controls:</div>
 				<div class="col-sm-6 col-md-6 col-lg-7 align-left">

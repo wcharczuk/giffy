@@ -939,6 +939,24 @@ func (api API) getSiteStatsAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().JSON(stats)
 }
 
+// GET "/api/image.stats/:image_id"
+func (api API) getImageStatsAction(r *web.RequestContext) web.ControllerResult {
+	imageUUID, err := r.RouteParameter("image_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+	image, err := model.GetImageByUUID(imageUUID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	stats, err := viewmodel.GetImageStats(image.ID, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(stats)
+}
+
 // GET "/api/session.user"
 func (api API) getCurrentUserAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
@@ -1090,6 +1108,7 @@ func (api API) Register(app *web.App) {
 	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, auth.SessionRequired, web.APIProviderAsDefault)
 
 	app.GET("/api/stats", api.getSiteStatsAction)
+	app.GET("/api/image.stats/:image_id", api.getImageStatsAction)
 
 	//session endpoints
 	app.GET("/api/session.user", api.getCurrentUserAction, auth.SessionAware, web.APIProviderAsDefault)
