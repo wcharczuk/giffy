@@ -26,7 +26,7 @@ func GetImageStats(imageID int64, txs ...*sql.Tx) (*ImageStats, error) {
 	var results ImageStats
 	query := `
 	select
-		i.id
+		i.id as image_id
 		, (select sum(votes_total) from vote_summary where image_id = $1) as votes_total
 		, (select count(image_id) from search_history where image_id = $1) as searches
 	from

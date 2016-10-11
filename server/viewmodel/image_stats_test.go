@@ -34,6 +34,7 @@ func TestGetImageStats(t *testing.T) {
 
 	imageStats, err := GetImageStats(i.ID, tx)
 	assert.Nil(err)
+	assert.Equal(imageStats.ImageID, i.ID)
 	assert.Equal(2, imageStats.VotesTotal)
 	assert.Equal(4, imageStats.Searches)
 }
