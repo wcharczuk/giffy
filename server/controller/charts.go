@@ -44,7 +44,11 @@ group by
 	date_part('year', timestamp_utc)
 	, date_part('month', timestamp_utc)
 	, date_part('day', timestamp_utc)
-`, rc.Tx(), time.Now().UTC().AddDate(0, -1, 0)).OutMany(&data)
+order by
+	date_part('year', timestamp_utc) asc
+	, date_part('month', timestamp_utc) asc
+	, date_part('day', timestamp_utc) asc
+`, rc.Tx(), time.Now().UTC().AddDate(0, -6, 0)).OutMany(&data)
 
 	if err != nil {
 		return rc.API().InternalError(err)
@@ -69,11 +73,44 @@ group by
 		YValues: yvalues,
 	}
 
+	sma := &chart.SMASeries{
+		Style: chart.Style{
+			Show:            true,
+			StrokeColor:     chart.ColorRed,
+			StrokeDashArray: []float64{5.0, 5.0},
+		},
+		InnerSeries: mainSeries,
+	}
+
+	linreg := &chart.LinearRegressionSeries{
+		Style: chart.Style{
+			Show:            true,
+			StrokeColor:     chart.ColorAlternateBlue,
+			StrokeDashArray: []float64{5.0, 5.0},
+		},
+		InnerSeries: mainSeries,
+	}
+
 	graph := chart.Chart{
 		Width:  960,
-		Height: 128,
+		Height: 192,
+		YAxis: chart.YAxis{
+			Style: chart.Style{
+				Show: true,
+			},
+		},
+		XAxis: chart.XAxis{
+			Style: chart.Style{
+				Show: true,
+			},
+			ValueFormatter: chart.TimeValueFormatter,
+		},
 		Series: []chart.Series{
 			mainSeries,
+			sma,
+			chart.LastValueAnnotation(sma),
+			linreg,
+			chart.LastValueAnnotation(linreg),
 		},
 	}
 

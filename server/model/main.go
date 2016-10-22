@@ -115,9 +115,12 @@ func CreatTestVoteSummaryWithVote(imageID, tagID, userID int64, votesFor, votesA
 
 // CreateTestUserAuth creates a test user auth.
 func CreateTestUserAuth(userID int64, token, secret string, tx *sql.Tx) (*UserAuth, error) {
-	ua := NewUserAuth(userID, token, secret)
+	ua, err := NewUserAuth(userID, token, secret)
+	if err != nil {
+		return ua, err
+	}
 	ua.Provider = "test"
-	err := DB().CreateInTx(ua, tx)
+	err = DB().CreateInTx(ua, tx)
 	return ua, err
 }
 

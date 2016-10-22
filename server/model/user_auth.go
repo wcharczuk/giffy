@@ -29,29 +29,29 @@ func (ua UserAuth) IsZero() bool {
 }
 
 // NewUserAuth returns a new user auth entry, encrypting the authToken and authSecret.
-func NewUserAuth(userID int64, authToken, authSecret string) *UserAuth {
+func NewUserAuth(userID int64, authToken, authSecret string) (*UserAuth, error) {
 	auth := &UserAuth{
 		UserID:       userID,
 		TimestampUTC: time.Now().UTC(),
 	}
 
 	key := core.ConfigKey()
-	token, tokenErr := core.Encrypt(key, authToken)
-	if tokenErr != nil {
-		return auth
+	token, err := core.Encrypt(key, authToken)
+	if err != nil {
+		return auth, err
 	}
 	auth.AuthToken = token
 	auth.AuthTokenHash = core.Hash(key, authToken)
 
 	if len(authSecret) != 0 {
-		secret, secretErr := core.Encrypt(key, authSecret)
-		if secretErr != nil {
-			return auth
+		secret, err := core.Encrypt(key, authSecret)
+		if err != nil {
+			return auth, err
 		}
 		auth.AuthSecret = secret
 	}
 
-	return auth
+	return auth, nil
 }
 
 // GetUserAuthByToken returns an auth entry for the given auth token.
