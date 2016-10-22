@@ -55,29 +55,29 @@ func GetIP(r *http.Request) string {
 func GetParamByName(r *http.Request, name string) string {
 	//check querystring
 	queryValue := r.URL.Query().Get(name)
-	if !IsEmpty(queryValue) {
+	if !String.IsEmpty(queryValue) {
 		return queryValue
 	}
 
 	//check headers
 	headerValue := r.Header.Get(name)
-	if !IsEmpty(headerValue) {
+	if !String.IsEmpty(headerValue) {
 		return headerValue
 	}
 
 	//check cookies
 	cookie, cookieErr := r.Cookie(name)
-	if cookieErr == nil && !IsEmpty(cookie.Value) {
+	if cookieErr == nil && !String.IsEmpty(cookie.Value) {
 		return cookie.Value
 	}
 
 	formValue := r.Form.Get(name)
-	if !IsEmpty(formValue) {
+	if !String.IsEmpty(formValue) {
 		return formValue
 	}
 
 	postFormValue := r.PostFormValue(name)
-	if !IsEmpty(postFormValue) {
+	if !String.IsEmpty(postFormValue) {
 		return postFormValue
 	}
 

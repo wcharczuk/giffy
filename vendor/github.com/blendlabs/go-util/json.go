@@ -4,55 +4,50 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 
 	"github.com/blendlabs/go-exception"
 )
 
-// ReadFile reads a file as a string.
-func ReadFile(path string) string {
-	bytes, _ := ioutil.ReadFile(path)
-	return string(bytes)
-}
+var (
+	// JSON is a namespace for json utils.
+	JSON = jsonUtil{}
+)
 
-// DeserializeJSON unmarshals an object from JSON.
-func DeserializeJSON(object interface{}, body string) error {
+type jsonUtil struct{}
+
+// Deserialize unmarshals an object from JSON.
+func (ju jsonUtil) Deserialize(object interface{}, body string) error {
 	decoder := json.NewDecoder(bytes.NewBufferString(body))
 	return exception.Wrap(decoder.Decode(object))
 }
 
-// DeserializeJSONFromReader unmashals an object from a json Reader.
-func DeserializeJSONFromReader(object interface{}, body io.Reader) error {
+// DeserializeFromReader unmashals an object from a json Reader.
+func (ju jsonUtil) DeserializeFromReader(object interface{}, body io.Reader) error {
+	return exception.Wrap(json.NewDecoder(body).Decode(object))
+}
+
+// DeserializeFromReadCloser unmashals an object from a json ReadCloser.
+func (ju jsonUtil) DeserializeFromReadCloser(object interface{}, body io.ReadCloser) error {
+	defer body.Close()
+
 	decoder := json.NewDecoder(body)
 	return exception.Wrap(decoder.Decode(object))
 }
 
-// DeserializeJSONFromReadCloser unmashals an object from a json ReadCloser.
-func DeserializeJSONFromReadCloser(object interface{}, body io.ReadCloser) error {
-	defer body.Close()
-	bodyBytes, err := ioutil.ReadAll(body)
-	if err != nil {
-		return exception.Wrap(err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewBuffer(bodyBytes))
-	return exception.Wrap(decoder.Decode(object))
-}
-
-// SerializeJSON marshals an object to json.
-func SerializeJSON(object interface{}) string {
+// Serialize marshals an object to json.
+func (ju jsonUtil) Serialize(object interface{}) string {
 	b, _ := json.Marshal(object)
 	return string(b)
 }
 
-// SerializeJSONPretty marshals an object to json with formatting whitespace.
-func SerializeJSONPretty(object interface{}, prefix, indent string) string {
+// SerializePretty marshals an object to json with formatting whitespace.
+func (ju jsonUtil) SerializePretty(object interface{}, prefix, indent string) string {
 	b, _ := json.MarshalIndent(object, prefix, indent)
 	return string(b)
 }
 
-// SerializeJSONAsReader marshals an object to json as a reader.
-func SerializeJSONAsReader(object interface{}) io.Reader {
+// SerializeAsReader marshals an object to json as a reader.
+func (ju jsonUtil) SerializeAsReader(object interface{}) io.Reader {
 	b, _ := json.Marshal(object)
-	return bytes.NewBufferString(string(b))
+	return bytes.NewBuffer(b)
 }

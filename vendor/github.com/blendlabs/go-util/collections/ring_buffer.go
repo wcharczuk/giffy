@@ -3,6 +3,7 @@ package collections
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 const (
@@ -17,32 +18,35 @@ var (
 )
 
 // NewRingBuffer creates a new, empty, RingBuffer.
-func NewRingBuffer() Queue {
+func NewRingBuffer() *RingBuffer {
 	return &RingBuffer{
-		array: make([]interface{}, ringBufferDefaultCapacity),
-		head:  0,
-		tail:  0,
-		size:  0,
+		array:    make([]interface{}, ringBufferDefaultCapacity),
+		head:     0,
+		tail:     0,
+		size:     0,
+		syncRoot: &sync.RWMutex{},
 	}
 }
 
 // NewRingBufferWithCapacity creates a new RingBuffer pre-allocated with the given capacity.
-func NewRingBufferWithCapacity(capacity int) Queue {
+func NewRingBufferWithCapacity(capacity int) *RingBuffer {
 	return &RingBuffer{
-		array: make([]interface{}, capacity),
-		head:  0,
-		tail:  0,
-		size:  0,
+		array:    make([]interface{}, capacity),
+		head:     0,
+		tail:     0,
+		size:     0,
+		syncRoot: &sync.RWMutex{},
 	}
 }
 
 // NewRingBufferFromSlice createsa  ring buffer out of a slice.
-func NewRingBufferFromSlice(values []interface{}) Queue {
+func NewRingBufferFromSlice(values []interface{}) *RingBuffer {
 	return &RingBuffer{
-		array: values,
-		head:  0,
-		tail:  len(values) - 1,
-		size:  len(values),
+		array:    values,
+		head:     0,
+		tail:     len(values) - 1,
+		size:     len(values),
+		syncRoot: &sync.RWMutex{},
 	}
 }
 
@@ -50,10 +54,16 @@ func NewRingBufferFromSlice(values []interface{}) Queue {
 // a whole new node object for each element (which saves GC churn).
 // Enqueue can be O(n), Dequeue can be O(1).
 type RingBuffer struct {
-	array []interface{}
-	head  int
-	tail  int
-	size  int
+	array    []interface{}
+	head     int
+	tail     int
+	size     int
+	syncRoot *sync.RWMutex
+}
+
+// SyncRoot returns a lock for the queue.
+func (rb *RingBuffer) SyncRoot() *sync.RWMutex {
+	return rb.syncRoot
 }
 
 // Len returns the length of the ring buffer (as it is currently populated).
@@ -170,6 +180,79 @@ func (rb *RingBuffer) AsSlice() []interface{} {
 	}
 
 	return newArray
+}
+
+// Each calls the consumer for each element in the buffer.
+func (rb *RingBuffer) Each(consumer func(value interface{})) {
+	if rb.size == 0 {
+		return
+	}
+
+	if rb.head < rb.tail {
+		for cursor := rb.head; cursor < rb.tail; cursor++ {
+			consumer(rb.array[cursor])
+		}
+	} else {
+		for cursor := rb.head; cursor < len(rb.array); cursor++ {
+			consumer(rb.array[cursor])
+		}
+		for cursor := 0; cursor < rb.tail; cursor++ {
+			consumer(rb.array[cursor])
+		}
+	}
+}
+
+// EachUntil calls the consumer for each element in the buffer with a stopping condition in head=>tail order.
+func (rb *RingBuffer) EachUntil(consumer func(value interface{}) bool) {
+	if rb.size == 0 {
+		return
+	}
+
+	if rb.head < rb.tail {
+		for cursor := rb.head; cursor < rb.tail; cursor++ {
+			if !consumer(rb.array[cursor]) {
+				return
+			}
+		}
+	} else {
+		for cursor := rb.head; cursor < len(rb.array); cursor++ {
+			if !consumer(rb.array[cursor]) {
+				return
+			}
+		}
+		for cursor := 0; cursor < rb.tail; cursor++ {
+			if !consumer(rb.array[cursor]) {
+				return
+			}
+		}
+	}
+}
+
+// ReverseEachUntil calls the consumer for each element in the buffer with a stopping condition in tail=>head order.
+func (rb *RingBuffer) ReverseEachUntil(consumer func(value interface{}) bool) {
+	if rb.size == 0 {
+		return
+	}
+
+	if rb.head < rb.tail {
+		for cursor := rb.tail - 1; cursor >= rb.head; cursor-- {
+			if !consumer(rb.array[cursor]) {
+				return
+			}
+		}
+	} else {
+		for cursor := rb.tail; cursor > 0; cursor-- {
+			if !consumer(rb.array[cursor]) {
+				return
+			}
+		}
+		for cursor := len(rb.array) - 1; cursor >= rb.head; cursor-- {
+			if !consumer(rb.array[cursor]) {
+				return
+			}
+		}
+
+	}
 }
 
 func (rb *RingBuffer) String() string {

@@ -15,6 +15,21 @@ var (
 		time.Saturday,
 	}
 
+	// WeekDays are the business time.Weekday in an array.
+	WeekDays = []time.Weekday{
+		time.Monday,
+		time.Tuesday,
+		time.Wednesday,
+		time.Thursday,
+		time.Friday,
+	}
+
+	// WeekWeekEndDaysDays are the weekend time.Weekday in an array.
+	WeekendDays = []time.Weekday{
+		time.Sunday,
+		time.Saturday,
+	}
+
 	//Epoch is unix epoc saved for utility purposes.
 	Epoch = time.Unix(0, 0)
 )
@@ -22,13 +37,23 @@ var (
 // NOTE: we have to use shifts here because in their infinite wisdom google didn't make these values powers of two for masking
 
 const (
-	// AllDays is a bitmask of all the days of the week.
-	AllDays = 1<<uint(time.Sunday) | 1<<uint(time.Monday) | 1<<uint(time.Tuesday) | 1<<uint(time.Wednesday) | 1<<uint(time.Thursday) | 1<<uint(time.Friday) | 1<<uint(time.Saturday)
-	// WeekDays is a bitmask of all the weekdays of the week.
-	WeekDays = 1<<uint(time.Monday) | 1<<uint(time.Tuesday) | 1<<uint(time.Wednesday) | 1<<uint(time.Thursday) | 1<<uint(time.Friday)
-	//WeekendDays is a bitmask of the weekend days of the week.
-	WeekendDays = 1<<uint(time.Sunday) | 1<<uint(time.Saturday)
+	// AllDaysMask is a bitmask of all the days of the week.
+	AllDaysMask = 1<<uint(time.Sunday) | 1<<uint(time.Monday) | 1<<uint(time.Tuesday) | 1<<uint(time.Wednesday) | 1<<uint(time.Thursday) | 1<<uint(time.Friday) | 1<<uint(time.Saturday)
+	// WeekDaysMask is a bitmask of all the weekdays of the week.
+	WeekDaysMask = 1<<uint(time.Monday) | 1<<uint(time.Tuesday) | 1<<uint(time.Wednesday) | 1<<uint(time.Thursday) | 1<<uint(time.Friday)
+	//WeekendDaysMask is a bitmask of the weekend days of the week.
+	WeekendDaysMask = 1<<uint(time.Sunday) | 1<<uint(time.Saturday)
 )
+
+// IsWeekDay returns if the day is a monday->friday.
+func IsWeekDay(day time.Weekday) bool {
+	return !IsWeekendDay(day)
+}
+
+// IsWeekendDay returns if the day is a monday->friday.
+func IsWeekendDay(day time.Weekday) bool {
+	return day == time.Saturday || day == time.Sunday
+}
 
 // The Schedule interface defines the form a schedule should take. All schedules are resposible for is giving a next run time after a last run time.
 type Schedule interface {
@@ -83,17 +108,17 @@ func WeeklyAt(hour, minute, second int, days ...time.Weekday) Schedule {
 
 // DailyAt returns a schedule that fires every day at the given hour, minut and second.
 func DailyAt(hour, minute, second int) Schedule {
-	return &DailySchedule{DayOfWeekMask: AllDays, TimeOfDayUTC: time.Date(0, 0, 0, hour, minute, second, 0, time.UTC)}
+	return &DailySchedule{DayOfWeekMask: AllDaysMask, TimeOfDayUTC: time.Date(0, 0, 0, hour, minute, second, 0, time.UTC)}
 }
 
 // WeekdaysAt returns a schedule that fires every week day at the given hour, minut and second.
 func WeekdaysAt(hour, minute, second int) Schedule {
-	return &DailySchedule{DayOfWeekMask: WeekDays, TimeOfDayUTC: time.Date(0, 0, 0, hour, minute, second, 0, time.UTC)}
+	return &DailySchedule{DayOfWeekMask: WeekDaysMask, TimeOfDayUTC: time.Date(0, 0, 0, hour, minute, second, 0, time.UTC)}
 }
 
 // WeekendsAt returns a schedule that fires every weekend day at the given hour, minut and second.
 func WeekendsAt(hour, minute, second int) Schedule {
-	return &DailySchedule{DayOfWeekMask: WeekendDays, TimeOfDayUTC: time.Date(0, 0, 0, hour, minute, second, 0, time.UTC)}
+	return &DailySchedule{DayOfWeekMask: WeekendDaysMask, TimeOfDayUTC: time.Date(0, 0, 0, hour, minute, second, 0, time.UTC)}
 }
 
 // --------------------------------------------------------------------------------

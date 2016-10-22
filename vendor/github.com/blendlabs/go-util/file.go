@@ -3,10 +3,17 @@ package util
 import (
 	"bufio"
 	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/blendlabs/go-exception"
 )
+
+// ReadFile reads a file as a string.
+func ReadFile(path string) string {
+	bytes, _ := ioutil.ReadFile(path)
+	return string(bytes)
+}
 
 // ReadChunkHandler is a receiver for a chunk of a file.
 type ReadChunkHandler func(line []byte)

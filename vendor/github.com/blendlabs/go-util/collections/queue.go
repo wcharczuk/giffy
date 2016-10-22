@@ -9,4 +9,8 @@ type Queue interface {
 	PeekBack() interface{}
 	AsSlice() []interface{}
 	Clear()
+
+	Each(consumer func(value interface{}))
+	EachUntil(consumer func(value interface{}) bool)
+	ReverseEachUntil(consumer func(value interface{}) bool)
 }

@@ -1,7 +1,6 @@
 package linq
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"time"
@@ -33,6 +32,9 @@ type PredicateOfString func(item string) bool
 // PredicateOfTime is a function that returns a boolean for an input.
 type PredicateOfTime func(item time.Time) bool
 
+// PredicateOfDuration is a function that returns a boolean for an input.
+type PredicateOfDuration func(item time.Duration) bool
+
 // MapAction is an action that returns a value for an input value, a.k.a. that maps the two.
 type MapAction func(item interface{}) interface{}
 
@@ -56,6 +58,9 @@ type MapActionOfString func(item string) string
 
 // MapActionOfTime is an action that returns a value for an input value, a.k.a. that maps the two.
 type MapActionOfTime func(item time.Time) time.Time
+
+// MapActionOfDuration is an action that returns a value for an input value, a.k.a. that maps the two.
+type MapActionOfDuration func(item time.Duration) time.Time
 
 // ReturnsTrue is a pre-built predicate.
 func ReturnsTrue() Predicate {
@@ -102,6 +107,13 @@ func ReturnsTrueOfString() PredicateOfString {
 // ReturnsTrueOfTime is a pre-built predicate.
 func ReturnsTrueOfTime() PredicateOfTime {
 	return func(_ time.Time) bool {
+		return true
+	}
+}
+
+// ReturnsTrueOfDuration is a pre-built predicate.
+func ReturnsTrueOfDuration() PredicateOfDuration {
+	return func(_ time.Duration) bool {
 		return true
 	}
 }
@@ -155,6 +167,13 @@ func ReturnsFalseOfTime() PredicateOfTime {
 	}
 }
 
+// ReturnsFalseOfDuration is a pre-built predicate.
+func ReturnsFalseOfDuration() PredicateOfDuration {
+	return func(_ time.Duration) bool {
+		return false
+	}
+}
+
 // DeepEqual is a pre-built predicate that compares shouldBe to input objects.
 func DeepEqual(shouldBe interface{}) Predicate {
 	return func(value interface{}) bool {
@@ -197,10 +216,10 @@ func EqualsOfString(shouldBe string) PredicateOfString {
 	}
 }
 
-// EqualsCaseInsenitive is a pre-built predicate that compares shouldBe to input objects.
-func EqualsCaseInsenitive(shouldBe string) PredicateOfString {
+// EqualsOfStringCaseInsenitive is a pre-built predicate that compares shouldBe to input objects.
+func EqualsOfStringCaseInsenitive(shouldBe string) PredicateOfString {
 	return func(value string) bool {
-		return util.CaseInsensitiveEquals(shouldBe, value)
+		return util.String.CaseInsensitiveEquals(shouldBe, value)
 	}
 }
 
@@ -226,9 +245,16 @@ func StringToFloat(item interface{}) interface{} {
 	return nil
 }
 
+type stringable interface {
+	String() string
+}
+
 // ValueToString is a pre-built map function.
 func ValueToString(value interface{}) interface{} {
-	return fmt.Sprintf("%v", value)
+	if typed, isTyped := value.(stringable); isTyped {
+		return typed.String()
+	}
+	return ""
 }
 
 // Any returns true if the predicate holds for any object in the collection.
@@ -334,6 +360,19 @@ func AnyOfTime(target []time.Time, predicate PredicateOfTime) bool {
 	return false
 }
 
+// AnyOfDuration returns true if the predicate holds for any object in the collection.
+func AnyOfDuration(target []time.Duration, predicate PredicateOfDuration) bool {
+	v := reflect.ValueOf(target)
+
+	for x := 0; x < v.Len(); x++ {
+		obj := v.Index(x).Interface().(time.Duration)
+		if predicate == nil || predicate(obj) {
+			return true
+		}
+	}
+	return false
+}
+
 // All returns true if the predicate holds for all objects in the collection.
 func All(target interface{}, predicate Predicate) bool {
 	t := reflect.TypeOf(target)
@@ -404,6 +443,19 @@ func AllOfTime(target []time.Time, predicate PredicateOfTime) bool {
 
 	for x := 0; x < v.Len(); x++ {
 		obj := v.Index(x).Interface().(time.Time)
+		if !predicate(obj) {
+			return false
+		}
+	}
+	return true
+}
+
+// AllOfDuration returns true if the predicate holds for all objects in the collection.
+func AllOfDuration(target []time.Duration, predicate PredicateOfDuration) bool {
+	v := reflect.ValueOf(target)
+
+	for x := 0; x < v.Len(); x++ {
+		obj := v.Index(x).Interface().(time.Duration)
 		if !predicate(obj) {
 			return false
 		}
@@ -501,6 +553,19 @@ func FirstOfTime(target []time.Time, predicate PredicateOfTime) *time.Time {
 	return nil
 }
 
+// FirstOfDuration returns the first object that satisfies a predicate.
+func FirstOfDuration(target []time.Duration, predicate PredicateOfDuration) *time.Duration {
+	v := reflect.ValueOf(target)
+
+	for x := 0; x < v.Len(); x++ {
+		obj := v.Index(x).Interface().(time.Duration)
+		if predicate == nil || predicate(obj) {
+			return &obj
+		}
+	}
+	return nil
+}
+
 // Last returns the last object that satisfies a predicate.
 func Last(target interface{}, predicate Predicate) interface{} {
 	t := reflect.TypeOf(target)
@@ -572,6 +637,19 @@ func LastOfTime(target []time.Time, predicate PredicateOfTime) *time.Time {
 
 	for x := v.Len() - 1; x > 0; x-- {
 		obj := v.Index(x).Interface().(time.Time)
+		if predicate == nil || predicate(obj) {
+			return &obj
+		}
+	}
+	return nil
+}
+
+// LastOfDuration returns the last object that satisfies a predicate.
+func LastOfDuration(target []time.Duration, predicate PredicateOfDuration) *time.Duration {
+	v := reflect.ValueOf(target)
+
+	for x := v.Len() - 1; x > 0; x-- {
+		obj := v.Index(x).Interface().(time.Duration)
 		if predicate == nil || predicate(obj) {
 			return &obj
 		}
