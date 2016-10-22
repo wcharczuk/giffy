@@ -98,7 +98,10 @@ func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, auth
 	}
 
 	//save the credentials
-	newCredentials := model.NewUserAuth(userID, authToken, authSecret)
+	newCredentials, err := model.NewUserAuth(userID, authToken, authSecret)
+	if err != nil {
+		return r.View().InternalError(err)
+	}
 	newCredentials.Provider = provider
 	err = spiffy.DefaultDb().Create(newCredentials)
 	if err != nil {

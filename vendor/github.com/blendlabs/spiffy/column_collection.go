@@ -52,9 +52,10 @@ func Meta(obj DatabaseMapped) *ColumnCollection {
 // MakeColumnCacheKey creates a cache key for a type.
 func MakeColumnCacheKey(objectType reflect.Type) string {
 	if dbm, err := MakeNewDatabaseMapped(objectType); err == nil {
-		return fmt.Sprintf("%s_%s", objectType.Name(), dbm.TableName())
+		return fmt.Sprintf("%s_%s", objectType.String(), dbm.TableName())
 	}
-	return objectType.Name()
+	println(objectType.String())
+	return objectType.String()
 }
 
 // CachedColumnCollectionFromInstance reflects an object instance into a new column collection.
