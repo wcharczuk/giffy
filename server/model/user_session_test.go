@@ -22,7 +22,7 @@ func TestDeleteUserSession(t *testing.T) {
 	assert.Nil(err)
 
 	var verify UserSession
-	err = DB().GetByIDInTransaction(&verify, tx, us.SessionID)
+	err = DB().GetByIDInTx(&verify, tx, us.SessionID)
 	assert.Nil(err)
 	assert.True(verify.IsZero())
 }

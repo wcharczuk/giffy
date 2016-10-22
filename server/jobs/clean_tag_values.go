@@ -28,15 +28,15 @@ func (ot CleanTagValues) Execute(ct *chronometer.CancellationToken) error {
 	if err != nil {
 		return err
 	}
-	err = ot.ExecuteInTransaction(ct, tx)
+	err = ot.ExecuteInTx(ct, tx)
 	if err != nil {
 		return exception.Wrap(tx.Rollback())
 	}
 	return exception.Wrap(tx.Commit())
 }
 
-// ExecuteInTransaction runs the job in a transaction
-func (ot CleanTagValues) ExecuteInTransaction(ct *chronometer.CancellationToken, tx *sql.Tx) error {
+// ExecuteInTx runs the job in a transaction
+func (ot CleanTagValues) ExecuteInTx(ct *chronometer.CancellationToken, tx *sql.Tx) error {
 	allTags, err := model.GetAllTags(tx)
 	if err != nil {
 		return err

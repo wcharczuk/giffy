@@ -24,14 +24,14 @@ func CreateTestUser(tx *sql.Tx) (*User, error) {
 	u := NewUser(fmt.Sprintf("__test_user_%s__", core.UUIDv4().ToShortString()))
 	u.FirstName = "Test"
 	u.LastName = "User"
-	err := DB().CreateInTransaction(u, tx)
+	err := DB().CreateInTx(u, tx)
 	return u, err
 }
 
 // CreateTestTag creates a test tag.
 func CreateTestTag(userID int64, tagValue string, tx *sql.Tx) (*Tag, error) {
 	tag := NewTag(userID, tagValue)
-	err := DB().CreateInTransaction(tag, tx)
+	err := DB().CreateInTx(tag, tx)
 	return tag, err
 }
 
@@ -52,7 +52,7 @@ func CreateTestTagForImageWithVote(userID, imageID int64, tagValue string, tx *s
 		v.VotesFor = 1
 		v.VotesAgainst = 0
 		v.VotesTotal = 1
-		err = DB().CreateInTransaction(v, tx)
+		err = DB().CreateInTx(v, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -64,7 +64,7 @@ func CreateTestTagForImageWithVote(userID, imageID int64, tagValue string, tx *s
 	}
 
 	v := NewVote(userID, imageID, tag.ID, true)
-	err = DB().CreateInTransaction(v, tx)
+	err = DB().CreateInTx(v, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func CreateTestImage(userID int64, tx *sql.Tx) (*Image, error) {
 	i.S3ReadURL = fmt.Sprintf("https://s3.amazonaws.com/%s/%s", i.S3Bucket, i.S3Key)
 	i.MD5 = core.UUIDv4()
 	i.DisplayName = "Test Image"
-	err := DB().CreateInTransaction(i, tx)
+	err := DB().CreateInTx(i, tx)
 	return i, err
 }
 
@@ -93,7 +93,7 @@ func CreatTestVoteSummaryWithVote(imageID, tagID, userID int64, votesFor, votesA
 	newLink.VotesFor = votesFor
 	newLink.VotesTotal = votesAgainst
 	newLink.VotesTotal = votesFor - votesAgainst
-	err := DB().CreateInTransaction(newLink, tx)
+	err := DB().CreateInTx(newLink, tx)
 
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func CreatTestVoteSummaryWithVote(imageID, tagID, userID int64, votesFor, votesA
 	}
 
 	v := NewVote(userID, imageID, tagID, true)
-	err = DB().CreateInTransaction(v, tx)
+	err = DB().CreateInTx(v, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -117,20 +117,20 @@ func CreatTestVoteSummaryWithVote(imageID, tagID, userID int64, votesFor, votesA
 func CreateTestUserAuth(userID int64, token, secret string, tx *sql.Tx) (*UserAuth, error) {
 	ua := NewUserAuth(userID, token, secret)
 	ua.Provider = "test"
-	err := DB().CreateInTransaction(ua, tx)
+	err := DB().CreateInTx(ua, tx)
 	return ua, err
 }
 
 // CreateTestUserSession creates a test user session.
 func CreateTestUserSession(userID int64, tx *sql.Tx) (*UserSession, error) {
 	us := NewUserSession(userID)
-	err := DB().CreateInTransaction(us, tx)
+	err := DB().CreateInTx(us, tx)
 	return us, err
 }
 
 // CreateTestSearchHistory creates a test search history entry.
 func CreateTestSearchHistory(source, searchQuery string, imageID, tagID *int64, tx *sql.Tx) (*SearchHistory, error) {
 	sh := NewSearchHistory(source, searchQuery, true, imageID, tagID)
-	err := DB().CreateInTransaction(sh, tx)
+	err := DB().CreateInTx(sh, tx)
 	return sh, err
 }

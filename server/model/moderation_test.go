@@ -20,11 +20,11 @@ func TestModerationCreate(t *testing.T) {
 	assert.Nil(err)
 
 	m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
-	err = DB().CreateInTransaction(m, tx)
+	err = DB().CreateInTx(m, tx)
 	assert.Nil(err)
 
 	var verify Moderation
-	err = DB().GetByIDInTransaction(&verify, tx, m.UUID)
+	err = DB().GetByIDInTx(&verify, tx, m.UUID)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }
@@ -43,7 +43,7 @@ func TestGetModerationsForUser(t *testing.T) {
 
 	for x := 0; x < 10; x++ {
 		m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
-		err = DB().CreateInTransaction(m, tx)
+		err = DB().CreateInTx(m, tx)
 		assert.Nil(err)
 	}
 
@@ -71,7 +71,7 @@ func TestGetModerationLogByCountAndOffset(t *testing.T) {
 
 	for x := 0; x < 10; x++ {
 		m := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
-		err = DB().CreateInTransaction(m, tx)
+		err = DB().CreateInTx(m, tx)
 		assert.Nil(err)
 	}
 

@@ -65,21 +65,21 @@ func NewUser(username string) *User {
 // GetAllUsers returns all the users.
 func GetAllUsers(tx *sql.Tx) ([]User, error) {
 	var all []User
-	err := DB().GetAllInTransaction(&all, tx)
+	err := DB().GetAllInTx(&all, tx)
 	return all, err
 }
 
 // GetUsersByCountAndOffset returns users by count and offset.
 func GetUsersByCountAndOffset(count, offset int, tx *sql.Tx) ([]User, error) {
 	var all []User
-	err := DB().QueryInTransaction(`select * from users order by created_utc desc limit $1 offset $2`, tx, count, offset).OutMany(&all)
+	err := DB().QueryInTx(`select * from users order by created_utc desc limit $1 offset $2`, tx, count, offset).OutMany(&all)
 	return all, err
 }
 
 // GetUserByID returns a user by id.
 func GetUserByID(id int64, tx *sql.Tx) (*User, error) {
 	var user User
-	err := DB().GetByIDInTransaction(&user, tx, id)
+	err := DB().GetByIDInTx(&user, tx, id)
 	return &user, err
 }
 
@@ -87,7 +87,7 @@ func GetUserByID(id int64, tx *sql.Tx) (*User, error) {
 func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
 	var user User
 	err := DB().
-		QueryInTransaction(`select * from users where uuid = $1`, tx, uuid).Out(&user)
+		QueryInTx(`select * from users where uuid = $1`, tx, uuid).Out(&user)
 	return &user, err
 }
 
@@ -96,7 +96,7 @@ func SearchUsers(query string, tx *sql.Tx) ([]User, error) {
 	var users []User
 	queryFormat := fmt.Sprintf("%%%s%%", query)
 	sqlQuery := `select * from users where username ilike $1 or first_name ilike $1 or last_name ilike $1 or email_address ilike $1`
-	err := DB().QueryInTransaction(sqlQuery, tx, queryFormat).OutMany(&users)
+	err := DB().QueryInTx(sqlQuery, tx, queryFormat).OutMany(&users)
 	return users, err
 }
 
@@ -104,6 +104,6 @@ func SearchUsers(query string, tx *sql.Tx) ([]User, error) {
 func GetUserByUsername(username string, tx *sql.Tx) (*User, error) {
 	var user User
 	err := DB().
-		QueryInTransaction(`select * from users where username = $1`, tx, username).Out(&user)
+		QueryInTx(`select * from users where username = $1`, tx, username).Out(&user)
 	return &user, err
 }

@@ -23,7 +23,7 @@ func TestSessionCache(t *testing.T) {
 	u, err := model.CreateTestUser(tx)
 	assert.Nil(err)
 
-	sessionID := util.RandomString(32)
+	sessionID := util.String.RandomString(32)
 	cache := newSessionCache()
 	cache.Add(u.ID, sessionID, tx)
 	assert.NotEmpty(cache.Sessions)

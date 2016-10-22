@@ -48,4 +48,4 @@ if [ ! -z "$ARG_FILTER" ]; then
 	TEST_FILTER="-run ${ARG_FILTER}"
 fi
 
-genv -f="./_config/config.json" go test $TEST_VERBOSITY $TEST_FILTER -timeout 5s "${TEST_ROOT}..."
+genv -file="./_config/config.json" go test $TEST_VERBOSITY $TEST_FILTER -timeout 5s "${TEST_ROOT}..."

@@ -29,11 +29,11 @@ func NewUserSession(userID int64) *UserSession {
 	return &UserSession{
 		UserID:       userID,
 		TimestampUTC: time.Now().UTC(),
-		SessionID:    util.RandomString(32),
+		SessionID:    util.String.RandomString(32),
 	}
 }
 
 // DeleteUserSession removes a session from the db.
 func DeleteUserSession(userID int64, sessionID string, tx *sql.Tx) error {
-	return DB().ExecInTransaction("DELETE FROM user_session where user_id = $1 and session_id = $2", tx, userID, sessionID)
+	return DB().ExecInTx("DELETE FROM user_session where user_id = $1 and session_id = $2", tx, userID, sessionID)
 }

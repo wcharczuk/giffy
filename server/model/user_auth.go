@@ -64,18 +64,18 @@ func GetUserAuthByToken(token string, tx *sql.Tx) (*UserAuth, error) {
 	authTokenHash := core.Hash(key, token)
 
 	var auth UserAuth
-	err := DB().QueryInTransaction("SELECT * FROM user_auth where auth_token_hash = $1", tx, authTokenHash).Out(&auth)
+	err := DB().QueryInTx("SELECT * FROM user_auth where auth_token_hash = $1", tx, authTokenHash).Out(&auth)
 	return &auth, err
 }
 
 // GetUserAuthByProvider returns an auth entry for the given auth token.
 func GetUserAuthByProvider(userID int64, provider string, tx *sql.Tx) (*UserAuth, error) {
 	var auth UserAuth
-	err := DB().QueryInTransaction("SELECT * FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider).Out(&auth)
+	err := DB().QueryInTx("SELECT * FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider).Out(&auth)
 	return &auth, err
 }
 
 // DeleteUserAuthForProvider deletes auth entries for a provider for a user.
 func DeleteUserAuthForProvider(userID int64, provider string, tx *sql.Tx) error {
-	return DB().ExecInTransaction("DELETE FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider)
+	return DB().ExecInTx("DELETE FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider)
 }

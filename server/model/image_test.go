@@ -272,10 +272,10 @@ func TestSearchImagesBestResult(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	tag4value := fmt.Sprintf("__test_foo_bar_%s", util.RandomString(4))
-	tag3value := fmt.Sprintf("__test_bar_%s", util.RandomString(4))
-	tag2value := fmt.Sprintf("__test_foo_%s", util.RandomString(4))
-	tag1value := fmt.Sprintf("__test_%s", util.RandomString(4))
+	tag4value := fmt.Sprintf("__test_foo_bar_%s", util.String.RandomString(4))
+	tag3value := fmt.Sprintf("__test_bar_%s", util.String.RandomString(4))
+	tag2value := fmt.Sprintf("__test_foo_%s", util.String.RandomString(4))
+	tag1value := fmt.Sprintf("__test_%s", util.String.RandomString(4))
 
 	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, tag4value, tx)
 	assert.Nil(err)
@@ -379,7 +379,7 @@ func TestGetAllImagesCensored(t *testing.T) {
 	assert.Nil(err)
 
 	i.ContentRating = ContentRatingNR
-	err = DB().UpdateInTransaction(i, tx)
+	err = DB().UpdateInTx(i, tx)
 	assert.Nil(err)
 
 	censored, err := GetAllImagesWithContentRating(ContentRatingNR, tx)

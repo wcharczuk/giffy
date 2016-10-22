@@ -118,7 +118,7 @@ func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, auth
 	cu := &viewmodel.CurrentUser{}
 	cu.SetFromUser(currentUser)
 
-	return r.View().View("login_complete", loginCompleteArguments{CurrentUser: util.SerializeJSON(cu)})
+	return r.View().View("login_complete", loginCompleteArguments{CurrentUser: util.JSON.Serialize(cu)})
 }
 
 type loginCompleteArguments struct {

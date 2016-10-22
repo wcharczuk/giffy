@@ -35,7 +35,7 @@ func GetImageStats(imageID int64, txs ...*sql.Tx) (*ImageStats, error) {
 		i.id = $1
 	`
 
-	err := model.DB().QueryInTransaction(query, tx, imageID).Out(&results)
+	err := model.DB().QueryInTx(query, tx, imageID).Out(&results)
 	if err != nil {
 		return nil, err
 	}

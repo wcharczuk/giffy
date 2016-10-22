@@ -34,7 +34,7 @@ func TestCleanTagValues(t *testing.T) {
 
 	ct := chronometer.NewCancellationToken()
 	job := &CleanTagValues{}
-	err = job.ExecuteInTransaction(ct, tx)
+	err = job.ExecuteInTx(ct, tx)
 
 	assert.Nil(err)
 

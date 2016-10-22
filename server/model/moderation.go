@@ -125,7 +125,7 @@ func getModerationQuery(whereClause string) string {
 func GetModerationForUserID(userID int64, tx *sql.Tx) ([]Moderation, error) {
 	var moderationLog []Moderation
 	whereClause := `where user_id = $1`
-	err := DB().QueryInTransaction(getModerationQuery(whereClause), tx, userID).Each(moderationConsumer(&moderationLog))
+	err := DB().QueryInTx(getModerationQuery(whereClause), tx, userID).Each(moderationConsumer(&moderationLog))
 	return moderationLog, err
 }
 
@@ -133,7 +133,7 @@ func GetModerationForUserID(userID int64, tx *sql.Tx) ([]Moderation, error) {
 func GetModerationsByTime(after time.Time, tx *sql.Tx) ([]Moderation, error) {
 	var moderationLog []Moderation
 	whereClause := `where timestamp_utc > $1`
-	err := DB().QueryInTransaction(getModerationQuery(whereClause), tx, after).Each(moderationConsumer(&moderationLog))
+	err := DB().QueryInTx(getModerationQuery(whereClause), tx, after).Each(moderationConsumer(&moderationLog))
 	return moderationLog, err
 }
 
@@ -142,7 +142,7 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 	var moderationLog []Moderation
 	query := getModerationQuery("")
 	query = query + `limit $1 offset $2`
-	err := DB().QueryInTransaction(query, tx, count, offset).Each(moderationConsumer(&moderationLog))
+	err := DB().QueryInTx(query, tx, count, offset).Each(moderationConsumer(&moderationLog))
 	return moderationLog, err
 }
 

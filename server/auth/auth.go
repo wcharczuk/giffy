@@ -60,7 +60,7 @@ type UserProvider interface {
 // Login logs a userID in.
 func Login(userID int64, context *web.RequestContext, tx *sql.Tx) (string, error) {
 	userSession := model.NewUserSession(userID)
-	err := spiffy.DefaultDb().CreateInTransaction(userSession, tx)
+	err := spiffy.DefaultDb().CreateInTx(userSession, tx)
 	if err != nil {
 		return "", err
 	}
@@ -89,7 +89,7 @@ func VerifySession(sessionID string, tx *sql.Tx) (*Session, error) {
 	}
 
 	session := model.UserSession{}
-	sessionErr := spiffy.DefaultDb().GetByIDInTransaction(&session, tx, sessionID)
+	sessionErr := spiffy.DefaultDb().GetByIDInTx(&session, tx, sessionID)
 
 	if sessionErr != nil {
 		return nil, sessionErr

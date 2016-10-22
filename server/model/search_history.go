@@ -124,7 +124,7 @@ func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
 func GetSearchHistory(txs ...*sql.Tx) ([]SearchHistory, error) {
 	var searchHistory []SearchHistory
 	query := createSearchHistoryQuery()
-	err := DB().QueryInTransaction(query, spiffy.OptionalTx(txs...)).Each(searchHistoryConsumer(&searchHistory))
+	err := DB().QueryInTx(query, spiffy.OptionalTx(txs...)).Each(searchHistoryConsumer(&searchHistory))
 	return searchHistory, err
 }
 
@@ -133,6 +133,6 @@ func GetSearchHistoryByCountAndOffset(count, offset int, tx *sql.Tx) ([]SearchHi
 	var searchHistory []SearchHistory
 	query := createSearchHistoryQuery()
 	query = query + `limit $1 offset $2`
-	err := DB().QueryInTransaction(query, tx, count, offset).Each(searchHistoryConsumer(&searchHistory))
+	err := DB().QueryInTx(query, tx, count, offset).Each(searchHistoryConsumer(&searchHistory))
 	return searchHistory, err
 }

@@ -45,12 +45,12 @@ func NewVoteSummary(imageID, tagID, lastVoteBy int64, lastVoteUTC time.Time) *Vo
 // SetVoteSummaryVoteCounts updates the votes for a tag to an image.
 func SetVoteSummaryVoteCounts(imageID, tagID int64, votesFor, votesAgainst int, tx *sql.Tx) error {
 	votesTotal := votesFor - votesAgainst
-	return DB().ExecInTransaction(`update vote_summary vs set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
+	return DB().ExecInTx(`update vote_summary vs set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, tx, votesFor, votesAgainst, votesTotal, imageID, tagID)
 }
 
 // SetVoteSummaryTagID re-assigns a vote summary's tag.
 func SetVoteSummaryTagID(imageID, oldTagID, newTagID int64, tx *sql.Tx) error {
-	return DB().ExecInTransaction(`update vote_summary set tag_id = $1 where image_id = $2 and tag_id = $3`, tx, newTagID, imageID, oldTagID)
+	return DB().ExecInTx(`update vote_summary set tag_id = $1 where image_id = $2 and tag_id = $3`, tx, newTagID, imageID, oldTagID)
 }
 
 // CreateOrUpdateVote votes for a tag for an image in the db.
@@ -71,7 +71,7 @@ func CreateOrUpdateVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx)
 			itv.VotesAgainst = 1
 			itv.VotesTotal = -1
 		}
-		err := DB().CreateInTransaction(itv, tx)
+		err := DB().CreateInTx(itv, tx)
 		if err != nil {
 			return true, err
 		}
@@ -86,7 +86,7 @@ func CreateOrUpdateVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx)
 		existing.LastVoteUTC = time.Now().UTC()
 		existing.VotesTotal = existing.VotesFor - existing.VotesAgainst
 
-		updateErr := DB().UpdateInTransaction(existing, tx)
+		updateErr := DB().UpdateInTx(existing, tx)
 		if updateErr != nil {
 			return false, updateErr
 		}
@@ -98,7 +98,7 @@ func CreateOrUpdateVote(userID, imageID, tagID int64, isUpvote bool, tx *sql.Tx)
 	}
 
 	logEntry := NewVote(userID, imageID, tagID, isUpvote)
-	return false, DB().CreateInTransaction(logEntry, tx)
+	return false, DB().CreateInTx(logEntry, tx)
 }
 
 func getVoteSummaryQuery(whereClause string) string {
@@ -120,14 +120,14 @@ from
 // GetVoteSummariesForImage grabs all vote counts for an image (i.e. for all the tags).
 func GetVoteSummariesForImage(imageID int64, tx *sql.Tx) ([]VoteSummary, error) {
 	summaries := []VoteSummary{}
-	err := DB().QueryInTransaction(getVoteSummaryQuery("where image_id = $1"), tx, imageID).OutMany(&summaries)
+	err := DB().QueryInTx(getVoteSummaryQuery("where image_id = $1"), tx, imageID).OutMany(&summaries)
 	return summaries, err
 }
 
 // GetVoteSummariesForTag grabs all vote counts for an image (i.e. for all the tags).
 func GetVoteSummariesForTag(tagID int64, tx *sql.Tx) ([]VoteSummary, error) {
 	summaries := []VoteSummary{}
-	err := DB().QueryInTransaction(getVoteSummaryQuery("where tag_id = $1"), tx, tagID).OutMany(&summaries)
+	err := DB().QueryInTx(getVoteSummaryQuery("where tag_id = $1"), tx, tagID).OutMany(&summaries)
 	return summaries, err
 }
 
@@ -135,7 +135,7 @@ func GetVoteSummariesForTag(tagID int64, tx *sql.Tx) ([]VoteSummary, error) {
 func GetVoteSummary(imageID, tagID int64, tx *sql.Tx) (*VoteSummary, error) {
 	var imv VoteSummary
 	query := `select * from vote_summary where image_id = $1 and tag_id = $2`
-	err := DB().QueryInTransaction(query, tx, imageID, tagID).Out(&imv)
+	err := DB().QueryInTx(query, tx, imageID, tagID).Out(&imv)
 	return &imv, err
 }
 
@@ -143,7 +143,7 @@ func GetVoteSummary(imageID, tagID int64, tx *sql.Tx) (*VoteSummary, error) {
 func GetImagesForTagID(tagID int64, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	err := DB().
-		QueryInTransaction(`select image_id as id from vote_summary vs where tag_id = $1 order by vs.votes_total desc;`, tx, tagID).OutMany(&imageIDs)
+		QueryInTx(`select image_id as id from vote_summary vs where tag_id = $1 order by vs.votes_total desc;`, tx, tagID).OutMany(&imageIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ where
 order by
 	vs.votes_total desc;
 `
-	err := DB().QueryInTransaction(query, tx, imageID).Each(func(r *sql.Rows) error {
+	err := DB().QueryInTx(query, tx, imageID).Each(func(r *sql.Rows) error {
 		t := &Tag{}
 		popErr := t.PopulateExtra(r)
 		if popErr != nil {
@@ -214,10 +214,10 @@ where
 	vote_summary.image_id = $1
 	and vote_summary.tag_id = $2
 `
-	return DB().ExecInTransaction(query, tx, imageID, tagID)
+	return DB().ExecInTx(query, tx, imageID, tagID)
 }
 
 // DeleteVoteSummary deletes an association between an image and a tag.
 func DeleteVoteSummary(imageID, tagID int64, tx *sql.Tx) error {
-	return DB().ExecInTransaction(`delete from vote_summary where image_id = $1 and tag_id = $2`, tx, imageID, tagID)
+	return DB().ExecInTx(`delete from vote_summary where image_id = $1 and tag_id = $2`, tx, imageID, tagID)
 }

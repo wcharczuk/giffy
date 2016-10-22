@@ -58,14 +58,14 @@ func (t *Tag) IsZero() bool {
 // GetAllTags returns all the tags in the db.
 func GetAllTags(tx *sql.Tx) ([]Tag, error) {
 	all := []Tag{}
-	err := DB().GetAllInTransaction(&all, tx)
+	err := DB().GetAllInTx(&all, tx)
 	return all, err
 }
 
 // GetRandomTags gets a random selection of tags.
 func GetRandomTags(count int, tx *sql.Tx) ([]Tag, error) {
 	tags := []Tag{}
-	err := DB().QueryInTransaction(`select * from tag order by gen_random_uuid() limit $1;`, tx, count).OutMany(&tags)
+	err := DB().QueryInTx(`select * from tag order by gen_random_uuid() limit $1;`, tx, count).OutMany(&tags)
 	return tags, err
 }
 
@@ -73,7 +73,7 @@ func GetRandomTags(count int, tx *sql.Tx) ([]Tag, error) {
 func GetTagByID(id int64, tx *sql.Tx) (*Tag, error) {
 	tag := Tag{}
 	err := DB().
-		QueryInTransaction(`select * from tag where id = $1`, tx, id).Out(&tag)
+		QueryInTx(`select * from tag where id = $1`, tx, id).Out(&tag)
 	return &tag, err
 }
 
@@ -81,7 +81,7 @@ func GetTagByID(id int64, tx *sql.Tx) (*Tag, error) {
 func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 	tag := Tag{}
 	err := DB().
-		QueryInTransaction(`select * from tag where uuid = $1`, tx, uuid).Out(&tag)
+		QueryInTx(`select * from tag where uuid = $1`, tx, uuid).Out(&tag)
 	return &tag, err
 }
 
@@ -89,41 +89,41 @@ func GetTagByUUID(uuid string, tx *sql.Tx) (*Tag, error) {
 func GetTagByValue(tagValue string, tx *sql.Tx) (*Tag, error) {
 	tag := Tag{}
 	err := DB().
-		QueryInTransaction(`select * from tag where tag_value ilike $1`, tx, tagValue).Out(&tag)
+		QueryInTx(`select * from tag where tag_value ilike $1`, tx, tagValue).Out(&tag)
 	return &tag, err
 }
 
 // SearchTags searches tags.
 func SearchTags(query string, tx *sql.Tx) ([]Tag, error) {
 	tags := []Tag{}
-	err := DB().QueryInTransaction(`select * from tag where tag_value % $1 order by similarity(tag_value, $1) desc;`, tx, query).OutMany(&tags)
+	err := DB().QueryInTx(`select * from tag where tag_value % $1 order by similarity(tag_value, $1) desc;`, tx, query).OutMany(&tags)
 	return tags, err
 }
 
 // SearchTagsRandom searches tags taking a randomly selected count.
 func SearchTagsRandom(query string, count int, tx *sql.Tx) ([]Tag, error) {
 	tags := []Tag{}
-	err := DB().QueryInTransaction(`select * from tag where tag_value % $1 order by gen_random_uuid() limit $2;`, tx, query, count).OutMany(&tags)
+	err := DB().QueryInTx(`select * from tag where tag_value % $1 order by gen_random_uuid() limit $2;`, tx, query, count).OutMany(&tags)
 	return tags, err
 }
 
 // SetTagValue sets a tag value
 func SetTagValue(tagID int64, tagValue string, tx *sql.Tx) error {
-	return DB().ExecInTransaction(`update tag set tag_value = $1 where id = $2`, tx, tagValue, tagID)
+	return DB().ExecInTx(`update tag set tag_value = $1 where id = $2`, tx, tagValue, tagID)
 }
 
 // DeleteTagByID deletes a tag.
 func DeleteTagByID(tagID int64, tx *sql.Tx) error {
-	return DB().ExecInTransaction(`delete from tag where id = $1`, tx, tagID)
+	return DB().ExecInTx(`delete from tag where id = $1`, tx, tagID)
 }
 
 // DeleteTagAndVotesByID deletes an tag fully.
 func DeleteTagAndVotesByID(tagID int64, tx *sql.Tx) error {
-	err := DB().ExecInTransaction(`delete from vote_summary where tag_id = $1`, tx, tagID)
+	err := DB().ExecInTx(`delete from vote_summary where tag_id = $1`, tx, tagID)
 	if err != nil {
 		return err
 	}
-	err = DB().ExecInTransaction(`delete from vote where tag_id = $1`, tx, tagID)
+	err = DB().ExecInTx(`delete from vote where tag_id = $1`, tx, tagID)
 	if err != nil {
 		return err
 	}
@@ -190,11 +190,11 @@ func MergeTags(fromTagID, toTagID int64, tx *sql.Tx) error {
 
 // DeleteOrphanedTags deletes tags that have no vote_summary link to an image.
 func DeleteOrphanedTags(tx *sql.Tx) error {
-	err := DB().ExecInTransaction(`delete from vote where not exists (select 1 from vote_summary vs where vs.tag_id = vote.tag_id);`, tx)
+	err := DB().ExecInTx(`delete from vote where not exists (select 1 from vote_summary vs where vs.tag_id = vote.tag_id);`, tx)
 	if err != nil {
 		return err
 	}
-	return DB().ExecInTransaction(`delete from tag where not exists (select 1 from vote_summary vs where vs.tag_id = tag.id);`, tx)
+	return DB().ExecInTx(`delete from tag where not exists (select 1 from vote_summary vs where vs.tag_id = tag.id);`, tx)
 }
 
 // CleanTagValue cleans a prospective tag value.

@@ -55,7 +55,7 @@ func (cr *ContentRating) IsZero() bool {
 // GetContentRatingByName gets a content rating by name.
 func GetContentRatingByName(name string, tx *sql.Tx) (*ContentRating, error) {
 	var rating ContentRating
-	err := DB().QueryInTransaction(
+	err := DB().QueryInTx(
 		`SELECT * from content_rating where name = $1`, tx, name,
 	).Out(&rating)
 	return &rating, err

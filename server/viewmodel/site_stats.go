@@ -37,23 +37,23 @@ func GetSiteStats(tx *sql.Tx) (*SiteStats, error) {
 	var karmaTotal int
 	var orphanedTagCount int
 
-	err := model.DB().QueryInTransaction(userCountQuery, tx).Scan(&userCount)
+	err := model.DB().QueryInTx(userCountQuery, tx).Scan(&userCount)
 	if err != nil {
 		return nil, err
 	}
-	err = model.DB().QueryInTransaction(imageCountQuery, tx).Scan(&imageCount)
+	err = model.DB().QueryInTx(imageCountQuery, tx).Scan(&imageCount)
 	if err != nil {
 		return nil, err
 	}
-	err = model.DB().QueryInTransaction(tagCountQuery, tx).Scan(&tagCount)
+	err = model.DB().QueryInTx(tagCountQuery, tx).Scan(&tagCount)
 	if err != nil {
 		return nil, err
 	}
-	err = model.DB().QueryInTransaction(karmaTotalQuery, tx).Scan(&karmaTotal)
+	err = model.DB().QueryInTx(karmaTotalQuery, tx).Scan(&karmaTotal)
 	if err != nil {
 		return nil, err
 	}
-	err = model.DB().QueryInTransaction(orphanedTagCountQuery, tx).Scan(&orphanedTagCount)
+	err = model.DB().QueryInTx(orphanedTagCountQuery, tx).Scan(&orphanedTagCount)
 	if err != nil {
 		return nil, err
 	}

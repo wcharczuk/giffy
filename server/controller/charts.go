@@ -72,6 +72,9 @@ group by
 	graph := chart.Chart{
 		Width:  960,
 		Height: 128,
+		Series: []chart.Series{
+			mainSeries,
+		},
 	}
 
 	rc.Response.Header().Set("Content-Type", "image/png")

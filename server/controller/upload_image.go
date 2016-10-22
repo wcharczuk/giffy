@@ -130,7 +130,7 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 	newImage.S3Key = remoteEntry.Key
 	newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
 
-	err = spiffy.DefaultDb().CreateInTransaction(newImage, tx)
+	err = spiffy.DefaultDb().CreateInTx(newImage, tx)
 	if err != nil {
 		return nil, err
 	}

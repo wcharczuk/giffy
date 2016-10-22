@@ -188,7 +188,7 @@ func GetAllImages(tx *sql.Tx) ([]Image, error) {
 func GetAllImagesWithContentRating(contentRating int, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	query := `select id from image where image.content_rating = $1`
-	err := DB().QueryInTransaction(query, tx, contentRating).OutMany(&imageIDs)
+	err := DB().QueryInTx(query, tx, contentRating).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func GetAllImagesWithContentRating(contentRating int, tx *sql.Tx) ([]Image, erro
 func GetRandomImages(count int, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	err := DB().
-		QueryInTransaction(`select id from (select id, row_number() over (order by gen_random_uuid()) as rank from image where content_rating < 5) data where rank <= $1`, tx, count).OutMany(&imageIDs)
+		QueryInTx(`select id from (select id, row_number() over (order by gen_random_uuid()) as rank from image where content_rating < 5) data where rank <= $1`, tx, count).OutMany(&imageIDs)
 
 	if err != nil {
 		return nil, err
@@ -233,7 +233,7 @@ func GetImageByID(id int64, tx *sql.Tx) (*Image, error) {
 func GetImageByUUID(uuid string, tx *sql.Tx) (*Image, error) {
 	var image imageSignature
 	err := DB().
-		QueryInTransaction(`select id from image where uuid = $1`, tx, uuid).Out(&image)
+		QueryInTx(`select id from image where uuid = $1`, tx, uuid).Out(&image)
 
 	images, err := GetImagesByID([]int64{image.ID}, tx)
 	if err != nil {
@@ -251,26 +251,26 @@ func GetImageByMD5(md5sum []byte, tx *sql.Tx) (*Image, error) {
 	image := Image{}
 	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).ColumnNames()
 	err := DB().
-		QueryInTransaction(fmt.Sprintf(`select %s from image where md5 = $1`, strings.Join(imageColumns, ",")), tx, md5sum).Out(&image)
+		QueryInTx(fmt.Sprintf(`select %s from image where md5 = $1`, strings.Join(imageColumns, ",")), tx, md5sum).Out(&image)
 	return &image, err
 }
 
 // UpdateImageDisplayName sets just the display name for an image.
 func UpdateImageDisplayName(imageID int64, displayName string, tx *sql.Tx) error {
-	return DB().ExecInTransaction("update image set display_name = $2 where id = $1", tx, imageID, displayName)
+	return DB().ExecInTx("update image set display_name = $2 where id = $1", tx, imageID, displayName)
 }
 
 // DeleteImageByID deletes an image fully.
 func DeleteImageByID(imageID int64, tx *sql.Tx) error {
-	err := DB().ExecInTransaction(`delete from vote_summary where image_id = $1`, tx, imageID)
+	err := DB().ExecInTx(`delete from vote_summary where image_id = $1`, tx, imageID)
 	if err != nil {
 		return err
 	}
-	err = DB().ExecInTransaction(`delete from vote where image_id = $1`, tx, imageID)
+	err = DB().ExecInTx(`delete from vote where image_id = $1`, tx, imageID)
 	if err != nil {
 		return err
 	}
-	return DB().ExecInTransaction(`delete from image where id = $1`, tx, imageID)
+	return DB().ExecInTx(`delete from image where id = $1`, tx, imageID)
 }
 
 func searchImagesInternal(query string, contentRatingFilter int, tx *sql.Tx) ([]imageSignature, error) {
@@ -299,7 +299,7 @@ func searchImagesInternal(query string, contentRatingFilter int, tx *sql.Tx) ([]
 	order by
 		score desc;
 	`
-	err := DB().QueryInTransaction(searchImageQuery, tx, query, contentRatingFilter).OutMany(&imageIDs)
+	err := DB().QueryInTx(searchImageQuery, tx, query, contentRatingFilter).OutMany(&imageIDs)
 	return imageIDs, err
 }
 
@@ -387,7 +387,7 @@ func SearchImagesBestResult(query string, contentRating int, tx *sql.Tx) (*Image
 func GetImagesForUserID(userID int64, tx *sql.Tx) ([]Image, error) {
 	var imageIDs []imageSignature
 	imageQuery := `select i.id from image i where created_by = $1`
-	err := DB().QueryInTransaction(imageQuery, tx, userID).OutMany(&imageIDs)
+	err := DB().QueryInTx(imageQuery, tx, userID).OutMany(&imageIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -481,41 +481,41 @@ where vote_rank <= 5
 
 	if len(ids) > 1 {
 		idsCSV := fmt.Sprintf("{%s}", csvOfInt(ids))
-		err = DB().QueryInTransaction(imageQueryMany, tx, idsCSV).Each(imageConsumer)
+		err = DB().QueryInTx(imageQueryMany, tx, idsCSV).Each(imageConsumer)
 		if err != nil {
 			return nil, err
 		}
-		err = DB().QueryInTransaction(fmt.Sprintf(tagQueryOuter, tagQueryMany), tx, idsCSV).Each(tagConsumer)
+		err = DB().QueryInTx(fmt.Sprintf(tagQueryOuter, tagQueryMany), tx, idsCSV).Each(tagConsumer)
 		if err != nil {
 			return nil, err
 		}
-		err = DB().QueryInTransaction(userQueryMany, tx, idsCSV).Each(userConsumer)
+		err = DB().QueryInTx(userQueryMany, tx, idsCSV).Each(userConsumer)
 		if err != nil {
 			return nil, err
 		}
 	} else if len(ids) == 1 {
-		err = DB().QueryInTransaction(imageQuerySingle, tx, ids[0]).Each(imageConsumer)
+		err = DB().QueryInTx(imageQuerySingle, tx, ids[0]).Each(imageConsumer)
 		if err != nil {
 			return nil, err
 		}
-		err = DB().QueryInTransaction(fmt.Sprintf(tagQueryOuter, tagQuerySingle), tx, ids[0]).Each(tagConsumer)
+		err = DB().QueryInTx(fmt.Sprintf(tagQueryOuter, tagQuerySingle), tx, ids[0]).Each(tagConsumer)
 		if err != nil {
 			return nil, err
 		}
-		err = DB().QueryInTransaction(userQuerySingle, tx, ids[0]).Each(userConsumer)
+		err = DB().QueryInTx(userQuerySingle, tx, ids[0]).Each(userConsumer)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		err = DB().QueryInTransaction(imageQueryAll, tx).Each(imageConsumer)
+		err = DB().QueryInTx(imageQueryAll, tx).Each(imageConsumer)
 		if err != nil {
 			return nil, err
 		}
-		err = DB().QueryInTransaction(fmt.Sprintf(tagQueryOuter, tagQueryAll), tx).Each(tagConsumer)
+		err = DB().QueryInTx(fmt.Sprintf(tagQueryOuter, tagQueryAll), tx).Each(tagConsumer)
 		if err != nil {
 			return nil, err
 		}
-		err = DB().QueryInTransaction(userQueryAll, tx).Each(userConsumer)
+		err = DB().QueryInTx(userQueryAll, tx).Each(userConsumer)
 		if err != nil {
 			return nil, err
 		}

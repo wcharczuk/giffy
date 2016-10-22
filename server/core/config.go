@@ -28,7 +28,7 @@ func DBInit() error {
 // ConfigPort is the port the server should listen on.
 func ConfigPort() string {
 	envPort := os.Getenv("PORT")
-	if !util.IsEmpty(envPort) {
+	if !util.String.IsEmpty(envPort) {
 		return envPort
 	}
 	return "8080"
@@ -58,7 +58,7 @@ func ConfigKey() []byte {
 	if configKey == nil {
 		keyBlob := os.Getenv("ENCRYPTION_KEY")
 		if len(keyBlob) != 0 {
-			key, keyErr := util.Base64Decode(keyBlob)
+			key, keyErr := util.String.Base64Decode(keyBlob)
 			if keyErr != nil {
 				println(keyErr.Error())
 				return key
