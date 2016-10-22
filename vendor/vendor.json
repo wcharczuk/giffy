@@ -219,16 +219,16 @@
 			"revisionTime": "2016-09-17T19:40:04Z"
 		},
 		{
-			"checksumSHA1": "pRLFw4Xza+jrz6IOuWBOEnoYks0=",
+			"checksumSHA1": "cBlBmx0ULoNzDZPQKj0XjS4Q8PE=",
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "e4538dde91510c8cc46f7b5cd367c145f7a38a5e",
-			"revisionTime": "2016-10-22T00:29:29Z"
+			"revision": "a75d4fd9c3cb762ee168a1889839718aff6d42f6",
+			"revisionTime": "2016-10-22T03:28:46Z"
 		},
 		{
 			"checksumSHA1": "uzLhaxiThbx9FpXBOTESwdkK4cY=",
 			"path": "github.com/blendlabs/spiffy/migration",
-			"revision": "e4538dde91510c8cc46f7b5cd367c145f7a38a5e",
-			"revisionTime": "2016-10-22T00:29:29Z"
+			"revision": "a75d4fd9c3cb762ee168a1889839718aff6d42f6",
+			"revisionTime": "2016-10-22T03:28:46Z"
 		},
 		{
 			"checksumSHA1": "FCeEm2BWZV/n4oTy+SGd/k0Ab5c=",

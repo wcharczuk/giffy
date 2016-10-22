@@ -24,12 +24,12 @@ func OptionalTx(txs ...*sql.Tx) *sql.Tx {
 }
 
 // AsPopulatable casts an object as populatable.
-func AsPopulatable(object DatabaseMapped) Populatable {
+func AsPopulatable(object interface{}) Populatable {
 	return object.(Populatable)
 }
 
 // IsPopulatable returns if an object is populatable
-func IsPopulatable(object DatabaseMapped) bool {
+func IsPopulatable(object interface{}) bool {
 	_, isPopulatable := object.(Populatable)
 	return isPopulatable
 }
@@ -91,15 +91,15 @@ func ParamTokensCSV(num int) string {
 // TableName returns the table name for a given reflect.Type by instantiating it and calling o.TableName().
 // The type must implement DatabaseMapped or an exception will be returned.
 func TableName(t reflect.Type) (string, error) {
-	i, err := MakeNew(t)
+	i, err := MakeNewDatabaseMapped(t)
 	if err == nil {
 		return i.TableName(), nil
 	}
 	return "", err
 }
 
-// MakeNew returns a new instance of a database mapped type.
-func MakeNew(t reflect.Type) (DatabaseMapped, error) {
+// MakeNewDatabaseMapped returns a new instance of a database mapped type.
+func MakeNewDatabaseMapped(t reflect.Type) (DatabaseMapped, error) {
 	newInterface := reflect.New(t).Interface()
 	if typed, isTyped := newInterface.(DatabaseMapped); isTyped {
 		return typed.(DatabaseMapped), nil
@@ -107,12 +107,17 @@ func MakeNew(t reflect.Type) (DatabaseMapped, error) {
 	return nil, exception.New("`t` does not implement DatabaseMapped.")
 }
 
+// MakeNew creates a new object.
+func MakeNew(t reflect.Type) interface{} {
+	return reflect.New(t).Interface()
+}
+
 func makeSliceOfType(t reflect.Type) interface{} {
 	return reflect.New(reflect.SliceOf(t)).Interface()
 }
 
 // PopulateByName sets the values of an object from the values of a sql.Rows object using column names.
-func PopulateByName(object DatabaseMapped, row *sql.Rows, cols *ColumnCollection) error {
+func PopulateByName(object interface{}, row *sql.Rows, cols *ColumnCollection) error {
 	rowColumns, rowColumnsErr := row.Columns()
 
 	if rowColumnsErr != nil {

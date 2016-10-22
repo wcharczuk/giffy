@@ -50,14 +50,17 @@ func Meta(obj DatabaseMapped) *ColumnCollection {
 }
 
 // MakeColumnCacheKey creates a cache key for a type.
-func MakeColumnCacheKey(objectType reflect.Type, tableName string) string {
-	return fmt.Sprintf("%s_%s", objectType.Name(), tableName)
+func MakeColumnCacheKey(objectType reflect.Type) string {
+	if dbm, err := MakeNewDatabaseMapped(objectType); err == nil {
+		return fmt.Sprintf("%s_%s", objectType.Name(), dbm.TableName())
+	}
+	return objectType.Name()
 }
 
 // CachedColumnCollectionFromInstance reflects an object instance into a new column collection.
-func CachedColumnCollectionFromInstance(object DatabaseMapped) *ColumnCollection {
+func CachedColumnCollectionFromInstance(object interface{}) *ColumnCollection {
 	objectType := reflect.TypeOf(object)
-	return CachedColumnCollectionFromType(MakeColumnCacheKey(objectType, object.TableName()), objectType)
+	return CachedColumnCollectionFromType(MakeColumnCacheKey(objectType), objectType)
 }
 
 // CachedColumnCollectionFromType reflects a reflect.Type into a column collection.

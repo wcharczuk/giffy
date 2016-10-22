@@ -57,7 +57,7 @@ type Column struct {
 }
 
 // SetValue sets the field on a database mapped object to the instance of `value`.
-func (c Column) SetValue(object DatabaseMapped, value interface{}) error {
+func (c Column) SetValue(object interface{}, value interface{}) error {
 	objValue := reflectValue(object)
 	field := objValue.FieldByName(c.FieldName)
 	fieldType := field.Type()

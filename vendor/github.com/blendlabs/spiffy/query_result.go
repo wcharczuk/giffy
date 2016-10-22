@@ -139,7 +139,7 @@ func (q *QueryResult) Scan(args ...interface{}) (err error) {
 }
 
 // Out writes the query result to a single object via. reflection mapping.
-func (q *QueryResult) Out(object DatabaseMapped) (err error) {
+func (q *QueryResult) Out(object interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
@@ -214,15 +214,15 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 	sliceInnerType := reflectSliceType(collection)
 	collectionValue := reflectValue(collection)
 
-	v, _ := MakeNew(sliceInnerType)
-	meta := CachedColumnCollectionFromType(MakeColumnCacheKey(sliceInnerType, v.TableName()), sliceInnerType)
+	v := MakeNew(sliceInnerType)
+	meta := CachedColumnCollectionFromType(MakeColumnCacheKey(sliceInnerType), sliceInnerType)
 
 	isPopulatable := IsPopulatable(v)
 
 	var popErr error
 	didSetRows := false
 	for q.rows.Next() {
-		newObj, _ := MakeNew(sliceInnerType)
+		newObj := MakeNew(sliceInnerType)
 
 		if isPopulatable {
 			popErr = AsPopulatable(newObj).Populate(q.rows)
