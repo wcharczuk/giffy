@@ -8,7 +8,7 @@ all: test
 
 run:
 	@echo "$(OK_COLOR)==> Running$(NO_COLOR)"
-	@genv -f="./_config/config.json" go run main.go
+	@genv -file="./_config/config.json" go run main.go
 
 test:
 	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
@@ -22,7 +22,7 @@ cover:
 
 db:
 	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
-	@genv -f="./_config/config.json" sh ./_db/init.sh
+	@genv -file="./_config/config.json" sh ./_db/init.sh
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
 
 db-dev:

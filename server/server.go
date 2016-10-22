@@ -64,6 +64,7 @@ func Init() *web.App {
 	app.Register(new(controller.Integrations))
 	app.Register(new(controller.Auth))
 	app.Register(new(controller.UploadImage))
+	app.Register(new(controller.Chart))
 
 	app.OnStart(func(app *web.App) error {
 		err := core.DBInit()
