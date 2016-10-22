@@ -412,28 +412,28 @@ func GetImagesByID(ids []int64, tx *sql.Tx) ([]Image, error) {
 	imageQueryMany := fmt.Sprintf(`%s where id = ANY($1::bigint[])`, imageQueryAll)
 
 	tagQueryAll := `
-select
-	t.*
-	, u.uuid as created_by_uuid
-	, vs.image_id
-	, vs.votes_for
-	, vs.votes_against
-	, vs.votes_total
-	, row_number() over (partition by image_id order by vs.votes_total desc) as vote_rank
-from
-			tag t
-	join 	vote_summary 	vs 	on vs.tag_id = t.id
-	join 	users 			u 	on u.id = t.created_by
-`
+	select
+		t.*
+		, u.uuid as created_by_uuid
+		, vs.image_id
+		, vs.votes_for
+		, vs.votes_against
+		, vs.votes_total
+		, row_number() over (partition by image_id order by vs.votes_total desc) as vote_rank
+	from
+				tag t
+		join 	vote_summary 	vs 	on vs.tag_id = t.id
+		join 	users 			u 	on u.id = t.created_by
+	`
 	tagQuerySingle := fmt.Sprintf(`%s where vs.image_id = $1`, tagQueryAll)
 	tagQueryMany := fmt.Sprintf(`%s where vs.image_id = ANY($1::bigint[])`, tagQueryAll)
 
 	tagQueryOuter := `
-select * from (
-%s
-) as intermediate
-where vote_rank <= 5
-`
+		select * from (
+		%s
+		) as intermediate
+		where vote_rank <= 5
+	`
 
 	userQueryAll := `select u.* from image i join users u on i.created_by = u.id`
 	userQuerySingle := fmt.Sprintf(`%s where i.id = $1`, userQueryAll)

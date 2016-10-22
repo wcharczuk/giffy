@@ -52,9 +52,56 @@ func contentRating() migration.Migration {
 	)
 }
 
+func slackTeam() migration.Migration {
+	return migration.New(
+		"adds `slack_team`",
+		migration.Step(
+			migration.CreateTable,
+			migration.Body(
+				`CREATE TABLE slack_team (
+					team_id varchar(32) not null,
+					team_name varchar(128),
+					timestamp_utc timestamp not null,
+					is_enabled bool not null,
+					created_by_id varchar(32) not null,
+					created_by_name varchar(128) not null,
+					content_rating int not null
+				);`,
+				`ALTER TABLE slack_team ADD CONSTRAINT pk_content_rating_team_id PRIMARY KEY (team_id);`,
+				`INSERT INTO slack_team (team_id, team_name, timestamp_utc, is_enabled, created_by_id, created_by_name, content_rating)
+				SELECT
+					team_id
+					, team_name
+					, timestamp_utc
+					, true as is_enabled
+					, created_by_id
+					, created_by_name
+					, 3 as content_rating
+				FROM (
+					SELECT
+						source_team_identifier as team_id
+						, source_team_name as team_name
+						, current_date as timestamp_utc
+						, source_user_identifier as created_by_id
+						, source_user_name as created_by_name
+						, ROW_NUMBER() OVER(partition by source_team_identifier order by timestamp_utc asc) as team_rank
+					FROM
+						search_history
+					WHERE
+						source_team_identifier is not null
+						and length(source_team_identifier) > 0
+				) as data
+				where data.team_rank = 1`,
+			),
+			"slack_team",
+		),
+	)
+}
+
 // Register register migrations
 func Register() {
 	migration.Register(contentRating())
+	migration.Register(slackTeam())
 }
 
 // Run applies all migrations

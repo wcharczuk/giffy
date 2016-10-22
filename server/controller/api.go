@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-chronometer"
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/go-web"
 
@@ -797,6 +798,180 @@ func (api API) deleteLinkAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().OK()
 }
 
+// GET "/api/teams"
+func (api API) getTeamsAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	var teams []model.SlackTeam
+	err := spiffy.DefaultDb().GetAllInTx(&teams, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(teams)
+}
+
+// GET "/api/team/:team_id"
+func (api API) getTeamAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	teamID, err := r.RouteParameter("team_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	var team model.SlackTeam
+	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if team.IsZero() {
+		return r.API().NotFound()
+	}
+
+	return r.API().JSON(team)
+}
+
+// POST "/api/team"
+func (api API) createTeamAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	var team model.SlackTeam
+	err := r.PostBodyAsJSON(&team)
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	err = spiffy.DefaultDb().CreateInTx(&team, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(team)
+}
+
+// PUT "/api/team/:team_id"
+func (api API) updateTeamAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	teamID, err := r.RouteParameter("team_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	var team model.SlackTeam
+	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if team.IsZero() {
+		return r.API().NotFound()
+	}
+
+	var updatedTeam model.SlackTeam
+	err = r.PostBodyAsJSON(&updatedTeam)
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	err = spiffy.DefaultDb().UpdateInTx(&team, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(team)
+}
+
+// PATCH "/api/team/:team_id"
+func (api API) patchTeamAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	teamID, err := r.RouteParameter("team_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	var team model.SlackTeam
+	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if team.IsZero() {
+		return r.API().NotFound()
+	}
+
+	updates := map[string]interface{}{}
+	err = r.PostBodyAsJSON(&updates)
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	err = util.Reflection.PatchObject(team, updates)
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	err = spiffy.DefaultDb().UpdateInTx(&team, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(team)
+}
+
+// DELETE "/api/team/:team_id"
+func (api API) deleteTeamAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	teamID, err := r.RouteParameter("team_id")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	var team model.SlackTeam
+	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	if team.IsZero() {
+		return r.API().NotFound()
+	}
+
+	err = spiffy.DefaultDb().DeleteInTx(&team, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+	return r.API().OK()
+}
+
 // POST "/api/vote.up/:image_id/:tag_id"
 func (api API) upvoteAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
@@ -1095,6 +1270,13 @@ func (api API) Register(app *web.App) {
 	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, auth.SessionRequired, web.APIProviderAsDefault)
 	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
 	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
+
+	app.GET("/api/teams", api.getTeamsAction)
+	app.GET("/api/team/:team_id", api.getTeamAction)
+	app.POST("/api/team/:team_id", api.createTeamAction)
+	app.PUT("/api/team/:team_id", api.updateTeamAction)
+	app.PATCH("/api/team/:team_id", api.patchTeamAction)
+	app.DELETE("/api/team/:team_id", api.deleteTeamAction)
 
 	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, auth.SessionRequired, web.APIProviderAsDefault)
 

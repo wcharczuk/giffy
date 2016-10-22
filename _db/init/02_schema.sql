@@ -149,3 +149,14 @@ CREATE TABLE content_rating (
 	description varchar(1024) not null
 );
 ALTER TABLE content_rating ADD CONSTRAINT pk_content_rating_id PRIMARY KEY (id);
+
+CREATE TABLE slack_team (
+	team_id varchar(32) not null,
+	team_name varchar(128),
+	timestamp_utc timestamp not null,
+	is_enabled bool not null,
+	created_by_id varchar(32) not null,
+	created_by_name varchar(128) not null,
+	content_rating int not null
+);
+ALTER TABLE slack_team ADD CONSTRAINT pk_content_rating_team_id PRIMARY KEY (team_id);

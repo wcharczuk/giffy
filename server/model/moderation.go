@@ -100,17 +100,17 @@ func getModerationQuery(whereClause string) string {
 
 	return fmt.Sprintf(`
 	select
-	m.*,
-	%s,
-	%s,
-	%s,
-	%s
+		m.*,
+		%s,
+		%s,
+		%s,
+		%s
 	from
-	moderation m
-	join users mu on m.user_id = mu.id
-	left join users u on m.noun = u.uuid or m.secondary_noun = u.uuid
-	left join image i on m.noun = i.uuid or m.secondary_noun = i.uuid
-	left join tag t on m.noun = t.uuid or m.secondary_noun = t.uuid
+		moderation m
+		join users mu on m.user_id = mu.id
+		left join users u on m.noun = u.uuid or m.secondary_noun = u.uuid
+		left join image i on m.noun = i.uuid or m.secondary_noun = i.uuid
+		left join tag t on m.noun = t.uuid or m.secondary_noun = t.uuid
 	%s
 	order by timestamp_utc desc
 	`,

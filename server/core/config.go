@@ -12,15 +12,10 @@ import (
 
 // DBInit reads the config from the environment and sets up spiffy.
 func DBInit() error {
-	config := spiffy.NewDbConnectionFromEnvironment()
-	spiffy.CreateDbAlias("main", config)
-	spiffy.SetDefaultAlias("main")
-
-	_, dbError := spiffy.DefaultDb().Open()
-	if dbError != nil {
-		return dbError
+	err := spiffy.SetDefaultDb(spiffy.NewDbConnectionFromEnvironment())
+	if err != nil {
+		return err
 	}
-
 	spiffy.DefaultDb().Connection.SetMaxIdleConns(50)
 	return nil
 }
