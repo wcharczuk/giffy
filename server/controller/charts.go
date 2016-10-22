@@ -30,7 +30,7 @@ func (dc *dayCount) Marshal() (time.Time, float64) {
 }
 
 func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult {
-	var data []dayCount
+	data := []dayCount{}
 	err := model.DB().QueryInTx(`
 select
 	date_part('year', timestamp_utc) as year
