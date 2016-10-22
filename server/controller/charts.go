@@ -92,7 +92,7 @@ order by
 	}
 
 	graph := chart.Chart{
-		Width:  960,
+		Width:  1280,
 		Height: 192,
 		YAxis: chart.YAxis{
 			Style: chart.Style{

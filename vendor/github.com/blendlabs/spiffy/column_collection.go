@@ -54,7 +54,6 @@ func MakeColumnCacheKey(objectType reflect.Type) string {
 	if dbm, err := MakeNewDatabaseMapped(objectType); err == nil {
 		return fmt.Sprintf("%s_%s", objectType.String(), dbm.TableName())
 	}
-	println(objectType.String())
 	return objectType.String()
 }
 
