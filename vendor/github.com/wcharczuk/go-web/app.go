@@ -1,16 +1,16 @@
 package web
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"html/template"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
-	exception "github.com/blendlabs/go-exception"
 	logger "github.com/blendlabs/go-logger"
 	"github.com/julienschmidt/httprouter"
 )
@@ -21,6 +21,7 @@ func New() *App {
 		router:             httprouter.New(),
 		staticRewriteRules: map[string][]*RewriteRule{},
 		staticHeaders:      map[string]http.Header{},
+		tlsCertLock:        &sync.Mutex{},
 	}
 	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()))
 	return app
@@ -38,7 +39,9 @@ type App struct {
 	router      *httprouter.Router
 	viewCache   *template.Template
 
-	tlsCertPath, tlsKeyPath string
+	tlsCertBytes, tlsKeyBytes []byte
+	tlsCertLock               *sync.Mutex
+	tlsCert                   *tls.Certificate
 
 	apiResultProvider  *APIResultProvider
 	viewResultProvider *ViewResultProvider
@@ -66,9 +69,9 @@ func (a *App) SetAppName(appName string) {
 }
 
 // UseTLS sets the app to use TLS.
-func (a *App) UseTLS(tlsCertPath, tlsKeyPath string) {
-	a.tlsCertPath = tlsCertPath
-	a.tlsKeyPath = tlsKeyPath
+func (a *App) UseTLS(tlsCert, tlsKey []byte) {
+	a.tlsCertBytes = tlsCert
+	a.tlsKeyBytes = tlsKey
 }
 
 // Diagnostics returns the diagnostics agent for the app.
@@ -190,6 +193,17 @@ func (a *App) Start() error {
 	return a.StartWithServer(server)
 }
 
+func (a *App) getCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	if a.tlsCert == nil {
+		tlsCert, err := tls.X509KeyPair(a.tlsCertBytes, a.tlsKeyBytes)
+		if err != nil {
+			return nil, err
+		}
+		a.tlsCert = &tlsCert
+	}
+	return a.tlsCert, nil
+}
+
 // StartWithServer starts the app on a custom server.
 // This lets you configure things like TLS keys and
 // other options.
@@ -210,18 +224,12 @@ func (a *App) StartWithServer(server *http.Server) error {
 	a.diagnostics.Infof("Started, listening on %s", server.Addr)
 	a.diagnostics.Infof("Diagnostics Verbosity %s", a.diagnostics.Events().String())
 
-	if len(a.tlsCertPath) > 0 && len(a.tlsKeyPath) > 0 {
-		_, err := os.Stat(a.tlsCertPath)
-		if os.IsNotExist(err) {
-			return exception.New("TLS Cert file not found, cannot continue.")
+	if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
+		server.TLSConfig = &tls.Config{
+			GetCertificate: a.getCertificate,
 		}
 
-		_, err = os.Stat(a.tlsKeyPath)
-		if os.IsNotExist(err) {
-			return exception.New("TLS Key file not found, cannot continue.")
-		}
-		a.diagnostics.Infof("Using TLS Key Pair %s:%s", filepath.Base(a.tlsCertPath), filepath.Base(a.tlsKeyPath))
-		return server.ListenAndServeTLS(a.tlsCertPath, a.tlsKeyPath)
+		return server.ListenAndServeTLS("", "")
 	}
 
 	return server.ListenAndServe()

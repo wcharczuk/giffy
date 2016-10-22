@@ -8,10 +8,10 @@ var (
 )
 
 // Register adds a process to the default suite.
-func Register(m Migration) error {
+func Register(m ...Migration) error {
 	defaultRunnerLock.Lock()
 	defer defaultRunnerLock.Unlock()
-	defaultRunner.addMigrations(m)
+	defaultRunner.addMigrations(m...)
 	return nil
 }
 

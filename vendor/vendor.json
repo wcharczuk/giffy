@@ -172,10 +172,10 @@
 			"revisionTime": "2016-08-16T03:47:15Z"
 		},
 		{
-			"checksumSHA1": "qBlOd/O8nOglTQdCW+I6J6+scd4=",
+			"checksumSHA1": "/gvFAe62V39yRK7DEyHSPvsxUkc=",
 			"path": "github.com/blendlabs/go-logger",
-			"revision": "9e1f178880d89572f44eae3c464a94b7e71c2c9f",
-			"revisionTime": "2016-10-05T01:26:28Z"
+			"revision": "c444adc9c8cd52d349de53e5389afe75dfd3d39c",
+			"revisionTime": "2016-10-06T17:49:58Z"
 		},
 		{
 			"checksumSHA1": "Bfpqn3RUxjx5XibSBuzSizlpiyQ=",
@@ -208,16 +208,16 @@
 			"revisionTime": "2016-09-17T19:40:04Z"
 		},
 		{
-			"checksumSHA1": "vQiBAauuLutoHvRkpSFt+966Qqk=",
+			"checksumSHA1": "pRLFw4Xza+jrz6IOuWBOEnoYks0=",
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "61c2607a7090463b8783137d8d226a16c5cf1abb",
-			"revisionTime": "2016-09-23T23:43:11Z"
+			"revision": "e4538dde91510c8cc46f7b5cd367c145f7a38a5e",
+			"revisionTime": "2016-10-22T00:29:29Z"
 		},
 		{
-			"checksumSHA1": "GazthGZQGNFo53S9YmCtgmRLxtQ=",
+			"checksumSHA1": "uzLhaxiThbx9FpXBOTESwdkK4cY=",
 			"path": "github.com/blendlabs/spiffy/migration",
-			"revision": "61c2607a7090463b8783137d8d226a16c5cf1abb",
-			"revisionTime": "2016-09-23T23:43:11Z"
+			"revision": "e4538dde91510c8cc46f7b5cd367c145f7a38a5e",
+			"revisionTime": "2016-10-22T00:29:29Z"
 		},
 		{
 			"checksumSHA1": "FCeEm2BWZV/n4oTy+SGd/k0Ab5c=",
@@ -258,10 +258,16 @@
 			"revisionTime": "2016-03-04T02:46:57Z"
 		},
 		{
-			"checksumSHA1": "BoRb4w7xFDCrglKLDRA5GbUHKtM=",
+			"checksumSHA1": "g+n5XpdIZgebl9TKs0deFHCTXjI=",
+			"path": "github.com/wcharczuk/go-chart",
+			"revision": "4d7ea04118631de805f4cd8ae4c1cc12fee2a6fb",
+			"revisionTime": "2016-10-22T00:01:02Z"
+		},
+		{
+			"checksumSHA1": "qxPTq/SglOSA5a5KCS68FqDi3HY=",
 			"path": "github.com/wcharczuk/go-web",
-			"revision": "d55e2c55014bd5a61fe733d94454e414c5feccd0",
-			"revisionTime": "2016-10-05T01:28:19Z"
+			"revision": "607693c43bb1fb0b8ea790b668e5e0b6c4567549",
+			"revisionTime": "2016-10-19T22:45:05Z"
 		}
 	],
 	"rootPath": "github.com/wcharczuk/giffy"

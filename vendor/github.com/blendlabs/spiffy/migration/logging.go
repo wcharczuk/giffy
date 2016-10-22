@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/blendlabs/go-util"
@@ -65,18 +66,18 @@ func (l *Logger) Errorf(m Migration, err error) error {
 	return err
 }
 
-func (l *Logger) colorize(text, color string) string {
+func (l *Logger) colorize(text string, color util.AnsiColorCode) string {
 	if l.ColorizeOutput {
-		return util.Color(text, color)
+		return color.Apply(text)
 	}
 	return text
 }
 
-func (l *Logger) colorizeFixedWidthLeftAligned(text, color string, width int) string {
+func (l *Logger) colorizeFixedWidthLeftAligned(text string, color util.AnsiColorCode, width int) string {
 	fixedToken := fmt.Sprintf("%%-%ds", width)
 	fixedMessage := fmt.Sprintf(fixedToken, text)
 	if l.ColorizeOutput {
-		return fmt.Sprintf("%s%s%s", util.AnsiEscapeCode(color), fixedMessage, util.AnsiEscapeCode(util.ColorReset))
+		return color.Apply(fixedMessage)
 	}
 	return fixedMessage
 }
@@ -84,13 +85,13 @@ func (l *Logger) colorizeFixedWidthLeftAligned(text, color string, width int) st
 // WriteStats writes final stats to output
 func (l *Logger) WriteStats() {
 	l.Output.Printf("\n\t%s applied %s skipped %s failed\n\n",
-		l.colorize(util.IntToString(l.applied), util.ColorGreen),
-		l.colorize(util.IntToString(l.skipped), util.ColorLightGreen),
-		l.colorize(util.IntToString(l.failed), util.ColorRed),
+		l.colorize(util.String.IntToString(l.applied), util.ColorGreen),
+		l.colorize(util.String.IntToString(l.skipped), util.ColorLightGreen),
+		l.colorize(util.String.IntToString(l.failed), util.ColorRed),
 	)
 }
 
-func (l *Logger) write(m Migration, color, body string) {
+func (l *Logger) write(m Migration, color util.AnsiColorCode, body string) {
 	if l.Output == nil {
 		return
 	}
@@ -120,8 +121,8 @@ func (l *Logger) write(m Migration, color, body string) {
 	)
 }
 
-func (l *Logger) renderStack(m Migration, color string) string {
-	stackSeparator := l.colorize(" > ", util.ColorLightBlack)
+func (l *Logger) renderStack(m Migration, color util.AnsiColorCode) string {
+	stackSeparator := fmt.Sprintf(" %s ", l.colorize(">", util.ColorLightBlack))
 	var renderedStack string
 	cursor := m.Parent()
 	for cursor != nil {
@@ -130,5 +131,5 @@ func (l *Logger) renderStack(m Migration, color string) string {
 		}
 		cursor = cursor.Parent()
 	}
-	return renderedStack
+	return strings.TrimPrefix(renderedStack, " ")
 }

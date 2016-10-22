@@ -215,7 +215,7 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 	collectionValue := reflectValue(collection)
 
 	v, _ := MakeNew(sliceInnerType)
-	meta := CachedColumnCollectionFromType(v.TableName(), sliceInnerType)
+	meta := CachedColumnCollectionFromType(MakeColumnCacheKey(sliceInnerType, v.TableName()), sliceInnerType)
 
 	isPopulatable := IsPopulatable(v)
 

@@ -110,8 +110,8 @@ func (da *DiagnosticsAgent) IsEnabled(flagValue EventFlag) bool {
 	return da.events.IsEnabled(flagValue)
 }
 
-// HasHandler returns if there are registered handlers for an event.
-func (da *DiagnosticsAgent) HasHandler(event EventFlag) bool {
+// HasListener returns if there are registered listener for an event.
+func (da *DiagnosticsAgent) HasListener(event EventFlag) bool {
 	if da.eventListeners == nil {
 		return false
 	}
@@ -127,10 +127,15 @@ func (da *DiagnosticsAgent) AddEventListener(eventFlag EventFlag, listener Event
 	da.eventListeners[eventFlag] = append(da.eventListeners[eventFlag], listener)
 }
 
+// RemoveListeners clears *all* listeners for an EventFlag.
+func (da *DiagnosticsAgent) RemoveListeners(eventFlag EventFlag) {
+	delete(da.eventListeners, eventFlag)
+}
+
 // OnEvent fires the currently configured event listeners.
 func (da *DiagnosticsAgent) OnEvent(eventFlag EventFlag, state ...interface{}) {
 	if da.IsEnabled(eventFlag) {
-		if da.HasHandler(eventFlag) {
+		if da.HasListener(eventFlag) {
 			if !da.eventQueue.Running() {
 				da.eventQueue.Start()
 			}

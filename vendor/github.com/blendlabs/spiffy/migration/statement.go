@@ -23,7 +23,7 @@ type Statement []string
 // Invoke executes the statement block
 func (s Statement) Invoke(c *spiffy.DbConnection, tx *sql.Tx) (err error) {
 	for _, step := range s {
-		err = c.ExecInTransaction(step, tx)
+		err = c.ExecInTx(step, tx)
 		if err != nil {
 			return
 		}

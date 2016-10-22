@@ -169,27 +169,32 @@ func (dbc *DbConnection) FireEvent(listeners []DbEventListener, query string, el
 }
 
 // CreatePostgresConnectionString returns a sql connection string from a given set of DbConnection parameters.
-func (dbc *DbConnection) CreatePostgresConnectionString() string {
-	if len(dbc.DSN) != 0 {
-		return dbc.DSN
+func (dbc *DbConnection) CreatePostgresConnectionString() (string, error) {
+	if len(dbc.DSN) > 0 {
+		return dbc.DSN, nil
 	}
+
+	if len(dbc.Database) == 0 {
+		return "", exception.New("`DB_NAME` is required to open a new connection")
+	}
+
 	sslMode := "?sslmode=disable"
 	if len(dbc.SSLMode) > 0 {
 		sslMode = fmt.Sprintf("?sslmode=%s", url.QueryEscape(dbc.SSLMode))
 	}
 
-	portSegment := ""
+	var portSegment string
 	if len(dbc.Port) > 0 {
 		portSegment = fmt.Sprintf(":%s", dbc.Port)
 	}
 
 	if dbc.Username != "" {
 		if dbc.Password != "" {
-			return fmt.Sprintf("postgres://%s:%s@%s%s/%s%s", url.QueryEscape(dbc.Username), url.QueryEscape(dbc.Password), dbc.Host, portSegment, dbc.Database, sslMode)
+			return fmt.Sprintf("postgres://%s:%s@%s%s/%s%s", url.QueryEscape(dbc.Username), url.QueryEscape(dbc.Password), dbc.Host, portSegment, dbc.Database, sslMode), nil
 		}
-		return fmt.Sprintf("postgres://%s@%s%s/%s%s", url.QueryEscape(dbc.Username), dbc.Host, portSegment, dbc.Database, sslMode)
+		return fmt.Sprintf("postgres://%s@%s%s/%s%s", url.QueryEscape(dbc.Username), dbc.Host, portSegment, dbc.Database, sslMode), nil
 	}
-	return fmt.Sprintf("postgres://%s%s/%s%s", dbc.Host, portSegment, dbc.Database, sslMode)
+	return fmt.Sprintf("postgres://%s%s/%s%s", dbc.Host, portSegment, dbc.Database, sslMode), nil
 }
 
 // Begin starts a new transaction.
@@ -215,8 +220,8 @@ func (dbc *DbConnection) Begin() (*sql.Tx, error) {
 	return tx, exception.Wrap(err)
 }
 
-// WrapInTransaction performs the given action wrapped in a transaction. Will Commit() on success and Rollback() on a non-nil error returned.
-func (dbc *DbConnection) WrapInTransaction(action func(*sql.Tx) error) error {
+// WrapInTx performs the given action wrapped in a transaction. Will Commit() on success and Rollback() on a non-nil error returned.
+func (dbc *DbConnection) WrapInTx(action func(*sql.Tx) error) error {
 	tx, err := dbc.Begin()
 	if err != nil {
 		return exception.Wrap(err)
@@ -260,6 +265,7 @@ func (dbc *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error
 	if dbErr != nil {
 		return nil, exception.Newf("Postgres Error: %v", dbErr)
 	}
+
 	stmt, stmtErr := dbConn.Prepare(statement)
 	if stmtErr != nil {
 		return nil, exception.Newf("Postgres Error: %v", stmtErr)
@@ -269,7 +275,13 @@ func (dbc *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error
 
 // OpenNew returns a new connection object.
 func (dbc *DbConnection) OpenNew() (*sql.DB, error) {
-	dbConn, err := sql.Open("postgres", dbc.CreatePostgresConnectionString())
+
+	connStr, err := dbc.CreatePostgresConnectionString()
+	if err != nil {
+		return nil, err
+	}
+
+	dbConn, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, exception.Wrap(err)
 	}
@@ -303,11 +315,11 @@ func (dbc *DbConnection) Open() (*sql.DB, error) {
 
 // Exec runs the statement without creating a QueryResult.
 func (dbc *DbConnection) Exec(statement string, args ...interface{}) error {
-	return dbc.ExecInTransaction(statement, nil, args...)
+	return dbc.ExecInTx(statement, nil, args...)
 }
 
-// ExecInTransaction runs a statement within a transaction.
-func (dbc *DbConnection) ExecInTransaction(statement string, tx *sql.Tx, args ...interface{}) (err error) {
+// ExecInTx runs a statement within a transaction.
+func (dbc *DbConnection) ExecInTx(statement string, tx *sql.Tx, args ...interface{}) (err error) {
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
@@ -346,11 +358,11 @@ func (dbc *DbConnection) ExecInTransaction(statement string, tx *sql.Tx, args ..
 
 // Query runs the selected statement and returns a QueryResult.
 func (dbc *DbConnection) Query(statement string, args ...interface{}) *QueryResult {
-	return dbc.QueryInTransaction(statement, nil, args...)
+	return dbc.QueryInTx(statement, nil, args...)
 }
 
-// QueryInTransaction runs the selected statement in a transaction and returns a QueryResult.
-func (dbc *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, args ...interface{}) (result *QueryResult) {
+// QueryInTx runs the selected statement in a transaction and returns a QueryResult.
+func (dbc *DbConnection) QueryInTx(statement string, tx *sql.Tx, args ...interface{}) (result *QueryResult) {
 	result = &QueryResult{queryBody: statement, start: time.Now(), conn: dbc}
 	if dbc == nil {
 		result.err = exception.New(DBAliasNilError)
@@ -385,11 +397,11 @@ func (dbc *DbConnection) QueryInTransaction(statement string, tx *sql.Tx, args .
 
 // GetByID returns a given object based on a group of primary key ids.
 func (dbc *DbConnection) GetByID(object DatabaseMapped, ids ...interface{}) error {
-	return dbc.GetByIDInTransaction(object, nil, ids...)
+	return dbc.GetByIDInTx(object, nil, ids...)
 }
 
-// GetByIDInTransaction returns a given object based on a group of primary key ids within a transaction.
-func (dbc *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql.Tx, ids ...interface{}) (err error) {
+// GetByIDInTx returns a given object based on a group of primary key ids within a transaction.
+func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...interface{}) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
@@ -468,11 +480,11 @@ func (dbc *DbConnection) GetByIDInTransaction(object DatabaseMapped, tx *sql.Tx,
 
 // GetAll returns all rows of an object mapped table.
 func (dbc *DbConnection) GetAll(collection interface{}) error {
-	return dbc.GetAllInTransaction(collection, nil)
+	return dbc.GetAllInTx(collection, nil)
 }
 
-// GetAllInTransaction returns all rows of an object mapped table wrapped in a transaction.
-func (dbc *DbConnection) GetAllInTransaction(collection interface{}, tx *sql.Tx) (err error) {
+// GetAllInTx returns all rows of an object mapped table wrapped in a transaction.
+func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
@@ -548,11 +560,11 @@ func (dbc *DbConnection) GetAllInTransaction(collection interface{}, tx *sql.Tx)
 
 // Create writes an object to the database.
 func (dbc *DbConnection) Create(object DatabaseMapped) error {
-	return dbc.CreateInTransaction(object, nil)
+	return dbc.CreateInTx(object, nil)
 }
 
-// CreateInTransaction writes an object to the database within a transaction.
-func (dbc *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) (err error) {
+// CreateInTx writes an object to the database within a transaction.
+func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
@@ -637,11 +649,11 @@ func (dbc *DbConnection) CreateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 
 // Update updates an object.
 func (dbc *DbConnection) Update(object DatabaseMapped) error {
-	return dbc.UpdateInTransaction(object, nil)
+	return dbc.UpdateInTx(object, nil)
 }
 
-// UpdateInTransaction updates an object wrapped in a transaction.
-func (dbc *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.Tx) (err error) {
+// UpdateInTx updates an object wrapped in a transaction.
+func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
@@ -701,11 +713,11 @@ func (dbc *DbConnection) UpdateInTransaction(object DatabaseMapped, tx *sql.Tx) 
 
 // Exists returns a bool if a given object exists (utilizing the primary key columns if they exist).
 func (dbc *DbConnection) Exists(object DatabaseMapped) (bool, error) {
-	return dbc.ExistsInTransaction(object, nil)
+	return dbc.ExistsInTx(object, nil)
 }
 
-// ExistsInTransaction returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
-func (dbc *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.Tx) (exists bool, err error) {
+// ExistsInTx returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
+func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists bool, err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
@@ -768,11 +780,11 @@ func (dbc *DbConnection) ExistsInTransaction(object DatabaseMapped, tx *sql.Tx) 
 
 // Delete deletes an object from the database.
 func (dbc *DbConnection) Delete(object DatabaseMapped) error {
-	return dbc.DeleteInTransaction(object, nil)
+	return dbc.DeleteInTx(object, nil)
 }
 
-// DeleteInTransaction deletes an object from the database wrapped in a transaction.
-func (dbc *DbConnection) DeleteInTransaction(object DatabaseMapped, tx *sql.Tx) (err error) {
+// DeleteInTx deletes an object from the database wrapped in a transaction.
+func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {

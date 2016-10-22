@@ -174,7 +174,7 @@ func (dfr *DataFileReader) invoke(c *spiffy.DbConnection, tx *sql.Tx) (err error
 				continue
 			}
 
-			err = c.ExecInTransaction(line, tx)
+			err = c.ExecInTx(line, tx)
 			if err != nil {
 				return
 			}

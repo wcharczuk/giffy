@@ -9,7 +9,7 @@ It does not abstract away actual sql, however.
 
 # Gotchas & General Notes #
 
-There is a standing pattern that every action (query, exec, create, update etc.) has a corresponding ...InTransaction method that these top level methods actually call into with `nil` as the tx. If the tx is nil, a direct connection, free of a wrapping transaction will be created for that command during the `prepare` phase of the command execution. 
+There is a standing pattern that every action (query, exec, create, update etc.) has a corresponding ...InTx method that these top level methods actually call into with `nil` as the tx. If the tx is nil, a direct connection, free of a wrapping transaction will be created for that command during the `prepare` phase of the command execution. 
 
 # Mapping Structs Using Spiffy #
 
@@ -56,7 +56,7 @@ There are two paradigms for interacting with the database; functions that return
 
 ## Execing ##
 
-Simple execute operations can be done with `Exec` or `ExecInTransaction` functions. 
+Simple execute operations can be done with `Exec` or `ExecInTx` functions. 
 
 *Example:*
 ```golang
@@ -67,7 +67,7 @@ When we need to pass parameters to the queries, use `$1` numbered tokens to deno
 
 ## Querying ###
 
-Querying in Spiffy can be done with the `Query` or `QueryInTransaction` functions. Each takes SQL as it's main parameter. That's it, no complicated DSL's for replacing sql, just write it yourself. 
+Querying in Spiffy can be done with the `Query` or `QueryInTx` functions. Each takes SQL as it's main parameter. That's it, no complicated DSL's for replacing sql, just write it yourself. 
 
 *Struct Output Example*
 ```golang
@@ -86,7 +86,7 @@ In order to query the database, we need a query and a target for the output. The
 # CrUD Operations #
 
 You can perform the following CrUD operations:
-- `Create` or `CreateInTransaction` : create objects
+- `Create` or `CreateInTx` : create objects
 
 *Example:*
 ```golang
@@ -94,7 +94,7 @@ obj := MyObj{}
 create_err := spiffy.DefaultDb().Create(&obj) //note the reference! this is incase we have to write back a serial id.
 ```
 
-- `Update` or `UpdateInTransaction` : update objects
+- `Update` or `UpdateInTx` : update objects
 
 *Example:*
 ```golang
@@ -104,7 +104,7 @@ obj.Property = "new_value"
 upd_err := spiffy.DefaultDb().Update(obj) //note we don't need a reference for this, as it's read only.
 ```
 
-- `Delete` or `DeleteInTransaction` : delete objects
+- `Delete` or `DeleteInTx` : delete objects
 
 *Example:*
 ```golang
@@ -115,7 +115,7 @@ del_err := spiffy.DefaultDb().Delete(obj) //note we don't need a reference for t
 
 # Transactions #
 
-Transactions are why we wrote this library. They are critical to making tests effective and to making long winded processes atomic. All major functions have `...InTransaction` variants of the function that take a transaction as a parameter. 
+Transactions are why we wrote this library. They are critical to making tests effective and to making long winded processes atomic. All major functions have `...InTx` variants of the function that take a transaction as a parameter. 
 
 If, in a test, you need to use a transaction in a context that may not be aware of the transaction, or for which you can't pass the transaction as a parameter (such as in a controller test), you can use the following pattern:
 
