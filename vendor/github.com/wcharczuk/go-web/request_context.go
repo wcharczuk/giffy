@@ -176,6 +176,42 @@ func (rc *RequestContext) Param(name string) string {
 	return ""
 }
 
+// ParamInt returns a parameter from any location as an integer.
+func (rc *RequestContext) ParamInt(name string) (int, error) {
+	paramValue := rc.Param(name)
+	if len(paramValue) == 0 {
+		return 0, parameterMissingError(name)
+	}
+	return strconv.Atoi(paramValue)
+}
+
+// ParamInt64 returns a parameter from any location as an int64.
+func (rc *RequestContext) ParamInt64(name string) (int64, error) {
+	paramValue := rc.Param(name)
+	if len(paramValue) == 0 {
+		return 0, parameterMissingError(name)
+	}
+	return strconv.ParseInt(paramValue, 10, 64)
+}
+
+// ParamFloat64 returns a parameter from any location as a float64.
+func (rc *RequestContext) ParamFloat64(name string) (float64, error) {
+	paramValue := rc.Param(name)
+	if len(paramValue) == 0 {
+		return 0, parameterMissingError(name)
+	}
+	return strconv.ParseFloat(paramValue, 64)
+}
+
+// ParamTime returns a parameter from any location as a time with a given format.
+func (rc *RequestContext) ParamTime(name, format string) (time.Time, error) {
+	paramValue := rc.Param(name)
+	if len(paramValue) == 0 {
+		return time.Time{}, parameterMissingError(name)
+	}
+	return time.Parse(format, paramValue)
+}
+
 // PostBody returns the bytes in a post body.
 func (rc *RequestContext) PostBody() []byte {
 	if len(rc.postBody) == 0 {

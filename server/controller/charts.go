@@ -1,10 +1,9 @@
 package controller
 
 import (
-	"database/sql"
 	"time"
 
-	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/viewmodel"
 	chart "github.com/wcharczuk/go-chart"
 	web "github.com/wcharczuk/go-web"
 )
@@ -12,62 +11,34 @@ import (
 // Chart is a controller for common chart endpoints.
 type Chart struct{}
 
-type dayCount struct {
-	Year  int `db:"year,readonly"`
-	Month int `db:"month,readonly"`
-	Day   int `db:"day,readonly"`
-	Count int `db:"count,readonly"`
-}
-
-// Populate manually populates the object.
-func (dc *dayCount) Populate(row *sql.Rows) error {
-	return row.Scan(&dc.Year, &dc.Month, &dc.Day, &dc.Count)
-}
-
-// Marshal returns the dayCount as a usable value.
-func (dc *dayCount) Marshal() (time.Time, float64) {
-	return time.Date(dc.Year, time.Month(dc.Month), dc.Day, 0, 0, 0, 0, time.UTC), float64(dc.Count)
-}
-
 func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult {
-	data := []dayCount{}
-	err := model.DB().QueryInTx(`
-select
-	date_part('year', timestamp_utc) as year
-	, date_part('month', timestamp_utc) as month
-	, date_part('day', timestamp_utc) as day
-	, count(*) as count
-	from search_history
-where
-	timestamp_utc > $1
-group by
-	date_part('year', timestamp_utc)
-	, date_part('month', timestamp_utc)
-	, date_part('day', timestamp_utc)
-order by
-	date_part('year', timestamp_utc) asc
-	, date_part('month', timestamp_utc) asc
-	, date_part('day', timestamp_utc) asc
-`, rc.Tx(), time.Now().UTC().AddDate(0, -6, 0)).OutMany(&data)
-
+	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -6, 0), rc.Tx())
 	if err != nil {
 		return rc.API().InternalError(err)
 	}
 
-	var xvalues []time.Time
-	var yvalues []float64
-	for _, dc := range data {
-		xv, yv := dc.Marshal()
-		xvalues = append(xvalues, xv)
-		yvalues = append(yvalues, yv)
+	var width, height int
+	if widthParam, err := rc.ParamInt("width"); err == nil {
+		width = widthParam
+	} else {
+		width = 1280
 	}
+
+	if heightParam, err := rc.ParamInt("height"); err == nil {
+		height = heightParam
+	} else {
+		height = 256
+	}
+
+	xvalues, yvalues := viewmodel.DayCounts(data).ChartData()
 
 	mainSeries := chart.TimeSeries{
 		Name: "Search Count By Day",
 		Style: chart.Style{
 			Show:        true,
 			StrokeColor: chart.ColorBlue,
-			FillColor:   chart.ColorBlue.WithAlpha(100),
+			//FillColor:   chart.ColorBlue.WithAlpha(100),
+			FontSize: 8,
 		},
 		XValues: xvalues,
 		YValues: yvalues,
@@ -78,6 +49,7 @@ order by
 			Show:            true,
 			StrokeColor:     chart.ColorRed,
 			StrokeDashArray: []float64{5.0, 5.0},
+			FontSize:        8,
 		},
 		InnerSeries: mainSeries,
 	}
@@ -87,21 +59,24 @@ order by
 			Show:            true,
 			StrokeColor:     chart.ColorAlternateBlue,
 			StrokeDashArray: []float64{5.0, 5.0},
+			FontSize:        8,
 		},
 		InnerSeries: mainSeries,
 	}
 
 	graph := chart.Chart{
-		Width:  1280,
-		Height: 192,
+		Width:  width,
+		Height: height,
 		YAxis: chart.YAxis{
 			Style: chart.Style{
-				Show: true,
+				Show:     false,
+				FontSize: 8,
 			},
 		},
 		XAxis: chart.XAxis{
 			Style: chart.Style{
-				Show: true,
+				Show:     false,
+				FontSize: 8,
 			},
 			ValueFormatter: chart.TimeValueFormatter,
 		},
@@ -114,8 +89,8 @@ order by
 		},
 	}
 
-	rc.Response.Header().Set("Content-Type", "image/png")
-	graph.Render(chart.PNG, rc.Response)
+	rc.Response.Header().Set("Content-Type", "image/svg+xml")
+	graph.Render(chart.SVG, rc.Response)
 	return nil
 }
 
