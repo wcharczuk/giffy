@@ -82,10 +82,7 @@ func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult
 		},
 		Series: []chart.Series{
 			mainSeries,
-			sma,
-			chart.LastValueAnnotation(sma),
 			linreg,
-			chart.LastValueAnnotation(linreg),
 		},
 	}
 
