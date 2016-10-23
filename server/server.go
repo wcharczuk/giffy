@@ -48,7 +48,6 @@ func Migrate() error {
 func Init() *web.App {
 	app := web.New()
 	app.SetDiagnostics(logger.NewDiagnosticsAgentFromEnvironment())
-	app.Diagnostics().EnableEvent(request.EventFlagOutgoingResponse)
 	logger.SetDiagnostics(app.Diagnostics())
 	app.Diagnostics().EventQueue().SetMaxWorkItems(1 << 18)
 	app.SetAppName(AppName)
