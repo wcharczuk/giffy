@@ -2,8 +2,10 @@ package controller
 
 import (
 	"testing"
+	"time"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/model"
@@ -38,6 +40,16 @@ type testCurrentUserResponse struct {
 type testSiteStatsResponse struct {
 	Meta     *web.APIResponseMeta `json:"meta"`
 	Response *viewmodel.SiteStats `json:"response"`
+}
+
+type testTeamsResponse struct {
+	Meta     *web.APIResponseMeta `json:"meta"`
+	Response []model.SlackTeam    `json:"response"`
+}
+
+type testTeamResponse struct {
+	Meta     *web.APIResponseMeta `json:"meta"`
+	Response *model.SlackTeam     `json:"response"`
 }
 
 func TestAPIUsers(t *testing.T) {
@@ -241,4 +253,46 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	assert.NotNil(res.Response)
 	assert.False(res.Response.IsLoggedIn)
 	assert.Empty(res.Response.UUID)
+}
+
+func TestAPIGetTeams(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	team1 := &model.SlackTeam{
+		CreatedUTC:          time.Now().UTC(),
+		TeamID:              util.UUIDv4().ToShortString(),
+		TeamName:            "Test Team",
+		ContentRatingFilter: model.ContentRatingFilterDefault,
+		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByName:       "Test User",
+		IsEnabled:           true,
+	}
+	err = model.DB().CreateInTx(team1, tx)
+	assert.Nil(err)
+
+	team2 := &model.SlackTeam{
+		CreatedUTC:          time.Now().UTC(),
+		TeamID:              util.UUIDv4().ToShortString(),
+		TeamName:            "Test Team",
+		ContentRatingFilter: model.ContentRatingFilterDefault,
+		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByName:       "Test User",
+		IsEnabled:           true,
+	}
+
+	err = model.DB().CreateInTx(team2, tx)
+	assert.Nil(err)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(new(API))
+
+	var res testTeamsResponse
+	err = app.Mock().WithPathf("/api/teams").FetchResponseAsJSON(&res)
+	assert.Nil(err)
+	assert.NotEmpty(res.Response)
+	assert.Len(res.Response, 2)
 }
