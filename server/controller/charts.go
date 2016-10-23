@@ -44,16 +44,6 @@ func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult
 		YValues: yvalues,
 	}
 
-	sma := &chart.SMASeries{
-		Style: chart.Style{
-			Show:            true,
-			StrokeColor:     chart.ColorRed,
-			StrokeDashArray: []float64{5.0, 5.0},
-			FontSize:        8,
-		},
-		InnerSeries: mainSeries,
-	}
-
 	linreg := &chart.LinearRegressionSeries{
 		Style: chart.Style{
 			Show:            true,
