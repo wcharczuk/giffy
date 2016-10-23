@@ -1,9 +1,6 @@
-package migrate
+package migrations
 
-import (
-	"github.com/blendlabs/spiffy"
-	"github.com/blendlabs/spiffy/migration"
-)
+import "github.com/blendlabs/spiffy/migration"
 
 func contentRating() migration.Migration {
 	createContentRating := migration.Step(
@@ -45,7 +42,7 @@ func contentRating() migration.Migration {
 	)
 
 	return migration.New(
-		"adds `content_rating`",
+		"create",
 		createContentRating,
 		addContentRatingToImage,
 		dropIsCensoredFromImage,
@@ -54,7 +51,7 @@ func contentRating() migration.Migration {
 
 func slackTeam() migration.Migration {
 	return migration.New(
-		"adds `slack_team`",
+		"create",
 		migration.Step(
 			migration.CreateTable,
 			migration.Body(
@@ -98,16 +95,7 @@ func slackTeam() migration.Migration {
 	)
 }
 
-// Register register migrations
-func Register() {
+func init() {
 	migration.Register(contentRating())
 	migration.Register(slackTeam())
-}
-
-// Run applies all migrations
-func Run() error {
-	return migration.Run(func(suite migration.Migration) error {
-		suite.SetLogger(migration.NewLogger())
-		return suite.Apply(spiffy.DefaultDb())
-	})
 }

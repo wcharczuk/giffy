@@ -21,11 +21,11 @@ cover:
 	@echo "$(OK_COLOR)==> Coverage Done!$(NO_COLOR)"
 
 db:
-	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
-	@genv -file="./_config/config.json" sh ./_db/init.sh
+	@echo "$(OK_COLOR)==> Initializing Database$(NO_COLOR)"
+	@genv -file=_config/config.json go run ./database/initialize.go
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
 
-db-dev:
-	@echo "$(OK_COLOR)==> Initializing Database with configuration from config.json file$(NO_COLOR)"
-	@GIFFY_APP=giffy-dev-db GIFFY_HOST=45.33.5.126 sh ./_db/init.sh
-	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
+migrate:
+	@echo "$(OK_COLOR)==> Migrating Database$(NO_COLOR)"
+	@genv -file=_config/config.json go run ./database/migrate.go
+	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"

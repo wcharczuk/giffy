@@ -5,13 +5,16 @@ import (
 	"github.com/blendlabs/go-logger"
 	request "github.com/blendlabs/go-request"
 	"github.com/blendlabs/go-workqueue"
+	"github.com/blendlabs/spiffy"
+	"github.com/blendlabs/spiffy/migration"
 	"github.com/wcharczuk/go-web"
 
+	// includes migrations
+	_ "github.com/wcharczuk/giffy/database/migrations"
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/jobs"
-	"github.com/wcharczuk/giffy/server/migrate"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -36,12 +39,10 @@ var (
 
 // Migrate migrates the db
 func Migrate() error {
-	migrate.Register()
-	err := migrate.Run()
-	if err != nil {
-		return err
-	}
-	return nil
+	return migration.Run(func(suite migration.Migration) error {
+		suite.SetLogger(migration.NewLogger())
+		return suite.Apply(spiffy.DefaultDb())
+	})
 }
 
 // Init inits the web app.
