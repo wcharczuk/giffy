@@ -8,12 +8,19 @@ import (
 
 // SlackOAuthResponse is the response from the second phase of slack oauth 2.0
 type SlackOAuthResponse struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error"`
+
 	AccessToken string `json:"access_token"`
 	Scope       string `json:"scopes"`
+
+	UserID   string `json:"user_id"`
+	TeamID   string `json:"team_id"`
+	TeamName string `json:"team_name"`
 }
 
-// SlackAuthTestResponse is the response from the auth.test service.
-type SlackAuthTestResponse struct {
+// SlackProfile is the response from the auth.test service.
+type SlackProfile struct {
 	OK     bool   `json:"ok"`
 	URL    string `json:"url"`
 	User   string `json:"user"`
@@ -22,9 +29,9 @@ type SlackAuthTestResponse struct {
 	TeamID string `json:"team_id"`
 }
 
-// SlackLoginURL is the url to start the OAuth 2.0 process with slack.
-func SlackLoginURL(scope string) string {
-	return fmt.Sprintf("https://slack.com/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s", core.ConfigSlackClientID(), scope, SlackAuthReturnURL())
+// SlackAuthURL is the url to start the OAuth 2.0 process with slack.
+func SlackAuthURL() string {
+	return fmt.Sprintf("https://slack.com/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s", core.ConfigSlackClientID(), "identify,commands", SlackAuthReturnURL())
 }
 
 //SlackAuthReturnURL formats an oauth return uri.
@@ -32,15 +39,13 @@ func SlackAuthReturnURL() string {
 	return fmt.Sprintf("http://%s/oauth/slack", core.ConfigHostname())
 }
 
-// GetSlackUserDetails gets the slack user details for an access token.
-func GetSlackUserDetails(accessToken string) (*SlackAuthTestResponse, error) {
-	var auth SlackAuthTestResponse
+// FetchSlackProfile gets the slack user details for an access token.
+func FetchSlackProfile(accessToken string) (*SlackProfile, error) {
+	var auth SlackProfile
 	err := NewRequest().
-		AsGet().
+		AsPost().
 		WithURL("https://slack.com/api/auth.test").
-		WithPostData("client_id", core.ConfigSlackClientID()).
-		WithPostData("client_secret", core.ConfigSlackClientSecret()).
-		WithPostData("access_token", accessToken).
+		WithPostData("token", accessToken).
 		FetchJSONToObject(&auth)
 	return &auth, err
 }
@@ -54,6 +59,7 @@ func SlackOAuth(code string) (*SlackOAuthResponse, error) {
 		WithURL("https://slack.com/api/oauth.access").
 		WithPostData("client_id", core.ConfigSlackClientID()).
 		WithPostData("client_secret", core.ConfigSlackClientSecret()).
+		WithPostData("redirect_uri", SlackAuthReturnURL()).
 		WithPostData("code", code).
 		FetchJSONToObject(&oar)
 

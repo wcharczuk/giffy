@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/go-web"
@@ -25,7 +27,11 @@ func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
 		return r.View().InternalError(err)
 	}
 
-	auth, err := external.GetSlackUserDetails(res.AccessToken)
+	if !res.OK {
+		return r.View().InternalError(fmt.Errorf("Slack Error: %s", res.Error))
+	}
+
+	auth, err := external.FetchSlackProfile(res.AccessToken)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
