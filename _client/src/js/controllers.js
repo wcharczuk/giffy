@@ -451,6 +451,12 @@ giffyControllers.controller("teamsController",  ["$scope", "$http", "$routeParam
 			fetchTeams();
 		});
 
+		$scope.updateTeamEnabled = function(team) {
+			$http.put("/api/team/"+team.team_id, team).success(function() {
+				fetchTeams();
+			});
+		};
+
 		$scope.updateTeamContentRatingFilter = function(team) {
 			$http.put("/api/team/"+team.team_id, team).success(function() {
 				fetchTeams();

@@ -24,7 +24,7 @@
 					<td>{{team.created_utc | date:short}}</td>
 					<td>{{team.created_by_id}}</td>
 					<td>{{team.created_by_name}}</td>
-					<td>{{team.is_enabled}}</td>
+					<td><input type="checkbox" ng-model="team.is_enabled" ng-change="updateTeamEnabled(team)"/></td>
 					<td>
 						<select ng-model="team.content_rating" convert-to-number ng-change="updateTeamContentRatingFilter(team)">
 							<option value="5">NR</option>

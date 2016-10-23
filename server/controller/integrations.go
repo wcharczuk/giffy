@@ -16,6 +16,7 @@ const (
 	slackContentTypeTextPlain = "text/plain; charset=utf-8"
 	slackErrorInvalidQuery    = "Please type at least (3) characters."
 	slackErrorInternal        = "There was an error processing your request. Sadness."
+	slackErrorTeamDisabled    = "Your team has been disabled, contact the integration owner to re-enable."
 )
 
 var (
@@ -79,6 +80,10 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 	if err != nil {
 		rc.Diagnostics().Error(err)
 	} else if !teamSettings.IsZero() {
+		if !teamSettings.IsEnabled {
+			return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
+		}
+
 		contentRatingFilter = teamSettings.ContentRatingFilter
 	}
 
@@ -145,6 +150,10 @@ func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerRe
 	if err != nil {
 		rc.Diagnostics().Error(err)
 	} else if !teamSettings.IsZero() {
+		if !teamSettings.IsEnabled {
+			return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
+		}
+
 		contentRatingFilter = teamSettings.ContentRatingFilter
 	}
 
