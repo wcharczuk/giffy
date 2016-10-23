@@ -68,7 +68,7 @@ func slackTeam() migration.Migration {
 					content_rating int not null
 				);`,
 				`ALTER TABLE slack_team ADD CONSTRAINT pk_content_rating_team_id PRIMARY KEY (team_id);`,
-				`INSERT INTO slack_team (team_id, team_name, timestamp_utc, is_enabled, created_by_id, created_by_name, content_rating)
+				`INSERT INTO slack_team (team_id, team_name, created_utc, is_enabled, created_by_id, created_by_name, content_rating)
 				SELECT
 					team_id
 					, team_name
