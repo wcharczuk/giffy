@@ -293,7 +293,7 @@ func searchImagesInternal(query string, contentRatingFilter int, tx *sql.Tx) ([]
 		join image i on vs.image_id = i.id
 	where
 		vs.votes_total > 0
-		and i.content_rating < $2
+		and i.content_rating <= $2
 	group by
 		vs.image_id
 	order by
