@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-logger"
+	request "github.com/blendlabs/go-request"
 	"github.com/blendlabs/go-workqueue"
 	"github.com/wcharczuk/go-web"
 
@@ -47,6 +48,8 @@ func Migrate() error {
 func Init() *web.App {
 	app := web.New()
 	app.SetDiagnostics(logger.NewDiagnosticsAgentFromEnvironment())
+	app.Diagnostics().EnableEvent(request.EventFlagOutgoingResponse)
+	logger.SetDiagnostics(app.Diagnostics())
 	app.Diagnostics().EventQueue().SetMaxWorkItems(1 << 18)
 	app.SetAppName(AppName)
 	app.SetPort(core.ConfigPort())
@@ -58,6 +61,13 @@ func Init() *web.App {
 	app.Diagnostics().AddEventListener(logger.EventError, web.NewDiagnosticsErrorHandler(func(rc *web.RequestContext, err error) {
 		external.StatHatError()
 	}))
+
+	app.Diagnostics().AddEventListener(
+		request.EventFlagOutgoingResponse,
+		request.NewEventFlagOutgoingResponseHandler(func(writer logger.Logger, ts logger.TimeSource, req *request.HTTPRequestMeta, res *request.HTTPResponseMeta, body []byte) {
+			request.WriteOutgoingRequestResponse(writer, ts, req, res, body)
+		}),
+	)
 
 	app.Register(new(controller.Index))
 	app.Register(new(controller.API))

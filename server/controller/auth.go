@@ -30,10 +30,16 @@ func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
 		return r.View().InternalError(err)
 	}
 
-	team := model.NewSlackTeam(auth.TeamID, auth.Team, auth.UserID, auth.User)
-	err = model.DB().CreateInTx(team, r.Tx())
+	existingTeam, err := model.GetSlackTeamByTeamID(auth.TeamID)
 	if err != nil {
 		return r.View().InternalError(err)
+	}
+	if existingTeam.IsZero() {
+		team := model.NewSlackTeam(auth.TeamID, auth.Team, auth.UserID, auth.User)
+		err = model.DB().CreateInTx(team, r.Tx())
+		if err != nil {
+			return r.View().InternalError(err)
+		}
 	}
 
 	return r.Redirect("/#/slack/complete")
