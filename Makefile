@@ -15,15 +15,13 @@ test:
 	@genv -file="./_config/config.json" go test -timeout 5s "./server/..."
 	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
 
-cover:
-	@echo "$(OK_COLOR)==> Coverage$(NO_COLOR)"
-	@ROOT="./server/" sh ./_util/coverage.sh
-	@echo "$(OK_COLOR)==> Coverage Done!$(NO_COLOR)"
-
 db:
 	@echo "$(OK_COLOR)==> Initializing Database$(NO_COLOR)"
 	@genv -file=_config/config.json go run ./database/initialize.go
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
+
+list-packages:
+	@go list ./... | grep -v /vendor/
 
 migrate:
 	@echo "$(OK_COLOR)==> Migrating Database$(NO_COLOR)"
