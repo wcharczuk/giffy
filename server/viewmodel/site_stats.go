@@ -65,5 +65,4 @@ func GetSiteStats(tx *sql.Tx) (*SiteStats, error) {
 		KarmaTotal:       karmaTotal,
 		OrphanedTagCount: orphanedTagCount,
 	}, nil
-
 }

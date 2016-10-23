@@ -10,13 +10,20 @@ import (
 // ImageStats contains some basic stats for a given image.
 type ImageStats struct {
 	ImageID    int64 `json:"image_id" db:"image_id,readonly"`
-	VotesTotal int   `json:"votes_total" db:"votes_total,readonly"`
-	Searches   int   `json:"searches" db:"searches,readonly"`
+	Image      *model.Image
+	VotesTotal int `json:"votes_total" db:"votes_total,readonly"`
+	Searches   int `json:"searches" db:"searches,readonly"`
 }
 
 // TableName returns the table name.
 func (is ImageStats) TableName() string {
 	return "image_stats"
+}
+
+// GetTopSearchedImages gets all the stats for images.
+func GetTopSearchedImages(limit int, txs ...*sql.Tx) ([]ImageStats, error) {
+	var results []ImageStats
+	return results, nil
 }
 
 // GetImageStats gets image stats.
