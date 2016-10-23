@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/wcharczuk/giffy/server/viewmodel"
@@ -12,7 +13,8 @@ import (
 type Chart struct{}
 
 func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult {
-	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -6, 0), rc.Tx())
+
+	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -1, 0), rc.Tx())
 	if err != nil {
 		return rc.API().InternalError(err)
 	}
@@ -37,8 +39,7 @@ func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult
 		Style: chart.Style{
 			Show:        true,
 			StrokeColor: chart.ColorBlue,
-			//FillColor:   chart.ColorBlue.WithAlpha(100),
-			FontSize: 8,
+			FontSize:    8,
 		},
 		XValues: xvalues,
 		YValues: yvalues,
@@ -77,7 +78,11 @@ func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult
 	}
 
 	rc.Response.Header().Set("Content-Type", "image/svg+xml")
-	graph.Render(chart.SVG, rc.Response)
+	err = graph.Render(chart.SVG, rc.Response)
+	if err != nil {
+		return rc.API().InternalError(err)
+	}
+	rc.Response.WriteHeader(http.StatusOK)
 	return nil
 }
 
