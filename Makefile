@@ -12,12 +12,12 @@ run:
 
 test:
 	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
-	@bash ./_util/test.bash --root="./server/" --package=$(package) --short --filter=${filter} ${flags}
+	@genv -file="./_config/config.json" go test -timeout 5s "./server/..."
 	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
 
 cover:
 	@echo "$(OK_COLOR)==> Coverage$(NO_COLOR)"
-	@sh ./_util/coverage.sh --root="./server/"
+	@ROOT="./server/" sh ./_util/coverage.sh
 	@echo "$(OK_COLOR)==> Coverage Done!$(NO_COLOR)"
 
 db:

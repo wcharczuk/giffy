@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -255,11 +256,29 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	assert.Empty(res.Response.UUID)
 }
 
+func TestAPIGetTeamsNoAuth(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(new(API))
+
+	var res testTeamsResponse
+	err = app.Mock().WithPathf("/api/teams").FetchResponseAsJSON(&res)
+	assert.Nil(err)
+	assert.Equal(http.StatusForbidden, res.Meta.HTTPCode)
+}
+
 func TestAPIGetTeams(t *testing.T) {
 	assert := assert.New(t)
 	tx, err := spiffy.DefaultDb().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
+
+	session, err := MockAdminLogin(tx)
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
@@ -291,8 +310,69 @@ func TestAPIGetTeams(t *testing.T) {
 	app.Register(new(API))
 
 	var res testTeamsResponse
-	err = app.Mock().WithPathf("/api/teams").FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/teams").WithHeader(auth.SessionParamName, session.SessionID).FetchResponseAsJSON(&res)
 	assert.Nil(err)
+	assert.Equal(http.StatusOK, res.Meta.HTTPCode)
 	assert.NotEmpty(res.Response)
 	assert.Len(res.Response, 2)
+}
+
+func TestAPIGetTeamNotAuthed(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	team1 := &model.SlackTeam{
+		CreatedUTC:          time.Now().UTC(),
+		TeamID:              util.UUIDv4().ToShortString(),
+		TeamName:            "Test Team",
+		ContentRatingFilter: model.ContentRatingFilterDefault,
+		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByName:       "Test User",
+		IsEnabled:           true,
+	}
+	err = model.DB().CreateInTx(team1, tx)
+	assert.Nil(err)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(new(API))
+
+	var res testTeamResponse
+	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).FetchResponseAsJSON(&res)
+	assert.Nil(err)
+	assert.Equal(http.StatusForbidden, res.Meta.HTTPCode)
+}
+
+func TestAPIGetTeam(t *testing.T) {
+	assert := assert.New(t)
+	tx, err := spiffy.DefaultDb().Begin()
+	assert.Nil(err)
+	defer tx.Rollback()
+
+	session, err := MockAdminLogin(tx)
+
+	team1 := &model.SlackTeam{
+		CreatedUTC:          time.Now().UTC(),
+		TeamID:              util.UUIDv4().ToShortString(),
+		TeamName:            "Test Team",
+		ContentRatingFilter: model.ContentRatingFilterDefault,
+		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByName:       "Test User",
+		IsEnabled:           true,
+	}
+	err = model.DB().CreateInTx(team1, tx)
+	assert.Nil(err)
+
+	app := web.New()
+	app.IsolateTo(tx)
+	app.Register(new(API))
+
+	var res testTeamResponse
+	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.SessionParamName, session.SessionID).FetchResponseAsJSON(&res)
+	assert.Nil(err)
+	assert.Equal(http.StatusOK, res.Meta.HTTPCode)
+	assert.NotNil(res.Response)
+	assert.Equal(team1.TeamID, res.Response.TeamID)
 }
