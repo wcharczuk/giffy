@@ -33,7 +33,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetAll()))
+	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()))
 	app.IsolateTo(tx)
 	app.Register(UploadImage{})
 	err = app.InitializeViewCache([]string{
