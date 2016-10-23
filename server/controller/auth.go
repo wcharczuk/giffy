@@ -20,7 +20,18 @@ func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
 	}
 
-	_, err := external.SlackOAuth(code)
+	res, err := external.SlackOAuth(code)
+	if err != nil {
+		return r.View().InternalError(err)
+	}
+
+	auth, err := external.GetSlackUserDetails(res.AccessToken)
+	if err != nil {
+		return r.View().InternalError(err)
+	}
+
+	team := model.NewSlackTeam(auth.TeamID, auth.Team, auth.UserID, auth.User)
+	err = model.DB().CreateInTx(team, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}

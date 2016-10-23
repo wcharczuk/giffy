@@ -32,6 +32,19 @@ func SlackAuthReturnURL() string {
 	return fmt.Sprintf("http://%s/oauth/slack", core.ConfigHostname())
 }
 
+// GetSlackUserDetails gets the slack user details for an access token.
+func GetSlackUserDetails(accessToken string) (*SlackAuthTestResponse, error) {
+	var auth SlackAuthTestResponse
+	err := NewRequest().
+		AsGet().
+		WithURL("https://slack.com/api/auth.test").
+		WithPostData("client_id", core.ConfigSlackClientID()).
+		WithPostData("client_secret", core.ConfigSlackClientSecret()).
+		WithPostData("access_token", accessToken).
+		FetchJSONToObject(&auth)
+	return &auth, err
+}
+
 // SlackOAuth completes the oauth 2.0 process with slack.
 func SlackOAuth(code string) (*SlackOAuthResponse, error) {
 	var oar SlackOAuthResponse

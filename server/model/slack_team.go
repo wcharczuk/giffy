@@ -7,6 +7,19 @@ import (
 	"github.com/blendlabs/spiffy"
 )
 
+// NewSlackTeam returns a new SlackTeam.
+func NewSlackTeam(teamID, teamName, userID, userName string) *SlackTeam {
+	return &SlackTeam{
+		TeamID:              teamID,
+		TeamName:            teamName,
+		CreatedUTC:          time.Now().UTC(),
+		IsEnabled:           true,
+		CreatedByID:         userID,
+		CreatedByName:       userName,
+		ContentRatingFilter: ContentRatingPG13,
+	}
+}
+
 // SlackTeam is a team that is mapped to giffy.
 type SlackTeam struct {
 	TeamID              string    `json:"team_id" db:"team_id,pk"`
