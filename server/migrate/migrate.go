@@ -60,8 +60,8 @@ func slackTeam() migration.Migration {
 			migration.Body(
 				`CREATE TABLE slack_team (
 					team_id varchar(32) not null,
-					team_name varchar(128),
-					timestamp_utc timestamp not null,
+					team_name varchar(128) not null,
+					created_utc timestamp not null,
 					is_enabled bool not null,
 					created_by_id varchar(32) not null,
 					created_by_name varchar(128) not null,
@@ -72,7 +72,7 @@ func slackTeam() migration.Migration {
 				SELECT
 					team_id
 					, team_name
-					, timestamp_utc
+					, created_utc
 					, true as is_enabled
 					, created_by_id
 					, created_by_name
@@ -81,7 +81,7 @@ func slackTeam() migration.Migration {
 					SELECT
 						source_team_identifier as team_id
 						, source_team_name as team_name
-						, current_date as timestamp_utc
+						, current_date as created_utc
 						, source_user_identifier as created_by_id
 						, source_user_name as created_by_name
 						, ROW_NUMBER() OVER(partition by source_team_identifier order by timestamp_utc asc) as team_rank

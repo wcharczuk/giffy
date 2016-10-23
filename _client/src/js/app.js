@@ -54,6 +54,9 @@ giffyApp.config(["$routeProvider", "$locationProvider",
 		}).when("/stats", {
 			templateUrl: '/static/partials/stats.html',
 			controller: 'statsController'
+		}).when("/teams", {
+			templateUrl: '/static/partials/slack_teams.html',
+			controller: 'teamsController'
 		}).otherwise({
 			templateUrl: '/static/partials/not_found.html',
 			controller: 'notFoundController'

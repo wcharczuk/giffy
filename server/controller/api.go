@@ -806,8 +806,7 @@ func (api API) getTeamsAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().NotAuthorized()
 	}
 
-	var teams []model.SlackTeam
-	err := spiffy.DefaultDb().GetAllInTx(&teams, r.Tx())
+	teams, err := model.GetAllSlackTeams(r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -892,7 +891,9 @@ func (api API) updateTeamAction(r *web.RequestContext) web.ControllerResult {
 		return r.API().BadRequest(err.Error())
 	}
 
-	err = spiffy.DefaultDb().UpdateInTx(&team, r.Tx())
+	updatedTeam.TeamID = teamID
+
+	err = spiffy.DefaultDb().UpdateInTx(&updatedTeam, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1271,12 +1272,12 @@ func (api API) Register(app *web.App) {
 	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
 	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
 
-	app.GET("/api/teams", api.getTeamsAction)
-	app.GET("/api/team/:team_id", api.getTeamAction)
-	app.POST("/api/team/:team_id", api.createTeamAction)
-	app.PUT("/api/team/:team_id", api.updateTeamAction)
-	app.PATCH("/api/team/:team_id", api.patchTeamAction)
-	app.DELETE("/api/team/:team_id", api.deleteTeamAction)
+	app.GET("/api/teams", api.getTeamsAction, auth.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/team/:team_id", api.getTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
+	app.POST("/api/team/:team_id", api.createTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
+	app.PUT("/api/team/:team_id", api.updateTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
+	app.PATCH("/api/team/:team_id", api.patchTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
+	app.DELETE("/api/team/:team_id", api.deleteTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
 
 	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, auth.SessionRequired, web.APIProviderAsDefault)
 

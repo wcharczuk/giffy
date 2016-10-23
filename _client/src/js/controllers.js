@@ -434,3 +434,27 @@ giffyControllers.controller("statsController",  ["$scope", "$http", "currentUser
 		});
 	}
 ]);
+
+giffyControllers.controller("teamsController",  ["$scope", "$http", "$routeParams", "currentUser",
+	function($scope, $http, $routeParams, currentUser) {
+		var fetchTeams = function() {
+			$http.get("/api/teams").success(function(datums) {
+				$scope.teams = datums.response;
+			});
+		}
+
+		currentUser($scope, function() {
+			if (!$scope.currentUser.is_admin) {
+				window.location = "/#/"
+			}
+
+			fetchTeams();
+		});
+
+		$scope.updateTeamContentRatingFilter = function(team) {
+			$http.put("/api/team/"+team.team_id, team).success(function() {
+				fetchTeams();
+			});
+		};
+	}
+]);

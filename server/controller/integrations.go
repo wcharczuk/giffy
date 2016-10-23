@@ -74,11 +74,19 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 		rc.Diagnostics().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", teamID, teamName, channelID, channelName, userID, userName, query, foundResult, resultID, tagID))
 	}()
 
+	contentRatingFilter := model.ContentRatingNR
+	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
+	if err != nil {
+		rc.Diagnostics().Error(err)
+	} else if !teamSettings.IsZero() {
+		contentRatingFilter = teamSettings.ContentRatingFilter
+	}
+
 	if strings.HasPrefix(query, "img:") {
 		uuid := strings.TrimPrefix(query, "img:")
 		result, err = model.GetImageByUUID(uuid, rc.Tx())
 	} else {
-		result, err = model.SearchImagesBestResult(query, model.ContentRatingNR, rc.Tx())
+		result, err = model.SearchImagesBestResult(query, contentRatingFilter, rc.Tx())
 	}
 	if err != nil {
 		rc.Diagnostics().Error(err)
@@ -131,7 +139,16 @@ func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerRe
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
 	}
 
-	results, err := model.SearchImagesWeightedRandom(query, model.ContentRatingFilterDefault, 3, rc.Tx())
+	teamID := rc.Param("team_id")
+	contentRatingFilter := model.ContentRatingFilterDefault
+	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
+	if err != nil {
+		rc.Diagnostics().Error(err)
+	} else if !teamSettings.IsZero() {
+		contentRatingFilter = teamSettings.ContentRatingFilter
+	}
+
+	results, err := model.SearchImagesWeightedRandom(query, contentRatingFilter, 3, rc.Tx())
 	if err != nil {
 		rc.Diagnostics().Error(err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))

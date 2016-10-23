@@ -1,13 +1,20 @@
 package model
 
-import "time"
+import (
+	"database/sql"
+	"time"
+
+	"github.com/blendlabs/spiffy"
+)
 
 // SlackTeam is a team that is mapped to giffy.
 type SlackTeam struct {
 	TeamID              string    `json:"team_id" db:"team_id,pk"`
-	TimestampUTC        time.Time `json:"timestamp_utc" db:"timestamp_utc"`
+	TeamName            string    `json:"team_name" db:"team_name"`
+	CreatedUTC          time.Time `json:"created_utc" db:"created_utc"`
 	IsEnabled           bool      `json:"is_enabled" db:"is_enabled"`
-	CreatedBy           string    `json:"created_by" db:"created_by"`
+	CreatedByID         string    `json:"created_by_id" db:"created_by_id"`
+	CreatedByName       string    `json:"created_by_name" db:"created_by_name"`
 	ContentRatingFilter int       `json:"content_rating" db:"content_rating"`
 }
 
@@ -19,4 +26,18 @@ func (st SlackTeam) TableName() string {
 // IsZero returns if the object has been set or not.
 func (st SlackTeam) IsZero() bool {
 	return len(st.TeamID) == 0
+}
+
+// GetAllSlackTeams gets all slack teams.
+func GetAllSlackTeams(txs ...*sql.Tx) ([]SlackTeam, error) {
+	var teams []SlackTeam
+	err := DB().QueryInTx(`select * from slack_team order by team_name asc`, spiffy.OptionalTx(txs...)).OutMany(&teams)
+	return teams, err
+}
+
+// GetSlackTeamByTeamID gets a slack team by the team id.
+func GetSlackTeamByTeamID(teamID string, txs ...*sql.Tx) (*SlackTeam, error) {
+	var team SlackTeam
+	err := DB().GetByIDInTx(&team, spiffy.OptionalTx(txs...), teamID)
+	return &team, err
 }

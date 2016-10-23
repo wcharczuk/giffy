@@ -1,0 +1,42 @@
+<giffy-header/>
+
+<div class="row">
+	<div class="col-xs-10 col-xs-offset-1 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
+		<div class="page-header">
+			<h1>Search History</h1>
+		</div>
+		<table id="slack-teams" class="table table-responsive">
+			<thead>
+				<tr>
+					<th>Team ID</th>
+					<th>Team Name</th>
+					<th>Created</th>
+					<th>Created By ID</th>
+					<th>Created By Name</th>
+					<th>Enabled?</th>
+					<th>Content Rating Filter</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr ng-repeat="team in teams">
+					<td>{{team.team_id}}</td>
+					<td>{{team.team_name}}</td>
+					<td>{{team.created_utc | date:short}}</td>
+					<td>{{team.created_by_id}}</td>
+					<td>{{team.created_by_name}}</td>
+					<td>{{team.is_enabled}}</td>
+					<td>
+						<select ng-model="team.content_rating" convert-to-number ng-change="updateTeamContentRatingFilter(team)">
+							<option value="5">NR</option>
+							<option value="4">R</option>
+							<option value="3">PG-13</option>
+							<option value="2">PG</option>
+							<option value="1">G</option>
+						</select>
+					</td>
+				</tr>
+			</tbody>
+	</div>
+</div>
+
+<giffy-footer/>
