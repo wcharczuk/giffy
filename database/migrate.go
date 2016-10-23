@@ -1,13 +1,11 @@
 package main
 
-package main
-
 import (
 	"log"
 
 	"github.com/blendlabs/spiffy"
 	"github.com/blendlabs/spiffy/migration"
-	_ "github.com/wcharczuk/giffy/db/migrations"
+	_ "github.com/wcharczuk/giffy/database/migrations"
 )
 
 func main() {
