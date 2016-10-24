@@ -14,7 +14,7 @@ type Chart struct{}
 
 func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult {
 
-	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -1, 0), rc.Tx())
+	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -6, 0), rc.Tx())
 	if err != nil {
 		return rc.API().InternalError(err)
 	}
