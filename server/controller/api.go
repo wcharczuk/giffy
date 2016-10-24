@@ -1219,6 +1219,31 @@ func (api API) runJobAction(r *web.RequestContext) web.ControllerResult {
 	return r.API().OK()
 }
 
+func (api API) getErrorsAction(r *web.RequestContext) web.ControllerResult {
+	session := auth.GetSession(r)
+
+	if !session.User.IsAdmin {
+		return r.API().NotAuthorized()
+	}
+
+	limit, err := r.RouteParameterInt("limit")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	offset, err := r.RouteParameterInt("offset")
+	if err != nil {
+		return r.API().BadRequest(err.Error())
+	}
+
+	errors, err := model.GetAllErrorsWithLimitAndOffset(limit, offset, r.Tx())
+	if err != nil {
+		return r.API().InternalError(err)
+	}
+
+	return r.API().JSON(errors)
+}
+
 // POST "/api/logout"
 func (api API) logoutAction(r *web.RequestContext) web.ControllerResult {
 	session := auth.GetSession(r)
@@ -1303,6 +1328,9 @@ func (api API) Register(app *web.App) {
 	//jobs
 	app.GET("/api/jobs", api.getJobsStatusAction, auth.SessionRequired, web.APIProviderAsDefault)
 	app.POST("/api/job/:job_id", api.runJobAction, auth.SessionRequired, web.APIProviderAsDefault)
+
+	//errors
+	app.GET("/api/errors/:limit/:offset", api.getErrorsAction, auth.SessionRequired, web.APIProviderAsDefault)
 
 	// auth endpoints
 	app.POST("/api/logout", api.logoutAction, auth.SessionRequired, web.APIProviderAsDefault)
