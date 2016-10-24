@@ -111,7 +111,7 @@ func errors() migration.Migration {
 							proto varchar(8),
 							host varchar(255),
 							path varchar(255),
-							query varchar(255),
+							query varchar(255)
 						);`,
 				`ALTER TABLE error ADD CONSTRAINT pk_error_uuid PRIMARY KEY (uuid);`,
 				`CREATE INDEX ix_error_created_utc ON error(created_utc);`,
