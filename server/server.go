@@ -60,12 +60,12 @@ func Init() *web.App {
 
 	app.Diagnostics().AddEventListener(logger.EventFatalError, web.NewDiagnosticsErrorHandler(func(rc *web.RequestContext, err error) {
 		external.StatHatError()
-		model.DB().CreateInTx(model.NewError(err, rc.Request))
+		model.DB().CreateInTx(model.NewError(err, rc.Request), rc.Tx())
 	}))
 
 	app.Diagnostics().AddEventListener(logger.EventError, web.NewDiagnosticsErrorHandler(func(rc *web.RequestContext, err error) {
 		external.StatHatError()
-		model.DB().CreateInTx(model.NewError(err, rc.Request))
+		model.DB().CreateInTx(model.NewError(err, rc.Request), rc.Tx())
 	}))
 
 	app.Diagnostics().AddEventListener(

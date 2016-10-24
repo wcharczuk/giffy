@@ -131,8 +131,9 @@ func NewImagePredicate(predicate ImagePredicate) func(item interface{}) bool {
 // NewImage returns a new instance of an image.
 func NewImage() *Image {
 	return &Image{
-		UUID:       core.UUIDv4().ToShortString(),
-		CreatedUTC: time.Now().UTC(),
+		UUID:          core.UUIDv4().ToShortString(),
+		CreatedUTC:    time.Now().UTC(),
+		ContentRating: ContentRatingPG13,
 	}
 }
 
