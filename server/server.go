@@ -58,8 +58,14 @@ func Init() *web.App {
 		external.StatHatRequestTiming(rc.Elapsed())
 	}))
 
+	app.Diagnostics().AddEventListener(logger.EventFatalError, web.NewDiagnosticsErrorHandler(func(rc *web.RequestContext, err error) {
+		external.StatHatError()
+		model.DB().CreateInTx(model.NewError(err, rc.Request))
+	}))
+
 	app.Diagnostics().AddEventListener(logger.EventError, web.NewDiagnosticsErrorHandler(func(rc *web.RequestContext, err error) {
 		external.StatHatError()
+		model.DB().CreateInTx(model.NewError(err, rc.Request))
 	}))
 
 	app.Diagnostics().AddEventListener(

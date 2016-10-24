@@ -80,6 +80,30 @@ func init() {
 				migration.Step(
 					migration.CreateTable,
 					migration.Body(
+						`CREATE TABLE error (
+							uuid varchar(32) not null,
+							created_utc timestamp not null,
+							message varchar(255) not null,
+							stack_trace varchar(1024),
+
+							verb varchar(8),
+							proto varchar(8),
+							host varchar(255),
+							path varchar(255),
+							query varchar(255)
+						);`,
+						`ALTER TABLE error ADD CONSTRAINT pk_error_uuid PRIMARY KEY (uuid);`,
+						`CREATE INDEX ix_error_created_utc ON error(created_utc);`,
+					),
+					"error",
+				),
+			),
+
+			migration.New(
+				"create",
+				migration.Step(
+					migration.CreateTable,
+					migration.Body(
 						`CREATE TABLE users (
 							id serial not null,
 							uuid varchar(32) not null,
