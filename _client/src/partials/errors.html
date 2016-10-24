@@ -1,0 +1,34 @@
+<giffy-header/>
+
+<div class="row">
+	<div class="col-xs-10 col-xs-offset-1 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
+		<div class="page-header">
+			<h1>Errors</h1>
+		</div>
+		<table id="errors" class="table table-responsive">
+			<thead>
+				<tr>
+					<th>Timestamp</th>
+					<th>Message</th>
+					<th>Stack Trace</th>
+					<th>Verb</th>
+					<th>Host</th>
+					<th>Path</th>
+					<th>Query</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr ng-repeat="err in errors">
+					<td>{{err.created_utc | date:long}}</td>
+					<td>{{err.message}}</td>
+					<td>{{err.stack_trace}}</td>
+					<td>{{err.verb}}</td>
+					<td>{{err.host}}</td>
+					<td>{{err.path}}</td>
+					<td>{{err.query}}</td>
+				</tr>
+			</tbody>
+	</div>
+</div>
+
+<giffy-footer/>

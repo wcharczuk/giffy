@@ -464,3 +464,21 @@ giffyControllers.controller("teamsController",  ["$scope", "$http", "$routeParam
 		};
 	}
 ]);
+
+giffyControllers.controller("errorsController",  ["$scope", "$http", "$routeParams", "currentUser",
+	function($scope, $http, $routeParams, currentUser) {
+		var fetchErrors = function() {
+			$http.get("/api/errors/50/0").success(function(datums) {
+				$scope.errors = datums.response;
+			});
+		}
+
+		currentUser($scope, function() {
+			if (!$scope.currentUser.is_admin) {
+				window.location = "/#/"
+			}
+
+			fetchErrors();
+		});
+	}
+]);
