@@ -125,6 +125,7 @@ type EventFlagSet struct {
 
 // Enable enables an event flag.
 func (efs *EventFlagSet) Enable(flagValue EventFlag) {
+	efs.none = false
 	efs.flags[flagValue] = true
 }
 

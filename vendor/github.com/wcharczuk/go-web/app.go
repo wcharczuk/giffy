@@ -289,9 +289,9 @@ func (a *App) DELETE(path string, action ControllerAction, middleware ...Control
 // Static Result Methods
 // --------------------------------------------------------------------------------
 
-// StaticRewrite adds a rewrite rule for a specific statically served path.
+// AddStaticRewriteRule adds a rewrite rule for a specific statically served path.
 // Make sure to serve the static path with (app).Static(path, root).
-func (a *App) StaticRewrite(path, match string, action RewriteAction) error {
+func (a *App) AddStaticRewriteRule(path, match string, action RewriteAction) error {
 	expr, err := regexp.Compile(match)
 	if err != nil {
 		return err
@@ -305,8 +305,8 @@ func (a *App) StaticRewrite(path, match string, action RewriteAction) error {
 	return nil
 }
 
-// StaticHeader adds a header for the given static path.
-func (a *App) StaticHeader(path, key, value string) {
+// AddStaticHeader adds a header for the given static path.
+func (a *App) AddStaticHeader(path, key, value string) {
 	if _, hasHeaders := a.staticHeaders[path]; !hasHeaders {
 		a.staticHeaders[path] = http.Header{}
 	}
@@ -348,7 +348,7 @@ func (a *App) staticAction(path string, root http.FileSystem) ControllerAction {
 			staticHeaders = headers
 		}
 
-		filePath, _ := r.RouteParameter("filepath")
+		filePath, _ := r.RouteParam("filepath")
 
 		return &StaticResult{
 			FilePath:     filePath,

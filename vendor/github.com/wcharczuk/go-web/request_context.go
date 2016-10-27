@@ -273,32 +273,32 @@ func parameterMissingError(paramName string) error {
 	return fmt.Errorf("`%s` parameter is missing", paramName)
 }
 
-// RouteParameterInt returns a route parameter as an integer.
-func (rc *RequestContext) RouteParameterInt(key string) (int, error) {
+// RouteParamInt returns a route parameter as an integer.
+func (rc *RequestContext) RouteParamInt(key string) (int, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return strconv.Atoi(value)
 	}
 	return 0, parameterMissingError(key)
 }
 
-// RouteParameterInt64 returns a route parameter as an integer.
-func (rc *RequestContext) RouteParameterInt64(key string) (int64, error) {
+// RouteParamInt64 returns a route parameter as an integer.
+func (rc *RequestContext) RouteParamInt64(key string) (int64, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return strconv.ParseInt(value, 10, 64)
 	}
 	return 0, parameterMissingError(key)
 }
 
-// RouteParameterFloat64 returns a route parameter as an float64.
-func (rc *RequestContext) RouteParameterFloat64(key string) (float64, error) {
+// RouteParamFloat64 returns a route parameter as an float64.
+func (rc *RequestContext) RouteParamFloat64(key string) (float64, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return strconv.ParseFloat(value, 64)
 	}
 	return 0, parameterMissingError(key)
 }
 
-// RouteParameter returns a string route parameter
-func (rc *RequestContext) RouteParameter(key string) (string, error) {
+// RouteParam returns a string route parameter
+func (rc *RequestContext) RouteParam(key string) (string, error) {
 	if value, hasKey := rc.routeParameters[key]; hasKey {
 		return value, nil
 	}
