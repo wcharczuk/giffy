@@ -183,6 +183,31 @@ func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerRe
 	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
+type slackEvent struct {
+	Type      string `json:"type"`
+	Challenge string `json:"challenge"`
+	Token     string `json:"token"`
+}
+
+type slackEventChallegeRepsonse struct {
+	Challenge string `json:"challenge"`
+}
+
+func (i Integrations) slackEventAction(rc *web.RequestContext) web.ControllerResult {
+	var e slackEvent
+	err := rc.PostBodyAsJSON(&e)
+	if err != nil {
+		return rc.API().BadRequest(err.Error())
+	}
+
+	switch e.Type {
+	case "url_verification":
+		return rc.RawWithContentType("application/json", []byte(util.JSON.Serialize(slackEventChallegeRepsonse{Challenge: e.Challenge})))
+	}
+
+	return rc.NoContent()
+}
+
 // Register registers the controller's actions with the app.
 func (i Integrations) Register(app *web.App) {
 	app.GET("/integrations/slack", i.slackAction)
@@ -190,4 +215,7 @@ func (i Integrations) Register(app *web.App) {
 
 	app.GET("/integrations/slack.search", i.slackSearchAction)
 	app.POST("/integrations/slack.search", i.slackSearchAction)
+
+	app.GET("/integrations/slack.event", i.slackEventAction)
+	app.POST("/integrations/slack.event", i.slackEventAction)
 }
