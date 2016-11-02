@@ -310,7 +310,39 @@ func TestImageSignaturesWeightedRandom(t *testing.T) {
 	})
 	best := sigs.WeightedRandom(1, r)
 	assert.Len(best, 1)
-	assert.True(best[0].ID == 1 || best[0].ID == 2, best.String())
+	assert.Equal(2, best[0].ID, best.String())
+
+	best = sigs.WeightedRandom(1, r)
+	assert.Len(best, 1)
+	assert.Equal(2, best[0].ID, best.String())
+
+	best = sigs.WeightedRandom(1, r)
+	assert.Len(best, 1)
+	assert.Equal(1, best[0].ID, best.String())
+}
+
+func TestImageSignaturesSortRandom(t *testing.T) {
+	assert := assert.New(t)
+
+	r := rand.New(rand.NewSource(1))
+
+	sigs := imageSignatures([]imageSignature{
+		{1, 1.0},
+		{2, 2.0},
+		{3, 3.0},
+		{4, 4.0},
+		{5, 5.0},
+		{6, 6.0},
+		{7, 7.0},
+		{8, 8.0},
+	})
+
+	sort.Sort(imageSignaturesRandom(sigs, r))
+	assert.Equal(8, sigs[0].ID)
+	assert.Equal(7, sigs[1].ID)
+	assert.Equal(3, sigs[2].ID)
+	assert.Equal(5, sigs[3].ID)
+	assert.Equal(4, sigs[4].ID)
 }
 
 func TestImageSignaturesSortScoreDescending(t *testing.T) {

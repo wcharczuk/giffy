@@ -636,9 +636,6 @@ func (is imageSignatures) WeightedRandom(count int, r ...*rand.Rand) imageSignat
 
 	total := is.TotalScore()
 
-	// descending == highest scores first ...
-	sort.Sort(imageSignaturesScoreDescending(is))
-
 	var randSource *rand.Rand
 	if len(r) > 0 {
 		randSource = r[0]
@@ -646,23 +643,66 @@ func (is imageSignatures) WeightedRandom(count int, r ...*rand.Rand) imageSignat
 		randSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
 
+	// randomly sort
+	sort.Sort(imageSignaturesRandom(is, randSource))
+	sort.Sort(imageSignaturesRandom(is, randSource))
+
+	if count >= len(is) {
+		return is
+	}
+
 	selections := core.SetOfInt64{}
-	var finalIds []imageSignature
-	for len(finalIds) < count {
+	var selectedImages []imageSignature
+	for len(selectedImages) < count {
+
 		randomValue := randSource.Float64() * total
+
 		for x := 0; x < len(is); x++ {
 			i := is[x]
+
 			if i.Score > randomValue {
 				if !selections.Contains(i.ID) {
 					selections.Add(i.ID)
-					finalIds = append(finalIds, i)
+					selectedImages = append(selectedImages, i)
 					break
 				}
 			}
 		}
 	}
 
-	return imageSignatures(finalIds)
+	return imageSignatures(selectedImages)
+}
+
+// sort random
+func imageSignaturesRandom(values []imageSignature, r ...*rand.Rand) *imageSignaturesRandomSorter {
+	if len(r) > 0 {
+		return &imageSignaturesRandomSorter{
+			values: values,
+			r:      r[0],
+		}
+	}
+	return &imageSignaturesRandomSorter{
+		values: values,
+		r:      rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+type imageSignaturesRandomSorter struct {
+	values []imageSignature
+	r      *rand.Rand
+}
+
+func (a imageSignaturesRandomSorter) Len() int {
+	return len(a.values)
+}
+
+func (a imageSignaturesRandomSorter) Swap(i, j int) {
+	a.values[i], a.values[j] = a.values[j], a.values[i]
+}
+
+func (a imageSignaturesRandomSorter) Less(i, j int) bool {
+	rv := a.r.Float64()
+	return rv > 0.5
 }
 
 // sort ascending
