@@ -369,9 +369,9 @@ func SearchImagesBestResult(query string, contentRating int, tx *sql.Tx) (*Image
 		}
 	}
 
-	bestImage := imageSignatures(imagesWithBestScore).WeightedRandom(1).AsInt64s()
+	bestImageID := imageSignatures(imagesWithBestScore).WeightedRandom(1).AsInt64s()
 
-	images, err := GetImagesByID(bestImage, tx)
+	images, err := GetImagesByID(bestImageID, tx)
 
 	if err != nil {
 		return nil, err
@@ -629,7 +629,7 @@ func (is imageSignatures) String() string {
 	return strings.Join(values, ", ")
 }
 
-func (is imageSignatures) WeightedRandom(count int) imageSignatures {
+func (is imageSignatures) WeightedRandom(count int, r ...*rand.Rand) imageSignatures {
 	if count >= len(is) {
 		return is
 	}
@@ -638,12 +638,18 @@ func (is imageSignatures) WeightedRandom(count int) imageSignatures {
 
 	// descending == highest scores first ...
 	sort.Sort(imageSignaturesScoreDescending(is))
-	r := rand.New(rand.NewSource(time.Now().Unix()))
 
-	selections := SetOfInt64{}
+	var randSource *rand.Rand
+	if len(r) > 0 {
+		randSource = r[0]
+	} else {
+		randSource = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
+
+	selections := core.SetOfInt64{}
 	var finalIds []imageSignature
 	for len(finalIds) < count {
-		randomValue := r.Float64() * total
+		randomValue := randSource.Float64() * total
 		for x := 0; x < len(is); x++ {
 			i := is[x]
 			if i.Score > randomValue {
@@ -688,33 +694,5 @@ func (isda imageSignaturesScoreDescending) Swap(i, j int) {
 }
 
 func (isda imageSignaturesScoreDescending) Less(i, j int) bool {
-	return isda[i].Score < isda[j].Score
-}
-
-// NewSetOfInt64 returns a new SetOfInt64
-func NewSetOfInt64(values []int64) SetOfInt64 {
-	set := SetOfInt64{}
-	for _, v := range values {
-		set.Add(v)
-	}
-	return set
-}
-
-// SetOfInt64 is a type alias for map[int]int
-type SetOfInt64 map[int64]bool
-
-// Add adds an element to the set, replaceing a previous value.
-func (is SetOfInt64) Add(i int64) {
-	is[i] = true
-}
-
-// Remove removes an element from the set.
-func (is SetOfInt64) Remove(i int64) {
-	delete(is, i)
-}
-
-// Contains returns if the element is in the set.
-func (is SetOfInt64) Contains(i int64) bool {
-	_, ok := is[i]
-	return ok
+	return isda[i].Score > isda[j].Score
 }

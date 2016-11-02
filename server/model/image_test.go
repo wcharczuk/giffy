@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"testing"
 
@@ -293,6 +294,42 @@ func TestSearchImagesBestResult(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(image)
 	assert.Equal(i.ID, image.ID)
+}
+
+func TestImageSignaturesWeightedRandom(t *testing.T) {
+	assert := assert.New(t)
+
+	r := rand.New(rand.NewSource(1))
+
+	sigs := imageSignatures([]imageSignature{
+		{1, 3.0},
+		{2, 3.0},
+		{3, 3.0},
+		{4, 2.0},
+		{5, 1.0},
+	})
+	best := sigs.WeightedRandom(1, r)
+	assert.Len(best, 1)
+	assert.True(best[0].ID == 1 || best[0].ID == 2, best.String())
+}
+
+func TestImageSignaturesSortScoreDescending(t *testing.T) {
+	assert := assert.New(t)
+
+	sigs := imageSignatures([]imageSignature{
+		{1, 1.0},
+		{2, 1.5},
+		{3, 2.0},
+		{4, 3.0},
+		{5, 5.0},
+	})
+
+	sort.Sort(imageSignaturesScoreDescending(sigs))
+	assert.Equal(5, sigs[0].ID)
+	assert.Equal(4, sigs[1].ID)
+	assert.Equal(3, sigs[2].ID)
+	assert.Equal(2, sigs[3].ID)
+	assert.Equal(1, sigs[4].ID)
 }
 
 func TestGetImagesByID(t *testing.T) {
