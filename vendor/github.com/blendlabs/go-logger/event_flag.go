@@ -37,12 +37,6 @@ const (
 	EventWebInternalError = EventFatalError
 )
 
-// EnvironmentVariables
-const (
-	// EnvironmentVariableLogEvents is the log verbosity environment variable.
-	EnvironmentVariableLogEvents = "LOG_EVENTS"
-)
-
 var (
 	// AllEventFlags is an array of all the event flags.
 	AllEventFlags = []EventFlag{

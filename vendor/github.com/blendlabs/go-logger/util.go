@@ -1,7 +1,9 @@
 package logger
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -9,18 +11,6 @@ import (
 	"strings"
 	"time"
 )
-
-// FormatFileSize returns a string representation of a file size in bytes.
-func FormatFileSize(sizeBytes int) string {
-	if sizeBytes >= 1<<30 {
-		return strconv.Itoa(sizeBytes/(1<<30)) + "gB"
-	} else if sizeBytes >= 1<<20 {
-		return strconv.Itoa(sizeBytes/(1<<20)) + "mB"
-	} else if sizeBytes >= 1<<10 {
-		return strconv.Itoa(sizeBytes/(1<<10)) + "kB"
-	}
-	return strconv.Itoa(sizeBytes) + "B"
-}
 
 // GetIP gets the origin/client ip for a request.
 // X-FORWARDED-FOR is checked. If multiple IPs are included the first one is returned
@@ -124,6 +114,30 @@ func envFlagIsSet(flagName string, defaultValue bool) bool {
 	return defaultValue
 }
 
+func envFlagInt(flagName string, defaultValue int) int {
+	flagValue := os.Getenv(flagName)
+	if len(flagValue) > 0 {
+		value, err := strconv.Atoi(flagValue)
+		if err != nil {
+			return defaultValue
+		}
+		return value
+	}
+	return defaultValue
+}
+
+func envFlagInt64(flagName string, defaultValue int64) int64 {
+	flagValue := os.Getenv(flagName)
+	if len(flagValue) > 0 {
+		value, err := strconv.ParseInt(flagValue, 10, 64)
+		if err != nil {
+			return defaultValue
+		}
+		return value
+	}
+	return defaultValue
+}
+
 var (
 	// LowerA is the ascii int value for 'a'
 	LowerA = uint('a')
@@ -211,4 +225,13 @@ func CaseInsensitiveEquals(a, b string) bool {
 	}
 
 	return true
+}
+
+// UUIDv4 returns a v4 uuid short string.
+func UUIDv4() string {
+	uuid := make([]byte, 16)
+	rand.Read(uuid)
+	uuid[6] = (uuid[6] & 0x0f) | 0x40 // set version 4
+	uuid[8] = (uuid[8] & 0x3f) | 0x80 // set variant 10
+	return fmt.Sprintf("%x", uuid[:])
 }

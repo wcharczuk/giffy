@@ -53,7 +53,7 @@ func WriteRequest(writer Logger, ts TimeSource, req *http.Request, statusCode, c
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(elapsed.String())
 	buffer.WriteRune(RuneSpace)
-	buffer.WriteString(FormatFileSize(contentLengthBytes))
+	buffer.WriteString(File.FormatSize(contentLengthBytes))
 
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }

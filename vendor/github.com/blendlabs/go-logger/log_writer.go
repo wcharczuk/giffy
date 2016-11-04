@@ -17,23 +17,11 @@ const (
 	DefaultTimeFormat = time.RFC3339
 )
 
-//env var names
-const (
-	// EnvironmentVariableUseAnsiColors is the env var that controls if we use ansi colors in output.
-	EnvironmentVariableUseAnsiColors = "LOG_USE_COLOR"
-	// EnvironmentVariableShowTimestamp is the env var that controls if we show timestamps in output.
-	EnvironmentVariableShowTimestamp = "LOG_SHOW_TIME"
-	// EnvironmentVariableShowLabel is the env var that controls if we show a descriptive label in output.
-	EnvironmentVariableShowLabel = "LOG_SHOW_LABEL"
-	// EnvironmentVariableLogLabel is the env var that sets the descriptive label in output.
-	EnvironmentVariableLogLabel = "LOG_LABEL"
-)
-
 // NewLogWriterFromEnvironment initializes a log writer from the environment.
 func NewLogWriterFromEnvironment() *LogWriter {
 	return &LogWriter{
-		Output:        NewSyncWriter(os.Stdout),
-		ErrorOutput:   NewSyncWriter(os.Stderr),
+		Output:        NewStdOutMultiWriterFromEnvironment(),
+		ErrorOutput:   NewStdErrMultiWriterFromEnvironment(),
 		useAnsiColors: envFlagIsSet(EnvironmentVariableUseAnsiColors, true),
 		showTimestamp: envFlagIsSet(EnvironmentVariableShowTimestamp, true),
 		showLabel:     envFlagIsSet(EnvironmentVariableShowLabel, true),
