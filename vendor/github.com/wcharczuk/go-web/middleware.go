@@ -11,7 +11,7 @@ func APIProviderAsDefault(action ControllerAction) ControllerAction {
 // ViewProviderAsDefault sets the context.CurrrentProvider() equal to context.View().
 func ViewProviderAsDefault(action ControllerAction) ControllerAction {
 	return func(context *RequestContext) ControllerResult {
-		context.SetDefaultResultProvider(context.API())
+		context.SetDefaultResultProvider(context.View())
 		return action(context)
 	}
 }

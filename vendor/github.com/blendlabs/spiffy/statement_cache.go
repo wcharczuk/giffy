@@ -40,10 +40,9 @@ func (sc *StatementCache) closeAll() error {
 // Clear deletes all cached statements.
 func (sc *StatementCache) Clear() error {
 	sc.cacheLock.Lock()
-	defer sc.cacheLock.Unlock()
-
 	err := sc.closeAll()
 	sc.cache = make(map[string]*sql.Stmt)
+	sc.cacheLock.Unlock()
 	return err
 }
 

@@ -89,6 +89,7 @@ func Init() *web.App {
 		}
 
 		if core.ConfigIsProduction() {
+			app.
 			ViewPaths = append(ViewPaths, "server/_views/header_prod.html")
 		} else {
 			ViewPaths = append(ViewPaths, "server/_views/header.html")

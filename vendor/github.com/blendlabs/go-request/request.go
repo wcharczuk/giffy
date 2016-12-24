@@ -21,14 +21,14 @@ import (
 )
 
 const (
-	// EventFlagOutgoing is a diagnostics agent event flag.
-	EventFlagOutgoing logger.EventFlag = "outgoing.request"
-	// EventFlagOutgoingResponse is a diagnostics agent event flag.
-	EventFlagOutgoingResponse logger.EventFlag = "outgoing.response"
+	// Event is a diagnostics agent event flag.
+	Event logger.EventFlag = "request"
+	// EventResponse is a diagnostics agent event flag.
+	EventResponse logger.EventFlag = "request.response"
 )
 
-// NewEventFlagOutgoingHandler creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewEventFlagOutgoingHandler(handler func(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta)) logger.EventListener {
+// NewOutgoingListener creates a new logger handler for `EventFlagOutgoingResponse` events.
+func NewOutgoingListener(handler func(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta)) logger.EventListener {
 	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		handler(writer, ts, state[0].(*HTTPRequestMeta))
 	}
@@ -38,14 +38,14 @@ func NewEventFlagOutgoingHandler(handler func(writer logger.Logger, ts logger.Ti
 func WriteOutgoingRequest(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(EventFlagOutgoing), logger.ColorGreen))
+	buffer.WriteString(writer.Colorize(string(Event), logger.ColorGreen))
 	buffer.WriteRune(logger.RuneSpace)
 	buffer.WriteString(fmt.Sprintf("%s %s", req.Verb, req.URL.String()))
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
 }
 
-// NewEventFlagOutgoingResponseHandler creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewEventFlagOutgoingResponseHandler(handler func(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta, res *HTTPResponseMeta, body []byte)) logger.EventListener {
+// NewOutgoingResponseListener creates a new logger handler for `EventFlagOutgoingResponse` events.
+func NewOutgoingResponseListener(handler func(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta, res *HTTPResponseMeta, body []byte)) logger.EventListener {
 	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		handler(writer, ts, state[0].(*HTTPRequestMeta), state[1].(*HTTPResponseMeta), state[2].([]byte))
 	}
@@ -55,7 +55,7 @@ func NewEventFlagOutgoingResponseHandler(handler func(writer logger.Logger, ts l
 func WriteOutgoingRequestResponse(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta, res *HTTPResponseMeta, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(EventFlagOutgoingResponse), logger.ColorGreen))
+	buffer.WriteString(writer.Colorize(string(EventResponse), logger.ColorGreen))
 	buffer.WriteRune(logger.RuneSpace)
 	buffer.WriteString(fmt.Sprintf("%s %s %s", writer.ColorizeByStatusCode(res.StatusCode, strconv.Itoa(res.StatusCode)), req.Verb, req.URL.String()))
 	buffer.WriteRune(logger.RuneNewline)
@@ -663,6 +663,31 @@ func (hr *HTTPRequest) ExecuteWithMeta() (*HTTPResponseMeta, error) {
 	return meta, nil
 }
 
+// FetchBytesWithMeta fetches the response as bytes with meta.
+func (hr *HTTPRequest) FetchBytesWithMeta() ([]byte, *HTTPResponseMeta, error) {
+	res, err := hr.FetchRawResponse()
+	resMeta := NewHTTPResponseMeta(res)
+	if err != nil {
+		return nil, resMeta, exception.Wrap(err)
+	}
+	defer res.Body.Close()
+
+	bytes, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		return nil, resMeta, exception.Wrap(readErr)
+	}
+
+	resMeta.ContentLength = int64(len(bytes))
+	hr.logResponse(resMeta, bytes, hr.state)
+	return bytes, resMeta, nil
+}
+
+// FetchBytes fetches the response as bytes.
+func (hr *HTTPRequest) FetchBytes() ([]byte, error) {
+	contents, _, err := hr.FetchBytesWithMeta()
+	return contents, err
+}
+
 // FetchString returns the body of the response as a string.
 func (hr *HTTPRequest) FetchString() (string, error) {
 	responseStr, _, err := hr.FetchStringWithMeta()
@@ -671,21 +696,8 @@ func (hr *HTTPRequest) FetchString() (string, error) {
 
 // FetchStringWithMeta returns the body of the response as a string in addition to the response metadata.
 func (hr *HTTPRequest) FetchStringWithMeta() (string, *HTTPResponseMeta, error) {
-	res, err := hr.FetchRawResponse()
-	resMeta := NewHTTPResponseMeta(res)
-	if err != nil {
-		return util.StringEmpty, resMeta, exception.Wrap(err)
-	}
-	defer res.Body.Close()
-
-	bytes, readErr := ioutil.ReadAll(res.Body)
-	if readErr != nil {
-		return util.StringEmpty, resMeta, exception.Wrap(readErr)
-	}
-
-	resMeta.ContentLength = int64(len(bytes))
-	hr.logResponse(resMeta, bytes, hr.state)
-	return string(bytes), resMeta, nil
+	contents, meta, err := hr.FetchBytesWithMeta()
+	return string(contents), meta, err
 }
 
 // FetchJSONToObject unmarshals the response as json to an object.
@@ -848,7 +860,7 @@ func (hr *HTTPRequest) logRequest() {
 	}
 
 	if hr.diagnostics != nil {
-		hr.diagnostics.OnEvent(EventFlagOutgoing, meta)
+		hr.diagnostics.OnEvent(Event, meta)
 	}
 }
 
@@ -861,7 +873,7 @@ func (hr *HTTPRequest) logResponse(resMeta *HTTPResponseMeta, responseBody []byt
 	}
 
 	if hr.diagnostics != nil {
-		hr.diagnostics.OnEvent(EventFlagOutgoingResponse, hr.AsRequestMeta(), resMeta, responseBody, state)
+		hr.diagnostics.OnEvent(EventResponse, hr.AsRequestMeta(), resMeta, responseBody, state)
 	}
 }
 

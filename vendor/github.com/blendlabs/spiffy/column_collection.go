@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -126,6 +127,15 @@ type ColumnCollection struct {
 	columns      []Column
 	lookup       map[string]*Column
 	columnPrefix string
+
+	serials        *ColumnCollection
+	notSerials     *ColumnCollection
+	readOnly       *ColumnCollection
+	notReadOnly    *ColumnCollection
+	primaryKeys    *ColumnCollection
+	notPrimaryKeys *ColumnCollection
+	writeColumns   *ColumnCollection
+	updateColumns  *ColumnCollection
 }
 
 // Len returns the number of columns.
@@ -171,10 +181,33 @@ func (cc ColumnCollection) CopyWithColumnPrefix(prefix string) *ColumnCollection
 	return newCC
 }
 
+// WriteColumns are non-serial, non-primary key, non-readonly columns.
+func (cc *ColumnCollection) WriteColumns() *ColumnCollection {
+	if cc.writeColumns != nil {
+		return cc.writeColumns
+	}
+
+	cc.writeColumns = cc.NotReadOnly().NotSerials().NotPrimaryKeys()
+	return cc.writeColumns
+}
+
+// UpdateColumns are non-readonly, non-serial columns.
+func (cc *ColumnCollection) UpdateColumns() *ColumnCollection {
+	if cc.updateColumns != nil {
+		return cc.updateColumns
+	}
+
+	cc.updateColumns = cc.NotReadOnly().NotPrimaryKeys().ConcatWith(cc.PrimaryKeys())
+	return cc.updateColumns
+}
+
 // PrimaryKeys are columns we use as where predicates and can't update.
-func (cc ColumnCollection) PrimaryKeys() *ColumnCollection {
+func (cc *ColumnCollection) PrimaryKeys() *ColumnCollection {
+	if cc.primaryKeys != nil {
+		return cc.primaryKeys
+	}
+
 	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
-	newCC.columnPrefix = cc.columnPrefix
 
 	for _, c := range cc.columns {
 		if c.IsPrimaryKey {
@@ -182,11 +215,16 @@ func (cc ColumnCollection) PrimaryKeys() *ColumnCollection {
 		}
 	}
 
-	return newCC
+	cc.primaryKeys = newCC
+	return cc.primaryKeys
 }
 
 // NotPrimaryKeys are columns we can update.
-func (cc ColumnCollection) NotPrimaryKeys() *ColumnCollection {
+func (cc *ColumnCollection) NotPrimaryKeys() *ColumnCollection {
+	if cc.notPrimaryKeys != nil {
+		return cc.notPrimaryKeys
+	}
+
 	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
 
 	for _, c := range cc.columns {
@@ -195,11 +233,16 @@ func (cc ColumnCollection) NotPrimaryKeys() *ColumnCollection {
 		}
 	}
 
-	return newCC
+	cc.notPrimaryKeys = newCC
+	return cc.notPrimaryKeys
 }
 
 // Serials are columns we have to return the id of.
-func (cc ColumnCollection) Serials() *ColumnCollection {
+func (cc *ColumnCollection) Serials() *ColumnCollection {
+	if cc.serials != nil {
+		return cc.serials
+	}
+
 	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
 
 	for _, c := range cc.columns {
@@ -208,11 +251,16 @@ func (cc ColumnCollection) Serials() *ColumnCollection {
 		}
 	}
 
-	return newCC
+	cc.serials = newCC
+	return cc.serials
 }
 
 // NotSerials are columns we don't have to return the id of.
-func (cc ColumnCollection) NotSerials() *ColumnCollection {
+func (cc *ColumnCollection) NotSerials() *ColumnCollection {
+	if cc.notSerials != nil {
+		return cc.notSerials
+	}
+
 	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
 
 	for _, c := range cc.columns {
@@ -220,12 +268,16 @@ func (cc ColumnCollection) NotSerials() *ColumnCollection {
 			newCC.Add(c)
 		}
 	}
-
-	return newCC
+	cc.notSerials = newCC
+	return cc.notSerials
 }
 
 // ReadOnly are columns that we don't have to insert upon Create().
-func (cc ColumnCollection) ReadOnly() *ColumnCollection {
+func (cc *ColumnCollection) ReadOnly() *ColumnCollection {
+	if cc.readOnly != nil {
+		return cc.readOnly
+	}
+
 	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
 
 	for _, c := range cc.columns {
@@ -234,11 +286,16 @@ func (cc ColumnCollection) ReadOnly() *ColumnCollection {
 		}
 	}
 
-	return newCC
+	cc.readOnly = newCC
+	return cc.readOnly
 }
 
 // NotReadOnly are columns that we have to insert upon Create().
-func (cc ColumnCollection) NotReadOnly() *ColumnCollection {
+func (cc *ColumnCollection) NotReadOnly() *ColumnCollection {
+	if cc.notReadOnly != nil {
+		return cc.notReadOnly
+	}
+
 	newCC := NewColumnCollectionWithPrefix(cc.columnPrefix)
 
 	for _, c := range cc.columns {
@@ -247,29 +304,31 @@ func (cc ColumnCollection) NotReadOnly() *ColumnCollection {
 		}
 	}
 
-	return newCC
+	cc.notReadOnly = newCC
+	return cc.notReadOnly
 }
 
 // ColumnNames returns the string names for all the columns in the collection.
 func (cc ColumnCollection) ColumnNames() []string {
-	var names []string
-	for _, c := range cc.columns {
+	names := make([]string, len(cc.columns))
+	for x := 0; x < len(cc.columns); x++ {
+		c := cc.columns[x]
 		if len(cc.columnPrefix) != 0 {
-			names = append(names, fmt.Sprintf("%s%s", cc.columnPrefix, c.ColumnName))
+			names[x] = fmt.Sprintf("%s%s", cc.columnPrefix, c.ColumnName)
 		} else {
-			names = append(names, c.ColumnName)
+			names[x] = c.ColumnName
 		}
 	}
 	return names
 }
 
 // Columns returns the colummns
-func (cc ColumnCollection) Columns() []Column {
+func (cc *ColumnCollection) Columns() []Column {
 	return cc.columns
 }
 
 // Lookup gets the column name lookup.
-func (cc ColumnCollection) Lookup() map[string]*Column {
+func (cc *ColumnCollection) Lookup() map[string]*Column {
 	if len(cc.columnPrefix) != 0 {
 		lookup := map[string]*Column{}
 		for key, value := range cc.lookup {
@@ -282,12 +341,13 @@ func (cc ColumnCollection) Lookup() map[string]*Column {
 
 // ColumnNamesFromAlias returns the string names for all the columns in the collection.
 func (cc ColumnCollection) ColumnNamesFromAlias(tableAlias string) []string {
-	var names []string
-	for _, c := range cc.columns {
+	names := make([]string, len(cc.columns))
+	for x := 0; x < len(cc.columns); x++ {
+		c := cc.columns[x]
 		if len(cc.columnPrefix) != 0 {
-			names = append(names, fmt.Sprintf("%s.%s as %s%s", tableAlias, c.ColumnName, cc.columnPrefix, c.ColumnName))
+			names[x] = fmt.Sprintf("%s.%s as %s%s", tableAlias, c.ColumnName, cc.columnPrefix, c.ColumnName)
 		} else {
-			names = append(names, fmt.Sprintf("%s.%s", tableAlias, c.ColumnName))
+			names[x] = fmt.Sprintf("%s.%s", tableAlias, c.ColumnName)
 		}
 	}
 	return names
@@ -297,15 +357,16 @@ func (cc ColumnCollection) ColumnNamesFromAlias(tableAlias string) []string {
 func (cc ColumnCollection) ColumnValues(instance interface{}) []interface{} {
 	value := reflectValue(instance)
 
-	var values []interface{}
-	for _, c := range cc.columns {
+	values := make([]interface{}, len(cc.columns))
+	for x := 0; x < len(cc.columns); x++ {
+		c := cc.columns[x]
 		valueField := value.FieldByName(c.FieldName)
 		if c.IsJSON {
 			toSerialize := valueField.Interface()
 			jsonBytes, _ := json.Marshal(toSerialize)
-			values = append(values, string(jsonBytes))
+			values[x] = string(jsonBytes)
 		} else {
-			values = append(values, valueField.Interface())
+			values[x] = valueField.Interface()
 		}
 	}
 	return values
@@ -314,16 +375,24 @@ func (cc ColumnCollection) ColumnValues(instance interface{}) []interface{} {
 // FirstOrDefault returns the first column in the collection or `nil` if the collection is empty.
 func (cc ColumnCollection) FirstOrDefault() *Column {
 	if len(cc.columns) > 0 {
-		col := cc.columns[0]
-		return &col
+		return &cc.columns[0]
 	}
 	return nil
 }
 
 // ConcatWith merges a collection with another collection.
 func (cc ColumnCollection) ConcatWith(other *ColumnCollection) *ColumnCollection {
-	var total []Column
-	total = append(total, cc.columns...)
-	total = append(total, other.columns...)
+	total := make([]Column, len(cc.columns)+len(other.columns))
+	var x int
+	for ; x < len(cc.columns); x++ {
+		total[x] = cc.columns[x]
+	}
+	for y := 0; y < len(other.columns); y++ {
+		total[x+y] = other.columns[y]
+	}
 	return NewColumnCollectionFromColumns(total)
+}
+
+func (cc ColumnCollection) String() string {
+	return strings.Join(cc.ColumnNames(), ", ")
 }

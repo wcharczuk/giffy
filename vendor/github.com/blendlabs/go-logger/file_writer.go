@@ -173,12 +173,13 @@ func (fw *FileWriter) compressFile(inFilePath, outFilePath string) error {
 }
 
 func (fw *FileWriter) extractArchivedFileIndex(filePath string) (int64, error) {
-	values := fw.isArchiveFileRegexp.FindStringSubmatch(filePath)
+	filePathBase := filepath.Base(filePath)
+	values := fw.isArchiveFileRegexp.FindStringSubmatch(filePathBase)
 	if len(values) > 1 {
 		value, err := strconv.ParseInt(values[1], 10, 32)
 		return value, exception.Wrap(err)
 	}
-	return 0, exception.Newf("Cannot extract file index from `%s`", filePath)
+	return 0, exception.Newf("Cannot extract file index from `%s`", filePathBase)
 }
 
 func (fw *FileWriter) isArchivedFile(filePath string) bool {

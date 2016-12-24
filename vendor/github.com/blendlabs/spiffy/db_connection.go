@@ -10,7 +10,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +25,13 @@ const (
 	DBAliasNilError = "DbConnection is nil; did you set up a DbAlias for your project?"
 )
 
+const (
+	runeComma   = rune(',')
+	runeNewline = rune('\n')
+	runeTab     = rune('\t')
+	runeSpace   = rune(' ')
+)
+
 // --------------------------------------------------------------------------------
 // DbConnection
 // --------------------------------------------------------------------------------
@@ -33,6 +39,7 @@ const (
 // NewDbConnection returns a new DbConnectin.
 func NewDbConnection() *DbConnection {
 	return &DbConnection{
+		bufferPool:             NewBufferPool(1024),
 		useStatementCache:      false, //doesnt actually help perf, maybe someday.
 		statementCacheInitLock: &sync.Mutex{},
 		connectionLock:         &sync.Mutex{},
@@ -132,6 +139,7 @@ type DbConnection struct {
 	// SSLMode is the sslmode for the connection.
 	SSLMode string
 
+	// Connection is the underlying sql driver connection for the DbConnection.
 	Connection *sql.DB
 
 	tx *sql.Tx
@@ -140,6 +148,7 @@ type DbConnection struct {
 	txLock                 *sync.RWMutex
 	statementCacheInitLock *sync.Mutex
 
+	bufferPool  *BufferPool
 	diagnostics *logger.DiagnosticsAgent
 
 	useStatementCache bool
@@ -472,9 +481,32 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 		return
 	}
 
-	queryBody = fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(columnNames, ","), tableName, makeWhereClause(pks, 1))
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
 
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	queryBodyBuffer.WriteString("SELECT ")
+	for i, name := range columnNames {
+		queryBodyBuffer.WriteString(name)
+		if i < (len(columnNames) - 1) {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+
+	queryBodyBuffer.WriteString(" FROM ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" WHERE ")
+
+	for i, pk := range pks.Columns() {
+		queryBodyBuffer.WriteString(pk.ColumnName)
+		queryBodyBuffer.WriteString(" = ")
+		queryBodyBuffer.WriteString("$" + strconv.Itoa(i+1))
+
+		if i < (pks.Len() - 1) {
+			queryBodyBuffer.WriteString(" AND ")
+		}
+	}
+
+	stmt, stmtErr := dbc.Prepare(queryBodyBuffer.String(), tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -545,9 +577,21 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 	meta := CachedColumnCollectionFromType(tableName, t).NotReadOnly()
 
 	columnNames := meta.ColumnNames()
-	queryBody = fmt.Sprintf("SELECT %s FROM %s", strings.Join(columnNames, ","), tableName)
 
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
+
+	queryBodyBuffer.WriteString("SELECT ")
+	for i, name := range columnNames {
+		queryBodyBuffer.WriteString(name)
+		if i < (len(columnNames) - 1) {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+	queryBodyBuffer.WriteString(" FROM ")
+	queryBodyBuffer.WriteString(tableName)
+
+	stmt, stmtErr := dbc.Prepare(queryBodyBuffer.String(), tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -629,26 +673,35 @@ func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	tableName := object.TableName()
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
-	tokens := ParamTokensCSV(writeCols.Len())
 
-	if serials.Len() == 0 {
-		queryBody = fmt.Sprintf(
-			"INSERT INTO %s (%s) VALUES (%s)",
-			tableName,
-			strings.Join(colNames, ","),
-			tokens,
-		)
-	} else {
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
+
+	queryBodyBuffer.WriteString("INSERT INTO ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" (")
+	for i, name := range colNames {
+		queryBodyBuffer.WriteString(name)
+		if i < len(colNames)-1 {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+	queryBodyBuffer.WriteString(") VALUES (")
+	for x := 0; x < writeCols.Len(); x++ {
+		queryBodyBuffer.WriteString("$" + strconv.Itoa(x+1))
+		if x < (writeCols.Len() - 1) {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+	queryBodyBuffer.WriteString(")")
+
+	if serials.Len() > 0 {
 		serial := serials.FirstOrDefault()
-		queryBody = fmt.Sprintf(
-			"INSERT INTO %s (%s) VALUES (%s) RETURNING %s",
-			tableName,
-			strings.Join(colNames, ","),
-			tokens,
-			serial.ColumnName,
-		)
+		queryBodyBuffer.WriteString(" RETURNING ")
+		queryBodyBuffer.WriteString(serial.ColumnName)
 	}
 
+	queryBody = queryBodyBuffer.String()
 	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
@@ -685,6 +738,215 @@ func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	return nil
 }
 
+// CreateIfNotExists writes an object to the database if it does not already exist.
+func (dbc *DbConnection) CreateIfNotExists(object DatabaseMapped) error {
+	return dbc.CreateIfNotExistsInTx(object, nil)
+}
+
+// CreateIfNotExistsInTx writes an object to the database if it does not already exist within a transaction.
+func (dbc *DbConnection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
+	var queryBody string
+	start := time.Now()
+	defer func() {
+		if r := recover(); r != nil {
+			recoveryException := exception.New(r)
+			err = exception.WrapMany(err, recoveryException)
+		}
+		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
+	}()
+
+	if dbc == nil {
+		return exception.New(DBAliasNilError)
+	}
+
+	dbc.transactionLock()
+	defer dbc.transactionUnlock()
+
+	cols := CachedColumnCollectionFromInstance(object)
+	writeCols := cols.NotReadOnly().NotSerials()
+
+	//NOTE: we're only using one.
+	serials := cols.Serials()
+	pks := cols.PrimaryKeys()
+	tableName := object.TableName()
+	colNames := writeCols.ColumnNames()
+	colValues := writeCols.ColumnValues(object)
+
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
+
+	queryBodyBuffer.WriteString("INSERT INTO ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" (")
+	for i, name := range colNames {
+		queryBodyBuffer.WriteString(name)
+		if i < len(colNames)-1 {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+	queryBodyBuffer.WriteString(") VALUES (")
+	for x := 0; x < writeCols.Len(); x++ {
+		queryBodyBuffer.WriteString("$" + strconv.Itoa(x+1))
+		if x < (writeCols.Len() - 1) {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+	queryBodyBuffer.WriteString(")")
+
+	if pks.Len() > 0 {
+		queryBodyBuffer.WriteString(" ON CONFLICT (")
+		pkColumnNames := pks.ColumnNames()
+		for i, name := range pkColumnNames {
+			queryBodyBuffer.WriteString(name)
+			if i < len(pkColumnNames)-1 {
+				queryBodyBuffer.WriteRune(runeComma)
+			}
+		}
+		queryBodyBuffer.WriteString(") DO NOTHING")
+	}
+
+	if serials.Len() > 0 {
+		serial := serials.FirstOrDefault()
+		queryBodyBuffer.WriteString(" RETURNING ")
+		queryBodyBuffer.WriteString(serial.ColumnName)
+	}
+
+	queryBody = queryBodyBuffer.String()
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	if stmtErr != nil {
+		err = exception.Wrap(stmtErr)
+		return
+	}
+	defer func() {
+		if !dbc.useStatementCache {
+			err = exception.WrapMany(err, stmt.Close())
+		}
+	}()
+
+	if serials.Len() == 0 {
+		_, execErr := stmt.Exec(colValues...)
+		if execErr != nil {
+			err = exception.Wrap(execErr)
+			return
+		}
+	} else {
+		serial := serials.FirstOrDefault()
+
+		var id interface{}
+		execErr := stmt.QueryRow(colValues...).Scan(&id)
+		if execErr != nil {
+			err = exception.Wrap(execErr)
+			return
+		}
+		setErr := serial.SetValue(object, id)
+		if setErr != nil {
+			err = exception.Wrap(setErr)
+			return
+		}
+	}
+
+	return nil
+}
+
+// CreateMany writes many an objects to the database.
+func (dbc *DbConnection) CreateMany(objects interface{}) error {
+	return dbc.CreateManyInTx(objects, nil)
+}
+
+// CreateManyInTx writes many an objects to the database within a transaction.
+func (dbc *DbConnection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err error) {
+	var queryBody string
+	start := time.Now()
+	defer func() {
+		if r := recover(); r != nil {
+			recoveryException := exception.New(r)
+			err = exception.WrapMany(err, recoveryException)
+		}
+		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
+	}()
+
+	if dbc == nil {
+		return exception.New(DBAliasNilError)
+	}
+
+	dbc.transactionLock()
+	defer dbc.transactionUnlock()
+
+	sliceValue := reflectValue(objects)
+	if sliceValue.Len() == 0 {
+		return nil
+	}
+
+	sliceType := reflectSliceType(objects)
+	tableName, err := TableName(sliceType)
+	if err != nil {
+		return
+	}
+
+	cols := CachedColumnCollectionFromType(tableName, sliceType)
+	writeCols := cols.NotReadOnly().NotSerials()
+
+	//NOTE: we're only using one.
+	//serials := cols.Serials()
+	colNames := writeCols.ColumnNames()
+
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
+
+	queryBodyBuffer.WriteString("INSERT INTO ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" (")
+	for i, name := range colNames {
+		queryBodyBuffer.WriteString(name)
+		if i < len(colNames)-1 {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+
+	queryBodyBuffer.WriteString(") VALUES ")
+
+	metaIndex := 1
+	for x := 0; x < sliceValue.Len(); x++ {
+		queryBodyBuffer.WriteString("(")
+		for y := 0; y < writeCols.Len(); y++ {
+			queryBodyBuffer.WriteString(fmt.Sprintf("$%d", metaIndex))
+			metaIndex = metaIndex + 1
+			if y < writeCols.Len()-1 {
+				queryBodyBuffer.WriteRune(runeComma)
+			}
+		}
+		queryBodyBuffer.WriteString(")")
+		if x < sliceValue.Len()-1 {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+
+	queryBody = queryBodyBuffer.String()
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	if stmtErr != nil {
+		err = exception.Wrap(stmtErr)
+		return
+	}
+	defer func() {
+		if !dbc.useStatementCache {
+			err = exception.WrapMany(err, stmt.Close())
+		}
+	}()
+
+	var colValues []interface{}
+	for row := 0; row < sliceValue.Len(); row++ {
+		colValues = append(colValues, writeCols.ColumnValues(sliceValue.Index(row).Interface())...)
+	}
+
+	_, execErr := stmt.Exec(colValues...)
+	if execErr != nil {
+		err = exception.Wrap(execErr)
+		return
+	}
+
+	return nil
+}
+
 // Update updates an object.
 func (dbc *DbConnection) Update(object DatabaseMapped) error {
 	return dbc.UpdateInTx(object, nil)
@@ -711,35 +973,55 @@ func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 
 	tableName := object.TableName()
 	cols := CachedColumnCollectionFromInstance(object)
-	writeCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
+	writeCols := cols.WriteColumns()
 	pks := cols.PrimaryKeys()
-	allCols := writeCols.ConcatWith(pks)
-	totalValues := allCols.ColumnValues(object)
+	updateCols := cols.UpdateColumns()
+	updateValues := updateCols.ColumnValues(object)
 	numColumns := writeCols.Len()
 
-	queryBody = "UPDATE " + tableName + " SET "
-	for i, col := range writeCols.Columns() {
-		queryBody = queryBody + col.ColumnName + " = $" + strconv.Itoa(i+1)
-		if i != numColumns-1 {
-			queryBody = queryBody + ","
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
+
+	queryBodyBuffer.WriteString("UPDATE ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" SET ")
+
+	var writeColIndex int
+	var col Column
+	for ; writeColIndex < writeCols.Len(); writeColIndex++ {
+		col = writeCols.columns[writeColIndex]
+		queryBodyBuffer.WriteString(col.ColumnName)
+		queryBodyBuffer.WriteString(" = $" + strconv.Itoa(writeColIndex+1))
+		if writeColIndex != numColumns-1 {
+			queryBodyBuffer.WriteRune(runeComma)
 		}
 	}
 
-	whereClause := makeWhereClause(pks, numColumns+1)
-	queryBody = queryBody + whereClause
+	queryBodyBuffer.WriteString(" WHERE ")
+	for i, pk := range pks.Columns() {
+		queryBodyBuffer.WriteString(pk.ColumnName)
+		queryBodyBuffer.WriteString(" = ")
+		queryBodyBuffer.WriteString("$" + strconv.Itoa(i+(writeColIndex+1)))
 
+		if i < (pks.Len() - 1) {
+			queryBodyBuffer.WriteString(" AND ")
+		}
+	}
+
+	queryBody = queryBodyBuffer.String()
 	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
+
 	defer func() {
 		if !dbc.useStatementCache {
 			err = exception.WrapMany(err, stmt.Close())
 		}
 	}()
 
-	_, execErr := stmt.Exec(totalValues...)
+	_, execErr := stmt.Exec(updateValues...)
 	if execErr != nil {
 		err = exception.Wrap(execErr)
 		return
@@ -781,8 +1063,25 @@ func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists b
 		err = exception.New("No primary key on object.")
 		return
 	}
-	whereClause := makeWhereClause(pks, 1)
-	queryBody = fmt.Sprintf("SELECT 1 FROM %s %s", tableName, whereClause)
+
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
+
+	queryBodyBuffer.WriteString("SELECT 1 FROM ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" WHERE ")
+
+	for i, pk := range pks.Columns() {
+		queryBodyBuffer.WriteString(pk.ColumnName)
+		queryBodyBuffer.WriteString(" = ")
+		queryBodyBuffer.WriteString("$" + strconv.Itoa(i+1))
+
+		if i < (pks.Len() - 1) {
+			queryBodyBuffer.WriteString(" AND ")
+		}
+	}
+
+	queryBody = queryBodyBuffer.String()
 	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		exists = false
@@ -847,9 +1146,24 @@ func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		return
 	}
 
-	whereClause := makeWhereClause(pks, 1)
-	queryBody = fmt.Sprintf("DELETE FROM %s %s", tableName, whereClause)
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
 
+	queryBodyBuffer.WriteString("DELETE FROM ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" WHERE ")
+
+	for i, pk := range pks.Columns() {
+		queryBodyBuffer.WriteString(pk.ColumnName)
+		queryBodyBuffer.WriteString(" = ")
+		queryBodyBuffer.WriteString("$" + strconv.Itoa(i+1))
+
+		if i < (pks.Len() - 1) {
+			queryBodyBuffer.WriteString(" AND ")
+		}
+	}
+
+	queryBody = queryBodyBuffer.String()
 	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
@@ -868,6 +1182,131 @@ func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		err = exception.Wrap(execErr)
 	}
 	return
+}
+
+// Upsert inserts the object if it doesn't exist already (as defined by its primary keys) or updates it.
+func (dbc *DbConnection) Upsert(object DatabaseMapped) error {
+	return dbc.UpsertInTx(object, nil)
+}
+
+// UpsertInTx inserts the object if it doesn't exist already (as defined by its primary keys) or updates it wrapped in a transaction.
+func (dbc *DbConnection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
+	var queryBody string
+	start := time.Now()
+	defer func() {
+		if r := recover(); r != nil {
+			recoveryException := exception.New(r)
+			err = exception.WrapMany(err, recoveryException)
+		}
+		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
+	}()
+
+	if dbc == nil {
+		err = exception.New(DBAliasNilError)
+		return
+	}
+
+	dbc.transactionLock()
+	defer dbc.transactionUnlock()
+
+	cols := CachedColumnCollectionFromInstance(object)
+	writeCols := cols.NotReadOnly().NotSerials()
+
+	conflictUpdateCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
+
+	serials := cols.Serials()
+	pks := cols.PrimaryKeys()
+	tableName := object.TableName()
+	colNames := writeCols.ColumnNames()
+	colValues := writeCols.ColumnValues(object)
+
+	queryBodyBuffer := dbc.bufferPool.Get()
+	defer dbc.bufferPool.Put(queryBodyBuffer)
+
+	queryBodyBuffer.WriteString("INSERT INTO ")
+	queryBodyBuffer.WriteString(tableName)
+	queryBodyBuffer.WriteString(" (")
+	for i, name := range colNames {
+		queryBodyBuffer.WriteString(name)
+		if i < len(colNames)-1 {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+	queryBodyBuffer.WriteString(") VALUES (")
+
+	for x := 0; x < writeCols.Len(); x++ {
+		queryBodyBuffer.WriteString("$" + strconv.Itoa(x+1))
+		if x < (writeCols.Len() - 1) {
+			queryBodyBuffer.WriteRune(runeComma)
+		}
+	}
+
+	queryBodyBuffer.WriteString(")")
+
+	if pks.Len() > 0 {
+		tokenMap := map[string]string{}
+		for i, col := range writeCols.Columns() {
+			tokenMap[col.ColumnName] = "$" + strconv.Itoa(i+1)
+		}
+
+		queryBodyBuffer.WriteString(" ON CONFLICT (")
+		pkColumnNames := pks.ColumnNames()
+		for i, name := range pkColumnNames {
+			queryBodyBuffer.WriteString(name)
+			if i < len(pkColumnNames)-1 {
+				queryBodyBuffer.WriteRune(runeComma)
+			}
+		}
+		queryBodyBuffer.WriteString(") DO UPDATE SET ")
+
+		conflictCols := conflictUpdateCols.Columns()
+		for i, col := range conflictCols {
+			queryBodyBuffer.WriteString(col.ColumnName + " = " + tokenMap[col.ColumnName])
+			if i < (len(conflictCols) - 1) {
+				queryBodyBuffer.WriteRune(runeComma)
+			}
+		}
+	}
+
+	var serial = serials.FirstOrDefault()
+	if serials.Len() != 0 {
+		queryBodyBuffer.WriteString(" RETURNING ")
+		queryBodyBuffer.WriteString(serial.ColumnName)
+	}
+
+	queryBody = queryBodyBuffer.String()
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	if stmtErr != nil {
+		err = exception.Wrap(stmtErr)
+		return
+	}
+	defer func() {
+		if !dbc.useStatementCache {
+			err = exception.WrapMany(err, stmt.Close())
+		}
+	}()
+
+	if serials.Len() != 0 {
+		var id interface{}
+		execErr := stmt.QueryRow(colValues...).Scan(&id)
+		if execErr != nil {
+			err = exception.Wrap(execErr)
+			return
+		}
+		setErr := serial.SetValue(object, id)
+		if setErr != nil {
+			err = exception.Wrap(setErr)
+			return
+		}
+	} else {
+		_, execErr := stmt.Exec(colValues...)
+		if execErr != nil {
+			err = exception.Wrap(execErr)
+			return
+		}
+	}
+
+	return nil
 }
 
 // IsolateToTransaction causes all commands on the given connection to use a transaction.

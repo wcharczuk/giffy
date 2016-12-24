@@ -20,6 +20,9 @@ const (
 	//ConnectionKeepAlive is the keep-alive connection header value.
 	ConnectionKeepAlive = "keep-alive"
 
+	// ContentTypeHTML is a content type.
+	ContentTypeHTML = "text/html; charset=utf-8"
+
 	//ContentTypeJSON is the standard json content type.
 	ContentTypeJSON = "application/json; charset=utf-8"
 )

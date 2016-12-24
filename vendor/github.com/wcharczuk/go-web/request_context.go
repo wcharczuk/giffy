@@ -60,6 +60,7 @@ type RequestContext struct {
 	app                   *App
 	diagnostics           *logger.DiagnosticsAgent
 	config                interface{}
+	auth                  *SessionManager
 	tx                    *sql.Tx
 	state                 State
 	routeParameters       RouteParameters
@@ -79,6 +80,19 @@ func (rc *RequestContext) isolateTo(tx *sql.Tx) *RequestContext {
 // Tx returns the transaction a request context may or may not be isolated to.
 func (rc *RequestContext) Tx() *sql.Tx {
 	return rc.tx
+}
+
+// Auth returns the SessionManager for the request.
+func (rc *RequestContext) Auth() *SessionManager {
+	return rc.auth
+}
+
+// Session returns the session (if any) on the request.
+func (rc *RequestContext) Session() *Session {
+	if rc.auth != nil {
+		return rc.auth.GetSession(rc)
+	}
+	return nil
 }
 
 // TxBegin either returns the existing (testing) transaction on the request, or calls the provider.
@@ -108,7 +122,7 @@ func (rc *RequestContext) TxRollback(rollbacker func() error) error {
 // API returns the API result provider.
 func (rc *RequestContext) API() *APIResultProvider {
 	if rc.api == nil {
-		rc.api = NewAPIResultProvider(rc.app, rc)
+		rc.api = NewAPIResultProvider(rc.diagnostics, rc)
 	}
 	return rc.api
 }
@@ -116,7 +130,7 @@ func (rc *RequestContext) API() *APIResultProvider {
 // View returns the view result provider.
 func (rc *RequestContext) View() *ViewResultProvider {
 	if rc.view == nil {
-		rc.view = NewViewResultProvider(rc.app, rc)
+		rc.view = NewViewResultProvider(rc.app.diagnostics, rc.app.viewCache, rc)
 	}
 	return rc.view
 }
@@ -404,7 +418,11 @@ func (rc *RequestContext) SetCookie(name string, value string, expires *time.Tim
 	c := http.Cookie{}
 	c.Name = name
 	c.HttpOnly = true
-	c.Domain = rc.Request.Host
+	if rc.app != nil && len(rc.app.domain) > 0 {
+		c.Domain = rc.app.domain
+	} else {
+		c.Domain = rc.Request.Host
+	}
 	c.Value = value
 	c.Path = path
 	if expires != nil {
@@ -489,6 +507,21 @@ func (rc *RequestContext) Redirect(path string) *RedirectResult {
 	}
 }
 
+// Redirectf returns a redirect result.
+func (rc *RequestContext) Redirectf(format string, args ...interface{}) *RedirectResult {
+	return &RedirectResult{
+		RedirectURI: fmt.Sprintf(format, args...),
+	}
+}
+
+// RedirectWithMethodf returns a redirect result with a given method.
+func (rc *RequestContext) RedirectWithMethodf(method, format string, args ...interface{}) *RedirectResult {
+	return &RedirectResult{
+		Method:      method,
+		RedirectURI: fmt.Sprintf(format, args...),
+	}
+}
+
 // --------------------------------------------------------------------------------
 // Stats Methods used for logging.
 // --------------------------------------------------------------------------------
@@ -518,6 +551,11 @@ func (rc *RequestContext) onRequestStart() {
 	rc.requestStart = time.Now().UTC()
 }
 
+// Start returns the request start time.
+func (rc RequestContext) Start() time.Time {
+	return rc.requestStart
+}
+
 // OnRequestEnd will mark the end of request timing.
 func (rc *RequestContext) onRequestEnd() {
 	rc.requestEnd = time.Now().UTC()
@@ -525,5 +563,8 @@ func (rc *RequestContext) onRequestEnd() {
 
 // Elapsed is the time delta between start and end.
 func (rc *RequestContext) Elapsed() time.Duration {
-	return rc.requestEnd.Sub(rc.requestStart)
+	if !rc.requestEnd.IsZero() {
+		return rc.requestEnd.Sub(rc.requestStart)
+	}
+	return time.Now().UTC().Sub(rc.requestStart)
 }

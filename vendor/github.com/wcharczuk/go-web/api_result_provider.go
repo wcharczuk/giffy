@@ -4,16 +4,17 @@ import (
 	"net/http"
 
 	"github.com/blendlabs/go-exception"
+	logger "github.com/blendlabs/go-logger"
 )
 
 // NewAPIResultProvider Creates a new JSONResults object.
-func NewAPIResultProvider(app *App, r *RequestContext) *APIResultProvider {
-	return &APIResultProvider{app: app, requestContext: r}
+func NewAPIResultProvider(diag *logger.DiagnosticsAgent, r *RequestContext) *APIResultProvider {
+	return &APIResultProvider{diagnostics: diag, requestContext: r}
 }
 
 // APIResultProvider are context results for api methods.
 type APIResultProvider struct {
-	app            *App
+	diagnostics    *logger.DiagnosticsAgent
 	requestContext *RequestContext
 }
 
@@ -45,8 +46,12 @@ func (ar *APIResultProvider) NotAuthorized() ControllerResult {
 
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) ControllerResult {
-	if ar.app != nil {
-		ar.app.diagnostics.Error(err)
+	if ar.diagnostics != nil {
+		if ar.requestContext != nil {
+			ar.diagnostics.FatalWithReq(err, ar.requestContext.Request)
+		} else {
+			ar.diagnostics.FatalWithReq(err, nil)
+		}
 	}
 
 	if exPtr, isException := err.(*exception.Exception); isException {

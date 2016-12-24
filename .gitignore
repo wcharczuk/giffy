@@ -3,4 +3,5 @@ node_modules/*
 _client/bower/*
 _config/*
 debug
-
+.idea/**
+.idea

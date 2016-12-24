@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
-
-	"github.com/blendlabs/go-exception"
 )
 
 const (
@@ -28,7 +26,7 @@ func Default() *Queue {
 		_defaultLock.Lock()
 		defer _defaultLock.Unlock()
 		if _default == nil {
-			_default = NewQueue()
+			_default = New()
 		}
 	}
 	return _default
@@ -37,42 +35,44 @@ func Default() *Queue {
 // Action is an action that can be dispatched by the process queue.
 type Action func(args ...interface{}) error
 
-// NewQueue returns a new work queue.
-func NewQueue() *Queue {
-	return &Queue{numWorkers: runtime.NumCPU(), maxRetries: DefaultMaxRetries, maxWorkItems: DefaultMaxWorkItems}
+// New returns a new work queue.
+func New() *Queue {
+	return &Queue{
+		numWorkers:   runtime.NumCPU(),
+		maxRetries:   DefaultMaxRetries,
+		maxWorkItems: DefaultMaxWorkItems,
+	}
 }
 
-// NewQueueWithWorkers returns a new work queue with a given number of workers.
-func NewQueueWithWorkers(numWorkers int) *Queue {
-	return &Queue{numWorkers: numWorkers, maxRetries: DefaultMaxRetries, maxWorkItems: DefaultMaxWorkItems}
+// NewWithWorkers returns a new work queue with a given number of workers.
+func NewWithWorkers(numWorkers int) *Queue {
+	return &Queue{
+		numWorkers:   numWorkers,
+		maxRetries:   DefaultMaxRetries,
+		maxWorkItems: DefaultMaxWorkItems,
+	}
 }
 
-// NewQueueWithRetryCount returns a new work queue with a custom retry count.
-func NewQueueWithRetryCount(retryCount int) *Queue {
-	return &Queue{maxRetries: retryCount, maxWorkItems: DefaultMaxWorkItems}
-}
-
-// NewQueueWithMaxWorkItems returns a queue with a given maximum work queue length.
-func NewQueueWithMaxWorkItems(workItems int) *Queue {
-	return &Queue{numWorkers: runtime.NumCPU(), maxRetries: DefaultMaxRetries, maxWorkItems: workItems}
-}
-
-// NewQueueWithOptions returns a new queue with customizable options.
-func NewQueueWithOptions(numWorkers, retryCount, maxWorkItems int) *Queue {
-	return &Queue{numWorkers: numWorkers, maxRetries: retryCount, maxWorkItems: maxWorkItems}
+// NewWithOptions returns a new queue with customizable options.
+func NewWithOptions(numWorkers, retryCount, maxWorkItems int) *Queue {
+	return &Queue{
+		numWorkers:   numWorkers,
+		maxRetries:   retryCount,
+		maxWorkItems: maxWorkItems,
+	}
 }
 
 // Queue is the container for work items, it dispatches work to the workers.
 type Queue struct {
-	synchronousDispatch bool
-	numWorkers          int
-	maxRetries          int
-	maxWorkItems        int
+	numWorkers   int
+	maxRetries   int
+	maxWorkItems int
 
 	running bool
 
-	actionQueue chan Entry
+	actionQueue chan *Entry
 
+	entryPool   sync.Pool
 	workers     []*Worker
 	abortSignal chan bool
 }
@@ -84,46 +84,25 @@ func (q *Queue) Start() {
 	}
 
 	q.workers = make([]*Worker, q.numWorkers)
-	q.actionQueue = make(chan Entry, q.maxWorkItems)
+	q.actionQueue = make(chan *Entry, q.maxWorkItems)
 	q.abortSignal = make(chan bool)
+	q.entryPool = sync.Pool{
+		New: func() interface{} {
+			return &Entry{}
+		},
+	}
 	q.running = true
 
 	for id := 0; id < q.numWorkers; id++ {
 		q.newWorker(id)
 	}
 
-	q.dispatch()
-}
-
-// SetMaxWorkItems sets the max work items.
-// Note: It MUST be called before .Start().
-func (q *Queue) SetMaxWorkItems(workItems int) {
-	q.maxWorkItems = workItems
-	q.actionQueue = make(chan Entry, q.maxWorkItems)
-}
-
-// UseSynchronousDispatch sets the dispatcher to queue items synchronously (i.e. deterministically in order).
-func (q *Queue) UseSynchronousDispatch() {
-	q.synchronousDispatch = true
-}
-
-// UseAsyncDispatch sets the dispatcher to queue items asynchronously.
-func (q *Queue) UseAsyncDispatch() {
-	q.synchronousDispatch = false
-}
-
-// IsDispatchSynchronous returns if the queue is using SynchronousDispatch or not.
-func (q *Queue) IsDispatchSynchronous() bool {
-	return q.synchronousDispatch
+	go dispatch(q.workers, q.actionQueue, q.abortSignal)
 }
 
 // Len returns the number of items in the work queue.
 func (q *Queue) Len() int {
-	total := len(q.actionQueue)
-	for _, w := range q.workers {
-		total += len(w.WorkItems)
-	}
-	return total
+	return len(q.actionQueue)
 }
 
 // NumWorkers returns the number of worker routines.
@@ -131,14 +110,37 @@ func (q *Queue) NumWorkers() int {
 	return q.numWorkers
 }
 
+// SetNumWorkers lets you set the num workers.
+func (q *Queue) SetNumWorkers(workers int) {
+	q.numWorkers = workers
+	if q.running {
+		q.Close()
+		q.Start()
+	}
+}
+
 // MaxWorkItems returns the maximum length of the work item queue.
 func (q *Queue) MaxWorkItems() int {
 	return q.maxWorkItems
 }
 
+// SetMaxWorkItems sets the max work items.
+func (q *Queue) SetMaxWorkItems(workItems int) {
+	q.maxWorkItems = workItems
+	if q.running {
+		q.Close()
+		q.Start()
+	}
+}
+
 // MaxRetries returns the maximum number of retries.
 func (q *Queue) MaxRetries() int {
 	return q.maxRetries
+}
+
+// SetMaxRetries sets the maximum nummer of retries for a work item on error.
+func (q *Queue) SetMaxRetries(maxRetries int) {
+	q.maxRetries = maxRetries
 }
 
 // Running returns if the queue has started or not.
@@ -147,25 +149,34 @@ func (q *Queue) Running() bool {
 }
 
 // Enqueue adds a work item to the process queue.
-func (q *Queue) Enqueue(action Action, args ...interface{}) error {
-	if q.actionQueue == nil {
-		return exception.New("Work Queue has not been initialized; make sure to call `Start(...)` first.")
+func (q *Queue) Enqueue(action Action, args ...interface{}) {
+	if !q.running {
+		return
 	}
-	q.actionQueue <- Entry{Action: action, Args: args}
-	return nil
+	entry := q.entryPool.Get().(*Entry)
+	entry.Action = action
+	entry.Args = args
+	entry.Tries = 0
+	q.actionQueue <- entry
 }
 
-// Drain drains the queue and stops the workers.
-func (q *Queue) Drain() error {
+// Close drains the queue and stops the workers.
+func (q *Queue) Close() error {
 	if !q.running {
-		return fmt.Errorf("Work Queue is not running, cannot draing.")
+		return nil
 	}
 
+	var err error
 	for x := 0; x < len(q.workers); x++ {
-		q.workers[x].Stop()
+		err = q.workers[x].Close()
+		if err != nil {
+			return err
+		}
 	}
 	q.abortSignal <- true
+	close(q.abortSignal)
 	q.workers = nil
+	close(q.actionQueue)
 	q.actionQueue = nil
 	q.running = false
 	return nil
@@ -176,7 +187,7 @@ func (q *Queue) String() string {
 	b := bytes.NewBuffer([]byte{})
 	b.WriteString(fmt.Sprintf("WorkQueue [%d]", q.Len()))
 	if q.Len() > 0 {
-		q.VisitEach(func(e Entry) {
+		q.Each(func(e *Entry) {
 			b.WriteString(" ")
 			b.WriteString(e.String())
 		})
@@ -184,11 +195,10 @@ func (q *Queue) String() string {
 	return b.String()
 }
 
-// VisitEach runs the consumer for each item in the queue.
-// Useful for printing the actions in the queue.
-func (q *Queue) VisitEach(visitor func(entry Entry)) {
+// Each runs the consumer for each item in the queue.
+func (q *Queue) Each(visitor func(entry *Entry)) {
 	queueLength := len(q.actionQueue)
-	var entry Entry
+	var entry *Entry
 	for x := 0; x < queueLength; x++ {
 		entry = <-q.actionQueue
 		visitor(entry)
@@ -201,27 +211,25 @@ func (q *Queue) newWorker(id int) {
 	q.workers[id].Start()
 }
 
-func (q *Queue) dispatch() {
-	go func() {
-		var workerIndex int
-		for {
-			select {
-			case workItem := <-q.actionQueue:
-				if q.synchronousDispatch {
-					q.workers[workerIndex].WorkItems <- workItem
-				} else {
-					go func(worker int) { q.workers[worker].WorkItems <- workItem }(workerIndex)
-				}
-			case <-q.abortSignal:
-				return
+func dispatch(workers []*Worker, work chan *Entry, abort chan bool) {
+	var workItem *Entry
+	var workerIndex int
+	numWorkers := len(workers)
+	for {
+		select {
+		case workItem = <-work:
+			if workItem == nil {
+				continue
 			}
-
-			if q.numWorkers > 1 {
+			workers[workerIndex].Work <- workItem
+			if numWorkers > 1 {
 				workerIndex++
-				if workerIndex >= q.numWorkers {
+				if workerIndex >= numWorkers {
 					workerIndex = 0
 				}
 			}
+		case <-abort:
+			return
 		}
-	}()
+	}
 }

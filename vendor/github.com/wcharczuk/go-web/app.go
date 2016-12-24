@@ -4,27 +4,43 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
-	"html/template"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
 
+	exception "github.com/blendlabs/go-exception"
 	logger "github.com/blendlabs/go-logger"
 	"github.com/julienschmidt/httprouter"
 )
 
+const (
+	// EnvironmentVariableTLSCert is an env var that contains the TLS cert.
+	EnvironmentVariableTLSCert = "TLS_CERT"
+
+	// EnvironmentVariableTLSKey is an env var that contains the TLS key.
+	EnvironmentVariableTLSKey = "TLS_KEY"
+
+	// EnvironmentVariableTLSCertFile is an env var that contains the file path to the TLS cert.
+	EnvironmentVariableTLSCertFile = "TLS_CERT_FILE"
+
+	// EnvironmentVariableTLSKeyFile is an env var that contains the file path to the TLS key.
+	EnvironmentVariableTLSKeyFile = "TLS_KEY_FILE"
+)
+
 // New returns a new app.
 func New() *App {
-	app := &App{
+	return &App{
 		router:             httprouter.New(),
 		staticRewriteRules: map[string][]*RewriteRule{},
 		staticHeaders:      map[string]http.Header{},
 		tlsCertLock:        &sync.Mutex{},
+		auth:               NewSessionManager(),
+		viewCache:          NewViewCache(),
+		diagnostics:        logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()),
 	}
-	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()))
-	return app
 }
 
 // AppStartDelegate is a function that is run on start. Typically you use this to initialize the app.
@@ -32,19 +48,16 @@ type AppStartDelegate func(app *App) error
 
 // App is the server for the app.
 type App struct {
-	name string
+	domain string
+	port   string
 
 	diagnostics *logger.DiagnosticsAgent
 	config      interface{}
 	router      *httprouter.Router
-	viewCache   *template.Template
 
 	tlsCertBytes, tlsKeyBytes []byte
 	tlsCertLock               *sync.Mutex
 	tlsCert                   *tls.Certificate
-
-	apiResultProvider  *APIResultProvider
-	viewResultProvider *ViewResultProvider
 
 	startDelegate AppStartDelegate
 
@@ -53,9 +66,13 @@ type App struct {
 
 	panicHandler PanicControllerAction
 
-	tx *sql.Tx
+	defaultResultProvider ControllerMiddleware
 
-	port string
+	viewCache *ViewCache
+
+	auth *SessionManager
+
+	tx *sql.Tx
 }
 
 // AppName returns the app name.
@@ -68,10 +85,45 @@ func (a *App) SetAppName(appName string) {
 	a.diagnostics.Writer().SetLabel(appName)
 }
 
+// Domain returns the domain for the app.
+func (a *App) Domain() string {
+	return a.domain
+}
+
+// SetDomain sets the domain for the app.
+func (a *App) SetDomain(domain string) {
+	a.domain = domain
+}
+
 // UseTLS sets the app to use TLS.
 func (a *App) UseTLS(tlsCert, tlsKey []byte) {
 	a.tlsCertBytes = tlsCert
 	a.tlsKeyBytes = tlsKey
+}
+
+// UseTLSFromEnvironment reads TLS settings from the environment.
+func (a *App) UseTLSFromEnvironment() error {
+	tlsCert := os.Getenv(EnvironmentVariableTLSCert)
+	tlsKey := os.Getenv(EnvironmentVariableTLSKey)
+	tlsCertPath := os.Getenv(EnvironmentVariableTLSCertFile)
+	tlsKeyPath := os.Getenv(EnvironmentVariableTLSKeyFile)
+
+	if len(tlsCert) > 0 && len(tlsKey) > 0 {
+		a.UseTLS([]byte(tlsCert), []byte(tlsKey))
+	} else if len(tlsCertPath) > 0 && len(tlsKeyPath) > 0 {
+		cert, err := ioutil.ReadFile(tlsCertPath)
+		if err != nil {
+			return exception.Wrap(err)
+		}
+
+		key, err := ioutil.ReadFile(tlsKeyPath)
+		if err != nil {
+			return exception.Wrap(err)
+		}
+
+		a.UseTLS(cert, key)
+	}
+	return nil
 }
 
 // Diagnostics returns the diagnostics agent for the app.
@@ -83,9 +135,9 @@ func (a *App) Diagnostics() *logger.DiagnosticsAgent {
 func (a *App) SetDiagnostics(da *logger.DiagnosticsAgent) {
 	a.diagnostics = da
 	if a.diagnostics != nil {
-		a.diagnostics.AddEventListener(logger.EventWebRequestStart, a.onRequestStart)
-		a.diagnostics.AddEventListener(logger.EventWebRequest, a.onRequestComplete)
-		a.diagnostics.AddEventListener(logger.EventWebResponse, a.onResponse)
+		a.diagnostics.AddEventListener(EventRequestStart, a.onRequestStart)
+		a.diagnostics.AddEventListener(EventRequest, a.onRequestComplete)
+		a.diagnostics.AddEventListener(EventResponse, a.onResponse)
 	}
 }
 
@@ -97,6 +149,16 @@ func (a *App) Config() interface{} {
 // SetConfig sets the app config object.
 func (a *App) SetConfig(config interface{}) {
 	a.config = config
+}
+
+// Auth returns the session manager.
+func (a *App) Auth() *SessionManager {
+	return a.auth
+}
+
+// SetAuth sets the session manager.
+func (a *App) SetAuth(auth *SessionManager) {
+	a.auth = auth
 }
 
 // InitializeConfig reads a config prototype from the environment.
@@ -142,16 +204,6 @@ func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag l
 	logger.WriteResponseBody(writer, ts, body)
 }
 
-// ViewCache gets the view cache for the app.
-func (a *App) ViewCache() *template.Template {
-	return a.viewCache
-}
-
-// SetViewCache sets the view cache for the app.
-func (a *App) SetViewCache(viewCache *template.Template) {
-	a.viewCache = viewCache
-}
-
 // IsolateTo sets the app to use a transaction for *all* requests.
 // Caveat: only use during testing.
 func (a *App) IsolateTo(tx *sql.Tx) {
@@ -174,6 +226,19 @@ func (a *App) Port() string {
 // SetPort sets the port the app listens on.
 func (a *App) SetPort(port string) {
 	a.port = port
+}
+
+// SetDefaultResultProvider sets the application wide default result provider.
+func (a *App) SetDefaultResultProvider(resultProvider ControllerMiddleware) {
+	a.defaultResultProvider = resultProvider
+}
+
+// DefaultResultProvider returns the default result provider.
+func (a *App) DefaultResultProvider() ControllerMiddleware {
+	if a.defaultResultProvider == nil {
+		return APIProviderAsDefault
+	}
+	return a.defaultResultProvider
 }
 
 // OnStart lets you register a task that is run before the server starts.
@@ -204,13 +269,18 @@ func (a *App) getCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate
 	return a.tlsCert, nil
 }
 
+func (a *App) commonStartupTasks() error {
+	return a.viewCache.Initialize()
+}
+
 // StartWithServer starts the app on a custom server.
 // This lets you configure things like TLS keys and
 // other options.
 func (a *App) StartWithServer(server *http.Server) error {
+	var err error
 	if a.startDelegate != nil {
 		a.diagnostics.Infof("Startup tasks starting")
-		err := a.startDelegate(a)
+		err = a.startDelegate(a)
 		if err != nil {
 			a.diagnostics.Errorf("Startup tasks error: %v", err)
 			return err
@@ -218,17 +288,28 @@ func (a *App) StartWithServer(server *http.Server) error {
 		a.diagnostics.Infof("Startup tasks complete")
 	}
 
+	err = a.commonStartupTasks()
+	if err != nil {
+		a.diagnostics.Errorf("Startup tasks error: %v", err)
+		return err
+	}
+
 	// this is the only property we will set of the server
 	// i.e. the server handler (which is this app)
 	server.Handler = a
-	a.diagnostics.Infof("Started, listening on %s", server.Addr)
-	a.diagnostics.Infof("Diagnostics Verbosity %s", a.diagnostics.Events().String())
+
+	serverProtocol := "HTTP"
+	if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
+		serverProtocol = "HTTPS (TLS)"
+	}
+
+	a.diagnostics.Infof("%s server started, listening on %s", serverProtocol, server.Addr)
+	a.diagnostics.Infof("%s server diagnostics verbosity %s", serverProtocol, a.diagnostics.Events().String())
 
 	if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
 		server.TLSConfig = &tls.Config{
 			GetCertificate: a.getCertificate,
 		}
-
 		return server.ListenAndServeTLS("", "")
 	}
 
@@ -238,16 +319,6 @@ func (a *App) StartWithServer(server *http.Server) error {
 // Register registers a controller with the app's router.
 func (a *App) Register(c Controller) {
 	c.Register(a)
-}
-
-// InitializeViewCache caches templates by path.
-func (a *App) InitializeViewCache(paths ...string) error {
-	views, err := template.ParseFiles(paths...)
-	if err != nil {
-		return err
-	}
-	a.viewCache = template.Must(views, nil)
-	return nil
 }
 
 // GET registers a GET request handler.
@@ -359,6 +430,11 @@ func (a *App) staticAction(path string, root http.FileSystem) ControllerAction {
 	}
 }
 
+// View returns the view result provider.
+func (a *App) View() *ViewCache {
+	return a.viewCache
+}
+
 // --------------------------------------------------------------------------------
 // Router internal methods
 // --------------------------------------------------------------------------------
@@ -378,7 +454,7 @@ func (a *App) SetPanicHandler(handler PanicControllerAction) {
 	a.panicHandler = handler
 	a.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		a.renderAction(func(r *RequestContext) ControllerResult {
-			a.diagnostics.Fatal(err)
+			a.diagnostics.FatalWithReq(fmt.Errorf("%v", err), r.Request)
 			return handler(r, err)
 		})(w, r, httprouter.Params{})
 	}
@@ -451,24 +527,39 @@ func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters)
 	return context
 }
 
+var controllerNoOp = func(_ *RequestContext) ControllerResult { return nil }
+
 // RequestContext creates an http context.
 func (a *App) requestContext(w ResponseWriter, r *http.Request, p RouteParameters) *RequestContext {
 	rc := NewRequestContext(w, r, p)
 	rc.app = a
+	rc.auth = a.auth
 	rc.tx = a.tx
 	rc.diagnostics = a.diagnostics
 	rc.config = a.config
+
+	if a.defaultResultProvider != nil {
+		// the defaultResultProvider is a middleware, or func(action) action
+		// we need to nest the middleware, then call it with rc
+		// to apply the middleware sside effects to rc
+		NestMiddleware(controllerNoOp, a.defaultResultProvider)(rc)
+	} else {
+		rc.SetDefaultResultProvider(rc.API())
+	}
+
 	return rc
 }
 
-func (a *App) renderResult(action ControllerAction, context *RequestContext) {
+func (a *App) renderResult(action ControllerAction, context *RequestContext) error {
 	result := action(context)
 	if result != nil {
-		err := result.Render(context.Response, context.Request)
+		err := result.Render(context)
 		if err != nil {
 			a.diagnostics.Error(err)
+			return err
 		}
 	}
+	return nil
 }
 
 func (a *App) pipelineComplete(context *RequestContext) {

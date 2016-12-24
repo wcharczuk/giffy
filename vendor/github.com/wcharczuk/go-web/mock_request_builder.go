@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,12 +18,18 @@ import (
 
 // NewMockRequestBuilder returns a new mock request builder for a given app.
 func NewMockRequestBuilder(app *App) *MockRequestBuilder {
+	var err error
+	if app != nil {
+		err = app.commonStartupTasks()
+	}
+
 	return &MockRequestBuilder{
 		app:         app,
 		verb:        "GET",
 		queryString: url.Values{},
 		formValues:  url.Values{},
 		headers:     http.Header{},
+		startupErr:  err,
 	}
 }
 
@@ -39,6 +46,8 @@ type MockRequestBuilder struct {
 	postBody    []byte
 
 	postedFiles map[string]PostedFile
+
+	startupErr error
 
 	responseBuffer *bytes.Buffer
 }
@@ -188,6 +197,11 @@ func (mrb *MockRequestBuilder) RequestContext(p RouteParameters) (*RequestContex
 
 // FetchResponse runs the mock request.
 func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
+	if mrb.startupErr != nil {
+		err = mrb.startupErr
+		return
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			if mrb.app.panicHandler != nil {
@@ -195,7 +209,7 @@ func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
 				controllerResult := mrb.app.panicHandler(rc, r)
 				panicRecoveryBuffer := bytes.NewBuffer([]byte{})
 				panicRecoveryWriter := NewMockResponseWriter(panicRecoveryBuffer)
-				err = controllerResult.Render(panicRecoveryWriter, rc.Request)
+				err = controllerResult.Render(NewRequestContext(panicRecoveryWriter, rc.Request, rc.routeParameters))
 				res = &http.Response{
 					Body:          ioutil.NopCloser(bytes.NewBuffer(panicRecoveryBuffer.Bytes())),
 					ContentLength: int64(panicRecoveryWriter.ContentLength()),
@@ -205,6 +219,8 @@ func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
 					ProtoMajor:    1,
 					ProtoMinor:    1,
 				}
+			} else {
+				err = fmt.Errorf("MockRequestBuilder::FetchResponse panic %v", r)
 			}
 		}
 	}()
@@ -314,10 +330,16 @@ func (mrb *MockRequestBuilder) ExecuteWithMeta() (*ResponseMeta, error) {
 		return nil, err
 	}
 
-	defer res.Body.Close()
-	_, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
+	if res == nil {
+		return nil, errors.New("`res` is nil")
+	}
+
+	if res.Body != nil {
+		defer res.Body.Close()
+		_, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return NewResponseMeta(res), nil
 }

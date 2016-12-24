@@ -1,7 +1,5 @@
 package web
 
-import "net/http"
-
 // JSONResult is a json result.
 type JSONResult struct {
 	StatusCode int
@@ -9,6 +7,6 @@ type JSONResult struct {
 }
 
 // Render renders the result
-func (ar *JSONResult) Render(w http.ResponseWriter, r *http.Request) error {
-	return WriteJSON(w, r, ar.StatusCode, ar.Response)
+func (ar *JSONResult) Render(rc *RequestContext) error {
+	return WriteJSON(rc.Response, rc.Request, ar.StatusCode, ar.Response)
 }

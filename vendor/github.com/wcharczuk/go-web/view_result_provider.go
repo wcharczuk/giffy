@@ -1,8 +1,9 @@
 package web
 
 import (
-	"html/template"
 	"net/http"
+
+	logger "github.com/blendlabs/go-logger"
 )
 
 const (
@@ -20,21 +21,15 @@ const (
 )
 
 // NewViewResultProvider creates a new ViewResults object.
-func NewViewResultProvider(app *App, r *RequestContext) *ViewResultProvider {
-	return &ViewResultProvider{app: app, requestContext: r}
+func NewViewResultProvider(diag *logger.DiagnosticsAgent, vc *ViewCache, r *RequestContext) *ViewResultProvider {
+	return &ViewResultProvider{diagnostics: diag, viewCache: vc, requestContext: r}
 }
 
 // ViewResultProvider returns results based on views.
 type ViewResultProvider struct {
-	app            *App
+	diagnostics    *logger.DiagnosticsAgent
 	requestContext *RequestContext
-}
-
-func (vr ViewResultProvider) viewCache() *template.Template {
-	if vr.app != nil {
-		return vr.app.viewCache
-	}
-	return nil
+	viewCache      *ViewCache
 }
 
 // BadRequest returns a view result.
@@ -43,21 +38,25 @@ func (vr *ViewResultProvider) BadRequest(message string) ControllerResult {
 		StatusCode: http.StatusBadRequest,
 		ViewModel:  message,
 		Template:   DefaultTemplateBadRequest,
-		viewCache:  vr.viewCache(),
+		viewCache:  vr.viewCache,
 	}
 }
 
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) ControllerResult {
-	if vr.app != nil {
-		vr.app.diagnostics.Error(err)
+	if vr.diagnostics != nil {
+		if vr.requestContext != nil {
+			vr.diagnostics.FatalWithReq(err, vr.requestContext.Request)
+		} else {
+			vr.diagnostics.FatalWithReq(err, nil)
+		}
 	}
 
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
 		Template:   DefaultTemplateInternalServerError,
-		viewCache:  vr.viewCache(),
+		viewCache:  vr.viewCache,
 	}
 }
 
@@ -67,7 +66,7 @@ func (vr *ViewResultProvider) NotFound() ControllerResult {
 		StatusCode: http.StatusNotFound,
 		ViewModel:  nil,
 		Template:   DefaultTemplateNotFound,
-		viewCache:  vr.viewCache(),
+		viewCache:  vr.viewCache,
 	}
 }
 
@@ -77,7 +76,7 @@ func (vr *ViewResultProvider) NotAuthorized() ControllerResult {
 		StatusCode: http.StatusForbidden,
 		ViewModel:  nil,
 		Template:   DefaultTemplateNotAuthorized,
-		viewCache:  vr.viewCache(),
+		viewCache:  vr.viewCache,
 	}
 }
 
@@ -87,6 +86,6 @@ func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) Contr
 		StatusCode: http.StatusOK,
 		ViewModel:  viewModel,
 		Template:   viewName,
-		viewCache:  vr.viewCache(),
+		viewCache:  vr.viewCache,
 	}
 }

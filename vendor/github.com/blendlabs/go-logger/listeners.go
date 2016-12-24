@@ -11,36 +11,56 @@ type EventListener func(writer Logger, ts TimeSource, eventFlag EventFlag, state
 // ErrorListener is a handler for error events.
 type ErrorListener func(writer Logger, ts TimeSource, err error)
 
-// NewErrorHandler returns a new handler for EventFatalError and EventError events.
-func NewErrorHandler(errorHandler ErrorListener) EventListener {
+// ErrorWithRequestListener is a handler for error events.
+type ErrorWithRequestListener func(writer Logger, ts TimeSource, err error, req *http.Request)
+
+// NewErrorListener returns a new handler for EventFatalError and EventError events.
+func NewErrorListener(listener ErrorListener) EventListener {
 	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) > 0 {
 			if typedError, isTyped := state[0].(error); isTyped {
-				errorHandler(writer, ts, typedError)
+				listener(writer, ts, typedError)
+			}
+		}
+	}
+}
+
+// NewErrorWithRequestListener returns a new handler for EventFatalError and EventError events with a request.
+func NewErrorWithRequestListener(listener ErrorWithRequestListener) EventListener {
+	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
+		if len(state) > 1 {
+			if typedError, isTyped := state[0].(error); isTyped {
+				if typedReq, isReqTyped := state[1].(*http.Request); isReqTyped {
+					listener(writer, ts, typedError, typedReq)
+				}
+			}
+		} else if len(state) > 0 {
+			if typedError, isTyped := state[0].(error); isTyped {
+				listener(writer, ts, typedError, nil)
+			}
+		}
+	}
+}
+
+// RequestStartListener is a listener for request events.
+type RequestStartListener func(writer Logger, ts TimeSource, req *http.Request)
+
+// NewRequestStartListener returns a new handler for request events.
+func NewRequestStartListener(listener RequestStartListener) EventListener {
+	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
+		if len(state) > 0 {
+			if typedRequest, isTyped := state[0].(*http.Request); isTyped {
+				listener(writer, ts, typedRequest)
 			}
 		}
 	}
 }
 
 // RequestListener is a listener for request events.
-type RequestListener func(writer Logger, ts TimeSource, req *http.Request)
+type RequestListener func(writer Logger, ts TimeSource, req *http.Request, statusCode, contentLengthBytes int, elapsed time.Duration)
 
-// NewRequestHandler returns a new handler for request events.
-func NewRequestHandler(reqHandler RequestListener) EventListener {
-	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
-		if len(state) > 0 {
-			if typedRequest, isTyped := state[0].(*http.Request); isTyped {
-				reqHandler(writer, ts, typedRequest)
-			}
-		}
-	}
-}
-
-// RequestCompleteListener is a listener for request events.
-type RequestCompleteListener func(writer Logger, ts TimeSource, req *http.Request, statusCode, contentLengthBytes int, elapsed time.Duration)
-
-// NewRequestCompleteHandler returns a new handler for request events.
-func NewRequestCompleteHandler(reqCompleteHandler RequestCompleteListener) EventListener {
+// NewRequestListener returns a new handler for request events.
+func NewRequestListener(listener RequestListener) EventListener {
 	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) < 3 {
 			return
@@ -66,15 +86,15 @@ func NewRequestCompleteHandler(reqCompleteHandler RequestCompleteListener) Event
 			return
 		}
 
-		reqCompleteHandler(writer, ts, req, statusCode, contentLengthBytes, elapsed)
+		listener(writer, ts, req, statusCode, contentLengthBytes, elapsed)
 	}
 }
 
 // RequestBodyListener is a listener for request bodies.
 type RequestBodyListener func(writer Logger, ts TimeSource, body []byte)
 
-// NewRequestBodyHandler returns a new handler for request body events.
-func NewRequestBodyHandler(reqBodyHandler RequestBodyListener) EventListener {
+// NewRequestBodyListener returns a new handler for request body events.
+func NewRequestBodyListener(listener RequestBodyListener) EventListener {
 	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) < 1 {
 			return
@@ -83,6 +103,23 @@ func NewRequestBodyHandler(reqBodyHandler RequestBodyListener) EventListener {
 		if err != nil {
 			return
 		}
-		reqBodyHandler(writer, ts, body)
+		listener(writer, ts, body)
+	}
+}
+
+// ResponseListener is a handler for response body events.
+type ResponseListener func(writer Logger, ts TimeSource, body []byte)
+
+// NewResponseListener creates a new listener for response body events.
+func NewResponseListener(listener ResponseListener) EventListener {
+	return func(writer Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
+		if len(state) < 1 {
+			return
+		}
+		res, err := stateAsBytes(state[0])
+		if err != nil {
+			return
+		}
+		listener(writer, ts, res)
 	}
 }

@@ -1,49 +1,62 @@
 package workQueue
 
+import "sync/atomic"
+
 // NewWorker creates a new worker.
-func NewWorker(id int, parent *Queue, maxWorkItems int) *Worker {
+func NewWorker(id int, parent *Queue, maxItems int) *Worker {
 	return &Worker{
-		ID:           id,
-		MaxWorkItems: maxWorkItems,
-		WorkItems:    make(chan Entry, maxWorkItems),
-		Parent:       parent,
-		Abort:        make(chan bool),
+		ID:     id,
+		Parent: parent,
+
+		Work:  make(chan *Entry, maxItems),
+		Abort: make(chan bool),
 	}
 }
 
 // Worker is a consumer of the work queue.
 type Worker struct {
-	ID           int
-	MaxWorkItems int
-	WorkItems    chan Entry
-	Parent       *Queue
-	Abort        chan bool
+	ID     int
+	Work   chan *Entry
+	Parent *Queue
+	Abort  chan bool
 }
 
 // Start starts the worker.
 func (w *Worker) Start() {
-	go func() {
-		var err error
-		for {
-			select {
-			case workItem := <-w.WorkItems:
-				err = workItem.Action(workItem.Args...)
-				if err != nil {
-					workItem.Tries++
-					if workItem.Tries < w.Parent.maxRetries {
-						w.Parent.actionQueue <- workItem
-					}
-				}
-			case <-w.Abort:
-				return
-			}
-		}
-	}()
+	go processWork(w.Work, w.Parent, w.Abort)
 }
 
-// Stop sends the stop signal to the worker.
-func (w *Worker) Stop() {
-	go func() {
-		w.Abort <- true
-	}()
+func processWork(work chan *Entry, parent *Queue, abort chan bool) {
+	var err error
+	var workItem *Entry
+	for {
+		select {
+		case workItem = <-work:
+			if workItem == nil {
+				continue
+			}
+			err = workItem.Execute()
+			if err != nil {
+				atomic.AddInt32(&workItem.Tries, 1)
+				if workItem.Tries < int32(parent.maxRetries) {
+					parent.actionQueue <- workItem
+					continue
+				}
+			}
+			parent.entryPool.Put(workItem)
+		case <-abort:
+			return
+		}
+	}
+}
+
+// Close sends the stop signal to the worker.
+func (w *Worker) Close() error {
+	w.Abort <- true
+	close(w.Abort)
+	w.Abort = nil
+	close(w.Work)
+	w.Work = nil
+	w.Parent = nil
+	return nil
 }
