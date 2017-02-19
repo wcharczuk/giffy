@@ -1,19 +1,19 @@
 var giffyServices = angular.module('giffy.services', []);
 
 giffyServices.service('currentUser', ["$http",
-	function($http) {
-		return function($scope, cb) {
-			$http.get("/api/session.user").success(function(datums) {
-				$scope.currentUser = datums.response;
+	function ($http) {
+		return function ($scope, cb) {
+			$http.get("/api/session.user").then(function (res) {
+				$scope.currentUser = res.data.Response;
 				if (!!cb) {
 					cb();
 				}
-			});
+			})
 		}
 	}
 ]);
 
-giffyServices.service("storage", function() {
+giffyServices.service("storage", function () {
 	var _toObject = function () {
 		var obj = {};
 		for (var x = 0; x < localStorage.length; x++) {
@@ -24,22 +24,22 @@ giffyServices.service("storage", function() {
 	};
 
 	return {
-		get : function(key) {
+		get: function (key) {
 			var jsonValue = localStorage.getItem(key);
 			return JSON.parse(jsonValue);
 		},
-		set : function(key, value) {
+		set: function (key, value) {
 			var jsonValue = JSON.stringify(value);
 			localStorage.setItem(key, jsonValue);
 		},
-		has : function(key) {
-			if(localStorage.getItem(key)){
+		has: function (key) {
+			if (localStorage.getItem(key)) {
 				return true;
 			}
 			return false;
 		},
-		purge: function(key) {
-			if(!!key) {
+		purge: function (key) {
+			if (!!key) {
 				localStorage.removeItem(key);
 			} else {
 				localStorage.clear();
@@ -55,7 +55,7 @@ giffyServices.service("storage", function() {
 				localStorage.setItem(key, deserialized[key]);
 			}
 		},
-		toObject : _toObject,
+		toObject: _toObject,
 		toArray: function () {
 			var kvps = [];
 			for (var x = 0; x < localStorage.length; x++) {

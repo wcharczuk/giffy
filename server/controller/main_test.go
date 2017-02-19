@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	web "github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 func TestMain(m *testing.M) {
@@ -20,35 +21,36 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func MockAuth(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (*auth.Session, error)) *auth.Session {
-	session, err := mockUserProvider(tx)
+func MockAuth(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (*web.AuthManager, *web.Session, error)) (*web.AuthManager, *web.Session) {
+	auth, session, err := mockUserProvider(tx)
 	a.Nil(err)
+	a.NotNil(auth)
 	a.NotNil(session)
-	return session
+	return auth, session
 }
 
-func MockAdminLogin(tx *sql.Tx) (*auth.Session, error) {
+func MockAdminLogin(tx *sql.Tx) (*web.AuthManager, *web.Session, error) {
 	u, err := CreateTestAdminUser(tx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return AuthTestUser(u.ID, tx)
+	return AuthTestUser(u, tx)
 }
 
-func MockModeratorLogin(tx *sql.Tx) (*auth.Session, error) {
+func MockModeratorLogin(tx *sql.Tx) (*web.AuthManager, *web.Session, error) {
 	u, err := CreateTestModeratorUser(tx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return AuthTestUser(u.ID, tx)
+	return AuthTestUser(u, tx)
 }
 
-func MockBannedLogin(tx *sql.Tx) (*auth.Session, error) {
+func MockBannedLogin(tx *sql.Tx) (*web.AuthManager, *web.Session, error) {
 	u, err := CreateTestModeratorUser(tx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return AuthTestUser(u.ID, tx)
+	return AuthTestUser(u, tx)
 }
 
 func CreateTestAdminUser(tx *sql.Tx) (*model.User, error) {
@@ -82,12 +84,12 @@ func CreateTestBannedUser(tx *sql.Tx) (*model.User, error) {
 	return u, err
 }
 
-func AuthTestUser(userID int64, tx *sql.Tx) (*auth.Session, error) {
-	sessionID, err := auth.Login(userID, nil, tx)
+func AuthTestUser(user *model.User, tx *sql.Tx) (*web.AuthManager, *web.Session, error) {
+	auth := web.NewAuthManager()
+	session, err := auth.Login(user.ID, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return auth.SessionState().Get(sessionID), nil
+	webutil.SetUser(session, user)
+	return auth, auth.SessionCache().Get(session.SessionID), nil
 }
-
-// to undo the above defer auth.Logout(session.UserID, session.SessionID, tx)

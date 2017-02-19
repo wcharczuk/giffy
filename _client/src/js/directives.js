@@ -5,20 +5,20 @@ var giffyDirectives = angular.module('giffy.directives', []);
 // --------------------------------------------------------------------------------
 
 giffyDirectives.factory('voteAPI', ["$http",
-	function($http) {
-		this.upvote = function(imageUUID, tagUUID) {
+	function ($http) {
+		this.upvote = function (imageUUID, tagUUID) {
 			return $http.post("/api/vote.up/" + imageUUID + "/" + tagUUID, null);
 		};
 
-		this.downvote = function(imageUUID, tagUUID) {
+		this.downvote = function (imageUUID, tagUUID) {
 			return $http.post("/api/vote.down/" + imageUUID + "/" + tagUUID, null);
 		};
 
-		this.deleteUserVote = function(imageUUID, tagUUID) {
+		this.deleteUserVote = function (imageUUID, tagUUID) {
 			return $http.delete("/api/user.vote/" + imageUUID + "/" + tagUUID);
 		}
 
-		this.deleteLink = function(imageUUID, tagUUID) {
+		this.deleteLink = function (imageUUID, tagUUID) {
 			return $http.delete("/api/link/" + imageUUID + "/" + tagUUID);
 		}
 
@@ -30,33 +30,33 @@ giffyDirectives.factory('voteAPI', ["$http",
 // Header
 // --------------------------------------------------------------------------------
 
-giffyDirectives.directive("giffyHeader", function() {
+giffyDirectives.directive("giffyHeader", function () {
 	return {
 		restrict: 'E',
 		controller: "giffyHeaderController",
 		templateUrl: "/static/partials/controls/header.html"
 	}
 });
-giffyDirectives.controller('giffyHeaderController', ["$scope", "$http", function($scope, $http) {}]);
+giffyDirectives.controller('giffyHeaderController', ["$scope", "$http", function ($scope, $http) { }]);
 
 // --------------------------------------------------------------------------------
 // Footer
 // --------------------------------------------------------------------------------
 
-giffyDirectives.directive("giffyFooter", function() {
+giffyDirectives.directive("giffyFooter", function () {
 	return {
 		restrict: 'E',
 		controller: "giffyFooterController",
 		templateUrl: "/static/partials/controls/footer.html"
 	}
 });
-giffyDirectives.controller('giffyFooterController', ["$scope", function($scope) {}]);
+giffyDirectives.controller('giffyFooterController', ["$scope", function ($scope) { }]);
 
 // --------------------------------------------------------------------------------
 // Image
 // --------------------------------------------------------------------------------
 
-giffyDirectives.directive("giffyImage", function() {
+giffyDirectives.directive("giffyImage", function () {
 	return {
 		restrict: 'E',
 		scope: {
@@ -67,16 +67,16 @@ giffyDirectives.directive("giffyImage", function() {
 	}
 });
 giffyDirectives.controller('giffyImageController', ["$scope",
-	function($scope) {
+	function ($scope) {
 		var minH = 250;
 
 		// portrait = width 100%
-		$scope.isPortrait = function() {
+		$scope.isPortrait = function () {
 			return false;
 		};
 
 		// landscape = height 100%
-		$scope.isLandscape = function() {
+		$scope.isLandscape = function () {
 			return !$scope.isPortrait();
 		}
 	}
@@ -86,7 +86,7 @@ giffyDirectives.controller('giffyImageController', ["$scope",
 // Username
 // --------------------------------------------------------------------------------
 
-giffyDirectives.directive("userDetail", function() {
+giffyDirectives.directive("userDetail", function () {
 	return {
 		restrict: 'E',
 		scope: {
@@ -97,13 +97,13 @@ giffyDirectives.directive("userDetail", function() {
 		templateUrl: "/static/partials/controls/username.html"
 	}
 });
-giffyDirectives.controller('UserDetailElementController', ["$scope", function($scope) { } ]);
+giffyDirectives.controller('UserDetailElementController', ["$scope", function ($scope) { }]);
 
 // --------------------------------------------------------------------------------
 // Search Box
 // --------------------------------------------------------------------------------
 
-giffyDirectives.directive("searchBox", function() {
+giffyDirectives.directive("searchBox", function () {
 	return {
 		restrict: 'E',
 		scope: {
@@ -114,13 +114,13 @@ giffyDirectives.directive("searchBox", function() {
 	}
 });
 giffyDirectives.controller('SearchBoxController', ["$scope", "$location",
-function($scope, $location) {
-	$scope.search = function(query) {
-		if (query && query.length > 0) {
-			$location.path("/search/" + query).replace();
-		}
-	};
-}]);
+	function ($scope, $location) {
+		$scope.search = function (query) {
+			if (query && query.length > 0) {
+				$location.path("/search/" + query).replace();
+			}
+		};
+	}]);
 
 
 // --------------------------------------------------------------------------------
@@ -128,7 +128,7 @@ function($scope, $location) {
 // --------------------------------------------------------------------------------
 
 giffyDirectives.directive('voteButton',
-	function() {
+	function () {
 		return {
 			restrict: 'E',
 			scope: {
@@ -143,25 +143,25 @@ giffyDirectives.directive('voteButton',
 		};
 	}
 );
-giffyDirectives.controller('voteButtonController', [ "$scope", "voteAPI",
-	function($scope, voteAPI) {
-		$scope.vote = function(isUpvote) {
+giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
+	function ($scope, voteAPI) {
+		$scope.vote = function (isUpvote) {
 			if (!$scope.hasVote()) {
 				if (isUpvote) {
-					voteAPI.upvote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+					voteAPI.upvote($scope.imageUUID(), $scope.tagUUID()).then($scope.onVote);
 				} else {
-					voteAPI.downvote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+					voteAPI.downvote($scope.imageUUID(), $scope.tagUUID()).then($scope.onVote);
 				}
 			} else {
-				voteAPI.deleteUserVote($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+				voteAPI.deleteUserVote($scope.imageUUID(), $scope.tagUUID()).then($scope.onVote);
 			}
 		};
 
-		$scope.delete = function() {
-			voteAPI.deleteLink($scope.imageUUID(), $scope.tagUUID()).success($scope.onVote);
+		$scope.delete = function () {
+			voteAPI.deleteLink($scope.imageUUID(), $scope.tagUUID()).then($scope.onVote);
 		}
 
-		$scope.isOnlyVoteCount = function() {
+		$scope.isOnlyVoteCount = function () {
 			if ($scope.type === "image") {
 				if (!$scope.currentUser.is_logged_in) {
 					return true;
@@ -170,54 +170,54 @@ giffyDirectives.controller('voteButtonController', [ "$scope", "voteAPI",
 			return false;
 		}
 
-		$scope.userIsLoggedIn = function() {
+		$scope.userIsLoggedIn = function () {
 			return $scope.currentUser.is_logged_in && !$scope.currentUser.is_banned;
 		}
 
-		$scope.onVote = function(res) {
+		$scope.onVote = function (res) {
 			$scope.$emit('voted');
 		}
 
-		$scope.tagUUID = function() {
+		$scope.tagUUID = function () {
 			return $scope.link.tag_uuid;
 		}
 
-		$scope.imageUUID = function() {
+		$scope.imageUUID = function () {
 			return $scope.link.image_uuid;
 		}
 
-		$scope.detailURL = function() {
+		$scope.detailURL = function () {
 			return "/#/tag/" + $scope.object.tag_value;
 		}
 
-		$scope.detailValue = function() {
+		$scope.detailValue = function () {
 			return $scope.object.tag_value;
 		}
 
-		$scope.canEdit = function() {
+		$scope.canEdit = function () {
 			return ($scope.currentUser.is_moderator || $scope.object.created_by == $scope.currentUser.uuid) && !$scope.currentUser.is_banned;
 		}
 
-		$scope.hasVote = function() {
+		$scope.hasVote = function () {
 			return !!$scope.userVote;
 		};
 
-		$scope.didUpvote = function() {
+		$scope.didUpvote = function () {
 			return $scope.userVote && $scope.userVote.is_upvote;
 		};
 
-		$scope.didDownvote = function() {
+		$scope.didDownvote = function () {
 			return $scope.userVote && !$scope.userVote.is_upvote;
 		};
 	}
 ]);
 
-giffyDirectives.directive('ngEnter', function() {
-	return function(scope, element, attrs) {
-		element.bind("keydown keypress", function(event) {
-			if(event.which === 13) {
-				scope.$apply(function(){
-					scope.$eval(attrs.ngEnter, {'event': event});
+giffyDirectives.directive('ngEnter', function () {
+	return function (scope, element, attrs) {
+		element.bind("keydown keypress", function (event) {
+			if (event.which === 13) {
+				scope.$apply(function () {
+					scope.$eval(attrs.ngEnter, { 'event': event });
 				});
 
 				event.preventDefault();
@@ -226,14 +226,14 @@ giffyDirectives.directive('ngEnter', function() {
 	};
 });
 
-giffyDirectives.directive('convertToNumber', function() {
+giffyDirectives.directive('convertToNumber', function () {
 	return {
 		require: 'ngModel',
-		link: function(scope, element, attrs, ngModel) {
-			ngModel.$parsers.push(function(val) {
+		link: function (scope, element, attrs, ngModel) {
+			ngModel.$parsers.push(function (val) {
 				return parseInt(val, 10);
 			});
-			ngModel.$formatters.push(function(val) {
+			ngModel.$formatters.push(function (val) {
 				return '' + val;
 			});
 		}

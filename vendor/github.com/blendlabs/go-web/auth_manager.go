@@ -148,17 +148,21 @@ func (sm *AuthManager) IsCookieSecure() bool {
 }
 
 // Logout un-authenticates a session.
-func (sm *AuthManager) Logout(userID int64, sessionID string, context *Ctx) error {
-	sm.sessionCache.Expire(sessionID)
+func (sm *AuthManager) Logout(session *Session, context *Ctx) error {
+	if session == nil {
+		return nil
+	}
+
+	sm.sessionCache.Expire(session.SessionID)
 
 	if context != nil {
 		context.ExpireCookie(sm.sessionParamName, DefaultSessionCookiePath)
 	}
 	if sm.removeHandler != nil {
 		if context != nil {
-			return sm.removeHandler(sessionID, context.Tx())
+			return sm.removeHandler(session.SessionID, context.Tx())
 		}
-		return sm.removeHandler(sessionID, nil)
+		return sm.removeHandler(session.SessionID, nil)
 	}
 	return nil
 }

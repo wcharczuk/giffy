@@ -14,20 +14,19 @@ import (
 	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
 
-	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/filecache"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 // UploadImage is the controller responsible for image actions.
 type UploadImage struct{}
 
 func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsModerator {
+	sessionUser := webutil.GetUser(r.Session())
+	if !sessionUser.IsModerator {
 		return r.View().NotAuthorized()
 	}
 
@@ -35,9 +34,8 @@ func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
 }
 
 func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsModerator {
+	sessionUser := webutil.GetUser(r.Session())
+	if !sessionUser.IsModerator {
 		return r.View().NotAuthorized()
 	}
 
@@ -101,7 +99,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().View("upload_image_complete", existing)
 	}
 
-	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, fileContents, fileName, r.Tx())
+	image, err := CreateImageFromFile(sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -109,7 +107,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
 
-	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return r.View().View("upload_image_complete", image)
 }
 
@@ -140,6 +138,6 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 
 // Register registers the controllers routes.
 func (ic UploadImage) Register(app *web.App) {
-	app.GET("/images/upload", ic.uploadImageAction, auth.SessionRequired, web.ViewProviderAsDefault)
-	app.POST("/images/upload", ic.uploadImageCompleteAction, auth.SessionRequired, web.ViewProviderAsDefault)
+	app.GET("/images/upload", ic.uploadImageAction, web.SessionRequired, web.ViewProviderAsDefault)
+	app.POST("/images/upload", ic.uploadImageCompleteAction, web.SessionRequired, web.ViewProviderAsDefault)
 }

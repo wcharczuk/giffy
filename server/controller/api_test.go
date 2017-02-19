@@ -9,7 +9,6 @@ import (
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 )
@@ -59,15 +58,16 @@ func TestAPIUsers(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := MockAuth(assert, tx, MockAdminLogin)
-	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+	auth, session := MockAuth(assert, tx, MockAdminLogin)
+	defer auth.Logout(session, nil)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.IsolateTo(tx)
 	app.Register(new(API))
 
 	var res testUsersResponse
-	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
@@ -78,15 +78,16 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := MockAuth(assert, tx, MockModeratorLogin)
-	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+	auth, session := MockAuth(assert, tx, MockModeratorLogin)
+	defer auth.Logout(session, nil)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.IsolateTo(tx)
 	app.Register(API{})
 
 	var res testUsersResponse
-	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
@@ -97,16 +98,17 @@ func TestAPIUserSearch(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := MockAuth(assert, tx, MockAdminLogin)
-	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+	auth, session := MockAuth(assert, tx, MockAdminLogin)
+	defer auth.Logout(session, nil)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.IsolateTo(tx)
 	app.Register(new(API))
 
 	var res testUsersResponse
 	err = app.Mock().
-		WithHeader(auth.SessionParamName, session.SessionID).
+		WithHeader(auth.SessionParamName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
 		FetchResponseAsJSON(&res)
@@ -120,16 +122,17 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := MockAuth(assert, tx, MockModeratorLogin)
-	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+	auth, session := MockAuth(assert, tx, MockModeratorLogin)
+	defer auth.Logout(session, nil)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.IsolateTo(tx)
 	app.Register(new(API))
 
 	var res testUsersResponse
 	err = app.Mock().
-		WithHeader(auth.SessionParamName, session.SessionID).
+		WithHeader(auth.SessionParamName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
 		FetchResponseAsJSON(&res)
@@ -223,15 +226,16 @@ func TestAPISessionUser(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session := MockAuth(assert, tx, MockAdminLogin)
-	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+	auth, session := MockAuth(assert, tx, MockAdminLogin)
+	defer auth.Logout(session, nil)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.IsolateTo(tx)
 	app.Register(new(API))
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithHeader(auth.SessionParamName, session.SessionID).WithPathf("/api/session.user").FetchResponseAsJSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/session.user").FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.True(res.Response.IsLoggedIn)
@@ -278,7 +282,7 @@ func TestAPIGetTeams(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session, err := MockAdminLogin(tx)
+	auth, session, err := MockAdminLogin(tx)
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
@@ -306,11 +310,12 @@ func TestAPIGetTeams(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.IsolateTo(tx)
 	app.Register(new(API))
 
 	var res testTeamsResponse
-	err = app.Mock().WithPathf("/api/teams").WithHeader(auth.SessionParamName, session.SessionID).FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/teams").WithHeader(auth.SessionParamName(), session.SessionID).FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotEmpty(res.Response)
@@ -351,7 +356,7 @@ func TestAPIGetTeam(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	session, err := MockAdminLogin(tx)
+	auth, session, err := MockAdminLogin(tx)
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
@@ -366,11 +371,12 @@ func TestAPIGetTeam(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.IsolateTo(tx)
 	app.Register(new(API))
 
 	var res testTeamResponse
-	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.SessionParamName, session.SessionID).FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.SessionParamName(), session.SessionID).FetchResponseAsJSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotNil(res.Response)

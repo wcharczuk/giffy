@@ -10,20 +10,97 @@ import (
 	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
 
-	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/filecache"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
+	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 // API is the controller for api endpoints.
 type API struct{}
 
+// Register adds the routes to the app.
+func (api API) Register(app *web.App) {
+	app.GET("/api/users", api.getUsersAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/users.search", api.searchUsersAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/users/pages/:count/:offset", api.getUsersByCountAndOffsetAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	app.GET("/api/user/:user_id", api.getUserAction)
+	app.PUT("/api/user/:user_id", api.updateUserAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/user.images/:user_id", api.getUserImagesAction)
+	app.GET("/api/user.moderation/:user_id", api.getModerationForUserAction)
+	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	app.GET("/api/images", api.getImagesAction)
+	app.POST("/api/images", api.createImageAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/images/random/:count", api.getRandomImagesAction, web.SessionAware, web.APIProviderAsDefault)
+	app.GET("/api/images.search", api.searchImagesAction, web.SessionAware, web.APIProviderAsDefault)
+	app.GET("/api/images.search/random/:count", api.searchImagesRandomAction, web.SessionAware, web.APIProviderAsDefault)
+
+	app.GET("/api/image/:image_id", api.getImageAction)
+	app.PUT("/api/image/:image_id", api.updateImageAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.DELETE("/api/image/:image_id", api.deleteImageAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/image.votes/:image_id", api.getLinksForImageAction)
+	app.GET("/api/image.tags/:image_id", api.getTagsForImageAction)
+
+	app.GET("/api/tags", api.getTagsAction)
+	app.POST("/api/tags", api.createTagsAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/tags/random/:count", api.getRandomTagsAction)
+	app.GET("/api/tags.search", api.searchTagsAction)
+	app.GET("/api/tags.search/random/:count", api.searchTagsRandomAction)
+
+	app.GET("/api/tag/:tag_id", api.getTagAction)
+	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
+	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
+
+	app.GET("/api/teams", api.getTeamsAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/team/:team_id", api.getTeamAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.POST("/api/team/:team_id", api.createTeamAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.PUT("/api/team/:team_id", api.updateTeamAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.PATCH("/api/team/:team_id", api.patchTeamAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.DELETE("/api/team/:team_id", api.deleteTeamAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	app.POST("/api/vote.up/:image_id/:tag_id", api.upvoteAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.POST("/api/vote.down/:image_id/:tag_id", api.downvoteAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	app.GET("/api/moderation.log/recent", api.getRecentModerationLogAction)
+	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
+
+	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	app.GET("/api/stats", api.getSiteStatsAction)
+	app.GET("/api/image.stats/:image_id", api.getImageStatsAction)
+
+	//session endpoints
+	app.GET("/api/session.user", api.getCurrentUserAction, web.SessionAware, web.APIProviderAsDefault)
+	app.GET("/api/session/:key", api.getSessionKeyAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.POST("/api/session/:key", api.setSessionKeyAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.PUT("/api/session/:key", api.setSessionKeyAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.DELETE("/api/session/:key", api.deleteSessionKeyAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	//jobs
+	app.GET("/api/jobs", api.getJobsStatusAction, web.SessionRequired, web.APIProviderAsDefault)
+	app.POST("/api/job/:job_id", api.runJobAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	//errors
+	app.GET("/api/errors/:limit/:offset", api.getErrorsAction, web.SessionRequired, web.APIProviderAsDefault)
+
+	// auth endpoints
+	app.POST("/api/logout", api.logoutAction, web.SessionRequired, web.APIProviderAsDefault)
+}
+
 // GET "/api/users"
 func (api API) getUsersAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-	if !session.User.IsAdmin {
+	user := webutil.GetUser(r.Session())
+	if user != nil && !user.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -36,9 +113,8 @@ func (api API) getUsersAction(r *web.Ctx) web.Result {
 
 // GET "/api/users.search"
 func (api API) searchUsersAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	user := webutil.GetUser(r.Session())
+	if user != nil && !user.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -52,7 +128,8 @@ func (api API) searchUsersAction(r *web.Ctx) web.Result {
 
 // GET "/api/users/pages/:count/:offset"
 func (api API) getUsersByCountAndOffsetAction(r *web.Ctx) web.Result {
-	if !auth.GetSession(r).User.IsAdmin {
+	user := webutil.GetUser(r.Session())
+	if user != nil && !user.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -93,15 +170,15 @@ func (api API) getUserAction(r *web.Ctx) web.Result {
 
 // PUT "/api/user/:user_id"
 func (api API) updateUserAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
+	sessionUser := webutil.GetUser(session)
+	if !sessionUser.IsAdmin {
+		return r.API().NotAuthorized()
+	}
 
 	userUUID, err := r.RouteParam("user_id")
 	if err != nil {
 		return r.API().BadRequest(err.Error())
-	}
-
-	if !session.User.IsAdmin {
-		return r.API().NotAuthorized()
 	}
 
 	user, err := model.GetUserByUUID(userUUID, r.Tx())
@@ -206,7 +283,7 @@ func (api API) getModerationForUserAction(r *web.Ctx) web.Result {
 
 // GET "/api/user.votes.image/:image_id"
 func (api API) getVotesForUserForImageAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	imageUUID, err := r.RouteParam("image_id")
 	if err != nil {
@@ -228,7 +305,7 @@ func (api API) getVotesForUserForImageAction(r *web.Ctx) web.Result {
 
 // GET "/api/user.votes.tag/:tag_id"
 func (api API) getVotesForUserForTagAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	tagUUID, err := r.RouteParam("tag_id")
 	if err != nil {
@@ -250,7 +327,7 @@ func (api API) getVotesForUserForTagAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/user.vote/:image_id/:tag_id"
 func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	imageUUID, err := r.RouteParam("image_id")
 	if err != nil {
@@ -353,8 +430,9 @@ func (api API) createImageAction(r *web.Ctx) web.Result {
 		return r.API().Result(existing)
 	}
 
-	session := auth.GetSession(r)
-	image, err := CreateImageFromFile(session.UserID, !session.User.IsAdmin, postedFile.Contents, postedFile.FileName, r.Tx())
+	session := r.Session()
+	sessionUser := webutil.GetUser(session)
+	image, err := CreateImageFromFile(session.UserID, !sessionUser.IsAdmin, postedFile.Contents, postedFile.FileName, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -380,9 +458,12 @@ func (api API) getRandomImagesAction(r *web.Ctx) web.Result {
 // GET "/api/images.search?query=<query>"
 func (api API) searchImagesAction(r *web.Ctx) web.Result {
 	contentRating := model.ContentRatingFilterDefault
-	if auth.GetSession(r) != nil && auth.GetSession(r).User.IsModerator {
+
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && sessionUser.IsModerator {
 		contentRating = model.ContentRatingFilterAll
 	}
+
 	query := r.Param("query")
 	results, err := model.SearchImages(query, contentRating, r.Tx())
 	if err != nil {
@@ -394,7 +475,8 @@ func (api API) searchImagesAction(r *web.Ctx) web.Result {
 // GET "/api/images.search/random/:count?query=<query>"
 func (api API) searchImagesRandomAction(r *web.Ctx) web.Result {
 	contentRating := model.ContentRatingFilterDefault
-	if auth.GetSession(r) != nil && auth.GetSession(r).User.IsModerator {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && sessionUser.IsModerator {
 		contentRating = model.ContentRatingFilterAll
 	}
 	count, err := r.RouteParamInt("count")
@@ -430,14 +512,14 @@ func (api API) getImageAction(r *web.Ctx) web.Result {
 
 // PUT "/api/image/:image_id"
 func (api API) updateImageAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	sessionUser := webutil.GetUser(r.Session())
 
 	imageUUID, err := r.RouteParam("image_id")
 	if err != nil {
 		return r.API().BadRequest(err.Error())
 	}
 
-	if !session.User.IsModerator {
+	if !sessionUser.IsModerator {
 		return r.API().NotAuthorized()
 	}
 
@@ -465,7 +547,7 @@ func (api API) updateImageAction(r *web.Ctx) web.Result {
 	}
 
 	if didUpdate {
-		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
+		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
 		err = spiffy.DefaultDb().Update(image)
 		if err != nil {
 			return r.API().InternalError(err)
@@ -477,7 +559,7 @@ func (api API) updateImageAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/image/:image_id"
 func (api API) deleteImageAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	currentUser, err := model.GetUserByID(session.UserID, r.Tx())
 	if err != nil {
@@ -592,7 +674,7 @@ func (api API) createTagsAction(r *web.Ctx) web.Result {
 		tagValues = append(tagValues, tagValue)
 	}
 
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	tags := []*model.Tag{}
 	for _, tagValue := range tagValues {
@@ -678,7 +760,7 @@ func (api API) getTagAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/tag/:tag_id"
 func (api API) deleteTagAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	currentUser, err := model.GetUserByID(session.UserID, r.Tx())
 	if err != nil {
@@ -753,7 +835,7 @@ func (api API) getLinksForTagAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/link/:image_id/:tag_id"
 func (api API) deleteLinkAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	currentUser, err := model.GetUserByID(session.UserID, r.Tx())
 	if err != nil {
@@ -800,9 +882,8 @@ func (api API) deleteLinkAction(r *web.Ctx) web.Result {
 
 // GET "/api/teams"
 func (api API) getTeamsAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -816,9 +897,8 @@ func (api API) getTeamsAction(r *web.Ctx) web.Result {
 
 // GET "/api/team/:team_id"
 func (api API) getTeamAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -842,9 +922,8 @@ func (api API) getTeamAction(r *web.Ctx) web.Result {
 
 // POST "/api/team"
 func (api API) createTeamAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -864,9 +943,8 @@ func (api API) createTeamAction(r *web.Ctx) web.Result {
 
 // PUT "/api/team/:team_id"
 func (api API) updateTeamAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -903,9 +981,8 @@ func (api API) updateTeamAction(r *web.Ctx) web.Result {
 
 // PATCH "/api/team/:team_id"
 func (api API) patchTeamAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -945,9 +1022,8 @@ func (api API) patchTeamAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/team/:team_id"
 func (api API) deleteTeamAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -975,19 +1051,15 @@ func (api API) deleteTeamAction(r *web.Ctx) web.Result {
 
 // POST "/api/vote.up/:image_id/:tag_id"
 func (api API) upvoteAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	return api.voteAction(true, session, r)
+	return api.voteAction(true, r.Session(), r)
 }
 
 // POST "/api/vote.down/:image_id/:tag_id"
 func (api API) downvoteAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	return api.voteAction(false, session, r)
+	return api.voteAction(false, r.Session(), r)
 }
 
-func (api API) voteAction(isUpvote bool, session *auth.Session, r *web.Ctx) web.Result {
+func (api API) voteAction(isUpvote bool, session *web.Session, r *web.Ctx) web.Result {
 	imageUUID, err := r.RouteParam("image_id")
 	if err != nil {
 		return r.API().BadRequest(err.Error())
@@ -1066,9 +1138,8 @@ func (api API) getModerationLogByCountAndOffsetAction(r *web.Ctx) web.Result {
 
 // GET "/api/search.history/recent"
 func (api API) getRecentSearchHistoryAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -1082,9 +1153,8 @@ func (api API) getRecentSearchHistoryAction(r *web.Ctx) web.Result {
 
 // GET "/api/search.history/pages/:count/:offset"
 func (api API) getSearchHistoryByCountAndOffsetAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -1135,20 +1205,20 @@ func (api API) getImageStatsAction(r *web.Ctx) web.Result {
 
 // GET "/api/session.user"
 func (api API) getCurrentUserAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	cu := &viewmodel.CurrentUser{}
 	if session == nil {
 		cu.SetLoggedOut()
 		return r.API().Result(cu)
 	}
-	cu.SetFromUser(session.User)
+	cu.SetFromUser(webutil.GetUser(session))
 	return r.API().Result(cu)
 }
 
 // GET "/api/session/:key"
 func (api API) getSessionKeyAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	key, err := r.RouteParam("key")
 	if err != nil {
@@ -1164,7 +1234,7 @@ func (api API) getSessionKeyAction(r *web.Ctx) web.Result {
 // POST "/api/session/:key"
 // PUT "/api/session/:key"
 func (api API) setSessionKeyAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	key, err := r.RouteParam("key")
 	if err != nil {
@@ -1176,7 +1246,7 @@ func (api API) setSessionKeyAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/session/:key"
 func (api API) deleteSessionKeyAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	key, err := r.RouteParam("key")
 	if err != nil {
@@ -1191,9 +1261,8 @@ func (api API) deleteSessionKeyAction(r *web.Ctx) web.Result {
 
 // GET "/api/jobs"
 func (api API) getJobsStatusAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 	status := chronometer.Default().Status()
@@ -1202,9 +1271,8 @@ func (api API) getJobsStatusAction(r *web.Ctx) web.Result {
 
 // POST "/api/job/:job_id"
 func (api API) runJobAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 	jobID, err := r.RouteParam("job_id")
@@ -1220,9 +1288,8 @@ func (api API) runJobAction(r *web.Ctx) web.Result {
 }
 
 func (api API) getErrorsAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
-	if !session.User.IsAdmin {
+	sessionUser := webutil.GetUser(r.Session())
+	if sessionUser != nil && !sessionUser.IsAdmin {
 		return r.API().NotAuthorized()
 	}
 
@@ -1246,92 +1313,16 @@ func (api API) getErrorsAction(r *web.Ctx) web.Result {
 
 // POST "/api/logout"
 func (api API) logoutAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
+	session := r.Session()
 
 	if session == nil {
 		return r.API().OK()
 	}
-	err := auth.Logout(session.UserID, session.SessionID, r, r.Tx())
+
+	err := r.Auth().Logout(session, r)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
 
 	return r.API().OK()
-}
-
-// Register adds the routes to the app.
-func (api API) Register(app *web.App) {
-	app.GET("/api/users", api.getUsersAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/users.search", api.searchUsersAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/users/pages/:count/:offset", api.getUsersByCountAndOffsetAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	app.GET("/api/user/:user_id", api.getUserAction)
-	app.PUT("/api/user/:user_id", api.updateUserAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/user.images/:user_id", api.getUserImagesAction)
-	app.GET("/api/user.moderation/:user_id", api.getModerationForUserAction)
-	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	app.GET("/api/images", api.getImagesAction)
-	app.POST("/api/images", api.createImageAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/images/random/:count", api.getRandomImagesAction, auth.SessionAware, web.APIProviderAsDefault)
-	app.GET("/api/images.search", api.searchImagesAction, auth.SessionAware, web.APIProviderAsDefault)
-	app.GET("/api/images.search/random/:count", api.searchImagesRandomAction, auth.SessionAware, web.APIProviderAsDefault)
-
-	app.GET("/api/image/:image_id", api.getImageAction)
-	app.PUT("/api/image/:image_id", api.updateImageAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.DELETE("/api/image/:image_id", api.deleteImageAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/image.votes/:image_id", api.getLinksForImageAction)
-	app.GET("/api/image.tags/:image_id", api.getTagsForImageAction)
-
-	app.GET("/api/tags", api.getTagsAction)
-	app.POST("/api/tags", api.createTagsAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/tags/random/:count", api.getRandomTagsAction)
-	app.GET("/api/tags.search", api.searchTagsAction)
-	app.GET("/api/tags.search/random/:count", api.searchTagsRandomAction)
-
-	app.GET("/api/tag/:tag_id", api.getTagAction)
-	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
-	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
-
-	app.GET("/api/teams", api.getTeamsAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/team/:team_id", api.getTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.POST("/api/team/:team_id", api.createTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.PUT("/api/team/:team_id", api.updateTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.PATCH("/api/team/:team_id", api.patchTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.DELETE("/api/team/:team_id", api.deleteTeamAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	app.POST("/api/vote.up/:image_id/:tag_id", api.upvoteAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.POST("/api/vote.down/:image_id/:tag_id", api.downvoteAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	app.GET("/api/moderation.log/recent", api.getRecentModerationLogAction)
-	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
-
-	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	app.GET("/api/stats", api.getSiteStatsAction)
-	app.GET("/api/image.stats/:image_id", api.getImageStatsAction)
-
-	//session endpoints
-	app.GET("/api/session.user", api.getCurrentUserAction, auth.SessionAware, web.APIProviderAsDefault)
-	app.GET("/api/session/:key", api.getSessionKeyAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.POST("/api/session/:key", api.setSessionKeyAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.PUT("/api/session/:key", api.setSessionKeyAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.DELETE("/api/session/:key", api.deleteSessionKeyAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	//jobs
-	app.GET("/api/jobs", api.getJobsStatusAction, auth.SessionRequired, web.APIProviderAsDefault)
-	app.POST("/api/job/:job_id", api.runJobAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	//errors
-	app.GET("/api/errors/:limit/:offset", api.getErrorsAction, auth.SessionRequired, web.APIProviderAsDefault)
-
-	// auth endpoints
-	app.POST("/api/logout", api.logoutAction, auth.SessionRequired, web.APIProviderAsDefault)
 }

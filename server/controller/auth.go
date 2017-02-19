@@ -7,14 +7,40 @@ import (
 	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
 
-	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
+	"github.com/wcharczuk/giffy/server/webutil"
+)
+
+const (
+	// OAuthProviderGoogle is the google auth provider.
+	OAuthProviderGoogle = "google"
+
+	// OAuthProviderFacebook is the facebook auth provider.
+	OAuthProviderFacebook = "facebook"
+
+	// OAuthProviderSlack is the google auth provider.
+	OAuthProviderSlack = "slack"
 )
 
 // Auth is the main controller for the app.
 type Auth struct{}
+
+// Register registers the controllers routes.
+func (ac Auth) Register(app *web.App) {
+
+	app.Auth().SetLoginRedirectHandler(webutil.LoginRedirect)
+	app.Auth().SetFetchHandler(webutil.FetchSession)
+	app.Auth().SetPersistHandler(webutil.PersistSession)
+	app.Auth().SetRemoveHandler(webutil.RemoveSession)
+
+	app.GET("/oauth/google", ac.oauthGoogleAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
+	app.GET("/oauth/facebook", ac.oauthFacebookAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
+	app.GET("/oauth/slack", ac.oauthSlackAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
+	app.GET("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
+	app.POST("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
+}
 
 func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 	code := r.Param("code")
@@ -40,6 +66,7 @@ func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return r.View().InternalError(err)
 	}
+
 	if existingTeam.IsZero() {
 		team := model.NewSlackTeam(auth.TeamID, auth.Team, auth.UserID, auth.User)
 		err = model.DB().CreateInTx(team, r.Tx())
@@ -68,7 +95,7 @@ func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
 	}
 
 	prototypeUser := profile.AsUser()
-	return ac.finishOAuthLogin(r, auth.OAuthProviderGoogle, oa.AccessToken, oa.IDToken, prototypeUser)
+	return ac.finishOAuthLogin(r, OAuthProviderGoogle, oa.AccessToken, oa.IDToken, prototypeUser)
 }
 
 func (ac Auth) oauthFacebookAction(r *web.Ctx) web.Result {
@@ -92,7 +119,7 @@ func (ac Auth) oauthFacebookAction(r *web.Ctx) web.Result {
 	}
 
 	prototypeUser := profile.AsUser()
-	return ac.finishOAuthLogin(r, auth.OAuthProviderGoogle, oa.AccessToken, util.StringEmpty, prototypeUser)
+	return ac.finishOAuthLogin(r, OAuthProviderGoogle, oa.AccessToken, util.StringEmpty, prototypeUser)
 }
 
 func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret string, prototypeUser *model.User) web.Result {
@@ -125,13 +152,16 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 	if err != nil {
 		return r.View().InternalError(err)
 	}
+
 	newCredentials.Provider = provider
+
 	err = spiffy.DefaultDb().Create(newCredentials)
+
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
-	_, err = auth.Login(userID, r, r.Tx())
+	session, err := r.Auth().Login(userID, r)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -140,6 +170,8 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 	if err != nil {
 		return r.View().InternalError(err)
 	}
+
+	webutil.SetUser(session, currentUser)
 
 	cu := &viewmodel.CurrentUser{}
 	cu.SetFromUser(currentUser)
@@ -152,25 +184,15 @@ type loginCompleteArguments struct {
 }
 
 func (ac Auth) logoutAction(r *web.Ctx) web.Result {
-	session := auth.GetSession(r)
-
+	session := r.Session()
 	if session == nil {
 		return r.Redirect("/")
 	}
 
-	err := auth.Logout(session.UserID, session.SessionID, r, r.Tx())
+	err := r.Auth().Logout(session, r)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
 	return r.Redirect("/")
-}
-
-// Register registers the controllers routes.
-func (ac Auth) Register(app *web.App) {
-	app.GET("/oauth/google", ac.oauthGoogleAction, auth.SessionAwareMutating, web.ViewProviderAsDefault)
-	app.GET("/oauth/facebook", ac.oauthFacebookAction, auth.SessionAwareMutating, web.ViewProviderAsDefault)
-	app.GET("/oauth/slack", ac.oauthSlackAction, auth.SessionAwareMutating, web.ViewProviderAsDefault)
-	app.GET("/logout", ac.logoutAction, auth.SessionRequiredMutating, web.ViewProviderAsDefault)
-	app.POST("/logout", ac.logoutAction, auth.SessionRequiredMutating, web.ViewProviderAsDefault)
 }

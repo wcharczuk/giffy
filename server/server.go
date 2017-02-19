@@ -5,7 +5,7 @@ import (
 	"github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-request"
 	"github.com/blendlabs/go-web"
-	workqueue "github.com/blendlabs/go-workqueue"
+	"github.com/blendlabs/go-workqueue"
 	"github.com/blendlabs/spiffy"
 	"github.com/blendlabs/spiffy/migration"
 
@@ -16,6 +16,7 @@ import (
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/jobs"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 const (
@@ -52,6 +53,9 @@ func New() *web.App {
 	logger.SetDiagnostics(app.Diagnostics())
 	app.SetAppName(AppName)
 	app.SetPort(core.ConfigPort())
+
+	app.Diagnostics().DisableEvent(logger.EventWebRequestPostBody)
+	app.Diagnostics().DisableEvent(logger.EventWebResponse)
 
 	app.Diagnostics().AddEventListener(logger.EventWebRequest, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.Ctx) {
 		external.StatHatRequestTiming(rc.Elapsed())
@@ -108,6 +112,10 @@ func New() *web.App {
 	} else {
 		app.View().AddPaths("server/_views/header.html")
 	}
+
+	webutil.LiveReloads(app)
+	webutil.BaseURL(app)
+	webutil.SecureCookies(app)
 
 	app.View().AddPaths(ViewPaths...)
 

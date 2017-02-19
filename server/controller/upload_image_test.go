@@ -10,7 +10,6 @@ import (
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-web"
-	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/filecache"
 	"github.com/wcharczuk/giffy/server/model"
 )
@@ -24,8 +23,8 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	filecache.Mock()
 	defer filecache.ReleaseMock()
 
-	session := MockAuth(assert, tx, MockModeratorLogin)
-	defer auth.Logout(session.UserID, session.SessionID, nil, tx)
+	auth, session := MockAuth(assert, tx, MockModeratorLogin)
+	defer auth.Logout(session, nil)
 
 	f, err := os.Open("server/controller/testdata/image.gif")
 
@@ -33,6 +32,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
+	app.SetAuth(auth)
 	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()))
 	app.IsolateTo(tx)
 	app.Register(UploadImage{})
@@ -48,7 +48,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 		Key:      "image",
 		FileName: "image.gif",
 		Contents: contents,
-	}).WithHeader(auth.SessionParamName, session.SessionID).FetchResponse()
+	}).WithHeader(auth.SessionParamName(), session.SessionID).FetchResponse()
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.StatusCode)
 	assert.NotNil(res.Body)

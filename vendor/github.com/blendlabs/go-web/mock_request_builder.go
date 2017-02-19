@@ -230,9 +230,9 @@ func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
 		return
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			if mrb.app.panicHandler != nil {
+	if mrb.app != nil && mrb.app.panicHandler != nil {
+		defer func() {
+			if r := recover(); r != nil {
 				rc, _ := mrb.Ctx(nil)
 				controllerResult := mrb.app.panicHandler(rc, r)
 				panicRecoveryBuffer := bytes.NewBuffer([]byte{})
@@ -247,11 +247,9 @@ func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
 					ProtoMajor:    1,
 					ProtoMinor:    1,
 				}
-			} else {
-				err = fmt.Errorf("MockRequestBuilder::FetchResponse panic %v", r)
 			}
-		}
-	}()
+		}()
+	}
 
 	handle, params, addTrailingSlash := mrb.app.router.Lookup(mrb.verb, mrb.path)
 	if addTrailingSlash {
