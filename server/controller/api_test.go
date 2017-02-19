@@ -269,7 +269,7 @@ func TestAPIGetTeamsNoAuth(t *testing.T) {
 	var res testTeamsResponse
 	err = app.Mock().WithPathf("/api/teams").FetchResponseAsJSON(&res)
 	assert.Nil(err)
-	assert.Equal(http.StatusForbidden, res.Meta.HTTPCode)
+	assert.Equal(http.StatusForbidden, res.Meta.StatusCode)
 }
 
 func TestAPIGetTeams(t *testing.T) {
@@ -312,7 +312,7 @@ func TestAPIGetTeams(t *testing.T) {
 	var res testTeamsResponse
 	err = app.Mock().WithPathf("/api/teams").WithHeader(auth.SessionParamName, session.SessionID).FetchResponseAsJSON(&res)
 	assert.Nil(err)
-	assert.Equal(http.StatusOK, res.Meta.HTTPCode)
+	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotEmpty(res.Response)
 	assert.Len(res.Response, 2)
 }
@@ -342,7 +342,7 @@ func TestAPIGetTeamNotAuthed(t *testing.T) {
 	var res testTeamResponse
 	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).FetchResponseAsJSON(&res)
 	assert.Nil(err)
-	assert.Equal(http.StatusForbidden, res.Meta.HTTPCode)
+	assert.Equal(http.StatusForbidden, res.Meta.StatusCode)
 }
 
 func TestAPIGetTeam(t *testing.T) {
@@ -372,7 +372,7 @@ func TestAPIGetTeam(t *testing.T) {
 	var res testTeamResponse
 	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.SessionParamName, session.SessionID).FetchResponseAsJSON(&res)
 	assert.Nil(err)
-	assert.Equal(http.StatusOK, res.Meta.HTTPCode)
+	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotNil(res.Response)
 	assert.Equal(team1.TeamID, res.Response.TeamID)
 }

@@ -36,12 +36,13 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()))
 	app.IsolateTo(tx)
 	app.Register(UploadImage{})
-	err = app.InitializeViewCache([]string{
+	app.View().AddPaths(
 		"server/_views/footer.html",
 		"server/_views/upload_image.html",
 		"server/_views/upload_image_complete.html",
 		"server/_views/header.html",
-	}...)
+	)
+	err = app.View().Initialize()
 	assert.Nil(err)
 	res, err := app.Mock().WithVerb("POST").WithPathf("/images/upload").WithPostedFile(web.PostedFile{
 		Key:      "image",

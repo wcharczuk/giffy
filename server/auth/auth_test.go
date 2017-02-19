@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/go-web"
 )
 
 func TestLogout(t *testing.T) {
@@ -75,7 +75,7 @@ func TestSessionAware(t *testing.T) {
 	hasSession := false
 	app := web.New()
 	app.IsolateTo(tx)
-	app.GET("/", func(r *web.RequestContext) web.ControllerResult {
+	app.GET("/", func(r *web.Ctx) web.Result {
 		didRun = true
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
@@ -105,7 +105,7 @@ func TestSessionAwareInvalid(t *testing.T) {
 	hasSession := false
 	app := web.New()
 	app.IsolateTo(tx)
-	app.GET("/", func(r *web.RequestContext) web.ControllerResult {
+	app.GET("/", func(r *web.Ctx) web.Result {
 		didRun = true
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
@@ -135,7 +135,7 @@ func TestSessionRequired(t *testing.T) {
 	hasSession := false
 	app := web.New()
 	app.IsolateTo(tx)
-	app.GET("/", func(r *web.RequestContext) web.ControllerResult {
+	app.GET("/", func(r *web.Ctx) web.Result {
 		didRun = true
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
@@ -165,7 +165,7 @@ func TestSessionRequiredInvalid(t *testing.T) {
 	hasSession := false
 	app := web.New()
 	app.IsolateTo(tx)
-	app.GET("/", func(r *web.RequestContext) web.ControllerResult {
+	app.GET("/", func(r *web.Ctx) web.Result {
 		didRun = true
 		session := GetSession(r)
 		hasSession = session != nil && session.UserID == u.ID
