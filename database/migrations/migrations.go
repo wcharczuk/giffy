@@ -102,17 +102,17 @@ func errors() migration.Migration {
 			migration.CreateTable,
 			migration.Body(
 				`CREATE TABLE error (
-							uuid varchar(32) not null,
-							created_utc timestamp not null,
-							message varchar(255) not null,
-							stack_trace varchar(1024),
+					uuid varchar(32) not null,
+					created_utc timestamp not null,
+					message varchar(255) not null,
+					stack_trace varchar(1024),
 
-							verb varchar(8),
-							proto varchar(8),
-							host varchar(255),
-							path varchar(255),
-							query varchar(255)
-						);`,
+					verb varchar(8),
+					proto varchar(8),
+					host varchar(255),
+					path varchar(255),
+					query varchar(255)
+				);`,
 				`ALTER TABLE error ADD CONSTRAINT pk_error_uuid PRIMARY KEY (uuid);`,
 				`CREATE INDEX ix_error_created_utc ON error(created_utc);`,
 			),
@@ -121,8 +121,21 @@ func errors() migration.Migration {
 	)
 }
 
+func sessionIDs() migration.Migration {
+	return migration.New(
+		"alter",
+		migration.Step(
+			migration.AlterColumn,
+			migration.Body(`AlTER TABLE user_session ALTER session_id TYPE varchar(128)`),
+			"user_session",
+			"session_id",
+		),
+	)
+}
+
 func init() {
 	migration.Register(contentRating())
 	migration.Register(slackTeam())
 	migration.Register(errors())
+	migration.Register(sessionIDs())
 }
