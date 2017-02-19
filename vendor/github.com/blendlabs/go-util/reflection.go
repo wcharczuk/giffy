@@ -13,6 +13,11 @@ var (
 	Reflection = reflectionUtil{}
 )
 
+// Patchable describes an object that can be patched with raw values.
+type Patchable interface {
+	Patch(values map[string]interface{}) error
+}
+
 type reflectionUtil struct{}
 
 // FollowValuePointer derefs a reflectValue until it isn't a pointer, but will preseve it's nilness.
@@ -48,7 +53,7 @@ func (ru reflectionUtil) ReflectValue(obj interface{}) reflect.Value {
 // ReflectType returns the integral type for an object.
 func (ru reflectionUtil) ReflectType(obj interface{}) reflect.Type {
 	t := reflect.TypeOf(obj)
-	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Interface {
+	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 
@@ -87,7 +92,7 @@ func (ru reflectionUtil) GetFieldByNameOrJSONTag(targetValue reflect.Type, field
 		}
 		tag := field.Tag
 		jsonTag := tag.Get("json")
-		if strings.Contains(jsonTag, fieldName) {
+		if String.CaseInsensitiveEquals(jsonTag, fieldName) {
 			return &field
 		}
 	}
@@ -95,53 +100,77 @@ func (ru reflectionUtil) GetFieldByNameOrJSONTag(targetValue reflect.Type, field
 	return nil
 }
 
-// SetValueByName sets a value on an object by its field name.
 func (ru reflectionUtil) SetValueByName(target interface{}, fieldName string, fieldValue interface{}) error {
 	targetValue := ru.ReflectValue(target)
 	targetType := ru.ReflectType(target)
+	return ru.SetValueByNameFromType(target, targetType, targetValue, fieldName, fieldValue)
+}
+
+// SetValueByName sets a value on an object by its field name.
+func (ru reflectionUtil) SetValueByNameFromType(obj interface{}, targetType reflect.Type, targetValue reflect.Value, fieldName string, fieldValue interface{}) error {
 	relevantField := ru.GetFieldByNameOrJSONTag(targetType, fieldName)
 
 	if relevantField == nil {
-		return exception.New(fmt.Sprintf("Invalid field for %s : `%s`", targetType.Name(), fieldName))
+		return exception.New("Invalid field for %s `%s`", targetType.Name(), fieldName)
 	}
 
 	field := targetValue.FieldByName(relevantField.Name)
+	if !field.CanSet() {
+		return exception.Newf("Cannot set field for %s `%s`", targetType.Name(), fieldName)
+	}
+
 	fieldType := field.Type()
-	if field.CanSet() {
-		valueReflected := ru.ReflectValue(fieldValue)
-		if valueReflected.IsValid() {
-			if valueReflected.Type().AssignableTo(fieldType) {
-				if field.Kind() == reflect.Ptr && valueReflected.CanAddr() {
-					field.Set(valueReflected.Addr())
-				} else {
-					field.Set(valueReflected)
-				}
+	valueReflected := ru.ReflectValue(fieldValue)
+	if !valueReflected.IsValid() {
+		return exception.Newf("Invalid field for %s `%s`", targetType.Name(), fieldName)
+	}
+
+	if valueReflected.Type().AssignableTo(fieldType) {
+		if field.Kind() == reflect.Ptr && valueReflected.CanAddr() {
+			field.Set(valueReflected.Addr())
+		} else {
+			field.Set(valueReflected)
+		}
+		return nil
+	}
+
+	if field.Kind() == reflect.Ptr {
+		if valueReflected.CanAddr() {
+			if fieldType.Elem() == valueReflected.Type() {
+				field.Set(valueReflected.Addr())
 			} else {
-				if field.Kind() == reflect.Ptr {
-					if valueReflected.CanAddr() {
-						convertedValue := valueReflected.Convert(fieldType.Elem())
-						if convertedValue.CanAddr() {
-							field.Set(convertedValue.Addr())
-						}
-					}
-				} else {
-					convertedValue := valueReflected.Convert(fieldType)
-					field.Set(convertedValue)
+				convertedValue := valueReflected.Convert(fieldType.Elem())
+				if convertedValue.CanAddr() {
+					field.Set(convertedValue.Addr())
 				}
 			}
-		} else {
-			return exception.New(fmt.Sprintf("Invalid field for %s : `%s`", targetType.Name(), fieldName))
 		}
-	} else {
-		return exception.New(fmt.Sprintf("Cannot set field for %s : `%s`", targetType.Name(), fieldName))
+		return exception.Newf("Cannot take address of value: %#v", fieldValue)
 	}
+
+	convertedValue := valueReflected.Convert(fieldType)
+	field.Set(convertedValue)
+
 	return nil
 }
 
 // PatchObject updates an object based on a map of field names to values.
-func (ru reflectionUtil) PatchObject(obj interface{}, patchValues map[string]interface{}) error {
+func (ru reflectionUtil) PatchObject(obj interface{}, patchValues map[string]interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = exception.Newf("%v", r)
+		}
+	}()
+
+	if patchable, isPatchable := obj.(Patchable); isPatchable {
+		return patchable.Patch(patchValues)
+	}
+
+	targetValue := ru.ReflectValue(obj)
+	targetType := targetValue.Type()
+
 	for key, value := range patchValues {
-		err := ru.SetValueByName(obj, key, value)
+		err = ru.SetValueByNameFromType(obj, targetType, targetValue, key, value)
 		if err != nil {
 			return err
 		}
@@ -258,8 +287,7 @@ func (ru reflectionUtil) DecomposeToPostDataAsJSON(object interface{}) []KeyValu
 // Decompose is a *very* inefficient way to turn an object into a map string => interface.
 func (ru reflectionUtil) Decompose(object interface{}) map[string]interface{} {
 	var output map[string]interface{}
-	serialized := JSON.Serialize(object)
-	JSON.Deserialize(&output, serialized)
+	JSON.Deserialize(&output, JSON.Serialize(object))
 	return output
 }
 

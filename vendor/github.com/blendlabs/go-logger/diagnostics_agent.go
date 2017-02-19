@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	workQueue "github.com/blendlabs/go-workqueue"
+	"github.com/blendlabs/go-workqueue"
 )
 
 var (
@@ -41,8 +41,8 @@ func SetDiagnostics(diagnostics *DiagnosticsAgent) {
 	_diagnosticsAgent = diagnostics
 }
 
-func newDiagnosticsEventQueue() *workQueue.Queue {
-	eq := workQueue.NewWithWorkers(DefaultDiagnosticsAgentQueueWorkers)
+func newDiagnosticsEventQueue() *workqueue.Queue {
+	eq := workqueue.NewWithWorkers(DefaultDiagnosticsAgentQueueWorkers)
 	eq.SetMaxWorkItems(DefaultDiagnosticsAgentQueueLength) //more than this and queuing will block
 	eq.Start()
 	return eq
@@ -74,7 +74,7 @@ type DiagnosticsAgent struct {
 	writer         Logger
 	events         *EventFlagSet
 	eventListeners map[EventFlag][]EventListener
-	eventQueue     *workQueue.Queue
+	eventQueue     *workqueue.Queue
 }
 
 // Writer returns the inner Logger for the diagnostics agent.
@@ -83,7 +83,7 @@ func (da *DiagnosticsAgent) Writer() Logger {
 }
 
 // EventQueue returns the inner event queue for the agent.
-func (da *DiagnosticsAgent) EventQueue() *workQueue.Queue {
+func (da *DiagnosticsAgent) EventQueue() *workqueue.Queue {
 	return da.eventQueue
 }
 

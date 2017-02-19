@@ -42,15 +42,15 @@ type CancellationToken struct {
 // Cancel signals cancellation.
 func (ct *CancellationToken) Cancel() {
 	ct.shouldCancelLock.Lock()
-	defer ct.shouldCancelLock.Unlock()
 	ct.shouldCancel = true
+	ct.shouldCancelLock.Unlock()
 }
 
-func (ct *CancellationToken) didCancel() bool {
+func (ct *CancellationToken) didCancel() (value bool) {
 	ct.shouldCancelLock.RLock()
-	defer ct.shouldCancelLock.RUnlock()
-
-	return ct.shouldCancel
+	value = ct.shouldCancel
+	ct.shouldCancelLock.RUnlock()
+	return
 }
 
 // CheckCancellation indicates if a token has been signaled to cancel.

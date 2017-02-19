@@ -3,6 +3,7 @@ package util
 import (
 	"strconv"
 	"time"
+	"unicode"
 )
 
 var (
@@ -14,6 +15,13 @@ type timeUtil struct{}
 
 func (tu timeUtil) CurrentTimeMillis() int64 {
 	return tu.UnixMillis(time.Now().UTC())
+}
+
+// FromMillis returns a time from an unix time in millis.
+func (tu timeUtil) FromMillis(millis int64) time.Time {
+	seconds := time.Duration(millis) / (time.Second / time.Millisecond)
+	nanoSeconds := ((time.Duration(millis) * time.Millisecond) - (time.Duration(seconds) * time.Second)) / time.Nanosecond
+	return time.Unix(int64(seconds), int64(nanoSeconds)).UTC()
 }
 
 func (tu timeUtil) UnixMillis(t time.Time) int64 {
@@ -33,6 +41,10 @@ func (tu timeUtil) IsWeekDay(day time.Weekday) bool {
 // IsWeekendDay returns if the day is a monday->friday.
 func (tu timeUtil) IsWeekendDay(day time.Weekday) bool {
 	return day == time.Saturday || day == time.Sunday
+}
+
+func (tu timeUtil) Millis(d time.Duration) float64 {
+	return float64(d) / float64(time.Millisecond)
 }
 
 const (
@@ -138,7 +150,7 @@ func (tu timeUtil) ParseDuration(duration string) time.Duration {
 	for index, c := range []rune(duration) {
 		switch state {
 		case 0:
-			if String.IsNumber(c) {
+			if unicode.IsDigit(c) {
 				numberValue = numberValue + string(c)
 			} else {
 				labelValue = string(c)
@@ -149,7 +161,7 @@ func (tu timeUtil) ParseDuration(duration string) time.Duration {
 				}
 			}
 		case 1:
-			if String.IsNumber(c) {
+			if unicode.IsDigit(c) {
 				consumeValues()
 				numberValue = string(c)
 				state = 0

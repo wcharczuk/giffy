@@ -6,12 +6,7 @@ import (
 )
 
 // NewSetOfInt creates a new SetOfInt.
-func NewSetOfInt() SetOfInt {
-	return SetOfInt{}
-}
-
-// NewSetOfIntFromValues returns a new SetOfInt from a slice.
-func NewSetOfIntFromValues(values []int) SetOfInt {
+func NewSetOfInt(values ...int) SetOfInt {
 	set := SetOfInt{}
 	for _, v := range values {
 		set.Add(v)
@@ -123,12 +118,7 @@ func (si SetOfInt) String() string {
 }
 
 // NewSetOfString creates a new SetOfString.
-func NewSetOfString() SetOfString {
-	return SetOfString{}
-}
-
-// NewSetOfStringFromValues returns a new SetOfString from the given values.
-func NewSetOfStringFromValues(values []string) SetOfString {
+func NewSetOfString(values ...string) SetOfString {
 	set := SetOfString{}
 	for _, v := range values {
 		set.Add(v)

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/external"
@@ -16,7 +16,7 @@ import (
 // Auth is the main controller for the app.
 type Auth struct{}
 
-func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
+func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -51,7 +51,7 @@ func (ac Auth) oauthSlackAction(r *web.RequestContext) web.ControllerResult {
 	return r.Redirect("/#/slack/complete")
 }
 
-func (ac Auth) oauthGoogleAction(r *web.RequestContext) web.ControllerResult {
+func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -71,7 +71,7 @@ func (ac Auth) oauthGoogleAction(r *web.RequestContext) web.ControllerResult {
 	return ac.finishOAuthLogin(r, auth.OAuthProviderGoogle, oa.AccessToken, oa.IDToken, prototypeUser)
 }
 
-func (ac Auth) oauthFacebookAction(r *web.RequestContext) web.ControllerResult {
+func (ac Auth) oauthFacebookAction(r *web.Ctx) web.Result {
 	code := r.Param("code")
 	if len(code) == 0 {
 		return r.View().BadRequest("`code` parameter missing, cannot continue")
@@ -95,7 +95,7 @@ func (ac Auth) oauthFacebookAction(r *web.RequestContext) web.ControllerResult {
 	return ac.finishOAuthLogin(r, auth.OAuthProviderGoogle, oa.AccessToken, util.StringEmpty, prototypeUser)
 }
 
-func (ac Auth) finishOAuthLogin(r *web.RequestContext, provider, authToken, authSecret string, prototypeUser *model.User) web.ControllerResult {
+func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret string, prototypeUser *model.User) web.Result {
 	existingUser, err := model.GetUserByUsername(prototypeUser.Username, r.Tx())
 	if err != nil {
 		return r.View().InternalError(err)
@@ -151,7 +151,7 @@ type loginCompleteArguments struct {
 	CurrentUser string `json:"current_user"`
 }
 
-func (ac Auth) logoutAction(r *web.RequestContext) web.ControllerResult {
+func (ac Auth) logoutAction(r *web.Ctx) web.Result {
 	session := auth.GetSession(r)
 
 	if session == nil {

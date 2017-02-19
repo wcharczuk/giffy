@@ -1,4 +1,4 @@
-package workQueue
+package workqueue
 
 import (
 	"fmt"

@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/go-web"
 )
 
 const (
@@ -50,7 +50,7 @@ type slackResponse struct {
 // Integrations controller is responsible for integration responses.
 type Integrations struct{}
 
-func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
+func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	teamID := rc.Param("team_id")
 	channelID := rc.Param("channel_id")
 	userID := rc.Param("user_id")
@@ -138,7 +138,7 @@ func (i Integrations) slackAction(rc *web.RequestContext) web.ControllerResult {
 	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
-func (i Integrations) slackSearchAction(rc *web.RequestContext) web.ControllerResult {
+func (i Integrations) slackSearchAction(rc *web.Ctx) web.Result {
 	query := rc.Param("text")
 	if len(query) < 3 {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
@@ -193,7 +193,7 @@ type slackEventChallegeRepsonse struct {
 	Challenge string `json:"challenge"`
 }
 
-func (i Integrations) slackEventAction(rc *web.RequestContext) web.ControllerResult {
+func (i Integrations) slackEventAction(rc *web.Ctx) web.Result {
 	var e slackEvent
 	err := rc.PostBodyAsJSON(&e)
 	if err != nil {

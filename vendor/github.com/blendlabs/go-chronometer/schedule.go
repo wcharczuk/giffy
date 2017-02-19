@@ -91,9 +91,9 @@ func EveryHourOnTheHour() Schedule {
 	return OnTheHour{}
 }
 
-// Immediately Returns a schedule that casues a job to run immediately after completion.
-func Immediately() Schedule {
-	return ImmediateSchedule{}
+// EveryHourAt returns a schedule that fires every hour at a given minute.
+func EveryHourAt(minute int) Schedule {
+	return OnTheHourAt{minute}
 }
 
 // WeeklyAt returns a schedule that fires on every of the given days at the given time by hour, minute and second.
@@ -125,6 +125,11 @@ func WeekendsAt(hour, minute, second int) Schedule {
 // Schedule Implementations
 // --------------------------------------------------------------------------------
 
+// OnDemand returns an on demand schedule.
+func OnDemand() Schedule {
+	return OnDemandSchedule{}
+}
+
 // OnDemandSchedule is a schedule that runs on demand.
 type OnDemandSchedule struct{}
 
@@ -133,12 +138,17 @@ func (ods OnDemandSchedule) GetNextRunTime(after *time.Time) *time.Time {
 	return nil
 }
 
+// Immediately Returns a schedule that casues a job to run immediately after completion.
+func Immediately() Schedule {
+	return ImmediateSchedule{}
+}
+
 // ImmediateSchedule fires immediately.
 type ImmediateSchedule struct{}
 
 // GetNextRunTime implements Schedule.
 func (i ImmediateSchedule) GetNextRunTime(after *time.Time) *time.Time {
-	now := time.Now().UTC()
+	now := Now()
 	return &now
 }
 
@@ -152,10 +162,10 @@ type IntervalSchedule struct {
 func (i IntervalSchedule) GetNextRunTime(after *time.Time) *time.Time {
 	if after == nil {
 		if i.StartDelay == nil {
-			next := time.Now().UTC().Add(i.Every)
+			next := Now().Add(i.Every)
 			return &next
 		}
-		next := time.Now().UTC().Add(*i.StartDelay).Add(i.Every)
+		next := Now().Add(*i.StartDelay).Add(i.Every)
 		return &next
 	}
 	last := *after
@@ -178,7 +188,7 @@ func (ds DailySchedule) checkDayOfWeekMask(day time.Weekday) bool {
 // GetNextRunTime implements Schedule.
 func (ds DailySchedule) GetNextRunTime(after *time.Time) *time.Time {
 	if after == nil {
-		now := time.Now().UTC()
+		now := Now()
 		after = &now
 	}
 
@@ -201,7 +211,7 @@ type OnTheQuarterHour struct{}
 func (o OnTheQuarterHour) GetNextRunTime(after *time.Time) *time.Time {
 	var returnValue time.Time
 	if after == nil {
-		now := time.Now().UTC()
+		now := Now()
 		if now.Minute() >= 45 {
 			returnValue = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 45, 0, 0, time.UTC).Add(15 * time.Minute)
 		} else if now.Minute() >= 30 {
@@ -231,11 +241,37 @@ type OnTheHour struct{}
 // GetNextRunTime implements the chronometer Schedule api.
 func (o OnTheHour) GetNextRunTime(after *time.Time) *time.Time {
 	var returnValue time.Time
+	now := Now()
 	if after == nil {
-		now := time.Now().UTC()
 		returnValue = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC).Add(1 * time.Hour)
+		if returnValue.Before(now) {
+			returnValue = returnValue.Add(time.Hour)
+		}
 	} else {
 		returnValue = time.Date(after.Year(), after.Month(), after.Day(), after.Hour(), 0, 0, 0, time.UTC).Add(1 * time.Hour)
+	}
+	return &returnValue
+}
+
+// OnTheHourAt is a schedule that fires every hour on the given minute.
+type OnTheHourAt struct {
+	Minute int
+}
+
+// GetNextRunTime implements the chronometer Schedule api.
+func (o OnTheHourAt) GetNextRunTime(after *time.Time) *time.Time {
+	var returnValue time.Time
+	now := Now()
+	if after == nil {
+		returnValue = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), o.Minute, 0, 0, time.UTC)
+		if returnValue.Before(now) {
+			returnValue = returnValue.Add(time.Hour)
+		}
+	} else {
+		returnValue = time.Date(after.Year(), after.Month(), after.Day(), after.Hour(), o.Minute, 0, 0, time.UTC)
+		if returnValue.Before(*after) {
+			returnValue = returnValue.Add(time.Hour)
+		}
 	}
 	return &returnValue
 }

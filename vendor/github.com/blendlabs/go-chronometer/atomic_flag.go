@@ -11,15 +11,16 @@ type AtomicFlag struct {
 // Set the flag value.
 func (af *AtomicFlag) Set(value bool) {
 	af.lock.Lock()
-	defer af.lock.Unlock()
 	af.value = value
+	af.lock.Unlock()
 }
 
 // Get the flag value.
-func (af *AtomicFlag) Get() bool {
+func (af *AtomicFlag) Get() (value bool) {
 	af.lock.RLock()
-	defer af.lock.RUnlock()
-	return af.value
+	value = af.value
+	af.lock.RUnlock()
+	return
 }
 
 // AtomicCounter is a counter that you should use
@@ -32,20 +33,21 @@ type AtomicCounter struct {
 // Increment the value.
 func (ac *AtomicCounter) Increment() {
 	ac.lock.Lock()
-	defer ac.lock.Unlock()
 	ac.value++
+	ac.lock.Unlock()
 }
 
 // Decrement the value.
 func (ac *AtomicCounter) Decrement() {
 	ac.lock.Lock()
-	defer ac.lock.Unlock()
 	ac.value--
+	ac.lock.Unlock()
 }
 
 // Get returns the counter value.
-func (ac *AtomicCounter) Get() int {
+func (ac *AtomicCounter) Get() (value int) {
 	ac.lock.RLock()
-	defer ac.lock.RUnlock()
-	return ac.value
+	value = ac.value
+	ac.lock.RUnlock()
+	return
 }

@@ -62,3 +62,8 @@ func DefaultDb() *DbConnection {
 	}
 	return nil
 }
+
+// DB is an alias to DefaultDb.
+func DB() *DbConnection {
+	return DefaultDb()
+}

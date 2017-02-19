@@ -11,8 +11,8 @@ import (
 	"path"
 
 	"github.com/blendlabs/go-exception"
+	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
-	"github.com/wcharczuk/go-web"
 
 	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/core"
@@ -24,7 +24,7 @@ import (
 // UploadImage is the controller responsible for image actions.
 type UploadImage struct{}
 
-func (ic UploadImage) uploadImageAction(r *web.RequestContext) web.ControllerResult {
+func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
 	session := auth.GetSession(r)
 
 	if !session.User.IsModerator {
@@ -34,7 +34,7 @@ func (ic UploadImage) uploadImageAction(r *web.RequestContext) web.ControllerRes
 	return r.View().View("upload_image", nil)
 }
 
-func (ic UploadImage) uploadImageCompleteAction(r *web.RequestContext) web.ControllerResult {
+func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	session := auth.GetSession(r)
 
 	if !session.User.IsModerator {

@@ -1,4 +1,4 @@
-package workQueue
+package workqueue
 
 import (
 	"bytes"
@@ -12,7 +12,10 @@ const (
 	DefaultMaxRetries = 10
 
 	// DefaultMaxWorkItems is the default entry buffer length.
-	DefaultMaxWorkItems = 1 << 10
+	// Currently the default is 2^18 or 256k.
+	// WorkItems maps to the initialized capacity of a buffered channel.
+	// As a result it does not reflect actual memory consumed.
+	DefaultMaxWorkItems = 1 << 18
 )
 
 var (

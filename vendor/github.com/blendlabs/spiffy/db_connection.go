@@ -177,9 +177,14 @@ func (dbc *DbConnection) Diagnostics() *logger.DiagnosticsAgent {
 	return dbc.diagnostics
 }
 
-func (dbc *DbConnection) fireEvent(flag logger.EventFlag, query string, elapsed time.Duration, err error) {
+func (dbc *DbConnection) fireEvent(flag logger.EventFlag, query string, elapsed time.Duration, err error, optionalQueryLabel ...string) {
 	if dbc.diagnostics != nil {
-		dbc.diagnostics.OnEvent(flag, query, elapsed, err)
+		var queryLabel string
+		if len(optionalQueryLabel) > 0 {
+			queryLabel = optionalQueryLabel[0]
+		}
+
+		dbc.diagnostics.OnEvent(flag, query, elapsed, err, queryLabel)
 	}
 }
 
@@ -301,7 +306,7 @@ func (dbc *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error
 			dbc.statementCacheInitLock.Lock()
 			defer dbc.statementCacheInitLock.Unlock()
 			if dbc.statementCache == nil {
-				dbc.statementCache = NewStatementCache(dbConn)
+				dbc.statementCache = newStatementCache(dbConn)
 			}
 		}
 		return dbc.statementCache.Prepare(statement)
@@ -316,7 +321,6 @@ func (dbc *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error
 
 // OpenNew returns a new connection object.
 func (dbc *DbConnection) OpenNew() (*sql.DB, error) {
-
 	connStr, err := dbc.CreatePostgresConnectionString()
 	if err != nil {
 		return nil, err
@@ -374,8 +378,8 @@ func (dbc *DbConnection) ExecInTx(statement string, tx *sql.Tx, args ...interfac
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
 	stmt, stmtErr := dbc.Prepare(statement, tx)
 	if stmtErr != nil {
@@ -393,6 +397,9 @@ func (dbc *DbConnection) ExecInTx(statement string, tx *sql.Tx, args ...interfac
 
 	if _, execErr := stmt.Exec(args...); execErr != nil {
 		err = exception.Wrap(execErr)
+		if err != nil && dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(statement)
+		}
 		return
 	}
 
@@ -406,12 +413,12 @@ func (dbc *DbConnection) Query(statement string, args ...interface{}) *QueryResu
 
 // QueryInTx runs the selected statement in a transaction and returns a QueryResult.
 func (dbc *DbConnection) QueryInTx(statement string, tx *sql.Tx, args ...interface{}) (result *QueryResult) {
-	result = &QueryResult{queryBody: statement, start: time.Now(), conn: dbc}
+	result = &QueryResult{queryBody: statement, start: time.Now(), conn: dbc, fireEvents: true}
 	if dbc == nil {
 		result.err = exception.New(DBAliasNilError)
 		return
 	}
-	dbc.transactionLock()
+	dbc.tryTransactionLock()
 
 	stmt, stmtErr := dbc.Prepare(statement, tx)
 	if stmtErr != nil {
@@ -420,19 +427,22 @@ func (dbc *DbConnection) QueryInTx(statement string, tx *sql.Tx, args ...interfa
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			if !dbc.useStatementCache {
-				result.err = exception.WrapMany(result.err, exception.New(r), stmt.Close())
-			} else {
+			if dbc.useStatementCache {
 				result.err = exception.WrapMany(result.err, exception.New(r))
+			} else {
+				result.err = exception.WrapMany(result.err, exception.New(r), stmt.Close())
 			}
 
-			dbc.transactionUnlock()
+			dbc.tryTransactionUnlock()
 		}
 	}()
 
 	rows, queryErr := stmt.Query(args...)
 	if queryErr != nil {
 		result.err = exception.Wrap(queryErr)
+		if dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(statement)
+		}
 		return
 	}
 
@@ -463,14 +473,14 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
 	if ids == nil {
 		return exception.New("invalid `ids` parameter.")
 	}
 
-	meta := CachedColumnCollectionFromInstance(object)
+	meta := getCachedColumnCollectionFromInstance(object)
 	standardCols := meta.NotReadOnly()
 	columnNames := standardCols.ColumnNames()
 	tableName := object.TableName()
@@ -506,7 +516,8 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 		}
 	}
 
-	stmt, stmtErr := dbc.Prepare(queryBodyBuffer.String(), tx)
+	queryBody = queryBodyBuffer.String()
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -520,6 +531,9 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 	rows, queryErr := stmt.Query(ids...)
 	if queryErr != nil {
 		err = exception.Wrap(queryErr)
+		if dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(queryBody)
+		}
 		return
 	}
 	defer func() {
@@ -531,8 +545,8 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 
 	var popErr error
 	if rows.Next() {
-		if IsPopulatable(object) {
-			popErr = AsPopulatable(object).Populate(rows)
+		if isPopulatable(object) {
+			popErr = asPopulatable(object).Populate(rows)
 		} else {
 			popErr = PopulateInOrder(object, rows, standardCols)
 		}
@@ -568,13 +582,13 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
 	collectionValue := reflectValue(collection)
 	t := reflectSliceType(collection)
 	tableName, _ := TableName(t)
-	meta := CachedColumnCollectionFromType(tableName, t).NotReadOnly()
+	meta := getCachedColumnCollectionFromType(tableName, t).NotReadOnly()
 
 	columnNames := meta.ColumnNames()
 
@@ -591,9 +605,13 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 	queryBodyBuffer.WriteString(" FROM ")
 	queryBodyBuffer.WriteString(tableName)
 
-	stmt, stmtErr := dbc.Prepare(queryBodyBuffer.String(), tx)
+	queryBody = queryBodyBuffer.String()
+	stmt, stmtErr := dbc.Prepare(queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
+		if dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(queryBody)
+		}
 		return
 	}
 	defer func() {
@@ -614,18 +632,18 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 		}
 	}()
 
-	v, err := MakeNewDatabaseMapped(t)
+	v, err := makeNewDatabaseMapped(t)
 	if err != nil {
 		return
 	}
-	isPopulatable := IsPopulatable(v)
+	isPopulatable := isPopulatable(v)
 
 	var popErr error
 	for rows.Next() {
-		newObj, _ := MakeNewDatabaseMapped(t)
+		newObj, _ := makeNewDatabaseMapped(t)
 
 		if isPopulatable {
-			popErr = AsPopulatable(newObj).Populate(rows)
+			popErr = asPopulatable(newObj).Populate(rows)
 		} else {
 			popErr = PopulateInOrder(newObj, rows, meta)
 			if popErr != nil {
@@ -662,10 +680,10 @@ func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
-	cols := CachedColumnCollectionFromInstance(object)
+	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
 
 	//NOTE: we're only using one.
@@ -717,6 +735,9 @@ func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		_, execErr := stmt.Exec(colValues...)
 		if execErr != nil {
 			err = exception.Wrap(execErr)
+			if dbc.useStatementCache {
+				dbc.statementCache.InvalidateStatement(queryBody)
+			}
 			return
 		}
 	} else {
@@ -759,10 +780,10 @@ func (dbc *DbConnection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
-	cols := CachedColumnCollectionFromInstance(object)
+	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
 
 	//NOTE: we're only using one.
@@ -827,6 +848,9 @@ func (dbc *DbConnection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx
 		_, execErr := stmt.Exec(colValues...)
 		if execErr != nil {
 			err = exception.Wrap(execErr)
+			if dbc.useStatementCache {
+				dbc.statementCache.InvalidateStatement(queryBody)
+			}
 			return
 		}
 	} else {
@@ -869,8 +893,8 @@ func (dbc *DbConnection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err er
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
 	sliceValue := reflectValue(objects)
 	if sliceValue.Len() == 0 {
@@ -883,7 +907,7 @@ func (dbc *DbConnection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err er
 		return
 	}
 
-	cols := CachedColumnCollectionFromType(tableName, sliceType)
+	cols := getCachedColumnCollectionFromType(tableName, sliceType)
 	writeCols := cols.NotReadOnly().NotSerials()
 
 	//NOTE: we're only using one.
@@ -941,6 +965,9 @@ func (dbc *DbConnection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err er
 	_, execErr := stmt.Exec(colValues...)
 	if execErr != nil {
 		err = exception.Wrap(execErr)
+		if dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(queryBody)
+		}
 		return
 	}
 
@@ -968,11 +995,11 @@ func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
 	tableName := object.TableName()
-	cols := CachedColumnCollectionFromInstance(object)
+	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.WriteColumns()
 	pks := cols.PrimaryKeys()
 	updateCols := cols.UpdateColumns()
@@ -1024,6 +1051,9 @@ func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	_, execErr := stmt.Exec(updateValues...)
 	if execErr != nil {
 		err = exception.Wrap(execErr)
+		if dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(queryBody)
+		}
 		return
 	}
 
@@ -1051,11 +1081,11 @@ func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists b
 		return false, exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
 	tableName := object.TableName()
-	cols := CachedColumnCollectionFromInstance(object)
+	cols := getCachedColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
 	if pks.Len() == 0 {
@@ -1106,6 +1136,9 @@ func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists b
 	if queryErr != nil {
 		exists = false
 		err = exception.Wrap(queryErr)
+		if dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(queryBody)
+		}
 		return
 	}
 
@@ -1134,11 +1167,11 @@ func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		return exception.New(DBAliasNilError)
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
 	tableName := object.TableName()
-	cols := CachedColumnCollectionFromInstance(object)
+	cols := getCachedColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
 
 	if len(pks.Columns()) == 0 {
@@ -1180,6 +1213,9 @@ func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	_, execErr := stmt.Exec(pkValues...)
 	if execErr != nil {
 		err = exception.Wrap(execErr)
+		if dbc.useStatementCache {
+			dbc.statementCache.InvalidateStatement(queryBody)
+		}
 	}
 	return
 }
@@ -1206,10 +1242,10 @@ func (dbc *DbConnection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		return
 	}
 
-	dbc.transactionLock()
-	defer dbc.transactionUnlock()
+	dbc.tryTransactionLock()
+	defer dbc.tryTransactionUnlock()
 
-	cols := CachedColumnCollectionFromInstance(object)
+	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
 
 	conflictUpdateCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
@@ -1291,6 +1327,9 @@ func (dbc *DbConnection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 		execErr := stmt.QueryRow(colValues...).Scan(&id)
 		if execErr != nil {
 			err = exception.Wrap(execErr)
+			if dbc.useStatementCache {
+				dbc.statementCache.InvalidateStatement(queryBody)
+			}
 			return
 		}
 		setErr := serial.SetValue(object, id)
@@ -1368,7 +1407,7 @@ func (dbc *DbConnection) Rollback(tx *sql.Tx) error {
 	return tx.Rollback()
 }
 
-func (dbc *DbConnection) transactionLock() {
+func (dbc *DbConnection) tryTransactionLock() {
 	if dbc == nil {
 		return
 	}
@@ -1378,7 +1417,7 @@ func (dbc *DbConnection) transactionLock() {
 	}
 }
 
-func (dbc *DbConnection) transactionUnlock() {
+func (dbc *DbConnection) tryTransactionUnlock() {
 	if dbc == nil {
 		return
 	}

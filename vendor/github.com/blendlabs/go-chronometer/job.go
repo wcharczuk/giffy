@@ -6,3 +6,8 @@ type Job interface {
 	Schedule() Schedule
 	Execute(ct *CancellationToken) error
 }
+
+// ShowMessagesProvider is a type that enables or disables messages.
+type ShowMessagesProvider interface {
+	ShowMessages() bool
+}

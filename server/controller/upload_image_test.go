@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	assert "github.com/blendlabs/go-assert"
-	logger "github.com/blendlabs/go-logger"
+	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-logger"
+	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/filecache"
 	"github.com/wcharczuk/giffy/server/model"
-	web "github.com/wcharczuk/go-web"
 )
 
 func TestUploadImageByPostedFile(t *testing.T) {

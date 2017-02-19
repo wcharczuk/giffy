@@ -93,10 +93,10 @@ func (m Moderation) IsZero() bool {
 }
 
 func getModerationQuery(whereClause string) string {
-	moderatorColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_").ColumnNamesFromAlias("mu"))
-	userColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_").ColumnNamesFromAlias("u"))
-	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesFromAlias("i"))
-	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
+	moderatorColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_").ColumnNamesCSVFromAlias("mu")
+	userColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_").ColumnNamesCSVFromAlias("u")
+	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesCSVFromAlias("i")
+	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesCSVFromAlias("t")
 
 	return fmt.Sprintf(`
 	select
@@ -147,11 +147,11 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 }
 
 func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
-	moderationColumns := spiffy.CachedColumnCollectionFromInstance(Moderation{})
-	moderatorColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_")
-	userColumns := spiffy.CachedColumnCollectionFromInstance(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_")
-	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
-	tagColumns := spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
+	moderationColumns := spiffy.Columns(Moderation{})
+	moderatorColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_")
+	userColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_")
+	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
+	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
 
 	return func(r *sql.Rows) error {
 		var m Moderation

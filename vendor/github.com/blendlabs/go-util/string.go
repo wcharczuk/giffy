@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"regexp"
@@ -167,11 +168,6 @@ func (su stringUtil) IsLower(c rune) bool {
 	return c >= rune('a') && c <= rune('z')
 }
 
-// IsNumber returns if a rune is in the number range.
-func (su stringUtil) IsNumber(c rune) bool {
-	return c >= rune('0') && c <= rune('9')
-}
-
 // IsSymbol returns if the rune is in the symbol range.
 func (su stringUtil) IsSymbol(c rune) bool {
 	return c >= rune(' ') && c <= rune('/')
@@ -242,6 +238,12 @@ func (su stringUtil) CombineRunsets(runesets ...[]rune) []rune {
 func (su stringUtil) IsValidInteger(input string) bool {
 	_, convCrr := strconv.Atoi(input)
 	return convCrr == nil
+}
+
+// IsNumber returns if a string represents a number
+func (su stringUtil) IsNumber(input string) bool {
+	_, err := strconv.ParseFloat(input, 64)
+	return err == nil
 }
 
 // RegexMatch returns if a string matches a regexp.
@@ -350,6 +352,14 @@ func (su stringUtil) StripQuotes(input string) string {
 	return string(output)
 }
 
+// TrimTo trims a string to a given length.
+func (su stringUtil) TrimTo(val string, length int) string {
+	if len(val) > length {
+		return val[0:length]
+	}
+	return val
+}
+
 // TrimWhitespace trims spaces and tabs from a string.
 func (su stringUtil) TrimWhitespace(input string) string {
 	return strings.Trim(input, " \t")
@@ -393,4 +403,59 @@ func (su stringUtil) FormatFileSize(sizeBytes int) string {
 		return fmt.Sprintf("%dkB", sizeBytes/(1<<10))
 	}
 	return fmt.Sprintf("%dB", sizeBytes)
+}
+
+var nonTitleWords = map[string]bool{
+	"and":     true,
+	"the":     true,
+	"a":       true,
+	"an":      true,
+	"but":     true,
+	"or":      true,
+	"on":      true,
+	"in":      true,
+	"with":    true,
+	"for":     true,
+	"either":  true,
+	"neither": true,
+	"nor":     true,
+}
+
+func (su stringUtil) ToTitleCase(corpus string) string {
+	output := bytes.NewBuffer(nil)
+	runes := []rune(corpus)
+
+	haveSeenLetter := false
+	var r rune
+	for x := 0; x < len(runes); x++ {
+		r = runes[x]
+
+		if unicode.IsLetter(r) {
+			if !haveSeenLetter {
+				output.WriteRune(unicode.ToUpper(r))
+				haveSeenLetter = true
+			} else {
+				output.WriteRune(unicode.ToLower(r))
+			}
+		} else {
+			output.WriteRune(r)
+			haveSeenLetter = false
+		}
+	}
+	return output.String()
+}
+
+// FixedWidth returns a fixed width, right aligned, string with a given minimum space padded width.
+func (su stringUtil) FixedWidth(text string, width int) string {
+	fixedToken := fmt.Sprintf("%%%d.%ds", width, width)
+	return fmt.Sprintf(fixedToken, text)
+}
+
+// FixedWidthLeftAligned returns a fixed width, left aligned, string with a given minimum space padded width.
+func (su stringUtil) FixedWidthLeftAligned(text string, width int) string {
+	if width < len(text) {
+		return text[0:width]
+	}
+	fixedToken := fmt.Sprintf("%%-%ds", width)
+	return fmt.Sprintf(fixedToken, text)
 }

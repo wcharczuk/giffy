@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/go-web"
 )
 
 func TestSlack(t *testing.T) {

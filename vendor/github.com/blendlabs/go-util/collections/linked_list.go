@@ -113,7 +113,7 @@ func (q *LinkedList) EachUntil(consumer func(value interface{}) bool) {
 	}
 }
 
-// EachUntil calls the consumer for each element of the linked list, but can abort.
+// ReverseEachUntil calls the consumer for each element of the linked list, but can abort.
 func (q *LinkedList) ReverseEachUntil(consumer func(value interface{}) bool) {
 	if q.head == nil {
 		return

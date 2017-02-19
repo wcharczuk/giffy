@@ -37,21 +37,6 @@ const (
 	EventWebInternalError = EventFatalError
 )
 
-var (
-	// AllEventFlags is an array of all the event flags.
-	AllEventFlags = []EventFlag{
-		EventFatalError,
-		EventError,
-		EventWarning,
-		EventDebug,
-		EventInfo,
-		EventWebRequestStart,
-		EventWebRequest,
-		EventWebResponse,
-		EventWebUserError,
-	}
-)
-
 // EventFlag is a flag to enable or disable triggering handlers for an event.
 type EventFlag string
 
@@ -93,19 +78,31 @@ func NewEventFlagSetWithEvents(eventFlags ...EventFlag) *EventFlagSet {
 func NewEventFlagSetFromEnvironment() *EventFlagSet {
 	envEventsFlag := os.Getenv(EnvironmentVariableLogEvents)
 	if len(envEventsFlag) > 0 {
+		flagSet := &EventFlagSet{
+			flags: map[EventFlag]bool{},
+		}
+
 		flags := strings.Split(envEventsFlag, ",")
-		var events []EventFlag
+
 		for _, flag := range flags {
 			parsedFlag := EventFlag(strings.Trim(strings.ToLower(flag), " \t\n"))
-			if CaseInsensitiveEquals(string(parsedFlag), string(EventAll)) {
-				return NewEventFlagSetAll()
+			if string(parsedFlag) == string(EventAll) {
+				flagSet.all = true
 			}
-			if CaseInsensitiveEquals(string(parsedFlag), string(EventNone)) {
-				return NewEventFlagSetNone()
+
+			if string(parsedFlag) == string(EventNone) {
+				flagSet.none = true
 			}
-			events = append(events, parsedFlag)
+
+			if strings.HasPrefix(string(parsedFlag), "-") {
+				flag := EventFlag(strings.TrimPrefix(string(parsedFlag), "-"))
+				flagSet.flags[flag] = false
+			} else {
+				flagSet.flags[parsedFlag] = true
+			}
 		}
-		return NewEventFlagSetWithEvents(events...)
+
+		return flagSet
 	}
 	return NewEventFlagSet()
 }
@@ -153,6 +150,10 @@ func (efs *EventFlagSet) DisableAll() {
 // IsEnabled checks to see if an event is enabled.
 func (efs EventFlagSet) IsEnabled(flagValue EventFlag) bool {
 	if efs.all {
+		// figure out if we explicitly disabled the flag.
+		if enabled, hasFlag := efs.flags[flagValue]; hasFlag && !enabled {
+			return false
+		}
 		return true
 	}
 	if efs.none {
@@ -165,16 +166,21 @@ func (efs EventFlagSet) IsEnabled(flagValue EventFlag) bool {
 }
 
 func (efs EventFlagSet) String() string {
-	if efs.all {
-		return string(EventAll)
-	}
 	if efs.none {
 		return string(EventNone)
 	}
+
 	var flags []string
+	if efs.all {
+		flags = []string{string(EventAll)}
+	}
 	for key, enabled := range efs.flags {
-		if enabled {
-			flags = append(flags, string(key))
+		if key != EventAll {
+			if enabled {
+				flags = append(flags, string(key))
+			} else {
+				flags = append(flags, "-"+string(key))
+			}
 		}
 	}
 	return strings.Join(flags, ", ")

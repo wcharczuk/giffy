@@ -7,8 +7,8 @@ import (
 
 	assert "github.com/blendlabs/go-assert"
 	util "github.com/blendlabs/go-util"
+	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/model"
-	web "github.com/wcharczuk/go-web"
 )
 
 func TestChartsSeaches(t *testing.T) {

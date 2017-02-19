@@ -4,15 +4,15 @@ import (
 	"net/http"
 	"time"
 
+	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 	chart "github.com/wcharczuk/go-chart"
-	web "github.com/wcharczuk/go-web"
 )
 
 // Chart is a controller for common chart endpoints.
 type Chart struct{}
 
-func (c Chart) getSearchChartAction(rc *web.RequestContext) web.ControllerResult {
+func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 
 	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -6, 0), rc.Tx())
 	if err != nil {

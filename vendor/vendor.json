@@ -171,10 +171,10 @@
 			"revisionTime": "2016-07-23T19:36:15Z"
 		},
 		{
-			"checksumSHA1": "P+ggn+jOaHAhnFZxE2INWDnariw=",
+			"checksumSHA1": "eb/hHq+MW8vqfNm2P5CY2xe/cWA=",
 			"path": "github.com/blendlabs/go-chronometer",
-			"revision": "8e804112ff0beac57842948e3248b509a570077e",
-			"revisionTime": "2016-08-17T21:09:42Z"
+			"revision": "68a4c1bfdaa5a90304bd0aecc56b6f798762aeaf",
+			"revisionTime": "2017-02-13T21:36:01Z"
 		},
 		{
 			"checksumSHA1": "SbgTGx3lnuqo29iiV2jdbnmVP7E=",
@@ -183,10 +183,10 @@
 			"revisionTime": "2016-12-13T02:24:32Z"
 		},
 		{
-			"checksumSHA1": "30qHTbZ14kVGTsj2qRXvMpsnsDw=",
+			"checksumSHA1": "RyV0Ycgng5Blx9IsoLQympDUMok=",
 			"path": "github.com/blendlabs/go-logger",
-			"revision": "6e19d0c0451221d9bee8d182c6fd5211ddf14c10",
-			"revisionTime": "2016-12-15T23:56:25Z"
+			"revision": "849a50402ad5b67509ade1d4528c434e208da1d2",
+			"revisionTime": "2017-02-19T06:33:43Z"
 		},
 		{
 			"checksumSHA1": "ZhMh5tNzGH6tuaZsMh+sWaaX+SU=",
@@ -195,16 +195,22 @@
 			"revisionTime": "2016-11-23T00:24:28Z"
 		},
 		{
-			"checksumSHA1": "lyPOOsZgD8CydIR9kAKq+4q1gwI=",
+			"checksumSHA1": "DOkcWybzv74IEzeDqXcDF/8h5l4=",
 			"path": "github.com/blendlabs/go-util",
-			"revision": "75a6f360bf831d368bf10978ff13fdd07bc48177",
-			"revisionTime": "2016-10-19T17:29:18Z"
+			"revision": "a364fa46da98dfd3e8dde4044fedef4840430681",
+			"revisionTime": "2017-02-17T01:41:03Z"
 		},
 		{
-			"checksumSHA1": "nsNUkemMSTH5qoEfU3GXjRcn+eY=",
+			"checksumSHA1": "FnR/Wygnj2W0ReKJ/czc83KAxDg=",
 			"path": "github.com/blendlabs/go-util/collections",
-			"revision": "75a6f360bf831d368bf10978ff13fdd07bc48177",
-			"revisionTime": "2016-10-19T17:29:18Z"
+			"revision": "a364fa46da98dfd3e8dde4044fedef4840430681",
+			"revisionTime": "2017-02-17T01:41:03Z"
+		},
+		{
+			"checksumSHA1": "KJSTHK9YtWU0B5zMRQ3Jp2OirYU=",
+			"path": "github.com/blendlabs/go-util/env",
+			"revision": "a364fa46da98dfd3e8dde4044fedef4840430681",
+			"revisionTime": "2017-02-17T01:41:03Z"
 		},
 		{
 			"checksumSHA1": "nncKoui4lM7tb1NJsQerEh8vTAw=",
@@ -213,16 +219,22 @@
 			"revisionTime": "2016-10-19T17:29:18Z"
 		},
 		{
-			"checksumSHA1": "dK5cKbWwQv6s6gEXW2qbHRhPGjk=",
-			"path": "github.com/blendlabs/go-workqueue",
-			"revision": "1338d21031f5763044f3a1e754e48c41121a6c8b",
-			"revisionTime": "2016-11-17T22:52:43Z"
+			"checksumSHA1": "Tdb2StYuFN+OJJp+SRg3rSlzPnw=",
+			"path": "github.com/blendlabs/go-web",
+			"revision": "8c349acb93884b0c72dc0ecfd4070812fcb994a5",
+			"revisionTime": "2017-02-18T01:17:52Z"
 		},
 		{
-			"checksumSHA1": "0yfSFZqwMcSp0+XXo2tSKun2sNM=",
+			"checksumSHA1": "P/wUPcnrmzj0F3q33zs5sL7PVFk=",
+			"path": "github.com/blendlabs/go-workqueue",
+			"revision": "3cb9af71c2cee49e4f56a1199d74688e6e907d31",
+			"revisionTime": "2017-02-19T06:32:18Z"
+		},
+		{
+			"checksumSHA1": "zKhb/JHG8gmfPHPZk+0ytS2cmwM=",
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "3885708c7a04eab5990164f7caf1f021a8ec2195",
-			"revisionTime": "2016-12-20T19:46:46Z"
+			"revision": "493f9cd34aaafb360ffd78432a0a7bd14284cfdf",
+			"revisionTime": "2017-02-19T05:03:55Z"
 		},
 		{
 			"checksumSHA1": "uzLhaxiThbx9FpXBOTESwdkK4cY=",
@@ -291,12 +303,6 @@
 			"path": "github.com/wcharczuk/go-chart/drawing",
 			"revision": "4d7ea04118631de805f4cd8ae4c1cc12fee2a6fb",
 			"revisionTime": "2016-10-22T00:01:02Z"
-		},
-		{
-			"checksumSHA1": "nhuMi8rtbNCBl5wYO0ZwzEUzA+0=",
-			"path": "github.com/wcharczuk/go-web",
-			"revision": "206a8b060050a784de444c9cffdde7f690c4faac",
-			"revisionTime": "2016-12-16T00:03:16Z"
 		},
 		{
 			"checksumSHA1": "7E3Y1HU/UbsQF/dxMRdjFmx9QDQ=",

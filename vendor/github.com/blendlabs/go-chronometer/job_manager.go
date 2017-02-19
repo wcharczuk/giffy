@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-exception"
+	logger "github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-util/collections"
 )
 
@@ -89,21 +90,67 @@ type JobManager struct {
 	isRunning      bool
 	schedulerToken *CancellationToken
 
-	taskListeners []TaskListener
+	diagnostics *logger.DiagnosticsAgent
 }
 
-// Event/Listener Methods
+// Diagnostics returns the diagnostics agent.
+func (jm *JobManager) Diagnostics() *logger.DiagnosticsAgent {
+	return jm.diagnostics
+}
 
-// AddTaskListener adds a task listener.
-func (jm *JobManager) AddTaskListener(listener TaskListener) {
-	jm.taskListeners = append(jm.taskListeners, listener)
+// ShouldShowMessagesFor is a helper function to determine if we should show messages for a
+// given task name.
+func (jm *JobManager) ShouldShowMessagesFor(taskName string) bool {
+	jm.loadedJobsLock.RLock()
+	defer jm.loadedJobsLock.RUnlock()
+
+	if job, hasJob := jm.loadedJobs[taskName]; hasJob {
+		if typed, isTyped := job.(ShowMessagesProvider); isTyped {
+			return typed.ShowMessages()
+		}
+	}
+
+	return true
+}
+
+// SetDiagnostics sets the diagnostics agent.
+func (jm *JobManager) SetDiagnostics(agent *logger.DiagnosticsAgent) {
+	jm.diagnostics = agent
+
+	jm.diagnostics.AddEventListener(EventTask, NewTaskListener(jm.taskListener))
+	jm.diagnostics.AddEventListener(EventTaskComplete, NewTaskCompleteListener(jm.taskCompleteListener))
+}
+
+func (jm *JobManager) taskListener(wr logger.Logger, ts logger.TimeSource, taskName string) {
+	if jm.ShouldShowMessagesFor(taskName) {
+		logger.WriteEventf(wr, ts, EventTask, logger.ColorBlue, "`%s` starting", taskName)
+	}
+}
+
+func (jm *JobManager) taskCompleteListener(wr logger.Logger, ts logger.TimeSource, taskName string, elapsed time.Duration, err error) {
+	if jm.ShouldShowMessagesFor(taskName) {
+		if err != nil {
+			logger.WriteEventf(wr, ts, EventTaskComplete, logger.ColorRed, "`%s` failed %v", taskName, elapsed)
+		} else {
+			logger.WriteEventf(wr, ts, EventTaskComplete, logger.ColorBlue, "`%s` completed %v", taskName, elapsed)
+		}
+	}
 }
 
 // fireTaskListeners fires the currently configured task listeners.
-func (jm *JobManager) fireTaskListeners(taskName string, elapsed time.Duration, err error) {
-	for x := 0; x < len(jm.taskListeners); x++ {
-		go jm.taskListeners[x](taskName, elapsed, err)
+func (jm *JobManager) fireTaskListeners(taskName string) {
+	if jm.diagnostics == nil {
+		return
 	}
+	jm.diagnostics.OnEvent(EventTask, taskName)
+}
+
+// fireTaskListeners fires the currently configured task listeners.
+func (jm *JobManager) fireTaskCompleteListeners(taskName string, elapsed time.Duration, err error) {
+	if jm.diagnostics == nil {
+		return
+	}
+	jm.diagnostics.OnEvent(EventTaskComplete, taskName, elapsed, err)
 }
 
 // --------------------------------------------------------------------------------
@@ -113,25 +160,24 @@ func (jm *JobManager) fireTaskListeners(taskName string, elapsed time.Duration, 
 // HasJob returns if a jobName is loaded or not.
 func (jm *JobManager) HasJob(jobName string) bool {
 	jm.loadedJobsLock.RLock()
-	defer jm.loadedJobsLock.RUnlock()
 	_, hasJob := jm.loadedJobs[jobName]
+	jm.loadedJobsLock.RUnlock()
 	return hasJob
 }
 
 // IsDisabled returns if a job is disabled.
-func (jm *JobManager) IsDisabled(jobName string) bool {
+func (jm *JobManager) IsDisabled(jobName string) (value bool) {
 	jm.disabledJobsLock.RLock()
-	defer jm.disabledJobsLock.RUnlock()
-
-	return jm.disabledJobs.Contains(jobName)
+	value = jm.disabledJobs.Contains(jobName)
+	jm.disabledJobsLock.RUnlock()
+	return
 }
 
 // IsRunning returns if a task is currently running.
 func (jm *JobManager) IsRunning(taskName string) bool {
 	jm.runningTasksLock.RLock()
-	defer jm.runningTasksLock.RUnlock()
-
 	_, isRunning := jm.runningTasks[taskName]
+	jm.runningTasksLock.RUnlock()
 	return isRunning
 }
 
@@ -186,6 +232,14 @@ func (jm *JobManager) EnableJob(jobName string) error {
 	return nil
 }
 
+func (jm *JobManager) showJobMessages(job Job) bool {
+	hasDiagnostics := jm.diagnostics != nil
+	if showMessagesProvider, isShowMessagesProvider := job.(ShowMessagesProvider); isShowMessagesProvider {
+		return hasDiagnostics && showMessagesProvider.ShowMessages()
+	}
+	return hasDiagnostics
+}
+
 // RunJob runs a job by jobName on demand.
 func (jm *JobManager) RunJob(jobName string) error {
 	jm.loadedJobsLock.RLock()
@@ -198,7 +252,8 @@ func (jm *JobManager) RunJob(jobName string) error {
 		if !jm.disabledJobs.Contains(jobName) {
 			now := time.Now().UTC()
 			jm.setLastRunTime(jobName, now)
-			return jm.RunTask(job)
+			err := jm.RunTask(job)
+			return err
 		}
 		return nil
 	}
@@ -225,7 +280,7 @@ func (jm *JobManager) RunAllJobs() error {
 func (jm *JobManager) RunTask(t Task) error {
 	taskName := t.Name()
 	ct := NewCancellationToken()
-	start := time.Now().UTC()
+	start := Now()
 
 	jm.setRunningTask(taskName, t)
 	jm.setCancellationToken(taskName, ct)
@@ -238,7 +293,7 @@ func (jm *JobManager) RunTask(t Task) error {
 		var err error
 		defer func() {
 			jm.cleanupTask(taskName)
-			jm.fireTaskListeners(taskName, time.Now().UTC().Sub(start), err)
+			jm.fireTaskCompleteListeners(taskName, Since(start), err)
 		}()
 
 		defer func() {
@@ -250,6 +305,7 @@ func (jm *JobManager) RunTask(t Task) error {
 		}()
 
 		jm.onTaskStart(t)
+		jm.fireTaskListeners(taskName)
 		err = t.Execute(ct)
 		jm.onTaskComplete(t, err)
 	}()
@@ -325,7 +381,7 @@ func (jm *JobManager) runDueJobsInner() {
 	jm.nextRunTimesLock.Lock()
 	defer jm.nextRunTimesLock.Unlock()
 
-	now := time.Now().UTC()
+	now := Now()
 
 	for jobName, nextRunTime := range jm.nextRunTimes {
 		if nextRunTime != nil {
@@ -357,8 +413,7 @@ func (jm *JobManager) killHangingJobsInner() {
 	jm.cancellationTokensLock.Lock()
 	defer jm.cancellationTokensLock.Unlock()
 
-	now := time.Now().UTC()
-
+	now := Now()
 	for taskName, startedTime := range jm.runningTaskStartTimes {
 		if task, hasTask := jm.runningTasks[taskName]; hasTask {
 			if timeoutProvider, isTimeoutProvder := task.(TimeoutProvider); isTimeoutProvder {
@@ -412,7 +467,7 @@ func (jm *JobManager) Status() []TaskStatus {
 	defer jm.lastRunTimesLock.RUnlock()
 
 	var statuses []TaskStatus
-	now := time.Now().UTC()
+	now := Now()
 	for jobName, job := range jm.loadedJobs {
 		status := TaskStatus{}
 		status.Name = jobName
@@ -427,12 +482,12 @@ func (jm *JobManager) Status() []TaskStatus {
 		}
 
 		if lastRunTime, hasLastRunTime := jm.lastRunTimes[jobName]; hasLastRunTime {
-			status.LastRunTime = lastRunTime.Format(time.RFC3339)
+			status.LastRunTime = FormatTime(lastRunTime)
 		}
 
 		if nextRunTime, hasNextRunTime := jm.nextRunTimes[jobName]; hasNextRunTime {
 			if nextRunTime != nil {
-				status.NextRunTime = nextRunTime.Format(time.RFC3339)
+				status.NextRunTime = FormatTime(*nextRunTime)
 			}
 		}
 
@@ -473,7 +528,7 @@ func (jm *JobManager) TaskStatus(taskName string) *TaskStatus {
 	defer jm.runningTasksLock.RUnlock()
 
 	if task, isRunning := jm.runningTasks[taskName]; isRunning {
-		now := time.Now().UTC()
+		now := Now()
 		status := TaskStatus{
 			Name:  taskName,
 			State: StateRunning,
@@ -494,8 +549,8 @@ func (jm *JobManager) TaskStatus(taskName string) *TaskStatus {
 // --------------------------------------------------------------------------------
 
 func (jm *JobManager) getCancellationToken(jobName string) *CancellationToken {
-	jm.cancellationTokensLock.Lock()
-	defer jm.cancellationTokensLock.Unlock()
+	jm.cancellationTokensLock.RLock()
+	defer jm.cancellationTokensLock.RUnlock()
 
 	return jm.cancellationTokens[jobName]
 }
@@ -529,8 +584,8 @@ func (jm *JobManager) deleteDisabledJob(jobName string) {
 }
 
 func (jm *JobManager) getNextRunTime(jobName string) *time.Time {
-	jm.nextRunTimesLock.Lock()
-	defer jm.nextRunTimesLock.Unlock()
+	jm.nextRunTimesLock.RLock()
+	defer jm.nextRunTimesLock.RUnlock()
 
 	return jm.nextRunTimes[jobName]
 }

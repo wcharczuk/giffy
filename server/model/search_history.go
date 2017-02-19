@@ -68,9 +68,9 @@ func (sh SearchHistory) TableName() string {
 }
 
 func createSearchHistoryQuery(whereClause ...string) string {
-	searchColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(SearchHistory{}).NotReadOnly().ColumnNamesFromAlias("sh"))
-	imageColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesFromAlias("i"))
-	tagColumns := spiffy.CSV(spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesFromAlias("t"))
+	searchColumns := spiffy.Columns(SearchHistory{}).NotReadOnly().ColumnNamesCSVFromAlias("sh")
+	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesCSVFromAlias("i")
+	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesCSVFromAlias("t")
 
 	query := `
 	select
@@ -91,9 +91,9 @@ func createSearchHistoryQuery(whereClause ...string) string {
 }
 
 func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
-	searchColumns := spiffy.CachedColumnCollectionFromInstance(SearchHistory{}).NotReadOnly()
-	imageColumns := spiffy.CachedColumnCollectionFromInstance(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
-	tagColumns := spiffy.CachedColumnCollectionFromInstance(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
+	searchColumns := spiffy.Columns(SearchHistory{}).NotReadOnly()
+	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
+	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
 
 	return func(r *sql.Rows) error {
 		var sh SearchHistory

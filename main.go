@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	log.Fatal(server.Init().Start())
+	log.Fatal(server.New().Start())
 }

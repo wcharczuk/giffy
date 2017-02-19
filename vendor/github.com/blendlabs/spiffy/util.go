@@ -24,12 +24,12 @@ func OptionalTx(txs ...*sql.Tx) *sql.Tx {
 }
 
 // AsPopulatable casts an object as populatable.
-func AsPopulatable(object interface{}) Populatable {
+func asPopulatable(object interface{}) Populatable {
 	return object.(Populatable)
 }
 
-// IsPopulatable returns if an object is populatable
-func IsPopulatable(object interface{}) bool {
+// isPopulatable returns if an object is populatable
+func isPopulatable(object interface{}) bool {
 	_, isPopulatable := object.(Populatable)
 	return isPopulatable
 }
@@ -87,8 +87,8 @@ func makeWhereClause(pks *ColumnCollection, startAt int) string {
 	return whereClause
 }
 
-// ParamTokensCSV returns a csv token string in the form "$1,$2,$3...$N"
-func ParamTokensCSV(num int) string {
+// paramTokensCSV returns a csv token string in the form "$1,$2,$3...$N"
+func paramTokensCSV(num int) string {
 	str := ""
 	for i := 1; i <= num; i++ {
 		str = str + fmt.Sprintf("$%d", i)
@@ -102,15 +102,15 @@ func ParamTokensCSV(num int) string {
 // TableName returns the table name for a given reflect.Type by instantiating it and calling o.TableName().
 // The type must implement DatabaseMapped or an exception will be returned.
 func TableName(t reflect.Type) (string, error) {
-	i, err := MakeNewDatabaseMapped(t)
+	i, err := makeNewDatabaseMapped(t)
 	if err == nil {
 		return i.TableName(), nil
 	}
 	return "", err
 }
 
-// MakeNewDatabaseMapped returns a new instance of a database mapped type.
-func MakeNewDatabaseMapped(t reflect.Type) (DatabaseMapped, error) {
+// makeNewDatabaseMapped returns a new instance of a database mapped type.
+func makeNewDatabaseMapped(t reflect.Type) (DatabaseMapped, error) {
 	newInterface := reflect.New(t).Interface()
 	if typed, isTyped := newInterface.(DatabaseMapped); isTyped {
 		return typed.(DatabaseMapped), nil
@@ -118,8 +118,8 @@ func MakeNewDatabaseMapped(t reflect.Type) (DatabaseMapped, error) {
 	return nil, exception.Newf("`%s` does not implement DatabaseMapped.", t.Name())
 }
 
-// MakeNew creates a new object.
-func MakeNew(t reflect.Type) interface{} {
+// makeNew creates a new object.
+func makeNew(t reflect.Type) interface{} {
 	return reflect.New(t).Interface()
 }
 
@@ -219,18 +219,18 @@ func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols *ColumnCollectio
 	return nil
 }
 
-// CSV returns a csv from an array.
-func CSV(names []string) string {
+// csv returns a csv from an array.
+func csv(names []string) string {
 	return strings.Join(names, ",")
 }
 
 var (
 	// LowerA is the ascii int value for 'a'
-	LowerA = uint('a')
+	lowerA = uint('a')
 	// LowerZ is the ascii int value for 'z'
-	LowerZ = uint('z')
+	lowerZ = uint('z')
 
-	lowerDiff = (LowerZ - LowerA)
+	lowerDiff = (lowerZ - lowerA)
 )
 
 // HasPrefixCaseInsensitive returns if a corpus has a prefix regardless of casing.
@@ -246,11 +246,11 @@ func HasPrefixCaseInsensitive(corpus, prefix string) bool {
 		charCorpus := uint(corpus[x])
 		charPrefix := uint(prefix[x])
 
-		if charCorpus-LowerA <= lowerDiff {
+		if charCorpus-lowerA <= lowerDiff {
 			charCorpus = charCorpus - 0x20
 		}
 
-		if charPrefix-LowerA <= lowerDiff {
+		if charPrefix-lowerA <= lowerDiff {
 			charPrefix = charPrefix - 0x20
 		}
 		if charCorpus != charPrefix {
@@ -273,11 +273,11 @@ func HasSuffixCaseInsensitive(corpus, suffix string) bool {
 		charCorpus := uint(corpus[corpusLen-(x+1)])
 		charSuffix := uint(suffix[suffixLen-(x+1)])
 
-		if charCorpus-LowerA <= lowerDiff {
+		if charCorpus-lowerA <= lowerDiff {
 			charCorpus = charCorpus - 0x20
 		}
 
-		if charSuffix-LowerA <= lowerDiff {
+		if charSuffix-lowerA <= lowerDiff {
 			charSuffix = charSuffix - 0x20
 		}
 		if charCorpus != charSuffix {
@@ -299,10 +299,10 @@ func CaseInsensitiveEquals(a, b string) bool {
 		charA := uint(a[x])
 		charB := uint(b[x])
 
-		if charA-LowerA <= lowerDiff {
+		if charA-lowerA <= lowerDiff {
 			charA = charA - 0x20
 		}
-		if charB-LowerA <= lowerDiff {
+		if charB-lowerA <= lowerDiff {
 			charB = charB - 0x20
 		}
 		if charA != charB {

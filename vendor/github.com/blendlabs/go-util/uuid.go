@@ -32,6 +32,19 @@ func UUIDv4() UUID {
 	uuid := make([]byte, 16)
 	rand.Read(uuid)
 	uuid[6] = (uuid[6] & 0x0f) | 0x40 // set version 4
-	uuid[8] = (uuid[8] & 0x3f) | 0x80 // set variant 10
+	uuid[8] = (uuid[8] & 0x3f) | 0x80 // set variant 2
 	return uuid
+}
+
+// uuid.IsV4() returns true iff uuid has version number 4, variant number 2, and length 16 bytes
+func (uuid UUID) IsV4() bool {
+	if len(uuid) != 16 {
+		return false
+	}
+	// check that version number is 4
+	if (uuid[6]&0xf0)^0x40 != 0 {
+		return false
+	}
+	// check that variant is 2
+	return (uuid[8]&0xc0)^0x80 == 0
 }

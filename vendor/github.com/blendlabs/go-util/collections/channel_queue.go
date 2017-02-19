@@ -76,7 +76,7 @@ func (cq *ChannelQueue) EachUntil(consumer func(value interface{}) bool) {
 	panic("Interupted iteration is not supported")
 }
 
-// EachUntil pulls every value out of the channel, calls consumer on it, and puts it back and can abort mid process.
+// ReverseEachUntil pulls every value out of the channel, calls consumer on it, and puts it back and can abort mid process.
 func (cq *ChannelQueue) ReverseEachUntil(consumer func(value interface{}) bool) {
 	panic("Reverse iteration is not supported")
 }

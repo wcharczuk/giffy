@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/go-web"
 )
 
 func TestIndex(t *testing.T) {

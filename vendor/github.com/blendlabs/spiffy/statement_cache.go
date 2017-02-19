@@ -5,8 +5,8 @@ import (
 	"sync"
 )
 
-// NewStatementCache returns a new `StatementCache`.
-func NewStatementCache(dbc *sql.DB) *StatementCache {
+// newStatementCache returns a new `StatementCache`.
+func newStatementCache(dbc *sql.DB) *StatementCache {
 	return &StatementCache{
 		dbc:       dbc,
 		cacheLock: &sync.RWMutex{},
@@ -51,10 +51,19 @@ func (sc *StatementCache) HasStatement(statement string) bool {
 	return sc.getCachedStatement(statement) != nil
 }
 
+// InvalidateStatement removes a statement from the cache.
+func (sc *StatementCache) InvalidateStatement(statement string) {
+	sc.cacheLock.Lock()
+	defer sc.cacheLock.Unlock()
+
+	if _, hasStatement := sc.cache[statement]; hasStatement {
+		delete(sc.cache, statement)
+	}
+}
+
 func (sc *StatementCache) getCachedStatement(statement string) *sql.Stmt {
 	sc.cacheLock.RLock()
 	defer sc.cacheLock.RUnlock()
-
 	if stmt, hasStmt := sc.cache[statement]; hasStmt {
 		return stmt
 	}
@@ -70,8 +79,6 @@ func (sc *StatementCache) Prepare(statement string) (*sql.Stmt, error) {
 
 	sc.cacheLock.Lock()
 	defer sc.cacheLock.Unlock()
-
-	// getCachedStatement without locking ...
 	if stmt, hasStmt := sc.cache[statement]; hasStmt {
 		return stmt, nil
 	}

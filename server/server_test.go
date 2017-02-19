@@ -6,8 +6,8 @@ import (
 	"github.com/blendlabs/go-assert"
 )
 
-func TestInit(t *testing.T) {
+func TestNew(t *testing.T) {
 	assert := assert.New(t)
-	app := Init()
+	app := New()
 	assert.NotNil(app)
 }

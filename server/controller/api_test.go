@@ -7,11 +7,11 @@ import (
 
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/auth"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
-	"github.com/wcharczuk/go-web"
 )
 
 const (

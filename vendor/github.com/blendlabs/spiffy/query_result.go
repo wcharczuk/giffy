@@ -14,12 +14,14 @@ import (
 
 // QueryResult is the intermediate result of a query.
 type QueryResult struct {
-	start     time.Time
-	rows      *sql.Rows
-	queryBody string
-	stmt      *sql.Stmt
-	conn      *DbConnection
-	err       error
+	start      time.Time
+	rows       *sql.Rows
+	queryBody  string
+	stmt       *sql.Stmt
+	conn       *DbConnection
+	label      string
+	fireEvents bool
+	err        error
 }
 
 // Close closes and releases any resources retained by the QueryResult.
@@ -41,8 +43,20 @@ func (q *QueryResult) Close() error {
 
 	//yes this is gross.
 	//release the tx lock on the connection for this query.
-	q.conn.transactionUnlock()
+	q.conn.tryTransactionUnlock()
 	return exception.WrapMany(rowsErr, stmtErr)
+}
+
+// WithEvents enables or disables query event reporting for a query.
+func (q *QueryResult) WithEvents(enabled bool) *QueryResult {
+	q.fireEvents = enabled
+	return q
+}
+
+// WithLabel assigns a label to a query (for event filtering).
+func (q *QueryResult) WithLabel(label string) *QueryResult {
+	q.label = label
+	return q
 }
 
 // Any returns if there are any results for the query.
@@ -56,7 +70,10 @@ func (q *QueryResult) Any() (hasRows bool, err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
-		q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Now().Sub(q.start), err)
+
+		if q.fireEvents {
+			q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Since(q.start), err, q.label)
+		}
 	}()
 
 	if q.err != nil {
@@ -86,6 +103,10 @@ func (q *QueryResult) None() (hasRows bool, err error) {
 
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
+		}
+
+		if q.fireEvents {
+			q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Since(q.start), err, q.label)
 		}
 	}()
 
@@ -117,7 +138,10 @@ func (q *QueryResult) Scan(args ...interface{}) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
-		q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Now().Sub(q.start), err)
+
+		if q.fireEvents {
+			q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Since(q.start), err, q.label)
+		}
 	}()
 
 	if q.err != nil {
@@ -152,7 +176,10 @@ func (q *QueryResult) Out(object interface{}) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
-		q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Now().Sub(q.start), err)
+
+		if q.fireEvents {
+			q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Since(q.start), err, q.label)
+		}
 	}()
 
 	if q.err != nil {
@@ -166,7 +193,7 @@ func (q *QueryResult) Out(object interface{}) (err error) {
 		return
 	}
 
-	columnMeta := CachedColumnCollectionFromInstance(object)
+	columnMeta := getCachedColumnCollectionFromInstance(object)
 	var popErr error
 	if q.rows.Next() {
 		if populatable, isPopulatable := object.(Populatable); isPopulatable {
@@ -194,7 +221,10 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
-		q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Now().Sub(q.start), err)
+
+		if q.fireEvents {
+			q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Since(q.start), err, q.label)
+		}
 	}()
 
 	if q.err != nil {
@@ -217,18 +247,18 @@ func (q *QueryResult) OutMany(collection interface{}) (err error) {
 	sliceInnerType := reflectSliceType(collection)
 	collectionValue := reflectValue(collection)
 
-	v := MakeNew(sliceInnerType)
-	meta := CachedColumnCollectionFromType(MakeColumnCacheKey(sliceInnerType), sliceInnerType)
+	v := makeNew(sliceInnerType)
+	meta := getCachedColumnCollectionFromType(newColumnCacheKey(sliceInnerType), sliceInnerType)
 
-	isPopulatable := IsPopulatable(v)
+	isPopulatable := isPopulatable(v)
 
 	var popErr error
 	didSetRows := false
 	for q.rows.Next() {
-		newObj := MakeNew(sliceInnerType)
+		newObj := makeNew(sliceInnerType)
 
 		if isPopulatable {
-			popErr = AsPopulatable(newObj).Populate(q.rows)
+			popErr = asPopulatable(newObj).Populate(q.rows)
 		} else {
 			popErr = PopulateByName(newObj, q.rows, meta)
 		}
@@ -259,7 +289,10 @@ func (q *QueryResult) Each(consumer RowsConsumer) (err error) {
 		if closeErr := q.Close(); closeErr != nil {
 			err = exception.WrapMany(err, closeErr)
 		}
-		q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Now().Sub(q.start), err)
+
+		if q.fireEvents {
+			q.conn.fireEvent(EventFlagQuery, q.queryBody, time.Since(q.start), err, q.label)
+		}
 	}()
 
 	if q.err != nil {
