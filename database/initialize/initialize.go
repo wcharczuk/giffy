@@ -51,7 +51,7 @@ func init() {
 				migration.Step(
 					migration.CreateRole,
 					migration.Body(
-						fmt.Sprintf("CREATE USER %s WITH LOGIN NOCREATEDB NOCREATEUSER PASSWORD '%s';", dbUser(), dbPassword()),
+						fmt.Sprintf("CREATE USER %s WITH LOGIN NOCREATEDB NOCREATEROLE PASSWORD '%s';", dbUser(), dbPassword()),
 					),
 					dbUser(),
 				),
