@@ -8,10 +8,14 @@ import (
 var (
 	// Sequence contains some sequence utilities.
 	// These utilities can be useful for generating test data.
-	Sequence = &sequence{}
+	Sequence = &sequence{
+		rnd: rand.New(rand.NewSource(time.Now().Unix())),
+	}
 )
 
-type sequence struct{}
+type sequence struct {
+	rnd *rand.Rand
+}
 
 // Float64 produces an array of floats from [start,end] by optional steps.
 func (s sequence) Float64(start, end float64, steps ...float64) []float64 {
@@ -35,11 +39,10 @@ func (s sequence) Float64(start, end float64, steps ...float64) []float64 {
 
 // Random generates a fixed length sequence of random values between (0, scale).
 func (s sequence) Random(samples int, scale float64) []float64 {
-	rnd := rand.New(rand.NewSource(time.Now().Unix()))
 	values := make([]float64, samples)
 
 	for x := 0; x < samples; x++ {
-		values[x] = rnd.Float64() * scale
+		values[x] = s.rnd.Float64() * scale
 	}
 
 	return values
@@ -47,11 +50,10 @@ func (s sequence) Random(samples int, scale float64) []float64 {
 
 // Random generates a fixed length sequence of random values with a given average, above and below that average by (-scale, scale)
 func (s sequence) RandomWithAverage(samples int, average, scale float64) []float64 {
-	rnd := rand.New(rand.NewSource(time.Now().Unix()))
 	values := make([]float64, samples)
 
 	for x := 0; x < samples; x++ {
-		jitter := scale - (rnd.Float64() * (2 * scale))
+		jitter := scale - (s.rnd.Float64() * (2 * scale))
 		values[x] = average + jitter
 	}
 
@@ -154,4 +156,35 @@ func (s sequence) MarketDayMondayCloses(from, to time.Time, marketOpen, marketCl
 		cursor = Date.NextDayOfWeek(cursor, time.Monday)
 	}
 	return times
+}
+
+func (s sequence) Hours(start time.Time, totalHours int) []time.Time {
+	times := make([]time.Time, totalHours)
+
+	last := start
+	for i := 0; i < totalHours; i++ {
+		times[i] = last
+		last = last.Add(time.Hour)
+	}
+
+	return times
+}
+
+// HoursFill adds zero values for the data bounded by the start and end of the xdata array.
+func (s sequence) HoursFill(xdata []time.Time, ydata []float64) ([]time.Time, []float64) {
+	start := Date.Start(xdata)
+	end := Date.End(xdata)
+
+	totalHours := Math.AbsInt(Date.DiffHours(start, end))
+
+	finalTimes := s.Hours(start, totalHours+1)
+	finalValues := make([]float64, totalHours+1)
+
+	var hoursFromStart int
+	for i, xd := range xdata {
+		hoursFromStart = Date.DiffHours(start, xd)
+		finalValues[hoursFromStart] = ydata[i]
+	}
+
+	return finalTimes, finalValues
 }

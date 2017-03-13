@@ -50,25 +50,23 @@ var (
 	_eastern     *time.Location
 )
 
-var (
-	// NYSEOpen is when the NYSE opens.
-	NYSEOpen = Date.Time(9, 30, 0, 0, Date.Eastern())
+// NYSEOpen is when the NYSE opens.
+func NYSEOpen() time.Time { return Date.Time(9, 30, 0, 0, Date.Eastern()) }
 
-	// NYSEClose is when the NYSE closes.
-	NYSEClose = Date.Time(16, 0, 0, 0, Date.Eastern())
+// NYSEClose is when the NYSE closes.
+func NYSEClose() time.Time { return Date.Time(16, 0, 0, 0, Date.Eastern()) }
 
-	// NASDAQOpen is when NASDAQ opens.
-	NASDAQOpen = Date.Time(9, 30, 0, 0, Date.Eastern())
+// NASDAQOpen is when NASDAQ opens.
+func NASDAQOpen() time.Time { return Date.Time(9, 30, 0, 0, Date.Eastern()) }
 
-	// NASDAQClose is when NASDAQ closes.
-	NASDAQClose = Date.Time(16, 0, 0, 0, Date.Eastern())
+// NASDAQClose is when NASDAQ closes.
+func NASDAQClose() time.Time { return Date.Time(16, 0, 0, 0, Date.Eastern()) }
 
-	// NYSEArcaOpen is when NYSEARCA opens.
-	NYSEArcaOpen = Date.Time(4, 0, 0, 0, Date.Eastern())
+// NYSEArcaOpen is when NYSEARCA opens.
+func NYSEArcaOpen() time.Time { return Date.Time(4, 0, 0, 0, Date.Eastern()) }
 
-	// NYSEArcaClose is when NYSEARCA closes.
-	NYSEArcaClose = Date.Time(20, 0, 0, 0, Date.Eastern())
-)
+// NYSEArcaClose is when NYSEARCA closes.
+func NYSEArcaClose() time.Time { return Date.Time(20, 0, 0, 0, Date.Eastern()) }
 
 // HolidayProvider is a function that returns if a given time falls on a holiday.
 type HolidayProvider func(time.Time) bool
@@ -206,18 +204,6 @@ func (d date) IsNYSEArcaHoliday(t time.Time) bool {
 // IsNASDAQHoliday returns if a date was a NASDAQ holiday day.
 func (d date) IsNASDAQHoliday(t time.Time) bool {
 	return d.IsNYSEHoliday(t)
-}
-
-// Eastern returns the eastern timezone.
-func (d date) Eastern() *time.Location {
-	if _eastern == nil {
-		_easternLock.Lock()
-		defer _easternLock.Unlock()
-		if _eastern == nil {
-			_eastern, _ = time.LoadLocation("America/New_York")
-		}
-	}
-	return _eastern
 }
 
 // Time returns a new time.Time for the given clock components.
@@ -359,14 +345,22 @@ func (d date) CalculateMarketSecondsBetween(start, end, marketOpen, marketClose 
 }
 
 const (
-	_secondsPerDay = 60 * 60 * 24
+	_secondsPerHour = 60 * 60
+	_secondsPerDay  = 60 * 60 * 24
 )
 
-func (d date) Diff(t1, t2 time.Time) (days int64) {
+func (d date) DiffDays(t1, t2 time.Time) (days int) {
 	t1n := t1.Unix()
 	t2n := t2.Unix()
-	diff := t1n - t2n
-	return diff / (_secondsPerDay)
+	diff := t2n - t1n //yields seconds
+	return int(diff / (_secondsPerDay))
+}
+
+func (d date) DiffHours(t1, t2 time.Time) (hours int) {
+	t1n := t1.Unix()
+	t2n := t2.Unix()
+	diff := t2n - t1n //yields seconds
+	return int(diff / (_secondsPerHour))
 }
 
 // NextDay returns the timestamp advanced a day.
@@ -399,4 +393,34 @@ func (d date) NextDayOfWeek(after time.Time, dayOfWeek time.Weekday) time.Time {
 	// 5 vs 1, add 7-(5-1) ~ 3 days
 	dayDelta := 7 - int(afterWeekday-dayOfWeek)
 	return after.AddDate(0, 0, dayDelta)
+}
+
+// Start returns the earliest (min) time in a list of times.
+func (d date) Start(times []time.Time) time.Time {
+	if len(times) == 0 {
+		return time.Time{}
+	}
+
+	start := times[0]
+	for _, t := range times[1:] {
+		if t.Before(start) {
+			start = t
+		}
+	}
+	return start
+}
+
+// Start returns the earliest (min) time in a list of times.
+func (d date) End(times []time.Time) time.Time {
+	if len(times) == 0 {
+		return time.Time{}
+	}
+
+	end := times[0]
+	for _, t := range times[1:] {
+		if t.After(end) {
+			end = t
+		}
+	}
+	return end
 }

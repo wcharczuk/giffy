@@ -1,9 +1,6 @@
 package chart
 
-import (
-	"math"
-	"sort"
-)
+import "math"
 
 // YAxis is a veritcal rule of the range.
 // There can be (2) y-axes; a primary and secondary.
@@ -15,7 +12,8 @@ type YAxis struct {
 
 	Zero GridLine
 
-	AxisType YAxisType
+	AxisType  YAxisType
+	Ascending bool
 
 	ValueFormatter ValueFormatter
 	Range          Range
@@ -74,8 +72,6 @@ func (ya YAxis) GetGridLines(ticks []Tick) []GridLine {
 
 // Measure returns the bounds of the axis.
 func (ya YAxis) Measure(r Renderer, canvasBox Box, ra Range, defaults Style, ticks []Tick) Box {
-	sort.Sort(Ticks(ticks))
-
 	var tx int
 	if ya.AxisType == YAxisPrimary {
 		tx = canvasBox.Right + DefaultYAxisMargin
@@ -127,8 +123,6 @@ func (ya YAxis) Measure(r Renderer, canvasBox Box, ra Range, defaults Style, tic
 func (ya YAxis) Render(r Renderer, canvasBox Box, ra Range, defaults Style, ticks []Tick) {
 	tickStyle := ya.TickStyle.InheritFrom(ya.Style.InheritFrom(defaults))
 	tickStyle.WriteToRenderer(r)
-
-	sort.Sort(Ticks(ticks))
 
 	sw := tickStyle.GetStrokeWidth(defaults.StrokeWidth)
 
@@ -195,7 +189,12 @@ func (ya YAxis) Render(r Renderer, canvasBox Box, ra Range, defaults Style, tick
 			tx = canvasBox.Left - (DefaultYAxisMargin + int(sw) + maxTextWidth + DefaultYAxisMargin)
 		}
 
-		ty := canvasBox.Top + (canvasBox.Height()>>1 + tb.Width()>>1)
+		var ty int
+		if nameStyle.TextRotationDegrees == 0 {
+			ty = canvasBox.Top + (canvasBox.Height()>>1 - tb.Width()>>1)
+		} else {
+			ty = canvasBox.Top + (canvasBox.Height()>>1 - tb.Height()>>1)
+		}
 
 		Draw.Text(r, ya.Name, tx, ty, nameStyle)
 	}

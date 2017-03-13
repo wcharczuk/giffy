@@ -1,5 +1,7 @@
 package chart
 
+import "fmt"
+
 const (
 	// DefaultMACDPeriodPrimary is the long window.
 	DefaultMACDPeriodPrimary = 26
@@ -23,6 +25,24 @@ type MACDSeries struct {
 
 	signal *MACDSignalSeries
 	macdl  *MACDLineSeries
+}
+
+// Validate validates the series.
+func (macd MACDSeries) Validate() error {
+	var err error
+	if macd.signal != nil {
+		err = macd.signal.Validate()
+	}
+	if err != nil {
+		return err
+	}
+	if macd.macdl != nil {
+		err = macd.macdl.Validate()
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetPeriods returns the primary and secondary periods.
@@ -119,6 +139,14 @@ type MACDSignalSeries struct {
 	signal *EMASeries
 }
 
+// Validate validates the series.
+func (macds MACDSignalSeries) Validate() error {
+	if macds.signal != nil {
+		return macds.signal.Validate()
+	}
+	return nil
+}
+
 // GetPeriods returns the primary and secondary periods.
 func (macds MACDSignalSeries) GetPeriods() (w1, w2, sig int) {
 	if macds.PrimaryPeriod == 0 {
@@ -210,6 +238,27 @@ type MACDLineSeries struct {
 	ema2 *EMASeries
 
 	Sigma float64
+}
+
+// Validate validates the series.
+func (macdl MACDLineSeries) Validate() error {
+	var err error
+	if macdl.ema1 != nil {
+		err = macdl.ema1.Validate()
+	}
+	if err != nil {
+		return err
+	}
+	if macdl.ema2 != nil {
+		err = macdl.ema2.Validate()
+	}
+	if err != nil {
+		return err
+	}
+	if macdl.InnerSeries == nil {
+		return fmt.Errorf("MACDLineSeries: must provide an inner series")
+	}
+	return nil
 }
 
 // GetName returns the name of the time series.

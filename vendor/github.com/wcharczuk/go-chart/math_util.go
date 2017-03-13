@@ -26,6 +26,20 @@ var (
 
 type mathUtil struct{}
 
+// Max returns the maximum value of a group of floats.
+func (m mathUtil) Max(values ...float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	max := values[0]
+	for _, v := range values {
+		if max < v {
+			max = v
+		}
+	}
+	return max
+}
+
 // MinAndMax returns both the min and max in one pass.
 func (m mathUtil) MinAndMax(values ...float64) (min float64, max float64) {
 	if len(values) == 0 {
@@ -128,6 +142,14 @@ func (m mathUtil) MaxInt(values ...int) int {
 
 // AbsInt returns the absolute value of an integer.
 func (m mathUtil) AbsInt(value int) int {
+	if value < 0 {
+		return -value
+	}
+	return value
+}
+
+// AbsInt64 returns the absolute value of a long.
+func (m mathUtil) AbsInt64(value int64) int64 {
 	if value < 0 {
 		return -value
 	}

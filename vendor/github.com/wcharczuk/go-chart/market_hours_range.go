@@ -18,7 +18,13 @@ type MarketHoursRange struct {
 
 	ValueFormatter ValueFormatter
 
-	Domain int
+	Descending bool
+	Domain     int
+}
+
+// IsDescending returns if the range is descending.
+func (mhr MarketHoursRange) IsDescending() bool {
+	return mhr.Descending
 }
 
 // GetTimezone returns the timezone for the market hours range.
@@ -90,7 +96,7 @@ func (mhr MarketHoursRange) GetHolidayProvider() HolidayProvider {
 // GetMarketOpen returns the market open time.
 func (mhr MarketHoursRange) GetMarketOpen() time.Time {
 	if mhr.MarketOpen.IsZero() {
-		return NYSEOpen
+		return NYSEOpen()
 	}
 	return mhr.MarketOpen
 }
@@ -98,7 +104,7 @@ func (mhr MarketHoursRange) GetMarketOpen() time.Time {
 // GetMarketClose returns the market close time.
 func (mhr MarketHoursRange) GetMarketClose() time.Time {
 	if mhr.MarketClose.IsZero() {
-		return NYSEClose
+		return NYSEClose()
 	}
 	return mhr.MarketClose
 }
@@ -177,5 +183,10 @@ func (mhr MarketHoursRange) Translate(value float64) int {
 	totalSeconds := Date.CalculateMarketSecondsBetween(mhr.Min, mhr.GetEffectiveMax(), mhr.GetMarketOpen(), mhr.GetMarketClose(), mhr.HolidayProvider)
 	valueDelta := Date.CalculateMarketSecondsBetween(mhr.Min, valueTimeEastern, mhr.GetMarketOpen(), mhr.GetMarketClose(), mhr.HolidayProvider)
 	translated := int((float64(valueDelta) / float64(totalSeconds)) * float64(mhr.Domain))
+
+	if mhr.IsDescending() {
+		return mhr.Domain - translated
+	}
+
 	return translated
 }

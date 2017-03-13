@@ -1,5 +1,7 @@
 package chart
 
+import "fmt"
+
 const (
 	// DefaultSimpleMovingAveragePeriod is the default number of values to average.
 	DefaultSimpleMovingAveragePeriod = 16
@@ -48,7 +50,7 @@ func (sma SMASeries) GetPeriod(defaults ...int) int {
 
 // GetValue gets a value at a given index.
 func (sma SMASeries) GetValue(index int) (x, y float64) {
-	if sma.InnerSeries == nil {
+	if sma.InnerSeries == nil || sma.InnerSeries.Len() == 0 {
 		return
 	}
 	px, _ := sma.InnerSeries.GetValue(index)
@@ -60,7 +62,7 @@ func (sma SMASeries) GetValue(index int) (x, y float64) {
 // GetLastValue computes the last moving average value but walking back window size samples,
 // and recomputing the last moving average chunk.
 func (sma SMASeries) GetLastValue() (x, y float64) {
-	if sma.InnerSeries == nil {
+	if sma.InnerSeries == nil || sma.InnerSeries.Len() == 0 {
 		return
 	}
 	seriesLen := sma.InnerSeries.Len()
@@ -87,4 +89,12 @@ func (sma SMASeries) getAverage(index int) float64 {
 func (sma SMASeries) Render(r Renderer, canvasBox Box, xrange, yrange Range, defaults Style) {
 	style := sma.Style.InheritFrom(defaults)
 	Draw.LineSeries(r, canvasBox, xrange, yrange, style, sma)
+}
+
+// Validate validates the series.
+func (sma SMASeries) Validate() error {
+	if sma.InnerSeries == nil {
+		return fmt.Errorf("sma series requires InnerSeries to be set")
+	}
+	return nil
 }

@@ -1,11 +1,16 @@
 package chart
 
+import "fmt"
+
 // ContinuousSeries represents a line on a chart.
 type ContinuousSeries struct {
 	Name  string
 	Style Style
 
 	YAxis YAxisType
+
+	XValueFormatter ValueFormatter
+	YValueFormatter ValueFormatter
 
 	XValues []float64
 	YValues []float64
@@ -38,8 +43,16 @@ func (cs ContinuousSeries) GetLastValue() (float64, float64) {
 
 // GetValueFormatters returns value formatter defaults for the series.
 func (cs ContinuousSeries) GetValueFormatters() (x, y ValueFormatter) {
-	x = FloatValueFormatter
-	y = FloatValueFormatter
+	if cs.XValueFormatter != nil {
+		x = cs.XValueFormatter
+	} else {
+		x = FloatValueFormatter
+	}
+	if cs.YValueFormatter != nil {
+		y = cs.YValueFormatter
+	} else {
+		y = FloatValueFormatter
+	}
 	return
 }
 
@@ -52,4 +65,16 @@ func (cs ContinuousSeries) GetYAxis() YAxisType {
 func (cs ContinuousSeries) Render(r Renderer, canvasBox Box, xrange, yrange Range, defaults Style) {
 	style := cs.Style.InheritFrom(defaults)
 	Draw.LineSeries(r, canvasBox, xrange, yrange, style, cs)
+}
+
+// Validate validates the series.
+func (cs ContinuousSeries) Validate() error {
+	if len(cs.XValues) == 0 {
+		return fmt.Errorf("continuous series must have xvalues set")
+	}
+
+	if len(cs.YValues) == 0 {
+		return fmt.Errorf("continuous series must have yvalues set")
+	}
+	return nil
 }
