@@ -22,6 +22,6 @@
 		<user-detail user="currentUser" ng-if="currentUser.is_logged_in"></user-detail>
 		<a id="header-login" class="btn btn-primary btn-sm" href="{{currentUser.facebook_login_url}}" ng-if="!currentUser.is_logged_in">Login with Facebook</a>
 		<a id="header-login" class="btn btn-danger btn-sm" href="{{currentUser.google_login_url}}" ng-if="!currentUser.is_logged_in">Login with Google</a>
-		<a id="header-logout" class="btn btn-default btn-sm" ng-if="currentUser.is_logged_in" href="/#/logout">Log Out</a>
+		<a id="header-logout" class="btn btn-default btn-sm" ng-if="currentUser.is_logged_in" href="/logout">Log Out</a>
 	</div>
 </div>

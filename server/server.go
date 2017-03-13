@@ -117,6 +117,8 @@ func New() *web.App {
 	webutil.BaseURL(app)
 	webutil.SecureCookies(app)
 
+	app.Auth().SetSessionParamName("giffy")
+
 	app.ViewCache().AddPaths(ViewPaths...)
 
 	app.Register(new(controller.Index))
