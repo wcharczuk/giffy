@@ -225,9 +225,9 @@ func (api API) updateUserAction(r *web.Ctx) web.Result {
 		moderationEntry = model.NewModeration(session.UserID, model.ModerationVerbUnban, model.ModerationObjectUser, postedUser.UUID)
 	}
 
-	r.Diagnostics().OnEvent(core.EventFlagModeration, moderationEntry)
+	r.Logger().OnEvent(core.EventFlagModeration, moderationEntry)
 
-	err = spiffy.DefaultDb().Update(&postedUser)
+	err = spiffy.DB().Update(&postedUser)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -355,7 +355,7 @@ func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
 		return r.API().NotFound()
 	}
 
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 
 	vote, err := model.GetVote(userID, image.ID, tag.ID, tx)
 	if err != nil {
@@ -437,7 +437,7 @@ func (api API) createImageAction(r *web.Ctx) web.Result {
 		return r.API().InternalError(err)
 	}
 
-	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+	r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return r.API().Result(image)
 }
 
@@ -547,8 +547,8 @@ func (api API) updateImageAction(r *web.Ctx) web.Result {
 	}
 
 	if didUpdate {
-		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
-		err = spiffy.DefaultDb().Update(image)
+		r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
+		err = spiffy.DB().Update(image)
 		if err != nil {
 			return r.API().InternalError(err)
 		}
@@ -593,7 +593,7 @@ func (api API) deleteImageAction(r *web.Ctx) web.Result {
 		return r.API().InternalError(err)
 	}
 
-	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID))
+	r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID))
 	return r.API().OK()
 }
 
@@ -690,11 +690,11 @@ func (api API) createTagsAction(r *web.Ctx) web.Result {
 		}
 
 		tag := model.NewTag(session.UserID, tagValue)
-		err = spiffy.DefaultDb().Create(tag)
+		err = spiffy.DB().Create(tag)
 		if err != nil {
 			return r.API().InternalError(err)
 		}
-		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID))
+		r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID))
 		tags = append(tags, tag)
 	}
 
@@ -788,7 +788,7 @@ func (api API) deleteTagAction(r *web.Ctx) web.Result {
 		return r.API().InternalError(err)
 	}
 
-	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID))
+	r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID))
 	return r.API().OK()
 }
 
@@ -875,7 +875,7 @@ func (api API) deleteLinkAction(r *web.Ctx) web.Result {
 		return r.API().InternalError(err)
 	}
 
-	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, imageUUID, tagUUID))
+	r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(session.UserID, model.ModerationVerbDelete, model.ModerationObjectLink, imageUUID, tagUUID))
 
 	return r.API().OK()
 }
@@ -908,7 +908,7 @@ func (api API) getTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -933,7 +933,7 @@ func (api API) createTeamAction(r *web.Ctx) web.Result {
 		return r.API().BadRequest(err.Error())
 	}
 
-	err = spiffy.DefaultDb().CreateInTx(&team, r.Tx())
+	err = spiffy.DB().CreateInTx(&team, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -954,7 +954,7 @@ func (api API) updateTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -971,7 +971,7 @@ func (api API) updateTeamAction(r *web.Ctx) web.Result {
 
 	updatedTeam.TeamID = teamID
 
-	err = spiffy.DefaultDb().UpdateInTx(&updatedTeam, r.Tx())
+	err = spiffy.DB().UpdateInTx(&updatedTeam, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -992,7 +992,7 @@ func (api API) patchTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1012,7 +1012,7 @@ func (api API) patchTeamAction(r *web.Ctx) web.Result {
 		return r.API().BadRequest(err.Error())
 	}
 
-	err = spiffy.DefaultDb().UpdateInTx(&team, r.Tx())
+	err = spiffy.DB().UpdateInTx(&team, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1033,7 +1033,7 @@ func (api API) deleteTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DefaultDb().GetByIDInTx(&team, r.Tx(), teamID)
+	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1042,7 +1042,7 @@ func (api API) deleteTeamAction(r *web.Ctx) web.Result {
 		return r.API().NotFound()
 	}
 
-	err = spiffy.DefaultDb().DeleteInTx(&team, r.Tx())
+	err = spiffy.DB().DeleteInTx(&team, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1101,7 +1101,7 @@ func (api API) voteAction(isUpvote bool, session *web.Session, r *web.Ctx) web.R
 	}
 
 	if didCreate {
-		r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID))
+		r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID))
 	}
 
 	return r.API().OK()
@@ -1240,7 +1240,10 @@ func (api API) setSessionKeyAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return r.API().BadRequest(err.Error())
 	}
-	session.State[key] = r.PostBodyAsString()
+	session.State[key], err = r.PostBodyAsString()
+	if err != nil {
+		return r.API().InternalError(err)
+	}
 	return r.API().OK()
 }
 

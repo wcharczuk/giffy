@@ -11,7 +11,7 @@ import (
 
 func TestCleanTagValues(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := spiffy.DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 

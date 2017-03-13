@@ -10,8 +10,8 @@ import (
 )
 
 // DB is a helper for returning the default database connection.
-func DB() *spiffy.DbConnection {
-	return spiffy.DefaultDb()
+func DB() *spiffy.Connection {
+	return spiffy.DB()
 }
 
 // CreateObject creates an object (for use with the work queue)

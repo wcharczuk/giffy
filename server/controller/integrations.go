@@ -72,13 +72,13 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	var err error
 
 	defer func() {
-		rc.Diagnostics().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", teamID, teamName, channelID, channelName, userID, userName, query, foundResult, resultID, tagID))
+		rc.Logger().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", teamID, teamName, channelID, channelName, userID, userName, query, foundResult, resultID, tagID))
 	}()
 
 	contentRatingFilter := model.ContentRatingNR
 	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
 	if err != nil {
-		rc.Diagnostics().Error(err)
+		rc.Logger().Error(err)
 	} else if !teamSettings.IsZero() {
 		if !teamSettings.IsEnabled {
 			return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
@@ -94,7 +94,7 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 		result, err = model.SearchImagesBestResult(query, contentRatingFilter, rc.Tx())
 	}
 	if err != nil {
-		rc.Diagnostics().Error(err)
+		rc.Logger().Error(err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
@@ -131,7 +131,7 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
-		rc.Diagnostics().Error(err)
+		rc.Logger().Error(err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
@@ -148,7 +148,7 @@ func (i Integrations) slackSearchAction(rc *web.Ctx) web.Result {
 	contentRatingFilter := model.ContentRatingFilterDefault
 	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
 	if err != nil {
-		rc.Diagnostics().Error(err)
+		rc.Logger().Error(err)
 	} else if !teamSettings.IsZero() {
 		if !teamSettings.IsEnabled {
 			return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
@@ -159,7 +159,7 @@ func (i Integrations) slackSearchAction(rc *web.Ctx) web.Result {
 
 	results, err := model.SearchImagesWeightedRandom(query, contentRatingFilter, 3, rc.Tx())
 	if err != nil {
-		rc.Diagnostics().Error(err)
+		rc.Logger().Error(err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
@@ -177,7 +177,7 @@ func (i Integrations) slackSearchAction(rc *web.Ctx) web.Result {
 
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
-		rc.Diagnostics().Error(err)
+		rc.Logger().Error(err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)

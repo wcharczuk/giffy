@@ -27,7 +27,7 @@ func (fis FixImageSizes) Schedule() chronometer.Schedule {
 func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
 	imageIDs := []int64{}
 
-	err := spiffy.DefaultDb().Query(`select id from image where file_size = 0;`).Each(func(r *sql.Rows) error {
+	err := spiffy.DB().Query(`select id from image where file_size = 0;`).Each(func(r *sql.Rows) error {
 		var id int64
 		err := r.Scan(&id)
 		if err != nil {
@@ -46,7 +46,7 @@ func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
 
 		ct.CheckCancellation()
 
-		err = spiffy.DefaultDb().GetByID(&image, id)
+		err = spiffy.DB().GetByID(&image, id)
 		if err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
 		ct.CheckCancellation()
 
 		image.FileSize = size
-		err = spiffy.DefaultDb().Update(&image)
+		err = spiffy.DB().Update(&image)
 		if err != nil {
 			return err
 		}

@@ -33,22 +33,22 @@ func TestUploadImageByPostedFile(t *testing.T) {
 
 	app := web.New()
 	app.SetAuth(auth)
-	app.SetDiagnostics(logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()))
+	app.SetLogger(logger.New(logger.NewEventFlagSetNone()))
 	app.IsolateTo(tx)
 	app.Register(UploadImage{})
-	app.View().AddPaths(
+	app.ViewCache().AddPaths(
 		"server/_views/footer.html",
 		"server/_views/upload_image.html",
 		"server/_views/upload_image_complete.html",
 		"server/_views/header.html",
 	)
-	err = app.View().Initialize()
+	err = app.ViewCache().Initialize()
 	assert.Nil(err)
 	res, err := app.Mock().WithVerb("POST").WithPathf("/images/upload").WithPostedFile(web.PostedFile{
 		Key:      "image",
 		FileName: "image.gif",
 		Contents: contents,
-	}).WithHeader(auth.SessionParamName(), session.SessionID).FetchResponse()
+	}).WithHeader(auth.SessionParamName(), session.SessionID).Response()
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.StatusCode)
 	assert.NotNil(res.Body)

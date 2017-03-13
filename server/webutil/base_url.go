@@ -22,6 +22,6 @@ func BaseURL(app *web.App) {
 			log.Fatal(err)
 		}
 		app.SetDomain(base.Host)
-		app.Diagnostics().Infof("using domain root: %s", base.Host)
+		app.Logger().Infof("using domain root: %s", base.Host)
 	}
 }

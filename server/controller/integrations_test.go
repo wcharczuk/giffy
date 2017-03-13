@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	"github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
@@ -12,7 +13,7 @@ import (
 
 func TestSlack(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DefaultDb().Begin()
+	tx, txErr := spiffy.DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -30,6 +31,7 @@ func TestSlack(t *testing.T) {
 	var res slackResponse
 
 	app.IsolateTo(tx)
+	app.SetLogger(logger.New(logger.NewEventFlagSetNone()))
 	app.Register(Integrations{})
 	err = app.Mock().WithPathf("/integrations/slack").
 		WithQueryString("team_id", core.UUIDv4().ToShortString()).
@@ -39,7 +41,7 @@ func TestSlack(t *testing.T) {
 		WithQueryString("channel_name", "test_channel").
 		WithQueryString("user_name", "test_user").
 		WithQueryString("text", "__test").
-		FetchResponseAsJSON(&res)
+		JSON(&res)
 
 	assert.Nil(err)
 	assert.NotNil(res)
@@ -58,7 +60,7 @@ func TestSlackErrorsWithShortQuery(t *testing.T) {
 		WithQueryString("team_doman", "test_domain").
 		WithQueryString("channel_name", "test_channel").
 		WithQueryString("user_name", "test_user").
-		WithQueryString("text", "do").FetchResponseAsBytes()
+		WithQueryString("text", "do").Bytes()
 
 	assert.Nil(err)
 	assert.NotNil(res)

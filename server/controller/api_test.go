@@ -54,7 +54,7 @@ type testTeamResponse struct {
 
 func TestAPIUsers(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -67,14 +67,14 @@ func TestAPIUsers(t *testing.T) {
 	app.Register(new(API))
 
 	var res testUsersResponse
-	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").JSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
 
 func TestAPIUsersNonAdmin(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -87,14 +87,14 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 	app.Register(API{})
 
 	var res testUsersResponse
-	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").FetchResponseAsJSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").JSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
 
 func TestAPIUserSearch(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -111,14 +111,14 @@ func TestAPIUserSearch(t *testing.T) {
 		WithHeader(auth.SessionParamName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
-		FetchResponseAsJSON(&res)
+		JSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
 
 func TestAPIUserSearchNonAdmin(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -135,14 +135,14 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 		WithHeader(auth.SessionParamName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
-		FetchResponseAsJSON(&res)
+		JSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
 
 func TestAPIUser(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -151,7 +151,7 @@ func TestAPIUser(t *testing.T) {
 	app.Register(new(API))
 
 	var res testUserResponse
-	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotNil(res.Response)
@@ -160,7 +160,7 @@ func TestAPIUser(t *testing.T) {
 
 func TestAPIImages(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -175,7 +175,7 @@ func TestAPIImages(t *testing.T) {
 	app.Register(new(API))
 
 	var res testImagesResponse
-	err = app.Mock().WithPathf("/api/images").FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/images").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
@@ -183,7 +183,7 @@ func TestAPIImages(t *testing.T) {
 
 func TestAPIImagesRandom(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -198,7 +198,7 @@ func TestAPIImagesRandom(t *testing.T) {
 	app.Register(new(API))
 
 	var res testImagesResponse
-	err = app.Mock().WithPathf("/api/images/random/10").FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/images/random/10").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
@@ -206,7 +206,7 @@ func TestAPIImagesRandom(t *testing.T) {
 
 func TestAPISiteStats(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -215,14 +215,14 @@ func TestAPISiteStats(t *testing.T) {
 	app.Register(new(API))
 
 	var res testSiteStatsResponse
-	err = app.Mock().WithPathf("/api/stats").FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/stats").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response, "stats response is nil")
 }
 
 func TestAPISessionUser(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -235,7 +235,7 @@ func TestAPISessionUser(t *testing.T) {
 	app.Register(new(API))
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/session.user").FetchResponseAsJSON(&res)
+	err = app.Mock().WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.True(res.Response.IsLoggedIn)
@@ -244,7 +244,7 @@ func TestAPISessionUser(t *testing.T) {
 
 func TestAPISessionUserLoggedOut(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -253,7 +253,7 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	app.Register(new(API))
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithPathf("/api/session.user").FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/session.user").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.False(res.Response.IsLoggedIn)
@@ -262,7 +262,7 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 
 func TestAPIGetTeamsNoAuth(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -271,14 +271,14 @@ func TestAPIGetTeamsNoAuth(t *testing.T) {
 	app.Register(new(API))
 
 	var res testTeamsResponse
-	err = app.Mock().WithPathf("/api/teams").FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/teams").JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusForbidden, res.Meta.StatusCode)
 }
 
 func TestAPIGetTeams(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -315,7 +315,7 @@ func TestAPIGetTeams(t *testing.T) {
 	app.Register(new(API))
 
 	var res testTeamsResponse
-	err = app.Mock().WithPathf("/api/teams").WithHeader(auth.SessionParamName(), session.SessionID).FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/teams").WithHeader(auth.SessionParamName(), session.SessionID).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotEmpty(res.Response)
@@ -324,7 +324,7 @@ func TestAPIGetTeams(t *testing.T) {
 
 func TestAPIGetTeamNotAuthed(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -345,14 +345,14 @@ func TestAPIGetTeamNotAuthed(t *testing.T) {
 	app.Register(new(API))
 
 	var res testTeamResponse
-	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusForbidden, res.Meta.StatusCode)
 }
 
 func TestAPIGetTeam(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 
@@ -376,7 +376,7 @@ func TestAPIGetTeam(t *testing.T) {
 	app.Register(new(API))
 
 	var res testTeamResponse
-	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.SessionParamName(), session.SessionID).FetchResponseAsJSON(&res)
+	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.SessionParamName(), session.SessionID).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotNil(res.Response)

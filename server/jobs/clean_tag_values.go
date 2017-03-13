@@ -24,7 +24,7 @@ func (ot CleanTagValues) Schedule() chronometer.Schedule {
 
 // Execute runs the job
 func (ot CleanTagValues) Execute(ct *chronometer.CancellationToken) error {
-	tx, err := spiffy.DefaultDb().Begin()
+	tx, err := spiffy.DB().Begin()
 	if err != nil {
 		return err
 	}

@@ -107,7 +107,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
 
-	r.Diagnostics().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+	r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return r.View().View("upload_image_complete", image)
 }
 
@@ -128,7 +128,7 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 	newImage.S3Key = remoteEntry.Key
 	newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
 
-	err = spiffy.DefaultDb().CreateInTx(newImage, tx)
+	err = spiffy.DB().CreateInTx(newImage, tx)
 	if err != nil {
 		return nil, err
 	}

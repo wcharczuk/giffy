@@ -7,10 +7,10 @@ import (
 
 // LiveReloads determine if the app should refresh the view cache on file changes.
 func LiveReloads(app *web.App) {
-	app.View().SetLiveReload(env.Env().Bool("LIVE_RELOAD"))
-	if app.View().LiveReload() {
-		app.Diagnostics().Infof("using live view reloads")
+	app.ViewCache().SetEnabled(env.Env().Bool("LIVE_RELOAD"))
+	if app.ViewCache().Enabled() {
+		app.Logger().Infof("using live view reloads")
 	} else {
-		app.Diagnostics().Infof("using cached views")
+		app.Logger().Infof("using cached views")
 	}
 }

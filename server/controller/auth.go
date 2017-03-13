@@ -132,7 +132,7 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 
 	//create the user if it doesn't exist ...
 	if existingUser.IsZero() {
-		err = spiffy.DefaultDb().Create(prototypeUser)
+		err = spiffy.DB().Create(prototypeUser)
 		if err != nil {
 			return r.View().InternalError(err)
 		}
@@ -155,7 +155,7 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 
 	newCredentials.Provider = provider
 
-	err = spiffy.DefaultDb().Create(newCredentials)
+	err = spiffy.DB().Create(newCredentials)
 
 	if err != nil {
 		return r.View().InternalError(err)

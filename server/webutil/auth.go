@@ -56,7 +56,7 @@ func LoginRedirect(from *url.URL) *url.URL {
 // an auth redirect (if one is provided) or a 403 (not authorized) result.
 func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 	var session model.UserSession
-	err := spiffy.DefaultDb().GetByIDInTx(&session, tx, sessionID)
+	err := spiffy.DB().GetByIDInTx(&session, tx, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 
 	// check if the user exists in the database
 	var dbUser model.User
-	err = spiffy.DefaultDb().GetByIDInTx(&dbUser, tx, session.UserID)
+	err = spiffy.DB().GetByIDInTx(&dbUser, tx, session.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func PersistSession(context *web.Ctx, session *web.Session, tx *sql.Tx) error {
 		UserID:       session.UserID,
 	}
 
-	return spiffy.DefaultDb().CreateIfNotExistsInTx(dbSession, tx)
+	return spiffy.DB().CreateIfNotExistsInTx(dbSession, tx)
 }
 
 // RemoveSession removes a session from the db.

@@ -42,56 +42,56 @@ var (
 func Migrate() error {
 	return migration.Run(func(suite migration.Migration) error {
 		suite.SetLogger(migration.NewLogger())
-		return suite.Apply(spiffy.DefaultDb())
+		return suite.Apply(spiffy.DB())
 	})
 }
 
 // New returns a new server instance.
 func New() *web.App {
 	app := web.New()
-	app.SetDiagnostics(logger.NewDiagnosticsAgentFromEnvironment())
-	logger.SetDiagnostics(app.Diagnostics())
-	app.SetAppName(AppName)
+	app.SetLogger(logger.NewFromEnvironment())
+	logger.SetDefault(app.Logger())
+	app.SetName(AppName)
 	app.SetPort(core.ConfigPort())
 
-	app.Diagnostics().DisableEvent(logger.EventWebRequestPostBody)
-	app.Diagnostics().DisableEvent(logger.EventWebResponse)
+	app.Logger().DisableEvent(logger.EventWebRequestPostBody)
+	app.Logger().DisableEvent(logger.EventWebResponse)
 
-	app.Diagnostics().AddEventListener(logger.EventWebRequest, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.Ctx) {
+	app.Logger().AddEventListener(logger.EventWebRequest, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.Ctx) {
 		external.StatHatRequestTiming(rc.Elapsed())
 	}))
 
-	app.Diagnostics().AddEventListener(logger.EventFatalError, web.NewDiagnosticsErrorHandler(func(rc *web.Ctx, err error) {
+	app.Logger().AddEventListener(logger.EventFatalError, web.NewDiagnosticsErrorHandler(func(rc *web.Ctx, err error) {
 		external.StatHatError()
 		model.DB().CreateInTx(model.NewError(err, rc.Request), rc.Tx())
 	}))
 
-	app.Diagnostics().AddEventListener(logger.EventError, web.NewDiagnosticsErrorHandler(func(rc *web.Ctx, err error) {
+	app.Logger().AddEventListener(logger.EventError, web.NewDiagnosticsErrorHandler(func(rc *web.Ctx, err error) {
 		external.StatHatError()
 		model.DB().CreateInTx(model.NewError(err, rc.Request), rc.Tx())
 	}))
 
-	app.Diagnostics().AddEventListener(
+	app.Logger().AddEventListener(
 		request.Event,
 		request.NewOutgoingListener(func(wr logger.Logger, ts logger.TimeSource, req *request.HTTPRequestMeta) {
 			request.WriteOutgoingRequest(wr, ts, req)
 		}),
 	)
 
-	app.Diagnostics().EnableEvent(spiffy.EventFlagQuery)
-	app.Diagnostics().AddEventListener(
+	app.Logger().EnableEvent(spiffy.EventFlagQuery)
+	app.Logger().AddEventListener(
 		spiffy.EventFlagQuery,
 		spiffy.NewPrintStatementListener(),
 	)
 
-	app.Diagnostics().EnableEvent(spiffy.EventFlagExecute)
-	app.Diagnostics().AddEventListener(
+	app.Logger().EnableEvent(spiffy.EventFlagExecute)
+	app.Logger().AddEventListener(
 		spiffy.EventFlagExecute,
 		spiffy.NewPrintStatementListener(),
 	)
 
-	app.Diagnostics().EnableEvent(core.EventFlagSearch)
-	app.Diagnostics().AddEventListener(core.EventFlagSearch, func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	app.Logger().EnableEvent(core.EventFlagSearch)
+	app.Logger().AddEventListener(core.EventFlagSearch, func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		external.StatHatSearch()
 		if len(state) > 0 {
 			logger.WriteEventf(writer, ts, "Image Search", logger.ColorLightWhite, "query: %s", state[0].(*model.SearchHistory).SearchQuery)
@@ -99,8 +99,8 @@ func New() *web.App {
 		}
 	})
 
-	app.Diagnostics().EnableEvent(core.EventFlagModeration)
-	app.Diagnostics().AddEventListener(core.EventFlagModeration, func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	app.Logger().EnableEvent(core.EventFlagModeration)
+	app.Logger().AddEventListener(core.EventFlagModeration, func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		if len(state) > 0 {
 			logger.WriteEventf(writer, ts, "Moderation", logger.ColorLightWhite, "verb: %s", state[0].(*model.Moderation).Verb)
 			workqueue.Default().Enqueue(model.CreateObject, state[0])
@@ -108,16 +108,16 @@ func New() *web.App {
 	})
 
 	if core.ConfigIsProduction() {
-		app.View().AddPaths("server/_views/header_prod.html")
+		app.ViewCache().AddPaths("server/_views/header_prod.html")
 	} else {
-		app.View().AddPaths("server/_views/header.html")
+		app.ViewCache().AddPaths("server/_views/header.html")
 	}
 
 	webutil.LiveReloads(app)
 	webutil.BaseURL(app)
 	webutil.SecureCookies(app)
 
-	app.View().AddPaths(ViewPaths...)
+	app.ViewCache().AddPaths(ViewPaths...)
 
 	app.Register(new(controller.Index))
 	app.Register(new(controller.API))
@@ -132,7 +132,7 @@ func New() *web.App {
 			return err
 		}
 
-		spiffy.DefaultDb().SetDiagnostics(a.Diagnostics())
+		spiffy.DB().SetLogger(a.Logger())
 
 		err = Migrate()
 		if err != nil {

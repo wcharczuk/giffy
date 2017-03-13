@@ -7,5 +7,5 @@ import (
 
 // NewRequest creates a new external request.
 func NewRequest() *request.HTTPRequest {
-	return request.NewHTTPRequest().WithDiagnostics(logger.Diagnostics())
+	return request.NewHTTPRequest().WithLogger(logger.Default())
 }

@@ -59,7 +59,7 @@ func CreateTestAdminUser(tx *sql.Tx) (*model.User, error) {
 	u.LastName = "User"
 	u.IsAdmin = true
 	u.IsModerator = true
-	err := spiffy.DefaultDb().CreateInTx(u, tx)
+	err := spiffy.DB().CreateInTx(u, tx)
 	return u, err
 }
 
@@ -69,7 +69,7 @@ func CreateTestModeratorUser(tx *sql.Tx) (*model.User, error) {
 	u.LastName = "User"
 	u.IsAdmin = false
 	u.IsModerator = true
-	err := spiffy.DefaultDb().CreateInTx(u, tx)
+	err := spiffy.DB().CreateInTx(u, tx)
 	return u, err
 }
 
@@ -80,7 +80,7 @@ func CreateTestBannedUser(tx *sql.Tx) (*model.User, error) {
 	u.IsAdmin = false
 	u.IsModerator = false
 	u.IsBanned = true
-	err := spiffy.DefaultDb().CreateInTx(u, tx)
+	err := spiffy.DB().CreateInTx(u, tx)
 	return u, err
 }
 
