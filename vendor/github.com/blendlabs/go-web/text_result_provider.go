@@ -8,13 +8,13 @@ import (
 )
 
 // NewTextResultProvider returns a new text result provider.
-func NewTextResultProvider(diag *logger.DiagnosticsAgent, ctx *Ctx) *TextResultProvider {
+func NewTextResultProvider(diag *logger.Agent, ctx *Ctx) *TextResultProvider {
 	return &TextResultProvider{diagnostics: diag, ctx: ctx}
 }
 
 // TextResultProvider is the default response provider if none is specified.
 type TextResultProvider struct {
-	diagnostics *logger.DiagnosticsAgent
+	diagnostics *logger.Agent
 	ctx         *Ctx
 }
 

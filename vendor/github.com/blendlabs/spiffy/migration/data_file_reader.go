@@ -80,7 +80,7 @@ func (dfr *DataFileReader) IsTransactionIsolated() bool {
 }
 
 // Test runs the data file reader and then rolls-back the txn.
-func (dfr *DataFileReader) Test(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error) {
+func (dfr *DataFileReader) Test(c *spiffy.Connection, optionalTx ...*sql.Tx) (err error) {
 	tx, err := c.Begin()
 	if err != nil {
 		return
@@ -101,7 +101,7 @@ func (dfr *DataFileReader) Test(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (
 }
 
 // Apply applies the data file reader.
-func (dfr *DataFileReader) Apply(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error) {
+func (dfr *DataFileReader) Apply(c *spiffy.Connection, optionalTx ...*sql.Tx) (err error) {
 	tx, err := c.Begin()
 	if err != nil {
 		return
@@ -124,7 +124,7 @@ func (dfr *DataFileReader) Apply(c *spiffy.DbConnection, optionalTx ...*sql.Tx) 
 }
 
 // Invoke consumes the data file and writes it to the db.
-func (dfr *DataFileReader) invoke(c *spiffy.DbConnection, tx *sql.Tx) (err error) {
+func (dfr *DataFileReader) invoke(c *spiffy.Connection, tx *sql.Tx) (err error) {
 	var f *os.File
 	if f, err = os.Open(dfr.path); err != nil {
 		return
@@ -162,7 +162,7 @@ func (dfr *DataFileReader) invoke(c *spiffy.DbConnection, tx *sql.Tx) (err error
 
 			if spiffy.HasPrefixCaseInsensitive(line, "copy") {
 				if !spiffy.HasSuffixCaseInsensitive(line, "from stdin;") {
-					err = fmt.Errorf("Only `stdin` from clauses supported at this time, cannot continue.")
+					err = fmt.Errorf("only `stdin` from clauses supported at this time, cannot continue")
 					return
 				}
 
@@ -185,7 +185,7 @@ func (dfr *DataFileReader) invoke(c *spiffy.DbConnection, tx *sql.Tx) (err error
 			}
 
 			if len(pieces) == 0 {
-				err = fmt.Errorf("Empty data line, we error on this for now.")
+				err = fmt.Errorf("empty data line, we error on this for now")
 				return
 			}
 
@@ -207,7 +207,7 @@ func (dfr *DataFileReader) invoke(c *spiffy.DbConnection, tx *sql.Tx) (err error
 	return nil
 }
 
-func (dfr *DataFileReader) executeCopyLine(line string, c *spiffy.DbConnection, tx *sql.Tx) (*sql.Stmt, error) {
+func (dfr *DataFileReader) executeCopyLine(line string, c *spiffy.Connection, tx *sql.Tx) (*sql.Stmt, error) {
 	pieces := dfr.extractCopyLine(line)
 	if len(pieces) < 3 {
 		return nil, exception.New("Invalid `COPY ...` line, cannot continue.")

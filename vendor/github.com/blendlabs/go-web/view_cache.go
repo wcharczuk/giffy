@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"html/template"
 	"time"
-
-	logger "github.com/blendlabs/go-logger"
 )
 
 // NewViewCache returns a new view cache.
@@ -13,6 +11,7 @@ func NewViewCache() *ViewCache {
 	return &ViewCache{
 		viewFuncMap: viewUtils(),
 		viewCache:   template.New(""),
+		enabled:     true,
 	}
 }
 
@@ -21,6 +20,7 @@ func NewViewCacheWithTemplates(templates *template.Template) *ViewCache {
 	return &ViewCache{
 		viewFuncMap: viewUtils(),
 		viewCache:   templates,
+		enabled:     true,
 	}
 }
 
@@ -28,27 +28,23 @@ func NewViewCacheWithTemplates(templates *template.Template) *ViewCache {
 type ViewCache struct {
 	viewFuncMap template.FuncMap
 	viewPaths   []string
-	liveReload  bool
 	viewCache   *template.Template
+	enabled     bool
 }
 
-// SetLiveReload sets the IsLiveReload property.
-func (vc *ViewCache) SetLiveReload(useLiveReload bool) {
-	vc.liveReload = useLiveReload
+// SetEnabled sets the view cache to either cache views or re-parse every request.
+func (vc *ViewCache) SetEnabled(enabled bool) {
+	vc.enabled = enabled
 }
 
-// LiveReload returns if the view cache is recompiling the views every load.
-func (vc *ViewCache) LiveReload() bool {
-	return vc.liveReload
+// Enabled indicates if the cache is enabled, or if it re-parses views every request.
+func (vc *ViewCache) Enabled() bool {
+	return vc.enabled
 }
 
 // Initialize caches templates by path.
 func (vc *ViewCache) Initialize() error {
 	if len(vc.viewPaths) == 0 {
-		return nil
-	}
-
-	if vc.liveReload {
 		return nil
 	}
 
@@ -87,14 +83,6 @@ func (vc *ViewCache) FuncMap() template.FuncMap {
 
 // Templates gets the view cache for the app.
 func (vc *ViewCache) Templates() *template.Template {
-	if vc.liveReload {
-		views, err := vc.Parse()
-		if err != nil {
-			logger.Diagnostics().Fatal(err)
-			return nil
-		}
-		return views
-	}
 	return vc.viewCache
 }
 

@@ -21,15 +21,16 @@ const (
 )
 
 // NewViewResultProvider creates a new ViewResults object.
-func NewViewResultProvider(diag *logger.DiagnosticsAgent, vc *ViewCache, r *Ctx) *ViewResultProvider {
-	return &ViewResultProvider{diagnostics: diag, viewCache: vc, ctx: r}
+func NewViewResultProvider(log *logger.Agent, vc *ViewCache, r *Ctx) *ViewResultProvider {
+	return &ViewResultProvider{diagnostics: log, viewCache: vc, ctx: r}
 }
 
 // ViewResultProvider returns results based on views.
 type ViewResultProvider struct {
-	diagnostics *logger.DiagnosticsAgent
+	diagnostics *logger.Agent
 	ctx         *Ctx
-	viewCache   *ViewCache
+
+	viewCache *ViewCache
 }
 
 // BadRequest returns a view result.

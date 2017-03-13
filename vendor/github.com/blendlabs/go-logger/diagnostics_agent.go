@@ -11,48 +11,47 @@ import (
 )
 
 var (
-	// DefaultDiagnosticsAgentQueueWorkers is the number of consumers
-	// for the diagnostics agent work queue.
-	DefaultDiagnosticsAgentQueueWorkers = 1
+	// DefaultAgentQueueWorkers is the number of consumers (goroutines) for the agent work queue.
+	DefaultAgentQueueWorkers = 4
 
-	// DefaultDiagnosticsAgentQueueLength is the maximum number of items to buffer in the event queue.
-	DefaultDiagnosticsAgentQueueLength = 1 << 10 // 1024
+	// DefaultAgentQueueLength is the maximum number of items to buffer in the event queue.
+	DefaultAgentQueueLength = 1 << 20 // 1mm items
 )
 
 var (
-	_diagnosticsAgent     *DiagnosticsAgent
-	_diagnosticsAgentLock sync.Mutex
+	_default     *Agent
+	_defaultLock sync.Mutex
 )
 
 var (
-	// DefaultDiagnosticsAgentVerbosity is the default verbosity for a diagnostics agent inited from the environment.
-	DefaultDiagnosticsAgentVerbosity = NewEventFlagSetWithEvents(EventFatalError, EventError, EventWebRequest, EventInfo)
+	// DefaultAgentVerbosity is the default verbosity for a diagnostics agent inited from the environment.
+	DefaultAgentVerbosity = NewEventFlagSetWithEvents(EventFatalError, EventError, EventWebRequest, EventInfo)
 )
 
-// Diagnostics returnes a default DiagnosticsAgent singleton.
-func Diagnostics() *DiagnosticsAgent {
-	return _diagnosticsAgent
+// Default returnes a default Agent singleton.
+func Default() *Agent {
+	return _default
 }
 
-// SetDiagnostics sets the diagnostics singleton.
-func SetDiagnostics(diagnostics *DiagnosticsAgent) {
-	_diagnosticsAgentLock.Lock()
-	defer _diagnosticsAgentLock.Unlock()
-	_diagnosticsAgent = diagnostics
+// SetDefault sets the diagnostics singleton.
+func SetDefault(agent *Agent) {
+	_defaultLock.Lock()
+	defer _defaultLock.Unlock()
+	_default = agent
 }
 
-func newDiagnosticsEventQueue() *workqueue.Queue {
-	eq := workqueue.NewWithWorkers(DefaultDiagnosticsAgentQueueWorkers)
-	eq.SetMaxWorkItems(DefaultDiagnosticsAgentQueueLength) //more than this and queuing will block
+func newEventQueue() *workqueue.Queue {
+	eq := workqueue.NewWithWorkers(DefaultAgentQueueWorkers)
+	eq.SetMaxWorkItems(DefaultAgentQueueLength) //more than this and queuing will block
 	eq.Start()
 	return eq
 }
 
-// NewDiagnosticsAgent returns a new diagnostics with a given bitflag verbosity.
-func NewDiagnosticsAgent(events *EventFlagSet, optionalWriter ...Logger) *DiagnosticsAgent {
-	diag := &DiagnosticsAgent{
+// New returns a new diagnostics with a given bitflag verbosity.
+func New(events *EventFlagSet, optionalWriter ...Logger) *Agent {
+	diag := &Agent{
 		events:         events,
-		eventQueue:     newDiagnosticsEventQueue(),
+		eventQueue:     newEventQueue(),
 		eventListeners: map[EventFlag][]EventListener{},
 	}
 
@@ -64,13 +63,13 @@ func NewDiagnosticsAgent(events *EventFlagSet, optionalWriter ...Logger) *Diagno
 	return diag
 }
 
-// NewDiagnosticsAgentFromEnvironment returns a new diagnostics with a given bitflag verbosity.
-func NewDiagnosticsAgentFromEnvironment() *DiagnosticsAgent {
-	return NewDiagnosticsAgent(NewEventFlagSetFromEnvironment(), NewLogWriterFromEnvironment())
+// NewFromEnvironment returns a new diagnostics with a given bitflag verbosity.
+func NewFromEnvironment() *Agent {
+	return New(NewEventFlagSetFromEnvironment(), NewLogWriterFromEnvironment())
 }
 
-// DiagnosticsAgent is a handler for various logging events with descendent handlers.
-type DiagnosticsAgent struct {
+// Agent is a handler for various logging events with descendent handlers.
+type Agent struct {
 	writer         Logger
 	events         *EventFlagSet
 	eventListeners map[EventFlag][]EventListener
@@ -78,42 +77,42 @@ type DiagnosticsAgent struct {
 }
 
 // Writer returns the inner Logger for the diagnostics agent.
-func (da *DiagnosticsAgent) Writer() Logger {
+func (da *Agent) Writer() Logger {
 	return da.writer
 }
 
 // EventQueue returns the inner event queue for the agent.
-func (da *DiagnosticsAgent) EventQueue() *workqueue.Queue {
+func (da *Agent) EventQueue() *workqueue.Queue {
 	return da.eventQueue
 }
 
 // Events returns the EventFlagSet
-func (da *DiagnosticsAgent) Events() *EventFlagSet {
+func (da *Agent) Events() *EventFlagSet {
 	return da.events
 }
 
 // SetVerbosity sets the agent verbosity synchronously.
-func (da *DiagnosticsAgent) SetVerbosity(events *EventFlagSet) {
+func (da *Agent) SetVerbosity(events *EventFlagSet) {
 	da.events = events
 }
 
 // EnableEvent flips the bit flag for a given event.
-func (da *DiagnosticsAgent) EnableEvent(eventFlag EventFlag) {
+func (da *Agent) EnableEvent(eventFlag EventFlag) {
 	da.events.Enable(eventFlag)
 }
 
 // DisableEvent flips the bit flag for a given event.
-func (da *DiagnosticsAgent) DisableEvent(eventFlag EventFlag) {
+func (da *Agent) DisableEvent(eventFlag EventFlag) {
 	da.events.Disable(eventFlag)
 }
 
 // IsEnabled asserts if a flag value is set or not.
-func (da *DiagnosticsAgent) IsEnabled(flagValue EventFlag) bool {
+func (da *Agent) IsEnabled(flagValue EventFlag) bool {
 	return da.events.IsEnabled(flagValue)
 }
 
 // HasListener returns if there are registered listener for an event.
-func (da *DiagnosticsAgent) HasListener(event EventFlag) bool {
+func (da *Agent) HasListener(event EventFlag) bool {
 	if da.eventListeners == nil {
 		return false
 	}
@@ -125,24 +124,24 @@ func (da *DiagnosticsAgent) HasListener(event EventFlag) bool {
 }
 
 // AddEventListener adds a listener for errors.
-func (da *DiagnosticsAgent) AddEventListener(eventFlag EventFlag, listener EventListener) {
+func (da *Agent) AddEventListener(eventFlag EventFlag, listener EventListener) {
 	da.eventListeners[eventFlag] = append(da.eventListeners[eventFlag], listener)
 }
 
 // RemoveListeners clears *all* listeners for an EventFlag.
-func (da *DiagnosticsAgent) RemoveListeners(eventFlag EventFlag) {
+func (da *Agent) RemoveListeners(eventFlag EventFlag) {
 	delete(da.eventListeners, eventFlag)
 }
 
 // OnEvent fires the currently configured event listeners.
-func (da *DiagnosticsAgent) OnEvent(eventFlag EventFlag, state ...interface{}) {
+func (da *Agent) OnEvent(eventFlag EventFlag, state ...interface{}) {
 	if da.IsEnabled(eventFlag) && da.HasListener(eventFlag) {
 		da.eventQueue.Enqueue(da.fireEvent, append([]interface{}{TimeNow(), eventFlag}, state...)...)
 	}
 }
 
 // OnEvent fires the currently configured event listeners.
-func (da *DiagnosticsAgent) fireEvent(actionState ...interface{}) error {
+func (da *Agent) fireEvent(actionState ...interface{}) error {
 	if len(actionState) < 2 {
 		return nil
 	}
@@ -167,30 +166,30 @@ func (da *DiagnosticsAgent) fireEvent(actionState ...interface{}) error {
 }
 
 // Eventf checks an event flag and writes a message with a given color.
-func (da *DiagnosticsAgent) Eventf(eventFlag EventFlag, color AnsiColorCode, format string, args ...interface{}) {
+func (da *Agent) Eventf(eventFlag EventFlag, color AnsiColorCode, format string, args ...interface{}) {
 	if da.IsEnabled(eventFlag) && len(format) > 0 {
 		da.eventQueue.Enqueue(da.writeEventMessage, append([]interface{}{TimeNow(), eventFlag, color, format}, args...)...)
-		da.OnEvent(eventFlag)
+		da.eventQueue.Enqueue(da.fireEvent, append([]interface{}{TimeNow(), eventFlag}, args...)...)
 	}
 }
 
 // ErrorEventf checks an event flag and writes a message to the error stream (if one is configured) with a given color.
-func (da *DiagnosticsAgent) ErrorEventf(eventFlag EventFlag, color AnsiColorCode, format string, args ...interface{}) {
+func (da *Agent) ErrorEventf(eventFlag EventFlag, color AnsiColorCode, format string, args ...interface{}) {
 	if da.IsEnabled(eventFlag) && len(format) > 0 {
 		da.eventQueue.Enqueue(da.writeErrorEventMessage, append([]interface{}{TimeNow(), eventFlag, color, format}, args...)...)
 	}
 }
 
-func (da *DiagnosticsAgent) writeEventMessage(actionState ...interface{}) error {
+func (da *Agent) writeEventMessage(actionState ...interface{}) error {
 	return da.writeEventMessageWithOutput(da.writer.PrintfWithTimeSource, actionState...)
 }
 
-func (da *DiagnosticsAgent) writeErrorEventMessage(actionState ...interface{}) error {
+func (da *Agent) writeErrorEventMessage(actionState ...interface{}) error {
 	return da.writeEventMessageWithOutput(da.writer.ErrorfWithTimeSource, actionState...)
 }
 
 // writeEventMessage writes an event message.
-func (da *DiagnosticsAgent) writeEventMessageWithOutput(output loggerOutputWithTimeSource, actionState ...interface{}) error {
+func (da *Agent) writeEventMessageWithOutput(output loggerOutputWithTimeSource, actionState ...interface{}) error {
 	if len(actionState) < 4 {
 		return nil
 	}
@@ -215,27 +214,27 @@ func (da *DiagnosticsAgent) writeEventMessageWithOutput(output loggerOutputWithT
 		return err
 	}
 
-	output(timeSource, "%s %s", da.writer.Colorize(string(eventFlag), labelColor), fmt.Sprintf(format, actionState[4:]...))
-	return nil
+	_, err = output(timeSource, "%s %s", da.writer.Colorize(string(eventFlag), labelColor), fmt.Sprintf(format, actionState[4:]...))
+	return err
 }
 
 // Infof logs an informational message to the output stream.
-func (da *DiagnosticsAgent) Infof(format string, args ...interface{}) {
+func (da *Agent) Infof(format string, args ...interface{}) {
 	da.Eventf(EventInfo, ColorWhite, format, args...)
 }
 
 // Debugf logs a debug message to the output stream.
-func (da *DiagnosticsAgent) Debugf(format string, args ...interface{}) {
+func (da *Agent) Debugf(format string, args ...interface{}) {
 	da.Eventf(EventDebug, ColorLightYellow, format, args...)
 }
 
 // DebugDump dumps an object and fires a debug event.
-func (da *DiagnosticsAgent) DebugDump(object interface{}) {
+func (da *Agent) DebugDump(object interface{}) {
 	da.Eventf(EventDebug, ColorLightYellow, "%v", object)
 }
 
 // Warningf logs a debug message to the output stream.
-func (da *DiagnosticsAgent) Warningf(format string, args ...interface{}) error {
+func (da *Agent) Warningf(format string, args ...interface{}) error {
 	err := fmt.Errorf(format, args...)
 	da.ErrorEventf(EventWarning, ColorYellow, err.Error())
 	da.OnEvent(EventWarning, err)
@@ -243,7 +242,7 @@ func (da *DiagnosticsAgent) Warningf(format string, args ...interface{}) error {
 }
 
 // Warning logs a warning error to std err.
-func (da *DiagnosticsAgent) Warning(err error) error {
+func (da *Agent) Warning(err error) error {
 	if err != nil {
 		da.ErrorEventf(EventWarning, ColorYellow, err.Error())
 		da.OnEvent(EventWarning, err)
@@ -252,7 +251,7 @@ func (da *DiagnosticsAgent) Warning(err error) error {
 }
 
 // Errorf writes an event to the log and triggers event listeners.
-func (da *DiagnosticsAgent) Errorf(format string, args ...interface{}) error {
+func (da *Agent) Errorf(format string, args ...interface{}) error {
 	err := fmt.Errorf(format, args...)
 	da.ErrorEventf(EventError, ColorRed, format, args...)
 	da.OnEvent(EventError, err)
@@ -260,7 +259,7 @@ func (da *DiagnosticsAgent) Errorf(format string, args ...interface{}) error {
 }
 
 // Fatal logs an error to std err.
-func (da *DiagnosticsAgent) Error(err error) error {
+func (da *Agent) Error(err error) error {
 	if err != nil {
 		da.ErrorEventf(EventError, ColorRed, err.Error())
 		da.OnEvent(EventError, err)
@@ -269,7 +268,7 @@ func (da *DiagnosticsAgent) Error(err error) error {
 }
 
 // ErrorWithReq logs an error to std err with a request.
-func (da *DiagnosticsAgent) ErrorWithReq(err error, req *http.Request) error {
+func (da *Agent) ErrorWithReq(err error, req *http.Request) error {
 	if err != nil {
 		da.ErrorEventf(EventError, ColorRed, err.Error())
 		da.OnEvent(EventError, err, req)
@@ -278,7 +277,7 @@ func (da *DiagnosticsAgent) ErrorWithReq(err error, req *http.Request) error {
 }
 
 // Fatalf writes an event to the log and triggers event listeners.
-func (da *DiagnosticsAgent) Fatalf(format string, args ...interface{}) error {
+func (da *Agent) Fatalf(format string, args ...interface{}) error {
 	err := fmt.Errorf(format, args...)
 	da.ErrorEventf(EventFatalError, ColorRed, format, args...)
 	da.OnEvent(EventFatalError, err)
@@ -286,7 +285,7 @@ func (da *DiagnosticsAgent) Fatalf(format string, args ...interface{}) error {
 }
 
 // Fatal logs the result of a panic to std err.
-func (da *DiagnosticsAgent) Fatal(err error) error {
+func (da *Agent) Fatal(err error) error {
 	if err != nil {
 		da.ErrorEventf(EventFatalError, ColorRed, err.Error())
 		da.OnEvent(EventFatalError, err)
@@ -295,7 +294,7 @@ func (da *DiagnosticsAgent) Fatal(err error) error {
 }
 
 // FatalWithReq logs the result of a fatal error to std err with a request.
-func (da *DiagnosticsAgent) FatalWithReq(err error, req *http.Request) error {
+func (da *Agent) FatalWithReq(err error, req *http.Request) error {
 	if err != nil {
 		da.ErrorEventf(EventFatalError, ColorRed, err.Error())
 		da.OnEvent(EventFatalError, err, req)
@@ -304,12 +303,12 @@ func (da *DiagnosticsAgent) FatalWithReq(err error, req *http.Request) error {
 }
 
 // Close releases shared resources for the agent.
-func (da *DiagnosticsAgent) Close() error {
+func (da *Agent) Close() error {
 	return da.eventQueue.Close()
 }
 
 // Drain waits for the agent to finish it's queue of events before closing.
-func (da *DiagnosticsAgent) Drain() error {
+func (da *Agent) Drain() error {
 	da.SetVerbosity(NewEventFlagSetNone())
 
 	for da.eventQueue.Len() > 0 {

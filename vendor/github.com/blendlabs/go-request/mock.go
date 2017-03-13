@@ -31,10 +31,10 @@ var (
 func MockedResponseInjector(verb string, workingURL *url.URL) (bool, *HTTPResponseMeta, []byte, error) {
 	if isMocked {
 		mocksLock.Lock()
-		defer mocksLock.Unlock()
-
 		storedURL := fmt.Sprintf("%s_%s", verb, workingURL.String())
-		if mockResponseHandler, ok := mocks[storedURL]; ok {
+		mockResponseHandler, ok := mocks[storedURL]
+		mocksLock.Unlock()
+		if ok {
 			mockResponse := mockResponseHandler()
 			meta := &HTTPResponseMeta{}
 			meta.StatusCode = mockResponse.StatusCode

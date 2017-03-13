@@ -108,23 +108,23 @@ func (wr *LogWriter) formatLabel() string {
 }
 
 // Printf writes to the output stream.
-func (wr *LogWriter) Printf(format string, args ...interface{}) {
-	wr.Fprintf(wr.Output, format, args...)
+func (wr *LogWriter) Printf(format string, args ...interface{}) (int64, error) {
+	return wr.Fprintf(wr.Output, format, args...)
 }
 
 // PrintfWithTimeSource writes to the output stream, with a given timing source.
-func (wr *LogWriter) PrintfWithTimeSource(ts TimeSource, format string, args ...interface{}) {
-	wr.FprintfWithTimeSource(ts, wr.Output, format, args...)
+func (wr *LogWriter) PrintfWithTimeSource(ts TimeSource, format string, args ...interface{}) (int64, error) {
+	return wr.FprintfWithTimeSource(ts, wr.Output, format, args...)
 }
 
 // Errorf writes to the error output stream.
-func (wr *LogWriter) Errorf(format string, args ...interface{}) {
-	wr.Fprintf(wr.GetErrorOutput(), format, args...)
+func (wr *LogWriter) Errorf(format string, args ...interface{}) (int64, error) {
+	return wr.Fprintf(wr.GetErrorOutput(), format, args...)
 }
 
 // ErrorfWithTimeSource writes to the error output stream, with a given timing source.
-func (wr *LogWriter) ErrorfWithTimeSource(ts TimeSource, format string, args ...interface{}) {
-	wr.FprintfWithTimeSource(ts, wr.GetErrorOutput(), format, args...)
+func (wr *LogWriter) ErrorfWithTimeSource(ts TimeSource, format string, args ...interface{}) (int64, error) {
+	return wr.FprintfWithTimeSource(ts, wr.GetErrorOutput(), format, args...)
 }
 
 // Write writes a binary blob to a given writer, and with a given timing source.
@@ -153,21 +153,21 @@ func (wr *LogWriter) WriteWithTimeSource(ts TimeSource, binary []byte) (int64, e
 }
 
 // Fprintf writes a given string and args to a writer.
-func (wr *LogWriter) Fprintf(w io.Writer, format string, args ...interface{}) {
-	wr.FprintfWithTimeSource(SystemClock, w, format, args...)
+func (wr *LogWriter) Fprintf(w io.Writer, format string, args ...interface{}) (int64, error) {
+	return wr.FprintfWithTimeSource(SystemClock, w, format, args...)
 }
 
 // FprintfWithTimeSource writes a given string and args to a writer and with a given timing source.
-func (wr *LogWriter) FprintfWithTimeSource(ts TimeSource, w io.Writer, format string, args ...interface{}) {
+func (wr *LogWriter) FprintfWithTimeSource(ts TimeSource, w io.Writer, format string, args ...interface{}) (int64, error) {
 	if w == nil {
-		return
+		return 0, nil
 	}
 	if len(format) == 0 {
-		return
+		return 0, nil
 	}
 	message := fmt.Sprintf(format, args...)
 	if len(message) == 0 {
-		return
+		return 0, nil
 	}
 
 	buf := wr.bufferPool.Get()
@@ -185,7 +185,7 @@ func (wr *LogWriter) FprintfWithTimeSource(ts TimeSource, w io.Writer, format st
 
 	buf.WriteString(message)
 	buf.WriteRune(RuneNewline)
-	buf.WriteTo(w)
+	return buf.WriteTo(w)
 }
 
 // UseAnsiColors is a formatting option.

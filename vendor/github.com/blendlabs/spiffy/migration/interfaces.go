@@ -7,11 +7,11 @@ import (
 )
 
 // Action is a step in a migration.
-type Action func(o *Operation, c *spiffy.DbConnection, tx *sql.Tx) error
+type Action func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error
 
 // Invocable is a thing that can be invoked.
 type Invocable interface {
-	Invoke(c *spiffy.DbConnection, tx *sql.Tx) error
+	Invoke(c *spiffy.Connection, tx *sql.Tx) error
 }
 
 // Migration is an Invocable that can tested before running.
@@ -27,6 +27,6 @@ type Migration interface {
 
 	IsTransactionIsolated() bool
 
-	Test(c *spiffy.DbConnection, optionalTx ...*sql.Tx) error
-	Apply(c *spiffy.DbConnection, optionalTx ...*sql.Tx) error
+	Test(c *spiffy.Connection, optionalTx ...*sql.Tx) error
+	Apply(c *spiffy.Connection, optionalTx ...*sql.Tx) error
 }

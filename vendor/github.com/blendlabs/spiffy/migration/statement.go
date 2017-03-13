@@ -21,7 +21,7 @@ func NewStatement(statements ...string) Statement {
 type Statement []string
 
 // Invoke executes the statement block
-func (s Statement) Invoke(c *spiffy.DbConnection, tx *sql.Tx) (err error) {
+func (s Statement) Invoke(c *spiffy.Connection, tx *sql.Tx) (err error) {
 	for _, step := range s {
 		err = c.ExecInTx(step, tx)
 		if err != nil {

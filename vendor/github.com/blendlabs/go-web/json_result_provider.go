@@ -8,13 +8,13 @@ import (
 )
 
 // NewJSONResultProvider Creates a new JSONResults object.
-func NewJSONResultProvider(diag *logger.DiagnosticsAgent, r *Ctx) *JSONResultProvider {
+func NewJSONResultProvider(diag *logger.Agent, r *Ctx) *JSONResultProvider {
 	return &JSONResultProvider{diagnostics: diag, ctx: r}
 }
 
 // JSONResultProvider are context results for api methods.
 type JSONResultProvider struct {
-	diagnostics *logger.DiagnosticsAgent
+	diagnostics *logger.Agent
 	ctx         *Ctx
 }
 

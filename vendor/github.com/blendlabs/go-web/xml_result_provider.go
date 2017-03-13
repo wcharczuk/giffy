@@ -8,13 +8,13 @@ import (
 )
 
 // NewXMLResultProvider Creates a new JSONResults object.
-func NewXMLResultProvider(diag *logger.DiagnosticsAgent, ctx *Ctx) *XMLResultProvider {
+func NewXMLResultProvider(diag *logger.Agent, ctx *Ctx) *XMLResultProvider {
 	return &XMLResultProvider{diagnostics: diag, ctx: ctx}
 }
 
 // XMLResultProvider are context results for api methods.
 type XMLResultProvider struct {
-	diagnostics *logger.DiagnosticsAgent
+	diagnostics *logger.Agent
 	ctx         *Ctx
 }
 

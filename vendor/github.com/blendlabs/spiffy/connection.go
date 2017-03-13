@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	//DBAliasNilError is a common error
-	DBAliasNilError = "DbConnection is nil; did you set up a DbAlias for your project?"
+	//DBNilError is a common error
+	DBNilError = "connection is nil"
 )
 
 const (
@@ -33,32 +33,31 @@ const (
 )
 
 // --------------------------------------------------------------------------------
-// DbConnection
+// Connection
 // --------------------------------------------------------------------------------
 
-// NewDbConnection returns a new DbConnectin.
-func NewDbConnection() *DbConnection {
-	return &DbConnection{
-		bufferPool:             NewBufferPool(1024),
-		useStatementCache:      false, //doesnt actually help perf, maybe someday.
-		statementCacheInitLock: &sync.Mutex{},
-		connectionLock:         &sync.Mutex{},
-		txLock:                 &sync.RWMutex{},
+// NewConnection returns a new DbConnectin.
+func NewConnection() *Connection {
+	return &Connection{
+		bufferPool:         NewBufferPool(1024),
+		useStatementCache:  false, //doesnt actually help perf, maybe someday.
+		statementCacheLock: &sync.Mutex{},
+		connectionLock:     &sync.Mutex{},
 	}
 }
 
-// NewDbConnectionWithHost creates a new DbConnection using current user peer authentication.
-func NewDbConnectionWithHost(host, dbName string) *DbConnection {
-	dbc := NewDbConnection()
+// NewConnectionWithHost creates a new Connection using current user peer authentication.
+func NewConnectionWithHost(host, dbName string) *Connection {
+	dbc := NewConnection()
 	dbc.Host = host
 	dbc.Database = dbName
 	dbc.SSLMode = "disable"
 	return dbc
 }
 
-// NewDbConnectionWithPassword creates a new connection with SSLMode set to "disable"
-func NewDbConnectionWithPassword(host, dbName, username, password string) *DbConnection {
-	dbc := NewDbConnection()
+// NewConnectionWithPassword creates a new connection with SSLMode set to "disable"
+func NewConnectionWithPassword(host, dbName, username, password string) *Connection {
+	dbc := NewConnection()
 	dbc.Host = host
 	dbc.Database = dbName
 	dbc.Username = username
@@ -67,9 +66,9 @@ func NewDbConnectionWithPassword(host, dbName, username, password string) *DbCon
 	return dbc
 }
 
-// NewDbConnectionWithSSLMode creates a new connection with all available options (including SSLMode)
-func NewDbConnectionWithSSLMode(host, dbName, username, password, sslMode string) *DbConnection {
-	dbc := NewDbConnection()
+// NewConnectionWithSSLMode creates a new connection with all available options (including SSLMode)
+func NewConnectionWithSSLMode(host, dbName, username, password, sslMode string) *Connection {
+	dbc := NewConnection()
 	dbc.Host = host
 	dbc.Database = dbName
 	dbc.Username = username
@@ -78,9 +77,9 @@ func NewDbConnectionWithSSLMode(host, dbName, username, password, sslMode string
 	return dbc
 }
 
-// NewDbConnectionFromDSN creates a new connection with SSLMode set to "disable"
-func NewDbConnectionFromDSN(dsn string) *DbConnection {
-	dbc := NewDbConnection()
+// NewConnectionFromDSN creates a new connection with SSLMode set to "disable"
+func NewConnectionFromDSN(dsn string) *Connection {
+	dbc := NewConnection()
 	dbc.DSN = dsn
 	return dbc
 }
@@ -93,7 +92,7 @@ func envVarWithDefault(varName, defaultValue string) string {
 	return defaultValue
 }
 
-// NewDbConnectionFromEnvironment creates a new db connection from environment variables.
+// NewConnectionFromEnvironment creates a new db connection from environment variables.
 //
 // The environment variable mappings are as follows:
 //	-	DATABSE_URL 	= DSN 	//note that this trumps other vars (!!)
@@ -104,12 +103,12 @@ func envVarWithDefault(varName, defaultValue string) string {
 //	-	DB_USER 		= Username
 //	-	DB_PASSWORD 	= Password
 //	-	DB_SSLMODE 		= SSLMode
-func NewDbConnectionFromEnvironment() *DbConnection {
+func NewConnectionFromEnvironment() *Connection {
 	if len(os.Getenv("DATABASE_URL")) > 0 {
-		return NewDbConnectionFromDSN(os.Getenv("DATABASE_URL"))
+		return NewConnectionFromDSN(os.Getenv("DATABASE_URL"))
 	}
 
-	dbc := NewDbConnection()
+	dbc := NewConnection()
 	dbc.Host = envVarWithDefault("DB_HOST", "localhost")
 	dbc.Database = os.Getenv("DB_NAME")
 	dbc.Schema = os.Getenv("DB_SCHEMA")
@@ -119,8 +118,8 @@ func NewDbConnectionFromEnvironment() *DbConnection {
 	return dbc
 }
 
-// DbConnection is the basic wrapper for connection parameters and saves a reference to the created sql.Connection.
-type DbConnection struct {
+// Connection is the basic wrapper for connection parameters and saves a reference to the created sql.Connection.
+type Connection struct {
 	// DSN is a fully formed DSN (this skips DSN formation from other variables).
 	DSN string
 
@@ -139,24 +138,21 @@ type DbConnection struct {
 	// SSLMode is the sslmode for the connection.
 	SSLMode string
 
-	// Connection is the underlying sql driver connection for the DbConnection.
+	// Connection is the underlying sql driver connection for the Connection.
 	Connection *sql.DB
 
-	tx *sql.Tx
+	connectionLock     *sync.Mutex
+	statementCacheLock *sync.Mutex
 
-	connectionLock         *sync.Mutex
-	txLock                 *sync.RWMutex
-	statementCacheInitLock *sync.Mutex
-
-	bufferPool  *BufferPool
-	diagnostics *logger.DiagnosticsAgent
+	bufferPool *BufferPool
+	logger     *logger.Agent
 
 	useStatementCache bool
 	statementCache    *StatementCache
 }
 
 // Close implements a closer.
-func (dbc *DbConnection) Close() error {
+func (dbc *Connection) Close() error {
 	var err error
 	if dbc.statementCache != nil {
 		err = dbc.statementCache.Close()
@@ -167,44 +163,44 @@ func (dbc *DbConnection) Close() error {
 	return dbc.Connection.Close()
 }
 
-// SetDiagnostics sets the connection's diagnostic agent.
-func (dbc *DbConnection) SetDiagnostics(agent *logger.DiagnosticsAgent) {
-	dbc.diagnostics = agent
+// SetLogger sets the connection's diagnostic agent.
+func (dbc *Connection) SetLogger(agent *logger.Agent) {
+	dbc.logger = agent
 }
 
-// Diagnostics returns the diagnostics agent.
-func (dbc *DbConnection) Diagnostics() *logger.DiagnosticsAgent {
-	return dbc.diagnostics
+// Logger returns the diagnostics agent.
+func (dbc *Connection) Logger() *logger.Agent {
+	return dbc.logger
 }
 
-func (dbc *DbConnection) fireEvent(flag logger.EventFlag, query string, elapsed time.Duration, err error, optionalQueryLabel ...string) {
-	if dbc.diagnostics != nil {
+func (dbc *Connection) fireEvent(flag logger.EventFlag, query string, elapsed time.Duration, err error, optionalQueryLabel ...string) {
+	if dbc.logger != nil {
 		var queryLabel string
 		if len(optionalQueryLabel) > 0 {
 			queryLabel = optionalQueryLabel[0]
 		}
 
-		dbc.diagnostics.OnEvent(flag, query, elapsed, err, queryLabel)
+		dbc.logger.OnEvent(flag, query, elapsed, err, queryLabel)
 	}
 }
 
 // EnableStatementCache opts to cache statements for the connection.
-func (dbc *DbConnection) EnableStatementCache() {
+func (dbc *Connection) EnableStatementCache() {
 	dbc.useStatementCache = true
 }
 
 // DisableStatementCache opts to not use the statement cache.
-func (dbc *DbConnection) DisableStatementCache() {
+func (dbc *Connection) DisableStatementCache() {
 	dbc.useStatementCache = false
 }
 
 // StatementCache returns the statement cache.
-func (dbc *DbConnection) StatementCache() *StatementCache {
+func (dbc *Connection) StatementCache() *StatementCache {
 	return dbc.statementCache
 }
 
-// CreatePostgresConnectionString returns a sql connection string from a given set of DbConnection parameters.
-func (dbc *DbConnection) CreatePostgresConnectionString() (string, error) {
+// CreatePostgresConnectionString returns a sql connection string from a given set of Connection parameters.
+func (dbc *Connection) CreatePostgresConnectionString() (string, error) {
 	if len(dbc.DSN) != 0 {
 		return dbc.DSN, nil
 	}
@@ -233,15 +229,7 @@ func (dbc *DbConnection) CreatePostgresConnectionString() (string, error) {
 }
 
 // Begin starts a new transaction.
-func (dbc *DbConnection) Begin() (*sql.Tx, error) {
-	if dbc == nil {
-		return nil, exception.New(DBAliasNilError)
-	}
-
-	if dbc.IsIsolatedToTransaction() {
-		return dbc.tx, nil
-	}
-
+func (dbc *Connection) Begin() (*sql.Tx, error) {
 	if dbc.Connection != nil {
 		tx, txErr := dbc.Connection.Begin()
 		return tx, exception.Wrap(txErr)
@@ -255,42 +243,12 @@ func (dbc *DbConnection) Begin() (*sql.Tx, error) {
 	return tx, exception.Wrap(err)
 }
 
-// WrapInTx performs the given action wrapped in a transaction. Will Commit() on success and Rollback() on a non-nil error returned.
-func (dbc *DbConnection) WrapInTx(action func(*sql.Tx) error) error {
-	tx, err := dbc.Begin()
-	if err != nil {
-		return exception.Wrap(err)
-	}
-	err = action(tx)
-	if err != nil {
-		if rollbackErr := dbc.Rollback(tx); rollbackErr != nil {
-			return exception.WrapMany(rollbackErr, err)
-		}
-		return exception.Wrap(err)
-	} else if commitErr := dbc.Commit(tx); commitErr != nil {
-		return exception.Wrap(commitErr)
-	}
-	return nil
-}
-
 // Prepare prepares a new statement for the connection.
-func (dbc *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error) {
-	if dbc == nil {
-		return nil, exception.New(DBAliasNilError)
-	}
-
+func (dbc *Connection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error) {
 	if tx != nil {
 		stmt, err := tx.Prepare(statement)
 		if err != nil {
-			return nil, exception.Newf("Postgres Error: %v", err)
-		}
-		return stmt, nil
-	}
-
-	if dbc.tx != nil {
-		stmt, err := dbc.tx.Prepare(statement)
-		if err != nil {
-			return nil, exception.Newf("Postgres Error: %v", err)
+			return nil, exception.Wrap(err)
 		}
 		return stmt, nil
 	}
@@ -298,29 +256,46 @@ func (dbc *DbConnection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error
 	// open shared connection
 	dbConn, err := dbc.Open()
 	if err != nil {
-		return nil, exception.Newf("Postgres Error: %v", err)
-	}
-
-	if dbc.useStatementCache {
-		if dbc.statementCache == nil {
-			dbc.statementCacheInitLock.Lock()
-			defer dbc.statementCacheInitLock.Unlock()
-			if dbc.statementCache == nil {
-				dbc.statementCache = newStatementCache(dbConn)
-			}
-		}
-		return dbc.statementCache.Prepare(statement)
+		return nil, exception.Wrap(err)
 	}
 
 	stmt, err := dbConn.Prepare(statement)
 	if err != nil {
-		return nil, exception.Newf("Postgres Error: %v", err)
+		return nil, exception.Wrap(err)
 	}
 	return stmt, nil
 }
 
-// OpenNew returns a new connection object.
-func (dbc *DbConnection) OpenNew() (*sql.DB, error) {
+// PrepareCached prepares a potentially cached statement.
+func (dbc *Connection) PrepareCached(id, statement string, tx *sql.Tx) (*sql.Stmt, error) {
+	if tx != nil {
+		stmt, err := tx.Prepare(statement)
+		if err != nil {
+			return nil, exception.Wrap(err)
+		}
+		return stmt, nil
+	}
+
+	if dbc.useStatementCache {
+		// open shared connection
+		if dbc.statementCache == nil {
+			dbc.statementCacheLock.Lock()
+			defer dbc.statementCacheLock.Unlock()
+			if dbc.statementCache == nil {
+				dbConn, err := dbc.Open()
+				if err != nil {
+					return nil, exception.Wrap(err)
+				}
+				dbc.statementCache = newStatementCache(dbConn)
+			}
+		}
+		return dbc.statementCache.Prepare(id, statement)
+	}
+	return dbc.Prepare(statement, tx)
+}
+
+// openNew returns a new connection object.
+func (dbc *Connection) openNew() (*sql.DB, error) {
 	connStr, err := dbc.CreatePostgresConnectionString()
 	if err != nil {
 		return nil, err
@@ -342,13 +317,13 @@ func (dbc *DbConnection) OpenNew() (*sql.DB, error) {
 }
 
 // Open returns a connection object, either a cached connection object or creating a new one in the process.
-func (dbc *DbConnection) Open() (*sql.DB, error) {
+func (dbc *Connection) Open() (*sql.DB, error) {
 	if dbc.Connection == nil {
 		dbc.connectionLock.Lock()
 		defer dbc.connectionLock.Unlock()
 
 		if dbc.Connection == nil {
-			newConn, err := dbc.OpenNew()
+			newConn, err := dbc.openNew()
 			if err != nil {
 				return nil, exception.Wrap(err)
 			}
@@ -359,29 +334,32 @@ func (dbc *DbConnection) Open() (*sql.DB, error) {
 }
 
 // Exec runs the statement without creating a QueryResult.
-func (dbc *DbConnection) Exec(statement string, args ...interface{}) error {
+func (dbc *Connection) Exec(statement string, args ...interface{}) error {
 	return dbc.ExecInTx(statement, nil, args...)
 }
 
+// ExecWithCacheLabel runs the statement without creating a QueryResult.
+func (dbc *Connection) ExecWithCacheLabel(statement, cacheLabel string, args ...interface{}) error {
+	return dbc.ExecInTxWithCacheLabel(statement, cacheLabel, nil, args...)
+}
+
 // ExecInTx runs a statement within a transaction.
-func (dbc *DbConnection) ExecInTx(statement string, tx *sql.Tx, args ...interface{}) (err error) {
+func (dbc *Connection) ExecInTx(statement string, tx *sql.Tx, args ...interface{}) (err error) {
+	return dbc.ExecInTxWithCacheLabel(statement, statement, tx, args...)
+}
+
+// ExecInTxWithCacheLabel runs a statement within a transaction.
+func (dbc *Connection) ExecInTxWithCacheLabel(statement, cacheLabel string, tx *sql.Tx, args ...interface{}) (err error) {
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
-		dbc.fireEvent(EventFlagExecute, statement, time.Now().Sub(start), err)
+		dbc.fireEvent(EventFlagExecute, statement, time.Now().Sub(start), err, cacheLabel)
 	}()
 
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
-
-	stmt, stmtErr := dbc.Prepare(statement, tx)
+	stmt, stmtErr := dbc.PrepareCached(cacheLabel, statement, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -390,7 +368,7 @@ func (dbc *DbConnection) ExecInTx(statement string, tx *sql.Tx, args ...interfac
 		if !dbc.useStatementCache {
 			closeErr := stmt.Close()
 			if closeErr != nil {
-				err = exception.WrapMany(err, closeErr)
+				err = exception.Nest(err, closeErr)
 			}
 		}
 	}()
@@ -406,75 +384,32 @@ func (dbc *DbConnection) ExecInTx(statement string, tx *sql.Tx, args ...interfac
 	return
 }
 
-// Query runs the selected statement and returns a QueryResult.
-func (dbc *DbConnection) Query(statement string, args ...interface{}) *QueryResult {
+// Query runs the selected statement and returns a Query.
+func (dbc *Connection) Query(statement string, args ...interface{}) *Query {
 	return dbc.QueryInTx(statement, nil, args...)
 }
 
-// QueryInTx runs the selected statement in a transaction and returns a QueryResult.
-func (dbc *DbConnection) QueryInTx(statement string, tx *sql.Tx, args ...interface{}) (result *QueryResult) {
-	result = &QueryResult{queryBody: statement, start: time.Now(), conn: dbc, fireEvents: true}
-	if dbc == nil {
-		result.err = exception.New(DBAliasNilError)
-		return
-	}
-	dbc.tryTransactionLock()
-
-	stmt, stmtErr := dbc.Prepare(statement, tx)
-	if stmtErr != nil {
-		result.err = exception.Wrap(stmtErr)
-		return
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			if dbc.useStatementCache {
-				result.err = exception.WrapMany(result.err, exception.New(r))
-			} else {
-				result.err = exception.WrapMany(result.err, exception.New(r), stmt.Close())
-			}
-
-			dbc.tryTransactionUnlock()
-		}
-	}()
-
-	rows, queryErr := stmt.Query(args...)
-	if queryErr != nil {
-		result.err = exception.Wrap(queryErr)
-		if dbc.useStatementCache {
-			dbc.statementCache.InvalidateStatement(statement)
-		}
-		return
-	}
-
-	// the result MUST close these.
-	result.stmt = stmt
-	result.rows = rows
-	return
+// QueryInTx runs the selected statement in a transaction and returns a Query.
+func (dbc *Connection) QueryInTx(statement string, tx *sql.Tx, args ...interface{}) (result *Query) {
+	return &Query{statement: statement, args: args, start: time.Now(), dbc: dbc, tx: tx, fireEvents: true}
 }
 
 // GetByID returns a given object based on a group of primary key ids.
-func (dbc *DbConnection) GetByID(object DatabaseMapped, ids ...interface{}) error {
+func (dbc *Connection) GetByID(object DatabaseMapped, ids ...interface{}) error {
 	return dbc.GetByIDInTx(object, nil, ids...)
 }
 
 // GetByIDInTx returns a given object based on a group of primary key ids within a transaction.
-func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...interface{}) (err error) {
+func (dbc *Connection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...interface{}) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	if ids == nil {
 		return exception.New("invalid `ids` parameter.")
@@ -482,10 +417,12 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 
 	meta := getCachedColumnCollectionFromInstance(object)
 	standardCols := meta.NotReadOnly()
-	columnNames := standardCols.ColumnNames()
 	tableName := object.TableName()
-	pks := standardCols.PrimaryKeys()
 
+	statementID := fmt.Sprintf("%s_get", tableName)
+
+	columnNames := standardCols.ColumnNames()
+	pks := standardCols.PrimaryKeys()
 	if pks.Len() == 0 {
 		err = exception.New("no primary key on object to get by.")
 		return
@@ -517,14 +454,14 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	stmt, stmtErr := dbc.PrepareCached(statementID, queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			stmt.Close()
 		}
 	}()
 
@@ -539,7 +476,7 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 	defer func() {
 		closeErr := rows.Close()
 		if closeErr != nil {
-			err = exception.WrapMany(err, closeErr)
+			err = exception.Nest(err, closeErr)
 		}
 	}()
 
@@ -562,32 +499,27 @@ func (dbc *DbConnection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, ids ...i
 }
 
 // GetAll returns all rows of an object mapped table.
-func (dbc *DbConnection) GetAll(collection interface{}) error {
+func (dbc *Connection) GetAll(collection interface{}) error {
 	return dbc.GetAllInTx(collection, nil)
 }
 
 // GetAllInTx returns all rows of an object mapped table wrapped in a transaction.
-func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err error) {
+func (dbc *Connection) GetAllInTx(collection interface{}, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagQuery, queryBody, time.Now().Sub(start), err)
 	}()
 
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
-
 	collectionValue := reflectValue(collection)
 	t := reflectSliceType(collection)
 	tableName, _ := TableName(t)
+	statementID := fmt.Sprintf("%s_get_all", tableName)
+
 	meta := getCachedColumnCollectionFromType(tableName, t).NotReadOnly()
 
 	columnNames := meta.ColumnNames()
@@ -606,7 +538,7 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 	queryBodyBuffer.WriteString(tableName)
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	stmt, stmtErr := dbc.PrepareCached(statementID, queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		if dbc.useStatementCache {
@@ -616,7 +548,7 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			err = exception.Nest(err, stmt.Close())
 		}
 	}()
 
@@ -628,7 +560,7 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 	defer func() {
 		closeErr := rows.Close()
 		if closeErr != nil {
-			err = exception.WrapMany(err, closeErr)
+			err = exception.Nest(err, closeErr)
 		}
 	}()
 
@@ -660,28 +592,21 @@ func (dbc *DbConnection) GetAllInTx(collection interface{}, tx *sql.Tx) (err err
 }
 
 // Create writes an object to the database.
-func (dbc *DbConnection) Create(object DatabaseMapped) error {
+func (dbc *Connection) Create(object DatabaseMapped) error {
 	return dbc.CreateInTx(object, nil)
 }
 
 // CreateInTx writes an object to the database within a transaction.
-func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
+func (dbc *Connection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -689,6 +614,7 @@ func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	//NOTE: we're only using one.
 	serials := cols.Serials()
 	tableName := object.TableName()
+	statementID := fmt.Sprintf("%s_create", tableName)
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
 
@@ -720,14 +646,14 @@ func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	stmt, stmtErr := dbc.PrepareCached(statementID, queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			stmt.Close()
 		}
 	}()
 
@@ -760,28 +686,21 @@ func (dbc *DbConnection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 }
 
 // CreateIfNotExists writes an object to the database if it does not already exist.
-func (dbc *DbConnection) CreateIfNotExists(object DatabaseMapped) error {
+func (dbc *Connection) CreateIfNotExists(object DatabaseMapped) error {
 	return dbc.CreateIfNotExistsInTx(object, nil)
 }
 
 // CreateIfNotExistsInTx writes an object to the database if it does not already exist within a transaction.
-func (dbc *DbConnection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
+func (dbc *Connection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -790,6 +709,7 @@ func (dbc *DbConnection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx
 	serials := cols.Serials()
 	pks := cols.PrimaryKeys()
 	tableName := object.TableName()
+	statementID := fmt.Sprintf("%s_create_if_not_exists", tableName)
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
 
@@ -833,14 +753,14 @@ func (dbc *DbConnection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	stmt, stmtErr := dbc.PrepareCached(statementID, queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			err = exception.Nest(err, stmt.Close())
 		}
 	}()
 
@@ -873,28 +793,21 @@ func (dbc *DbConnection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx
 }
 
 // CreateMany writes many an objects to the database.
-func (dbc *DbConnection) CreateMany(objects interface{}) error {
+func (dbc *Connection) CreateMany(objects interface{}) error {
 	return dbc.CreateManyInTx(objects, nil)
 }
 
 // CreateManyInTx writes many an objects to the database within a transaction.
-func (dbc *DbConnection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err error) {
+func (dbc *Connection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	sliceValue := reflectValue(objects)
 	if sliceValue.Len() == 0 {
@@ -953,7 +866,7 @@ func (dbc *DbConnection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err er
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			err = exception.Nest(err, stmt.Close())
 		}
 	}()
 
@@ -975,28 +888,21 @@ func (dbc *DbConnection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err er
 }
 
 // Update updates an object.
-func (dbc *DbConnection) Update(object DatabaseMapped) error {
+func (dbc *Connection) Update(object DatabaseMapped) error {
 	return dbc.UpdateInTx(object, nil)
 }
 
 // UpdateInTx updates an object wrapped in a transaction.
-func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
+func (dbc *Connection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	tableName := object.TableName()
 	cols := getCachedColumnCollectionFromInstance(object)
@@ -1036,7 +942,8 @@ func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	statementID := fmt.Sprintf("%s_update", tableName)
+	stmt, stmtErr := dbc.PrepareCached(statementID, queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
@@ -1044,7 +951,7 @@ func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			err = exception.Nest(err, stmt.Close())
 		}
 	}()
 
@@ -1061,28 +968,21 @@ func (dbc *DbConnection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 }
 
 // Exists returns a bool if a given object exists (utilizing the primary key columns if they exist).
-func (dbc *DbConnection) Exists(object DatabaseMapped) (bool, error) {
+func (dbc *Connection) Exists(object DatabaseMapped) (bool, error) {
 	return dbc.ExistsInTx(object, nil)
 }
 
 // ExistsInTx returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
-func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists bool, err error) {
+func (dbc *Connection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists bool, err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagQuery, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		return false, exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	tableName := object.TableName()
 	cols := getCachedColumnCollectionFromInstance(object)
@@ -1120,7 +1020,7 @@ func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists b
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			err = exception.Nest(err, stmt.Close())
 		}
 	}()
 
@@ -1129,7 +1029,7 @@ func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists b
 	defer func() {
 		closeErr := rows.Close()
 		if closeErr != nil {
-			err = exception.WrapMany(err, closeErr)
+			err = exception.Nest(err, closeErr)
 		}
 	}()
 
@@ -1147,28 +1047,21 @@ func (dbc *DbConnection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists b
 }
 
 // Delete deletes an object from the database.
-func (dbc *DbConnection) Delete(object DatabaseMapped) error {
+func (dbc *Connection) Delete(object DatabaseMapped) error {
 	return dbc.DeleteInTx(object, nil)
 }
 
 // DeleteInTx deletes an object from the database wrapped in a transaction.
-func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
+func (dbc *Connection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	tableName := object.TableName()
 	cols := getCachedColumnCollectionFromInstance(object)
@@ -1197,14 +1090,15 @@ func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	statementID := fmt.Sprintf("%s_delete", tableName)
+	stmt, stmtErr := dbc.PrepareCached(statementID, queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			err = exception.Nest(err, stmt.Close())
 		}
 	}()
 
@@ -1221,29 +1115,21 @@ func (dbc *DbConnection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 }
 
 // Upsert inserts the object if it doesn't exist already (as defined by its primary keys) or updates it.
-func (dbc *DbConnection) Upsert(object DatabaseMapped) error {
+func (dbc *Connection) Upsert(object DatabaseMapped) error {
 	return dbc.UpsertInTx(object, nil)
 }
 
 // UpsertInTx inserts the object if it doesn't exist already (as defined by its primary keys) or updates it wrapped in a transaction.
-func (dbc *DbConnection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
+func (dbc *Connection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
 	var queryBody string
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryException := exception.New(r)
-			err = exception.WrapMany(err, recoveryException)
+			err = exception.Nest(err, recoveryException)
 		}
 		dbc.fireEvent(EventFlagExecute, queryBody, time.Now().Sub(start), err)
 	}()
-
-	if dbc == nil {
-		err = exception.New(DBAliasNilError)
-		return
-	}
-
-	dbc.tryTransactionLock()
-	defer dbc.tryTransactionUnlock()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -1311,14 +1197,15 @@ func (dbc *DbConnection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := dbc.Prepare(queryBody, tx)
+	statementID := fmt.Sprintf("%s_upsert", tableName)
+	stmt, stmtErr := dbc.PrepareCached(statementID, queryBody, tx)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
 	defer func() {
 		if !dbc.useStatementCache {
-			err = exception.WrapMany(err, stmt.Close())
+			err = exception.Nest(err, stmt.Close())
 		}
 	}()
 
@@ -1346,83 +1233,4 @@ func (dbc *DbConnection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err erro
 	}
 
 	return nil
-}
-
-// IsolateToTransaction causes all commands on the given connection to use a transaction.
-// NOTE: causes locking around the transaction.
-func (dbc *DbConnection) IsolateToTransaction(tx *sql.Tx) {
-	if dbc == nil {
-		return
-	}
-
-	dbc.txLock.Lock()
-	defer dbc.txLock.Unlock()
-	dbc.tx = tx
-}
-
-// ReleaseIsolation reverses `IsolateToTransaction`
-func (dbc *DbConnection) ReleaseIsolation() {
-	if dbc == nil {
-		return
-	}
-
-	dbc.txLock.Lock()
-	defer dbc.txLock.Unlock()
-	dbc.tx = nil
-}
-
-// IsIsolatedToTransaction returns if the connection is isolated to a transaction.
-func (dbc *DbConnection) IsIsolatedToTransaction() bool {
-	if dbc == nil {
-		return false
-	}
-
-	dbc.txLock.RLock()
-	defer dbc.txLock.RUnlock()
-
-	return dbc.tx != nil
-}
-
-// Commit commits a transaction if the connection is not currently isolated to one already.
-func (dbc *DbConnection) Commit(tx *sql.Tx) error {
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	if dbc.IsIsolatedToTransaction() {
-		return nil
-	}
-	return tx.Commit()
-}
-
-// Rollback commits a transaction if the connection is not currently isolated to one already.
-func (dbc *DbConnection) Rollback(tx *sql.Tx) error {
-	if dbc == nil {
-		return exception.New(DBAliasNilError)
-	}
-
-	if dbc.IsIsolatedToTransaction() {
-		return nil
-	}
-	return tx.Rollback()
-}
-
-func (dbc *DbConnection) tryTransactionLock() {
-	if dbc == nil {
-		return
-	}
-
-	if dbc.tx != nil {
-		dbc.txLock.Lock()
-	}
-}
-
-func (dbc *DbConnection) tryTransactionUnlock() {
-	if dbc == nil {
-		return
-	}
-
-	if dbc.tx != nil {
-		dbc.txLock.Unlock()
-	}
 }

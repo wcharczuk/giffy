@@ -1,6 +1,7 @@
 package web
 
 import (
+	"html/template"
 	"net/http"
 
 	"github.com/blendlabs/go-exception"
@@ -30,7 +31,19 @@ func (vr *ViewResult) Render(ctx *Ctx) error {
 		return err
 	}
 
-	if vr.viewCache.Templates() == nil {
+	var viewTemplates *template.Template
+	var err error
+
+	if vr.viewCache.Enabled() {
+		viewTemplates = vr.viewCache.Templates()
+	} else {
+		viewTemplates, err = vr.viewCache.Parse()
+		if err != nil {
+			http.Error(ctx.Response, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+	}
+	if viewTemplates == nil {
 		err := exception.New("<ViewResult>.viewCache.Templates is nil at Render()")
 		http.Error(ctx.Response, err.Error(), http.StatusInternalServerError)
 		return err
@@ -39,7 +52,7 @@ func (vr *ViewResult) Render(ctx *Ctx) error {
 	ctx.Response.Header().Set(HeaderContentType, ContentTypeHTML)
 	ctx.Response.WriteHeader(vr.StatusCode)
 
-	err := vr.viewCache.Templates().ExecuteTemplate(ctx.Response, vr.Template, &ViewModel{
+	err = viewTemplates.ExecuteTemplate(ctx.Response, vr.Template, &ViewModel{
 		Ctx:       ctx,
 		Template:  vr.Template,
 		ViewModel: vr.ViewModel,

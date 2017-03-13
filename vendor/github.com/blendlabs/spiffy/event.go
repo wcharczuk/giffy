@@ -8,10 +8,10 @@ import (
 
 const (
 	// EventFlagExecute is a logger.EventFlag
-	EventFlagExecute logger.EventFlag = "spiffy.execute"
+	EventFlagExecute logger.EventFlag = "db.execute"
 
 	// EventFlagQuery is a logger.EventFlag
-	EventFlagQuery logger.EventFlag = "spiffy.query"
+	EventFlagQuery logger.EventFlag = "db.query"
 )
 
 // LoggerEventListener is an event listener for logger events.

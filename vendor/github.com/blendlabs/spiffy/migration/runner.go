@@ -85,7 +85,7 @@ func (r *Runner) IsTransactionIsolated() bool {
 }
 
 // Test wraps the action in a transaction and rolls the transaction back upon completion.
-func (r *Runner) Test(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error) {
+func (r *Runner) Test(c *spiffy.Connection, optionalTx ...*sql.Tx) (err error) {
 	if r.logger != nil {
 		r.logger.Phase = "test"
 	}
@@ -104,7 +104,7 @@ func (r *Runner) Test(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error)
 }
 
 // Apply wraps the action in a transaction and commits it if there were no errors, rolling back if there were.
-func (r *Runner) Apply(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error) {
+func (r *Runner) Apply(c *spiffy.Connection, optionalTx ...*sql.Tx) (err error) {
 	if r.logger != nil {
 		r.logger.Phase = "apply"
 	}
@@ -126,7 +126,7 @@ func (r *Runner) Apply(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error
 	return
 }
 
-func (r *Runner) invokeMigration(isTest bool, m Migration, c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error) {
+func (r *Runner) invokeMigration(isTest bool, m Migration, c *spiffy.Connection, optionalTx ...*sql.Tx) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%v", err)
@@ -147,7 +147,7 @@ func (r *Runner) invokeMigration(isTest bool, m Migration, c *spiffy.DbConnectio
 		if err == nil {
 			err = exception.Wrap(tx.Commit())
 		} else {
-			err = exception.WrapMany(err, exception.New(tx.Rollback()))
+			err = exception.Nest(err, exception.New(tx.Rollback()))
 		}
 	}()
 	err = m.Apply(c, tx)

@@ -5,16 +5,16 @@ import (
 	"io"
 )
 
-type loggerOutputWithTimeSource func(ts TimeSource, format string, args ...interface{})
+type loggerOutputWithTimeSource func(ts TimeSource, format string, args ...interface{}) (int64, error)
 
 // Logger is the basic interface to a logger implementation.
 type Logger interface {
-	Printf(format string, args ...interface{})
-	PrintfWithTimeSource(ts TimeSource, format string, args ...interface{})
-	Errorf(format string, args ...interface{})
-	ErrorfWithTimeSource(ts TimeSource, format string, args ...interface{})
-	Fprintf(w io.Writer, format string, args ...interface{})
-	FprintfWithTimeSource(ts TimeSource, w io.Writer, format string, args ...interface{})
+	Printf(format string, args ...interface{}) (int64, error)
+	PrintfWithTimeSource(ts TimeSource, format string, args ...interface{}) (int64, error)
+	Errorf(format string, args ...interface{}) (int64, error)
+	ErrorfWithTimeSource(ts TimeSource, format string, args ...interface{}) (int64, error)
+	Fprintf(w io.Writer, format string, args ...interface{}) (int64, error)
+	FprintfWithTimeSource(ts TimeSource, w io.Writer, format string, args ...interface{}) (int64, error)
 	Write(data []byte) (int64, error)
 	WriteWithTimeSource(ts TimeSource, data []byte) (int64, error)
 

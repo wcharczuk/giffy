@@ -133,4 +133,11 @@ func (sw *SyncWriter) Write(buffer []byte) (int, error) {
 }
 
 // Close is a no-op.
-func (sw SyncWriter) Close() error { return nil }
+func (sw SyncWriter) Close() error {
+	if closer, isCloser := sw.innerWriter.(io.Closer); isCloser {
+		sw.syncRoot.Lock()
+		defer sw.syncRoot.Unlock()
+		return closer.Close()
+	}
+	return nil
+}

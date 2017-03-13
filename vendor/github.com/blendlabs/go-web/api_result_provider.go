@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/blendlabs/go-exception"
@@ -8,13 +9,13 @@ import (
 )
 
 // NewAPIResultProvider Creates a new JSONResults object.
-func NewAPIResultProvider(diag *logger.DiagnosticsAgent, ctx *Ctx) *APIResultProvider {
+func NewAPIResultProvider(diag *logger.Agent, ctx *Ctx) *APIResultProvider {
 	return &APIResultProvider{diagnostics: diag, ctx: ctx}
 }
 
 // APIResultProvider are context results for api methods.
 type APIResultProvider struct {
-	diagnostics *logger.DiagnosticsAgent
+	diagnostics *logger.Agent
 	ctx         *Ctx
 }
 
@@ -60,7 +61,7 @@ func (ar *APIResultProvider) InternalError(err error) Result {
 			Response: &APIResponse{
 				Meta: &APIResponseMeta{
 					StatusCode: http.StatusInternalServerError,
-					Message:    exPtr.Message(),
+					Message:    fmt.Sprintf("%v", exPtr),
 					Exception:  exPtr,
 				},
 			},

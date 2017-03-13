@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	exception "github.com/blendlabs/go-exception"
 	logger "github.com/blendlabs/go-logger"
@@ -17,6 +18,12 @@ import (
 )
 
 const (
+	// EnvironmentVariableBindAddr is an env var that determines (if set) what the bind address should be.
+	EnvironmentVariableBindAddr = "BIND_ADDR"
+
+	// EnvironmentVariablePort is an env var that determines what the default bind address port segment returns.
+	EnvironmentVariablePort = "PORT"
+
 	// EnvironmentVariableTLSCert is an env var that contains the TLS cert.
 	EnvironmentVariableTLSCert = "TLS_CERT"
 
@@ -28,6 +35,9 @@ const (
 
 	// EnvironmentVariableTLSKeyFile is an env var that contains the file path to the TLS key.
 	EnvironmentVariableTLSKeyFile = "TLS_KEY_FILE"
+
+	// DefaultPort is the default port the server binds to.
+	DefaultPort = "8080"
 )
 
 // New returns a new app.
@@ -39,7 +49,7 @@ func New() *App {
 		tlsCertLock:        &sync.Mutex{},
 		auth:               NewAuthManager(),
 		viewCache:          NewViewCache(),
-		diagnostics:        logger.NewDiagnosticsAgent(logger.NewEventFlagSetNone()),
+		readTimeout:        5 * time.Second,
 	}
 }
 
@@ -48,12 +58,14 @@ type AppStartDelegate func(app *App) error
 
 // App is the server for the app.
 type App struct {
-	domain string
-	port   string
+	name     string
+	domain   string
+	bindAddr string
+	port     string
 
-	diagnostics *logger.DiagnosticsAgent
-	config      interface{}
-	router      *httprouter.Router
+	logger *logger.Agent
+	config interface{}
+	router *httprouter.Router
 
 	tlsCertBytes, tlsKeyBytes []byte
 	tlsCertLock               *sync.Mutex
@@ -66,23 +78,31 @@ type App struct {
 
 	panicHandler PanicAction
 
-	defaultResultProvider Middleware
+	defaultMiddleware []Middleware
 
 	viewCache *ViewCache
+
+	readTimeout       time.Duration
+	readHeaderTimeout time.Duration
+	writeTimeout      time.Duration
+	idleTimeout       time.Duration
 
 	auth *AuthManager
 
 	tx *sql.Tx
 }
 
-// AppName returns the app name.
-func (a *App) AppName() string {
-	return a.diagnostics.Writer().Label()
+// Name returns the app name.
+func (a *App) Name() string {
+	return a.name
 }
 
-// SetAppName sets a log label for the app.
-func (a *App) SetAppName(appName string) {
-	a.diagnostics.Writer().SetLabel(appName)
+// SetName sets a log label for the app.
+func (a *App) SetName(name string) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.Writer().SetLabel(name)
+	}
+	a.name = name
 }
 
 // Domain returns the domain for the app.
@@ -93,6 +113,26 @@ func (a *App) Domain() string {
 // SetDomain sets the domain for the app.
 func (a *App) SetDomain(domain string) {
 	a.domain = domain
+}
+
+// ReadTimeout returns the read timeout for the server.
+func (a *App) ReadTimeout() time.Duration {
+	return a.readTimeout
+}
+
+// SetReadTimeout sets the read timeout for the server.
+func (a *App) SetReadTimeout(readTimeout time.Duration) {
+	a.readTimeout = readTimeout
+}
+
+// WriteTimeout returns the write timeout for the server.
+func (a *App) WriteTimeout() time.Duration {
+	return a.writeTimeout
+}
+
+// SetWriteTimeout sets the write timeout for the server.
+func (a *App) SetWriteTimeout(writeTimeout time.Duration) {
+	a.writeTimeout = writeTimeout
 }
 
 // UseTLS sets the app to use TLS.
@@ -129,19 +169,19 @@ func (a *App) UseTLSFromEnvironment() error {
 	return nil
 }
 
-// Diagnostics returns the diagnostics agent for the app.
-func (a *App) Diagnostics() *logger.DiagnosticsAgent {
-	return a.diagnostics
+// Logger returns the diagnostics agent for the app.
+func (a *App) Logger() *logger.Agent {
+	return a.logger
 }
 
-// SetDiagnostics sets the diagnostics agent.
-func (a *App) SetDiagnostics(da *logger.DiagnosticsAgent) {
-	a.diagnostics = da
-	if a.diagnostics != nil {
-		a.diagnostics.AddEventListener(logger.EventWebRequestStart, a.onRequestStart)
-		a.diagnostics.AddEventListener(logger.EventWebRequestPostBody, a.onRequestPostBody)
-		a.diagnostics.AddEventListener(logger.EventWebRequest, a.onRequestComplete)
-		a.diagnostics.AddEventListener(logger.EventWebResponse, a.onResponse)
+// SetLogger sets the diagnostics agent.
+func (a *App) SetLogger(agent *logger.Agent) {
+	a.logger = agent
+	if a.logger != nil {
+		a.logger.AddEventListener(logger.EventWebRequestStart, a.onRequestStart)
+		a.logger.AddEventListener(logger.EventWebRequestPostBody, a.onRequestPostBody)
+		a.logger.AddEventListener(logger.EventWebRequest, a.onRequestComplete)
+		a.logger.AddEventListener(logger.EventWebResponse, a.onResponse)
 	}
 }
 
@@ -232,35 +272,36 @@ func (a *App) Tx() *sql.Tx {
 	return a.tx
 }
 
-// Port returns the port for the app.
-func (a *App) Port() string {
-	if len(a.port) != 0 {
-		return a.port
-	}
-	envVar := os.Getenv("PORT")
-	if len(envVar) != 0 {
-		return envVar
-	}
-
-	return "8080"
-}
-
 // SetPort sets the port the app listens on.
+// If BindAddr is not set, this will be returned in the form
+// :Port(), as a result the server will bind to all available interfaces.
 func (a *App) SetPort(port string) {
 	a.port = port
 }
 
-// SetDefaultResultProvider sets the application wide default result provider.
-func (a *App) SetDefaultResultProvider(resultProvider Middleware) {
-	a.defaultResultProvider = resultProvider
+// Port returns the port for the app.
+// Port is the last in precedence behind BindAddr() for what
+// ultimately forms the bind address the server binds to.
+func (a *App) Port() string {
+	if len(a.port) != 0 {
+		return a.port
+	}
+	envVar := os.Getenv(EnvironmentVariablePort)
+	if len(envVar) != 0 {
+		return envVar
+	}
+
+	return DefaultPort
 }
 
-// DefaultResultProvider returns the default result provider.
-func (a *App) DefaultResultProvider() Middleware {
-	if a.defaultResultProvider == nil {
-		return APIProviderAsDefault
-	}
-	return a.defaultResultProvider
+// SetDefaultMiddleware sets the application wide default middleware.
+func (a *App) SetDefaultMiddleware(middleware ...Middleware) {
+	a.defaultMiddleware = middleware
+}
+
+// DefaultMiddleware returns the default middleware.
+func (a *App) DefaultMiddleware() []Middleware {
+	return a.defaultMiddleware
 }
 
 // OnStart lets you register a task that is run before the server starts.
@@ -269,15 +310,43 @@ func (a *App) OnStart(action AppStartDelegate) {
 	a.startDelegate = action
 }
 
-// Start starts the server and binds to the given address.
-func (a *App) Start() error {
-	bindAddr := fmt.Sprintf(":%s", a.Port())
-	server := &http.Server{
-		Addr:    bindAddr,
-		Handler: a,
+// SetBindAddr sets the bind address of the server.
+// It is the first in order of precedence for what ultimately will
+// form the bind address that the server binds to.
+func (a *App) SetBindAddr(bindAddr string) {
+	a.bindAddr = bindAddr
+}
+
+// BindAddr returns the address the server will bind to.
+func (a *App) BindAddr() string {
+	if len(a.bindAddr) > 0 {
+		return a.bindAddr
 	}
 
-	return a.StartWithServer(server)
+	envVar := os.Getenv(EnvironmentVariableBindAddr)
+	if len(envVar) > 0 {
+		return envVar
+	}
+
+	return fmt.Sprintf(":%s", a.Port())
+}
+
+// Server returns the basic http.Server for the app.
+func (a *App) Server() *http.Server {
+
+	return &http.Server{
+		Addr:              a.BindAddr(),
+		Handler:           a,
+		ReadTimeout:       a.readTimeout,
+		ReadHeaderTimeout: a.readHeaderTimeout,
+		WriteTimeout:      a.writeTimeout,
+		IdleTimeout:       a.idleTimeout,
+	}
+}
+
+// Start starts the server and binds to the given address.
+func (a *App) Start() error {
+	return a.StartWithServer(a.Server())
 }
 
 func (a *App) getCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -301,32 +370,29 @@ func (a *App) commonStartupTasks() error {
 func (a *App) StartWithServer(server *http.Server) error {
 	var err error
 	if a.startDelegate != nil {
-		a.diagnostics.Infof("Startup tasks starting")
+		a.infof("Startup tasks starting")
 		err = a.startDelegate(a)
 		if err != nil {
-			a.diagnostics.Errorf("Startup tasks error: %v", err)
+			a.errorf("Startup tasks error: %v", err)
 			return err
 		}
-		a.diagnostics.Infof("Startup tasks complete")
+		a.infof("Startup tasks complete")
 	}
 
 	err = a.commonStartupTasks()
 	if err != nil {
-		a.diagnostics.Errorf("Startup tasks error: %v", err)
+		a.errorf("Startup tasks error: %v", err)
 		return err
 	}
 
-	// this is the only property we will set of the server
-	// i.e. the server handler (which is this app)
-	server.Handler = a
-
-	serverProtocol := "HTTP"
-	if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
-		serverProtocol = "HTTPS (TLS)"
+	if a.isDiagnosticsEnabled() {
+		serverProtocol := "HTTP"
+		if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
+			serverProtocol = "HTTPS (TLS)"
+		}
+		a.infof("%s server started, listening on %s", serverProtocol, server.Addr)
+		a.infof("%s server diagnostics verbosity %s", serverProtocol, a.logger.Events().String())
 	}
-
-	a.diagnostics.Infof("%s server started, listening on %s", serverProtocol, server.Addr)
-	a.diagnostics.Infof("%s server diagnostics verbosity %s", serverProtocol, a.diagnostics.Events().String())
 
 	if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
 		server.TLSConfig = &tls.Config{
@@ -343,39 +409,55 @@ func (a *App) Register(c Controller) {
 	c.Register(a)
 }
 
+func (a *App) middlewarePipeline(action Action, middleware ...Middleware) Action {
+	finalMiddleware := make([]Middleware, len(middleware)+len(a.defaultMiddleware))
+	cursor := len(finalMiddleware) - 1
+	for i := len(a.defaultMiddleware) - 1; i >= 0; i-- {
+		finalMiddleware[cursor] = a.defaultMiddleware[i]
+		cursor--
+	}
+
+	for i := len(middleware) - 1; i >= 0; i-- {
+		finalMiddleware[cursor] = middleware[i]
+		cursor--
+	}
+
+	return NestMiddleware(action, finalMiddleware...)
+}
+
 // GET registers a GET request handler.
 func (a *App) GET(path string, action Action, middleware ...Middleware) {
-	a.router.GET(path, a.renderAction(NestMiddleware(action, middleware...)))
+	a.router.GET(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // OPTIONS registers a OPTIONS request handler.
 func (a *App) OPTIONS(path string, action Action, middleware ...Middleware) {
-	a.router.OPTIONS(path, a.renderAction(NestMiddleware(action, middleware...)))
+	a.router.OPTIONS(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // HEAD registers a HEAD request handler.
 func (a *App) HEAD(path string, action Action, middleware ...Middleware) {
-	a.router.HEAD(path, a.renderAction(NestMiddleware(action, middleware...)))
+	a.router.HEAD(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // PUT registers a PUT request handler.
 func (a *App) PUT(path string, action Action, middleware ...Middleware) {
-	a.router.PUT(path, a.renderAction(NestMiddleware(action, middleware...)))
+	a.router.PUT(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // PATCH registers a PATCH request handler.
 func (a *App) PATCH(path string, action Action, middleware ...Middleware) {
-	a.router.PATCH(path, a.renderAction(NestMiddleware(action, middleware...)))
+	a.router.PATCH(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // POST registers a POST request actions.
 func (a *App) POST(path string, action Action, middleware ...Middleware) {
-	a.router.POST(path, a.renderAction(NestMiddleware(action, middleware...)))
+	a.router.POST(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // DELETE registers a DELETE request handler.
 func (a *App) DELETE(path string, action Action, middleware ...Middleware) {
-	a.router.DELETE(path, a.renderAction(NestMiddleware(action, middleware...)))
+	a.router.DELETE(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // --------------------------------------------------------------------------------
@@ -452,8 +534,8 @@ func (a *App) staticAction(path string, root http.FileSystem) Action {
 	}
 }
 
-// View returns the view result provider.
-func (a *App) View() *ViewCache {
+// ViewCache returns the view result provider.
+func (a *App) ViewCache() *ViewCache {
 	return a.viewCache
 }
 
@@ -476,7 +558,7 @@ func (a *App) SetPanicHandler(handler PanicAction) {
 	a.panicHandler = handler
 	a.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		a.renderAction(func(ctx *Ctx) Result {
-			a.diagnostics.FatalWithReq(fmt.Errorf("%v", err), ctx.Request)
+			a.fatalWithReq(fmt.Errorf("%v", err), ctx.Request)
 			return handler(ctx, err)
 		})(w, r, httprouter.Params{})
 	}
@@ -484,6 +566,63 @@ func (a *App) SetPanicHandler(handler PanicAction) {
 
 func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	a.router.ServeHTTP(w, req)
+}
+
+// --------------------------------------------------------------------------------
+// Diagnostics Helpers
+// --------------------------------------------------------------------------------
+
+func (a *App) isDiagnosticsEnabled() bool {
+	return a.logger != nil
+}
+
+func (a *App) isDiagnosticsEventEnabled(eventFlag logger.EventFlag) bool {
+	if !a.isDiagnosticsEnabled() {
+		return false
+	}
+	return a.logger.IsEnabled(eventFlag)
+}
+
+func (a *App) infof(format string, args ...interface{}) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.Infof(format, args...)
+	}
+}
+
+func (a *App) errorf(format string, args ...interface{}) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.Errorf(format, args...)
+	}
+}
+
+func (a *App) fatalF(format string, args ...interface{}) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.Fatalf(format, args...)
+	}
+}
+
+func (a *App) error(err error) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.Error(err)
+	}
+}
+
+func (a *App) fatal(err error) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.Fatal(err)
+	}
+}
+
+func (a *App) fatalWithReq(err error, req *http.Request) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.FatalWithReq(err, req)
+	}
+}
+
+func (a *App) onEvent(eventFlag logger.EventFlag, state ...interface{}) {
+	if a.isDiagnosticsEnabled() {
+		a.logger.OnEvent(eventFlag, state...)
+	}
 }
 
 // --------------------------------------------------------------------------------
@@ -503,7 +642,7 @@ func (a *App) Mock() *MockRequestBuilder {
 // this is where the bulk of the "pipeline" happens.
 func (a *App) renderAction(action Action) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		a.setCommonResponseHeaders(w)
+		a.setResponseHeaders(w)
 		response := a.newResponse(w, r)
 		context := a.pipelineInit(response, r, NewRouteParameters(p))
 		a.renderResult(action, context)
@@ -511,25 +650,23 @@ func (a *App) renderAction(action Action) httprouter.Handle {
 	}
 }
 
-func (a *App) setCommonResponseHeaders(w http.ResponseWriter) {
-	w.Header().Set("Vary", "Accept-Encoding")
-	w.Header().Set("X-Served-By", "github.com/blendlabs/go-web")
-	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
-	w.Header().Set("X-Xss-Protection", "1; mode=block")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+func (a *App) setResponseHeaders(w http.ResponseWriter) {
+	w.Header().Set(HeaderServer, PackageName)
+	w.Header().Set(HeaderXServedBy, PackageName)
 }
 
 func (a *App) newResponse(w http.ResponseWriter, r *http.Request) ResponseWriter {
 	var response ResponseWriter
 	if a.shouldCompressOutput(r) {
-		w.Header().Set("Content-Encoding", "gzip")
-		if a.diagnostics.IsEnabled(logger.EventWebResponse) {
+		w.Header().Set(HeaderContentEncoding, ContentEncodingGZIP)
+		if a.isDiagnosticsEventEnabled(logger.EventWebResponse) {
 			response = NewBufferedCompressedResponseWriter(w)
 		} else {
 			response = NewCompressedResponseWriter(w)
 		}
 	} else {
-		if a.diagnostics.IsEnabled(logger.EventWebResponse) {
+		w.Header().Set(HeaderContentEncoding, ContentEncodingIdentity)
+		if a.isDiagnosticsEventEnabled(logger.EventWebResponse) {
 			response = NewBufferedResponseWriter(w)
 		} else {
 			response = NewResponseWriter(w)
@@ -545,60 +682,53 @@ func (a *App) shouldCompressOutput(r *http.Request) bool {
 func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters) *Ctx {
 	context := a.newCtx(w, r, p)
 	context.onRequestStart()
-	a.diagnostics.OnEvent(logger.EventWebRequestStart, context)
+	a.onEvent(logger.EventWebRequestStart, context)
 	return context
 }
 
-var controllerNoOp = func(_ *Ctx) Result { return nil }
-
 // Ctx creates a context.
 func (a *App) newCtx(w ResponseWriter, r *http.Request, p RouteParameters) *Ctx {
-	rc := NewCtx(w, r, p)
-	rc.app = a
-	rc.auth = a.auth
-	rc.tx = a.tx
-	rc.diagnostics = a.diagnostics
-	rc.config = a.config
+	ctx := NewCtx(w, r, p)
+	ctx.app = a
+	ctx.auth = a.auth
+	ctx.tx = a.tx
+	ctx.logger = a.logger
+	ctx.config = a.config
 
-	if a.defaultResultProvider != nil {
-		// the defaultResultProvider is a middleware, or func(action) action
-		// we need to nest the middleware, then call it with rc
-		// to apply the middleware sside effects to rc
-		NestMiddleware(controllerNoOp, a.defaultResultProvider)(rc)
-	} else {
-		rc.SetDefaultResultProvider(rc.Text())
-	}
+	// it is assumed that default middleware will override this at some point.
+	ctx.SetDefaultResultProvider(ctx.Text())
 
-	return rc
+	return ctx
 }
 
-func (a *App) renderResult(action Action, context *Ctx) error {
-	result := action(context)
+func (a *App) renderResult(action Action, ctx *Ctx) error {
+	result := action(ctx)
 	if result != nil {
-		err := result.Render(context)
+		err := result.Render(ctx)
 		if err != nil {
-			a.diagnostics.Error(err)
+			a.error(err)
 			return err
 		}
 	}
 	return nil
 }
 
-func (a *App) pipelineComplete(context *Ctx) {
-	err := context.Response.Flush()
+func (a *App) pipelineComplete(ctx *Ctx) {
+	err := ctx.Response.Flush()
 	if err != nil && err != http.ErrBodyNotAllowed {
-		a.diagnostics.Error(err)
+		a.error(err)
 	}
-	context.onRequestEnd()
-	context.setLoggedStatusCode(context.Response.StatusCode())
-	context.setLoggedContentLength(context.Response.ContentLength())
-	if a.diagnostics.IsEnabled(logger.EventWebResponse) {
-		a.diagnostics.OnEvent(logger.EventWebResponse, context.Response.Bytes())
+	ctx.onRequestEnd()
+	ctx.setLoggedStatusCode(ctx.Response.StatusCode())
+	ctx.setLoggedContentLength(ctx.Response.ContentLength())
+	if a.isDiagnosticsEventEnabled(logger.EventWebResponse) {
+		a.onEvent(logger.EventWebResponse, ctx.Response.Bytes())
 	}
-	a.diagnostics.OnEvent(logger.EventWebRequest, context)
 
-	err = context.Response.Close()
+	// effectively "request complete"
+	a.onEvent(logger.EventWebRequest, ctx)
+	err = ctx.Response.Close()
 	if err != nil && err != http.ErrBodyNotAllowed {
-		a.diagnostics.Error(err)
+		a.error(err)
 	}
 }

@@ -67,6 +67,11 @@ func (mrb *MockRequestBuilder) Put(pathFormat string, args ...interface{}) *Mock
 	return mrb.WithVerb("PUT").WithPathf(pathFormat, args...)
 }
 
+// Patch is a shortcut for WithVerb("PATCH") WithPathf(pathFormat, args...)
+func (mrb *MockRequestBuilder) Patch(pathFormat string, args ...interface{}) *MockRequestBuilder {
+	return mrb.WithVerb("PATCH").WithPathf(pathFormat, args...)
+}
+
 // Delete is a shortcut for WithVerb("DELETE") WithPathf(pathFormat, args...)
 func (mrb *MockRequestBuilder) Delete(pathFormat string, args ...interface{}) *MockRequestBuilder {
 	return mrb.WithVerb("DELETE").WithPathf(pathFormat, args...)
@@ -223,8 +228,8 @@ func (mrb *MockRequestBuilder) Ctx(p RouteParameters) (*Ctx, error) {
 	return rc, nil
 }
 
-// FetchResponse runs the mock request.
-func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
+// Response runs the mock request.
+func (mrb *MockRequestBuilder) Response() (res *http.Response, err error) {
 	if mrb.startupErr != nil {
 		err = mrb.startupErr
 		return
@@ -294,9 +299,9 @@ func (mrb *MockRequestBuilder) FetchResponse() (res *http.Response, err error) {
 	return
 }
 
-// FetchResponseAsJSON executes the mock request and reads the response to the given object as json.
-func (mrb *MockRequestBuilder) FetchResponseAsJSON(object interface{}) error {
-	res, err := mrb.FetchResponse()
+// JSON executes the mock request and reads the response to the given object as json.
+func (mrb *MockRequestBuilder) JSON(object interface{}) error {
+	res, err := mrb.Response()
 	if err != nil {
 		return err
 	}
@@ -308,9 +313,23 @@ func (mrb *MockRequestBuilder) FetchResponseAsJSON(object interface{}) error {
 	return json.Unmarshal(contents, object)
 }
 
-// FetchResponseAsXML executes the mock request and reads the response to the given object as json.
-func (mrb *MockRequestBuilder) FetchResponseAsXML(object interface{}) error {
-	res, err := mrb.FetchResponse()
+// JSONWithMeta executes the mock request and reads the response to the given object as json.
+func (mrb *MockRequestBuilder) JSONWithMeta(object interface{}) (*ResponseMeta, error) {
+	res, err := mrb.Response()
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	contents, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	return NewResponseMeta(res), json.Unmarshal(contents, object)
+}
+
+// XML executes the mock request and reads the response to the given object as json.
+func (mrb *MockRequestBuilder) XML(object interface{}) error {
+	res, err := mrb.Response()
 	if err != nil {
 		return err
 	}
@@ -322,9 +341,23 @@ func (mrb *MockRequestBuilder) FetchResponseAsXML(object interface{}) error {
 	return xml.Unmarshal(contents, object)
 }
 
-// FetchResponseAsBytes returns the response as bytes.
-func (mrb *MockRequestBuilder) FetchResponseAsBytes() ([]byte, error) {
-	res, err := mrb.FetchResponse()
+// XMLWithMeta executes the mock request and reads the response to the given object as json.
+func (mrb *MockRequestBuilder) XMLWithMeta(object interface{}) (*ResponseMeta, error) {
+	res, err := mrb.Response()
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	contents, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	return NewResponseMeta(res), xml.Unmarshal(contents, object)
+}
+
+// Bytes returns the response as bytes.
+func (mrb *MockRequestBuilder) Bytes() ([]byte, error) {
+	res, err := mrb.Response()
 	if err != nil {
 		return nil, err
 	}
@@ -332,26 +365,27 @@ func (mrb *MockRequestBuilder) FetchResponseAsBytes() ([]byte, error) {
 	return ioutil.ReadAll(res.Body)
 }
 
-// FetchResponseAsBytesWithMeta returns the response as bytes with meta information.
-func (mrb *MockRequestBuilder) FetchResponseAsBytesWithMeta() (*ResponseMeta, []byte, error) {
-	res, err := mrb.FetchResponse()
+// BytesWithMeta returns the response as bytes with meta information.
+func (mrb *MockRequestBuilder) BytesWithMeta() ([]byte, *ResponseMeta, error) {
+	res, err := mrb.Response()
 	if err != nil {
 		return nil, nil, err
 	}
 	defer res.Body.Close()
 	contents, err := ioutil.ReadAll(res.Body)
-	return NewResponseMeta(res), contents, err
+	return contents, NewResponseMeta(res), err
 }
 
 // Execute just runs the request.
+// It internally calls `Bytes()` which fully consumes the response.
 func (mrb *MockRequestBuilder) Execute() error {
-	_, err := mrb.FetchResponseAsBytes()
+	_, err := mrb.Bytes()
 	return err
 }
 
 // ExecuteWithMeta returns basic metadata for a response.
 func (mrb *MockRequestBuilder) ExecuteWithMeta() (*ResponseMeta, error) {
-	res, err := mrb.FetchResponse()
+	res, err := mrb.Response()
 	if err != nil {
 		return nil, err
 	}

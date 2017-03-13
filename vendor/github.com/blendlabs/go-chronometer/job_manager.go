@@ -90,12 +90,22 @@ type JobManager struct {
 	isRunning      bool
 	schedulerToken *CancellationToken
 
-	diagnostics *logger.DiagnosticsAgent
+	logger *logger.Agent
 }
 
-// Diagnostics returns the diagnostics agent.
-func (jm *JobManager) Diagnostics() *logger.DiagnosticsAgent {
-	return jm.diagnostics
+// Logger returns the diagnostics agent.
+func (jm *JobManager) Logger() *logger.Agent {
+	return jm.logger
+}
+
+// SetLogger sets the diagnostics agent.
+func (jm *JobManager) SetLogger(agent *logger.Agent) {
+	jm.logger = agent
+
+	if jm.logger != nil {
+		jm.logger.AddEventListener(EventTask, NewTaskListener(jm.taskListener))
+		jm.logger.AddEventListener(EventTaskComplete, NewTaskCompleteListener(jm.taskCompleteListener))
+	}
 }
 
 // ShouldShowMessagesFor is a helper function to determine if we should show messages for a
@@ -111,14 +121,6 @@ func (jm *JobManager) ShouldShowMessagesFor(taskName string) bool {
 	}
 
 	return true
-}
-
-// SetDiagnostics sets the diagnostics agent.
-func (jm *JobManager) SetDiagnostics(agent *logger.DiagnosticsAgent) {
-	jm.diagnostics = agent
-
-	jm.diagnostics.AddEventListener(EventTask, NewTaskListener(jm.taskListener))
-	jm.diagnostics.AddEventListener(EventTaskComplete, NewTaskCompleteListener(jm.taskCompleteListener))
 }
 
 func (jm *JobManager) taskListener(wr logger.Logger, ts logger.TimeSource, taskName string) {
@@ -139,18 +141,18 @@ func (jm *JobManager) taskCompleteListener(wr logger.Logger, ts logger.TimeSourc
 
 // fireTaskListeners fires the currently configured task listeners.
 func (jm *JobManager) fireTaskListeners(taskName string) {
-	if jm.diagnostics == nil {
+	if jm.logger == nil {
 		return
 	}
-	jm.diagnostics.OnEvent(EventTask, taskName)
+	jm.logger.OnEvent(EventTask, taskName)
 }
 
 // fireTaskListeners fires the currently configured task listeners.
 func (jm *JobManager) fireTaskCompleteListeners(taskName string, elapsed time.Duration, err error) {
-	if jm.diagnostics == nil {
+	if jm.logger == nil {
 		return
 	}
-	jm.diagnostics.OnEvent(EventTaskComplete, taskName, elapsed, err)
+	jm.logger.OnEvent(EventTaskComplete, taskName, elapsed, err)
 }
 
 // --------------------------------------------------------------------------------
@@ -233,7 +235,7 @@ func (jm *JobManager) EnableJob(jobName string) error {
 }
 
 func (jm *JobManager) showJobMessages(job Job) bool {
-	hasDiagnostics := jm.diagnostics != nil
+	hasDiagnostics := jm.logger != nil
 	if showMessagesProvider, isShowMessagesProvider := job.(ShowMessagesProvider); isShowMessagesProvider {
 		return hasDiagnostics && showMessagesProvider.ShowMessages()
 	}
@@ -300,6 +302,9 @@ func (jm *JobManager) RunTask(t Task) error {
 			if r := recover(); r != nil {
 				if _, isCancellation := r.(CancellationPanic); isCancellation {
 					jm.onTaskCancellation(t)
+				}
+				if jm.logger != nil {
+					jm.logger.Fatalf("%+v", r)
 				}
 			}
 		}()

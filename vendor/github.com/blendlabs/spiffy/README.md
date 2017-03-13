@@ -33,22 +33,21 @@ Tags are laid out in the following format `db:"<column_name>,<options>,..."`, wh
 Options include:
 - `serial` : denotes a column that will be read back on `Create` (there can only be 1 at this time)
 - `pk` : deontes a column that consitutes a primary key. Will be used when creating SQL where clauses.
-- `nullable` : denotes a column that can be null. Not really used yet.
 - `readonly` : denotes a column that is only read, not written to the db.
 
 # Managing Connections and Aliases #
 
-The next step in running a database driven app is to tell the app how to connect to the db. There are 4 required pieces of info to do this: `host`, `schema`, `username`, `password`. Note: `host` should include the port if it's non-standard. Schema is the database you're hitting. 
+The next step in running a database driven app is to tell the app how to connect to the db. There are 4 required pieces of info to do this: `host`, `db name`, `username`, `password`. Note: `host` should include the port if it's non-standard. `db name` is the database you're hitting. 
 
 We can manage connections (and save a default so it doesn't need to be passed around) with "Aliases".
 
 *Example:*
 ```golang
-spiffy.CreateDbAlias("main", spiffy.NewDBConnection("localhost", "my_db", "postgres", "super_secret_pw"))
-spiffy.SetDefaultAlias("main")
+connection := spiffy.NewConnection("localhost", "my_db", "postgres", "super_secret_pw"))
+spiffy.InitDefault(connection)
 ```
 
-The above snipped creates a connection, and then saves it as the "main" alias. We then set that alias to be the default. This lets us then call `DefaultDb()` to retrieve this connection. Alternatively we could spin up a db alias and pass it around as pointer, but this get's tricky and it's easier just to save it to the "Aliases" collection.
+The above snipped creates a connection, and then saves it as the default connection. This lets us then call `spiffy.DB()` to retrieve this connection. Alternatively we could spin up a connection and pass it around the app as pointer, but this get's tricky and it's easier just to save it to the a central location.
 
 # Querying, Execing, Getting Objects from the Database #
 
@@ -60,7 +59,7 @@ Simple execute operations can be done with `Exec` or `ExecInTx` functions.
 
 *Example:*
 ```golang
-exec_err := spiffy.DefaultDb().Exec("delete from my_table where id = $1", obj_id)
+err := spiffy.DB().Exec("delete from my_table where id = $1", obj_id)
 ```
 
 When we need to pass parameters to the queries, use `$1` numbered tokens to denote the parameter in the sql. We then need to pass that parameter as an argument to `Exec` in the order that maps to the numbered token.
@@ -72,13 +71,13 @@ Querying in Spiffy can be done with the `Query` or `QueryInTx` functions. Each t
 *Struct Output Example*
 ```golang
 obj := MyObject{}
-query_err := spiffy.DefaultDb().Query("select * from my_table where id = $1", obj_id).Out(&obj)
+err := spiffy.DB().Query("select * from my_table where id = $1", obj_id).Out(&obj)
 ```
 
 *Slice Ouptut Example:*
 ```golang
 objs := []MyObject{}
-query_err := spiffy.DefaultDb().Query("select * from my_table").OutMany(&objs)
+err := spiffy.DB().Query("select * from my_table").OutMany(&objs)
 ```
 
 In order to query the database, we need a query and a target for the output. The output can be a single struct, or a slice of structs. Which we're using determines if we use `Out` or `OutMany`. Like `Exec`, when we need to pass parameters to the queries, use `$1` numbered tokens to denote the parameter in the sql. We then need to pass that parameter as an argument to `Query` in the order that maps to the numbered token.
@@ -90,48 +89,28 @@ You can perform the following CrUD operations:
 
 *Example:*
 ```golang
-obj := MyObj{}
-create_err := spiffy.DefaultDb().Create(&obj) //note the reference! this is incase we have to write back a serial id.
+obj := MyObj{...}
+create_err := spiffy.DB().Create(&obj) //note the reference! this is incase we have to write back a serial id.
 ```
 
 - `Update` or `UpdateInTx` : update objects
 
 *Example:*
 ```golang
-obj := MyObj{}
-get_err := spiffy.DefaultDb().GetById(&obj, obj_id) //note, there can be multiple params (!!) if there are multiple pks
+obj := MyObj{..}
+err := spiffy.DB().GetById(&obj, objID) //note, there can be multiple params (!!) if there are multiple pks
 obj.Property = "new_value"
-upd_err := spiffy.DefaultDb().Update(obj) //note we don't need a reference for this, as it's read only.
+err = spiffy.DB().Update(obj) //note we don't need a reference for this, as it's read only.
 ```
 
 - `Delete` or `DeleteInTx` : delete objects
 
 *Example:*
 ```golang
-obj := MyObj{}
-get_err := spiffy.DefaultDb().GetById(&obj, obj_id) //note, there can be multiple params (!!) if there are multiple pks
-del_err := spiffy.DefaultDb().Delete(obj) //note we don't need a reference for this, as it's read only.
+obj := MyObj{...}
+err := spiffy.DB().GetById(&obj, objID) //note, there can be multiple params (!!) if there are multiple pks
+err = spiffy.DB().Delete(obj) //note we don't need a reference for this, as it's read only.
 ```
-
-# Transactions #
-
-Transactions are why we wrote this library. They are critical to making tests effective and to making long winded processes atomic. All major functions have `...InTx` variants of the function that take a transaction as a parameter. 
-
-If, in a test, you need to use a transaction in a context that may not be aware of the transaction, or for which you can't pass the transaction as a parameter (such as in a controller test), you can use the following pattern:
-
-*Example:*
-```golang
-db, db_err := spiffy.DefaultDb().Open() //opens a db connection
-tx, tx_err := db.Begin() //starts a transaction
-spiffy.DefaultDb().IsolateToTransaction(tx)
-
-//... work in transaction here ...
-
-tx.Rollback() //or tx.Commit()
-spiffy.DefaultDb().ReleaseIsolation()
-```
-
-This snippet leverages a couple things; one is `db.Begin()` which starts a transaction. Then, critically, the call to `spiffy.DefaultDb().IsolateTransaction(tx)` sets the transaction as the default for *any* uses of that db connection. The call to `spiffy.DefaultDb().ReleaseIsolation()` returns things to normal.
 
 # Performance #
 

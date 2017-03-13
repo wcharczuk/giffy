@@ -2,38 +2,33 @@ package migration
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"strings"
-	"time"
 
-	"github.com/blendlabs/go-util"
+	logger "github.com/blendlabs/go-logger"
+)
+
+const (
+	// EventFlagMigration is a logger event flag.
+	EventFlagMigration logger.EventFlag = "db.migration"
 )
 
 // NewLogger returns a new logger instance.
 func NewLogger() *Logger {
 	return &Logger{
-		ColorizeOutput: true,
-		ShowTimestamp:  true,
-		Output:         log.New(os.Stdout, "", 0x0),
+		Output: logger.NewFromEnvironment(),
 	}
 }
 
-// NewLoggerFromLog returns a new logger instance from an existing logger..
-func NewLoggerFromLog(l *log.Logger) *Logger {
+// NewLoggerFromAgent returns a new logger instance from an existing logger..
+func NewLoggerFromAgent(agent *logger.Agent) *Logger {
 	return &Logger{
-		ColorizeOutput: true,
-		ShowTimestamp:  true,
-		Output:         l,
+		Output: agent,
 	}
 }
 
 // Logger is a logger for migration steps.
 type Logger struct {
-	ShowTimestamp  bool
-	ColorizeOutput bool
-
-	Output *log.Logger
+	Output *logger.Agent
 	Phase  string // `test` or `apply`
 	Result string // `apply` or `skipped` or `failed`
 
@@ -46,7 +41,7 @@ type Logger struct {
 func (l *Logger) Applyf(m Migration, body string, args ...interface{}) error {
 	l.applied = l.applied + 1
 	l.Result = "applied"
-	l.write(m, util.ColorLightGreen, fmt.Sprintf(body, args...))
+	l.write(m, logger.ColorLightGreen, fmt.Sprintf(body, args...))
 	return nil
 }
 
@@ -54,7 +49,7 @@ func (l *Logger) Applyf(m Migration, body string, args ...interface{}) error {
 func (l *Logger) Skipf(m Migration, body string, args ...interface{}) error {
 	l.skipped = l.skipped + 1
 	l.Result = "skipped"
-	l.write(m, util.ColorGreen, fmt.Sprintf(body, args...))
+	l.write(m, logger.ColorGreen, fmt.Sprintf(body, args...))
 	return nil
 }
 
@@ -62,67 +57,60 @@ func (l *Logger) Skipf(m Migration, body string, args ...interface{}) error {
 func (l *Logger) Errorf(m Migration, err error) error {
 	l.failed = l.failed + 1
 	l.Result = "failed"
-	l.write(m, util.ColorRed, fmt.Sprintf("%v", err.Error()))
+	l.write(m, logger.ColorRed, fmt.Sprintf("%v", err.Error()))
 	return err
-}
-
-func (l *Logger) colorize(text string, color util.AnsiColorCode) string {
-	if l.ColorizeOutput {
-		return color.Apply(text)
-	}
-	return text
-}
-
-func (l *Logger) colorizeFixedWidthLeftAligned(text string, color util.AnsiColorCode, width int) string {
-	fixedToken := fmt.Sprintf("%%-%ds", width)
-	fixedMessage := fmt.Sprintf(fixedToken, text)
-	if l.ColorizeOutput {
-		return color.Apply(fixedMessage)
-	}
-	return fixedMessage
 }
 
 // WriteStats writes final stats to output
 func (l *Logger) WriteStats() {
-	l.Output.Printf("\n\t%s applied %s skipped %s failed\n\n",
-		l.colorize(util.String.IntToString(l.applied), util.ColorGreen),
-		l.colorize(util.String.IntToString(l.skipped), util.ColorLightGreen),
-		l.colorize(util.String.IntToString(l.failed), util.ColorRed),
+	l.Output.Eventf(
+		EventFlagMigration,
+		logger.ColorWhite,
+		"%s applied %s skipped %s failed",
+		l.colorize(fmt.Sprintf("%d", l.applied), logger.ColorGreen),
+		l.colorize(fmt.Sprintf("%d", l.skipped), logger.ColorLightGreen),
+		l.colorize(fmt.Sprintf("%d", l.failed), logger.ColorRed),
 	)
 }
 
-func (l *Logger) write(m Migration, color util.AnsiColorCode, body string) {
+func (l *Logger) colorize(text string, color logger.AnsiColorCode) string {
+	return l.Output.Writer().Colorize(text, color)
+}
+
+func (l *Logger) colorizeFixedWidthLeftAligned(text string, color logger.AnsiColorCode, width int) string {
+	fixedToken := fmt.Sprintf("%%-%ds", width)
+	fixedMessage := fmt.Sprintf(fixedToken, text)
+	return l.Output.Writer().Colorize(fixedMessage, color)
+}
+
+func (l *Logger) write(m Migration, color logger.AnsiColorCode, body string) {
 	if l.Output == nil {
 		return
 	}
 
-	resultColor := util.ColorBlue
+	resultColor := logger.ColorBlue
 	switch l.Result {
 	case "skipped":
-		resultColor = util.ColorYellow
+		resultColor = logger.ColorYellow
 	case "failed":
-		resultColor = util.ColorRed
+		resultColor = logger.ColorRed
 	}
 
-	var timestamp string
-	if l.ShowTimestamp {
-		timestamp = l.colorize(time.Now().UTC().Format(time.RFC3339), util.ColorGray) + " "
-	}
-
-	l.Output.Printf("%s%s %s %s %s %s %s %s",
-		timestamp,
-		l.colorize("migrate", util.ColorBlue),
-		l.colorizeFixedWidthLeftAligned(l.Phase, util.ColorBlue, 5),
-		l.colorize("--", util.ColorLightBlack),
-		l.colorizeFixedWidthLeftAligned(l.Result, resultColor, 5),
-		l.renderStack(m, color),
-		l.colorize("--", util.ColorLightBlack),
-		body,
+	l.Output.Eventf(
+		EventFlagMigration,
+		logger.ColorWhite,
+		"%s %s %s %s %s %s",
+		l.colorizeFixedWidthLeftAligned(l.Phase, logger.ColorBlue, 5), //2
+		l.colorize("--", logger.ColorLightBlack),                      //3
+		l.colorizeFixedWidthLeftAligned(l.Result, resultColor, 5),     //4
+		l.renderStack(m, color),                                       //5
+		l.colorize("--", logger.ColorLightBlack),                      //6
+		body, //7
 	)
 }
 
-func (l *Logger) renderStack(m Migration, color util.AnsiColorCode) string {
-	stackSeparator := fmt.Sprintf(" %s ", l.colorize(">", util.ColorLightBlack))
+func (l *Logger) renderStack(m Migration, color logger.AnsiColorCode) string {
+	stackSeparator := fmt.Sprintf(" %s ", l.colorize(">", logger.ColorLightBlack))
 	var renderedStack string
 	cursor := m.Parent()
 	for cursor != nil {

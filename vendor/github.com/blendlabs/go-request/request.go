@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,49 +18,6 @@ import (
 	logger "github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-util"
 )
-
-const (
-	// Event is a diagnostics agent event flag.
-	Event logger.EventFlag = "request"
-	// EventResponse is a diagnostics agent event flag.
-	EventResponse logger.EventFlag = "request.response"
-)
-
-// NewOutgoingListener creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewOutgoingListener(handler func(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta)) logger.EventListener {
-	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-		handler(writer, ts, state[0].(*HTTPRequestMeta))
-	}
-}
-
-// WriteOutgoingRequest is a helper method to write outgoing request events to a logger writer.
-func WriteOutgoingRequest(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta) {
-	buffer := writer.GetBuffer()
-	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(Event), logger.ColorGreen))
-	buffer.WriteRune(logger.RuneSpace)
-	buffer.WriteString(fmt.Sprintf("%s %s", req.Verb, req.URL.String()))
-	writer.WriteWithTimeSource(ts, buffer.Bytes())
-}
-
-// NewOutgoingResponseListener creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewOutgoingResponseListener(handler func(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta, res *HTTPResponseMeta, body []byte)) logger.EventListener {
-	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-		handler(writer, ts, state[0].(*HTTPRequestMeta), state[1].(*HTTPResponseMeta), state[2].([]byte))
-	}
-}
-
-// WriteOutgoingRequestResponse is a helper method to write outgoing request response events to a logger writer.
-func WriteOutgoingRequestResponse(writer logger.Logger, ts logger.TimeSource, req *HTTPRequestMeta, res *HTTPResponseMeta, body []byte) {
-	buffer := writer.GetBuffer()
-	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(EventResponse), logger.ColorGreen))
-	buffer.WriteRune(logger.RuneSpace)
-	buffer.WriteString(fmt.Sprintf("%s %s %s", writer.ColorizeByStatusCode(res.StatusCode, strconv.Itoa(res.StatusCode)), req.Verb, req.URL.String()))
-	buffer.WriteRune(logger.RuneNewline)
-	buffer.Write(body)
-	writer.WriteWithTimeSource(ts, buffer.Bytes())
-}
 
 //--------------------------------------------------------------------------------
 // HTTPRequestMeta
@@ -219,7 +175,7 @@ type HTTPRequest struct {
 
 	Label string
 
-	diagnostics *logger.DiagnosticsAgent
+	logger *logger.Agent
 
 	state interface{}
 
@@ -285,15 +241,15 @@ func (hr *HTTPRequest) WithMockedResponse(hook MockedResponseHandler) *HTTPReque
 	return hr
 }
 
-// WithDiagnostics enables logging with HTTPRequestLogLevelErrors.
-func (hr *HTTPRequest) WithDiagnostics(agent *logger.DiagnosticsAgent) *HTTPRequest {
-	hr.diagnostics = agent
+// WithLogger enables logging with HTTPRequestLogLevelErrors.
+func (hr *HTTPRequest) WithLogger(agent *logger.Agent) *HTTPRequest {
+	hr.logger = agent
 	return hr
 }
 
-// Diagnostics returns the request diagnostics agent.
-func (hr *HTTPRequest) Diagnostics() *logger.DiagnosticsAgent {
-	return hr.diagnostics
+// Logger returns the request diagnostics agent.
+func (hr *HTTPRequest) Logger() *logger.Agent {
+	return hr.logger
 }
 
 // WithTransport sets a transport for the request.
@@ -859,8 +815,8 @@ func (hr *HTTPRequest) logRequest() {
 		hr.outgoingRequestHandler(meta)
 	}
 
-	if hr.diagnostics != nil {
-		hr.diagnostics.OnEvent(Event, meta)
+	if hr.logger != nil {
+		hr.logger.OnEvent(Event, meta)
 	}
 }
 
@@ -872,8 +828,8 @@ func (hr *HTTPRequest) logResponse(resMeta *HTTPResponseMeta, responseBody []byt
 		hr.incomingResponseHandler(hr.AsRequestMeta(), resMeta, responseBody)
 	}
 
-	if hr.diagnostics != nil {
-		hr.diagnostics.OnEvent(EventResponse, hr.AsRequestMeta(), resMeta, responseBody, state)
+	if hr.logger != nil {
+		hr.logger.OnEvent(EventResponse, hr.AsRequestMeta(), resMeta, responseBody, state)
 	}
 }
 

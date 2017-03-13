@@ -11,29 +11,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-const (
-	//HeaderContentType is the content type header.
-	HeaderContentType = "Content-Type"
-
-	//HeaderConnection is the connection header.
-	HeaderConnection = "Connection"
-
-	//ConnectionKeepAlive is the keep-alive connection header value.
-	ConnectionKeepAlive = "keep-alive"
-
-	// ContentTypeHTML is a content type.
-	ContentTypeHTML = "text/html; charset=utf-8"
-
-	//ContentTypeJSON is the standard json content type.
-	ContentTypeJSON = "application/json; charset=utf-8"
-
-	//ContentTypeXML is the standard json content type.
-	ContentTypeXML = "text/xml; charset=utf-8"
-
-	// ContentTypeText is the standard plaintext content type.
-	ContentTypeText = "text/plain; charset=utf-8"
-)
-
 // NestMiddleware reads the middleware variadic args and organizes the calls recursively in the order they appear.
 func NestMiddleware(action Action, middleware ...Middleware) Action {
 	if len(middleware) == 0 {
@@ -72,7 +49,7 @@ func WriteRawContent(w http.ResponseWriter, statusCode int, content []byte) erro
 
 // WriteJSON marshalls an object to json.
 func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response interface{}) error {
-	w.Header().Set(HeaderContentType, ContentTypeJSON)
+	w.Header().Set(HeaderContentType, ContentTypeApplicationJSON)
 	w.WriteHeader(statusCode)
 
 	enc := json.NewEncoder(w)

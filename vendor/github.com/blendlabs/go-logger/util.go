@@ -18,6 +18,9 @@ import (
 // Finally r.RemoteAddr is used
 // Only benevolent services will allow access to the real IP.
 func GetIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
 	tryHeader := func(key string) (string, bool) {
 		if headerVal := r.Header.Get(key); len(headerVal) > 0 {
 			if !strings.ContainsRune(headerVal, ',') {

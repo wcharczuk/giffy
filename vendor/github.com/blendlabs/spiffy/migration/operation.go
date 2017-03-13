@@ -66,13 +66,13 @@ func (o *Operation) IsTransactionIsolated() bool {
 }
 
 // Test wraps the action in a transaction and rolls the transaction back upon completion.
-func (o *Operation) Test(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error) {
+func (o *Operation) Test(c *spiffy.Connection, optionalTx ...*sql.Tx) (err error) {
 	err = o.Apply(c, optionalTx...)
 	return
 }
 
 // Apply wraps the action in a transaction and commits it if there were no errors, rolling back if there were.
-func (o *Operation) Apply(c *spiffy.DbConnection, optionalTx ...*sql.Tx) (err error) {
+func (o *Operation) Apply(c *spiffy.Connection, optionalTx ...*sql.Tx) (err error) {
 	tx := spiffy.OptionalTx(optionalTx...)
 	err = o.action(o, c, tx)
 	return
