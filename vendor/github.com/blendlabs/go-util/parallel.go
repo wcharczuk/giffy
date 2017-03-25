@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 )
@@ -12,7 +13,7 @@ var (
 
 type parallelUtil struct{}
 
-func (pu parallelUtil) Each(collection interface{}, parallelism int, action func(interface{})) {
+func (pu parallelUtil) Each(collection interface{}, parallelism int, action func(interface{})) error {
 	t := reflect.TypeOf(collection)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -24,19 +25,43 @@ func (pu parallelUtil) Each(collection interface{}, parallelism int, action func
 	}
 
 	if t.Kind() != reflect.Slice {
-		panic("cannot parallelize a non-slice.")
+		return fmt.Errorf("cannot iterate over non-slice")
 	}
 
 	effectiveParallelism := parallelism
 	if parallelism > v.Len() {
 		effectiveParallelism = v.Len()
 	}
+	if effectiveParallelism < 1 {
+		effectiveParallelism = 1
+	}
+
+	// edge case, drop into single iterator, do not allocate any
+	// goroutines.
+	if effectiveParallelism == 1 {
+		for i := 0; i < v.Len(); i++ {
+			action(v.Index(i).Interface())
+		}
+		return nil
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(effectiveParallelism)
 
-	for x := 0; x < v.Len(); x++ {
-		action(v.Index(x).Interface())
+	for threadID := 0; threadID < effectiveParallelism; threadID++ {
+		go func(startIndex int) {
+			defer wg.Done()
+			pu.parallelIterator(v, startIndex, effectiveParallelism, action)
+		}(threadID)
+	}
+
+	wg.Wait()
+	return nil
+}
+
+func (pu parallelUtil) parallelIterator(collectionValue reflect.Value, startIndex, parallelism int, action func(interface{})) {
+	for i := startIndex; i < collectionValue.Len(); i += parallelism {
+		action(collectionValue.Index(i).Interface())
 	}
 }
 

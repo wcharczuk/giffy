@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"html/template"
 	"net/http"
 
@@ -50,20 +51,28 @@ func (vr *ViewResult) Render(ctx *Ctx) error {
 	}
 
 	ctx.Response.Header().Set(HeaderContentType, ContentTypeHTML)
-	ctx.Response.WriteHeader(vr.StatusCode)
 
-	err = viewTemplates.ExecuteTemplate(ctx.Response, vr.Template, &ViewModel{
+	buffer := bytes.NewBuffer([]byte{})
+	err = viewTemplates.ExecuteTemplate(buffer, vr.Template, &ViewModel{
 		Ctx:       ctx,
 		Template:  vr.Template,
 		ViewModel: vr.ViewModel,
 	})
 
 	if err != nil {
-		return vr.viewCache.Templates().ExecuteTemplate(ctx.Response, DefaultTemplateInternalServerError, &ViewModel{
+		buffer.Reset()
+
+		err = vr.viewCache.Templates().ExecuteTemplate(buffer, DefaultTemplateInternalServerError, &ViewModel{
 			Ctx:       ctx,
 			Template:  DefaultTemplateInternalServerError,
 			ViewModel: err,
 		})
+
+		ctx.Response.WriteHeader(http.StatusInternalServerError)
+		ctx.Response.Write(buffer.Bytes())
+		return err
 	}
+	ctx.Response.WriteHeader(vr.StatusCode)
+	_, err = ctx.Response.Write(buffer.Bytes())
 	return err
 }

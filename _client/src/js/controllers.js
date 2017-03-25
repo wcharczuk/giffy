@@ -337,7 +337,7 @@ giffyControllers.controller("searchHistoryController", ["$scope", "$http", "$rou
 	function ($scope, $http, $routeParams, currentUser) {
 		currentUser($scope, function () {
 			if (!$scope.currentUser.is_admin) {
-				window.location = "/#/"
+				window.location = "/"
 			}
 
 			$http.get("/api/search.history/pages/" + pageSize + "/0").then(function (res) {
@@ -445,7 +445,7 @@ giffyControllers.controller("teamsController", ["$scope", "$http", "$routeParams
 
 		currentUser($scope, function () {
 			if (!$scope.currentUser.is_admin) {
-				window.location = "/#/"
+				window.location = "/"
 			}
 
 			fetchTeams();
@@ -475,7 +475,7 @@ giffyControllers.controller("errorsController", ["$scope", "$http", "$routeParam
 
 		currentUser($scope, function () {
 			if (!$scope.currentUser.is_admin) {
-				window.location = "/#/"
+				window.location = "/"
 			}
 
 			fetchErrors();

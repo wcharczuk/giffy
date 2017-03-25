@@ -20,7 +20,7 @@
 			</thead>
 			<tbody>
 				<tr ng-repeat="user in users">
-					<td><a href="/#/user/{{user.uuid}}">{{user.username}}</a></td>
+					<td><a href="/user/{{user.uuid}}">{{user.username}}</a></td>
 					<td>{{user.created_utc | date:short}}</td>
 					<td>{{user.first_name}}</td>
 					<td>{{user.last_name}}</td>

@@ -1,7 +1,7 @@
 <div class="image-element">
 	<img class="image-element-img" ng-src="{{image.s3_read_url}}"/>
-	<a class="image-element-link" href="/#/image/{{image.uuid}}"></a>
+	<a class="image-element-link" href="/image/{{image.uuid}}"></a>
 	<div class="image-tags">
-		<a class="label label-primary" href="/#/tag/{{tag.tag_value}}" ng-repeat="tag in image.tags">#{{tag.tag_value}}</a>
+		<a class="label label-primary" href="/tag/{{tag.tag_value}}" ng-repeat="tag in image.tags">#{{tag.tag_value}}</a>
 	</div>
 </a>

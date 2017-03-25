@@ -70,10 +70,11 @@ func NewFromEnvironment() *Agent {
 
 // Agent is a handler for various logging events with descendent handlers.
 type Agent struct {
-	writer         Logger
-	events         *EventFlagSet
-	eventListeners map[EventFlag][]EventListener
-	eventQueue     *workqueue.Queue
+	writer             Logger
+	events             *EventFlagSet
+	eventListenersLock sync.Mutex
+	eventListeners     map[EventFlag][]EventListener
+	eventQueue         *workqueue.Queue
 }
 
 // Writer returns the inner Logger for the diagnostics agent.
@@ -108,11 +109,17 @@ func (da *Agent) DisableEvent(eventFlag EventFlag) {
 
 // IsEnabled asserts if a flag value is set or not.
 func (da *Agent) IsEnabled(flagValue EventFlag) bool {
+	if da == nil {
+		return false
+	}
 	return da.events.IsEnabled(flagValue)
 }
 
 // HasListener returns if there are registered listener for an event.
 func (da *Agent) HasListener(event EventFlag) bool {
+	if da == nil {
+		return false
+	}
 	if da.eventListeners == nil {
 		return false
 	}
@@ -125,7 +132,9 @@ func (da *Agent) HasListener(event EventFlag) bool {
 
 // AddEventListener adds a listener for errors.
 func (da *Agent) AddEventListener(eventFlag EventFlag, listener EventListener) {
+	da.eventListenersLock.Lock()
 	da.eventListeners[eventFlag] = append(da.eventListeners[eventFlag], listener)
+	da.eventListenersLock.Unlock()
 }
 
 // RemoveListeners clears *all* listeners for an EventFlag.
@@ -135,6 +144,9 @@ func (da *Agent) RemoveListeners(eventFlag EventFlag) {
 
 // OnEvent fires the currently configured event listeners.
 func (da *Agent) OnEvent(eventFlag EventFlag, state ...interface{}) {
+	if da == nil {
+		return
+	}
 	if da.IsEnabled(eventFlag) && da.HasListener(eventFlag) {
 		da.eventQueue.Enqueue(da.fireEvent, append([]interface{}{TimeNow(), eventFlag}, state...)...)
 	}
@@ -156,7 +168,10 @@ func (da *Agent) fireEvent(actionState ...interface{}) error {
 		return err
 	}
 
+	da.eventListenersLock.Lock()
 	listeners := da.eventListeners[eventFlag]
+	da.eventListenersLock.Unlock()
+
 	for x := 0; x < len(listeners); x++ {
 		listener := listeners[x]
 		listener(da.writer, timeSource, eventFlag, actionState[2:]...)
@@ -230,7 +245,7 @@ func (da *Agent) Debugf(format string, args ...interface{}) {
 
 // DebugDump dumps an object and fires a debug event.
 func (da *Agent) DebugDump(object interface{}) {
-	da.Eventf(EventDebug, ColorLightYellow, "%v", object)
+	da.Eventf(EventDebug, ColorLightYellow, "%#v", object)
 }
 
 // Warningf logs a debug message to the output stream.
@@ -244,7 +259,7 @@ func (da *Agent) Warningf(format string, args ...interface{}) error {
 // Warning logs a warning error to std err.
 func (da *Agent) Warning(err error) error {
 	if err != nil {
-		da.ErrorEventf(EventWarning, ColorYellow, err.Error())
+		da.ErrorEventf(EventWarning, ColorYellow, fmt.Sprintf("%+v", err))
 		da.OnEvent(EventWarning, err)
 	}
 	return err
@@ -261,7 +276,7 @@ func (da *Agent) Errorf(format string, args ...interface{}) error {
 // Fatal logs an error to std err.
 func (da *Agent) Error(err error) error {
 	if err != nil {
-		da.ErrorEventf(EventError, ColorRed, err.Error())
+		da.ErrorEventf(EventError, ColorRed, fmt.Sprintf("%+v", err))
 		da.OnEvent(EventError, err)
 	}
 	return err
@@ -270,7 +285,7 @@ func (da *Agent) Error(err error) error {
 // ErrorWithReq logs an error to std err with a request.
 func (da *Agent) ErrorWithReq(err error, req *http.Request) error {
 	if err != nil {
-		da.ErrorEventf(EventError, ColorRed, err.Error())
+		da.ErrorEventf(EventError, ColorRed, fmt.Sprintf("%+v", err))
 		da.OnEvent(EventError, err, req)
 	}
 	return err
@@ -287,7 +302,7 @@ func (da *Agent) Fatalf(format string, args ...interface{}) error {
 // Fatal logs the result of a panic to std err.
 func (da *Agent) Fatal(err error) error {
 	if err != nil {
-		da.ErrorEventf(EventFatalError, ColorRed, err.Error())
+		da.ErrorEventf(EventFatalError, ColorRed, fmt.Sprintf("%+v", err))
 		da.OnEvent(EventFatalError, err)
 	}
 	return err
@@ -296,7 +311,7 @@ func (da *Agent) Fatal(err error) error {
 // FatalWithReq logs the result of a fatal error to std err with a request.
 func (da *Agent) FatalWithReq(err error, req *http.Request) error {
 	if err != nil {
-		da.ErrorEventf(EventFatalError, ColorRed, err.Error())
+		da.ErrorEventf(EventFatalError, ColorRed, fmt.Sprintf("%+v", err))
 		da.OnEvent(EventFatalError, err, req)
 	}
 	return err

@@ -14,11 +14,11 @@ const (
 	EventFlagQuery logger.EventFlag = "db.query"
 )
 
-// LoggerEventListener is an event listener for logger events.
-type LoggerEventListener func(writer logger.Logger, ts logger.TimeSource, flag logger.EventFlag, query string, elapsed time.Duration, err error, queryLabel string)
+// EventListener is an event listener for logger events.
+type EventListener func(writer logger.Logger, ts logger.TimeSource, flag logger.EventFlag, query string, elapsed time.Duration, err error, queryLabel string)
 
-// NewLoggerEventListener returns a new listener for diagnostics events.
-func NewLoggerEventListener(action LoggerEventListener) logger.EventListener {
+// NewEventListener returns a new listener for diagnostics events.
+func NewEventListener(action EventListener) logger.EventListener {
 	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 
 		var queryBody = state[0].(string)
@@ -55,9 +55,9 @@ func NewPrintStatementListener() logger.EventListener {
 		}
 
 		if len(queryLabel) > 0 {
-			logger.WriteEventf(writer, ts, eventFlag, logger.ColorLightBlack, "(%v) %s %s", elapsed, queryLabel, queryBody)
+			logger.WriteEventf(writer, ts, eventFlag, logger.ColorLightBlack, "(%v) %s\n%s", elapsed, queryLabel, queryBody)
 		} else {
-			logger.WriteEventf(writer, ts, eventFlag, logger.ColorLightBlack, "(%v) %s", elapsed, queryBody)
+			logger.WriteEventf(writer, ts, eventFlag, logger.ColorLightBlack, "(%v)\n%s", elapsed, queryBody)
 		}
 
 		if err != nil {

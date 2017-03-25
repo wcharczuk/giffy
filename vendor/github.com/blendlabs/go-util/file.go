@@ -114,22 +114,13 @@ func (fu fileUtil) ParseSize(fileSizeValue string, defaultFileSize int64) int64 
 	return fullValue
 }
 
-// FormatFileSize returns a string representation of a file size in bytes.
-func (fu fileUtil) FormatSize(sizeBytes int) string {
-	if sizeBytes >= 1<<30 {
-		return strconv.Itoa(sizeBytes/(1<<30)) + "gb"
-	} else if sizeBytes >= 1<<20 {
-		return strconv.Itoa(sizeBytes/(1<<20)) + "mb"
-	} else if sizeBytes >= 1<<10 {
-		return strconv.Itoa(sizeBytes/(1<<10)) + "kb"
-	}
-	return strconv.Itoa(sizeBytes)
-}
-
 // ReadFile reads a file as a string.
-func ReadFile(path string) string {
-	bytes, _ := ioutil.ReadFile(path)
-	return string(bytes)
+func (fu fileUtil) ReadString(path string) (string, error) {
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
 
 // ReadChunkHandler is a receiver for a chunk of a file.
@@ -172,4 +163,14 @@ func (fu fileUtil) ReadByChunks(filePath string, chunkSize int, handler ReadChun
 		return exception.Wrap(err)
 	}
 	return nil
+}
+
+// ReadAllBytes reads all bytes in a file.
+func (fu fileUtil) ReadAllBytes(filePath string) ([]byte, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	return ioutil.ReadAll(file)
 }

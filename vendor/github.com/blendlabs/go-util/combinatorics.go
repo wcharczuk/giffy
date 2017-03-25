@@ -1,5 +1,7 @@
 package util
 
+import "time"
+
 var (
 	// Combinatorics is a namespace containing combinatoric functions.
 	Combinatorics = combinatorics{}
@@ -174,4 +176,48 @@ func (c combinatorics) PermuteDistributionsFromExisting(total, buckets int, exis
 	}
 
 	return output
+}
+
+// RandomInt returns a random int from an array.
+func (c combinatorics) RandomInt(values []int) int {
+	if len(values) == 0 {
+		return 0
+	}
+	if len(values) == 1 {
+		return values[0]
+	}
+	return values[RandomProvider().Intn(len(values))]
+}
+
+// RandomFloat64 returns a random int from an array.
+func (c combinatorics) RandomFloat64(values []float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	if len(values) == 1 {
+		return values[0]
+	}
+	return values[RandomProvider().Intn(len(values))]
+}
+
+// RandomFloat64 returns a random int from an array.
+func (c combinatorics) RandomString(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	if len(values) == 1 {
+		return values[0]
+	}
+	return values[RandomProvider().Intn(len(values))]
+}
+
+// RandomFloat64 returns a random int from an array.
+func (c combinatorics) RandomTime(values []time.Time) time.Time {
+	if len(values) == 0 {
+		return time.Time{}
+	}
+	if len(values) == 1 {
+		return values[0]
+	}
+	return values[RandomProvider().Intn(len(values))]
 }

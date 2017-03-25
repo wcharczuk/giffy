@@ -187,7 +187,7 @@ giffyDirectives.controller('voteButtonController', ["$scope", "voteAPI",
 		}
 
 		$scope.detailURL = function () {
-			return "/#/tag/" + $scope.object.tag_value;
+			return "/tag/" + $scope.object.tag_value;
 		}
 
 		$scope.detailValue = function () {

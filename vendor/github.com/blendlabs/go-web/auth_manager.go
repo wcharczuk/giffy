@@ -169,12 +169,12 @@ func (sm *AuthManager) Logout(session *Session, context *Ctx) error {
 
 // ReadSessionID reads a session id from a given request context.
 func (sm *AuthManager) ReadSessionID(context *Ctx) string {
-	if headerValue, err := context.HeaderParam(sm.SessionParamName()); err == nil {
-		return headerValue
-	}
-
 	if cookie := context.GetCookie(sm.SessionParamName()); cookie != nil {
 		return cookie.Value
+	}
+
+	if headerValue, err := context.HeaderParam(sm.SessionParamName()); err == nil {
+		return headerValue
 	}
 
 	return ""
@@ -182,8 +182,8 @@ func (sm *AuthManager) ReadSessionID(context *Ctx) string {
 
 // VerifySession checks a sessionID to see if it's valid.
 func (sm *AuthManager) VerifySession(sessionID string, context *Ctx) (*Session, error) {
-	if sm.sessionCache.IsActive(sessionID) {
-		return sm.sessionCache.Get(sessionID), nil
+	if session, hasSession := sm.sessionCache.Get(sessionID); hasSession {
+		return session, nil
 	}
 
 	if sm.fetchHandler == nil {
