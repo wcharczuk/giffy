@@ -2,6 +2,9 @@ package util
 
 import "encoding/base64"
 
+// Base64 is a namespace singleton for (2) methods.
+var Base64 base64Util
+
 type base64Util struct{}
 
 // Encode returns a base64 string for a byte array.
