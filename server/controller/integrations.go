@@ -23,34 +23,18 @@ var (
 	slackErrorNoResults = fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())
 )
 
-type slackField struct {
-	Title string `json:"title"`
-	Value string `json:"value"`
-	Short bool   `json:"short"`
-}
-
-type slackMessageAttachment struct {
-	Text   string       `json:"text"`
-	Fields []slackField `json:"field"`
-}
-
-type slackImageAttachment struct {
-	Title    string `json:"title"`
-	ImageURL string `json:"image_url"`
-	ThumbURL string `json:"thumb_url,omitempty"`
-}
-
-type slackResponse struct {
-	ImageUUID    string        `json:"image_uuid"`
-	ResponseType string        `json:"response_type"`
-	Text         string        `json:"text,omitempty"`
-	Attachments  []interface{} `json:"attachments"`
-}
-
 // Integrations controller is responsible for integration responses.
 type Integrations struct{}
 
-func (i Integrations) slackAction(rc *web.Ctx) web.Result {
+// Register registers the controller's actions with the app.
+func (i Integrations) Register(app *web.App) {
+	app.POST("/integrations/slack", i.slack)
+	app.POST("/integrations/slack.shuffle", i.slackShuffle)
+	app.POST("/integrations/slack.post", i.slackPost)
+	app.POST("/integrations/slack.event", i.slackEvent)
+}
+
+func (i Integrations) slack(rc *web.Ctx) web.Result {
 	teamID := rc.Param("team_id")
 	channelID := rc.Param("channel_id")
 	userID := rc.Param("user_id")
@@ -183,17 +167,7 @@ func (i Integrations) slackSearchAction(rc *web.Ctx) web.Result {
 	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
-type slackEvent struct {
-	Type      string `json:"type"`
-	Challenge string `json:"challenge"`
-	Token     string `json:"token"`
-}
-
-type slackEventChallegeRepsonse struct {
-	Challenge string `json:"challenge"`
-}
-
-func (i Integrations) slackEventAction(rc *web.Ctx) web.Result {
+func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
 	var e slackEvent
 	err := rc.PostBodyAsJSON(&e)
 	if err != nil {
@@ -208,14 +182,52 @@ func (i Integrations) slackEventAction(rc *web.Ctx) web.Result {
 	return rc.NoContent()
 }
 
-// Register registers the controller's actions with the app.
-func (i Integrations) Register(app *web.App) {
-	app.GET("/integrations/slack", i.slackAction)
-	app.POST("/integrations/slack", i.slackAction)
+type slackResponse struct {
+	ImageUUID    string        `json:"image_uuid"`
+	ResponseType string        `json:"response_type"`
+	Text         string        `json:"text,omitempty"`
+	Attachments  []interface{} `json:"attachments"`
+}
 
-	app.GET("/integrations/slack.search", i.slackSearchAction)
-	app.POST("/integrations/slack.search", i.slackSearchAction)
+type slackActionAttachment struct {
+	Text           string        `json:"text"`
+	Fallback       string        `json:"fallback"`
+	CallbackID     string        `json:"callback_id"`
+	Color          string        `json:"color"`
+	AttachmentType string        `json:"attachment_type"`
+	Actions        []slackAction `json:"actions"`
+}
 
-	app.GET("/integrations/slack.event", i.slackEventAction)
-	app.POST("/integrations/slack.event", i.slackEventAction)
+type slackAction struct {
+	Name  string `json:"name"`
+	Text  string `json:"text"`
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+type slackImageAttachment struct {
+	Title    string `json:"title"`
+	ImageURL string `json:"image_url"`
+	ThumbURL string `json:"thumb_url,omitempty"`
+}
+
+type slackMessageAttachment struct {
+	Text   string       `json:"text"`
+	Fields []slackField `json:"field"`
+}
+
+type slackField struct {
+	Title string `json:"title"`
+	Value string `json:"value"`
+	Short bool   `json:"short"`
+}
+
+type slackEvent struct {
+	Type      string `json:"type"`
+	Challenge string `json:"challenge"`
+	Token     string `json:"token"`
+}
+
+type slackEventChallegeRepsonse struct {
+	Challenge string `json:"challenge"`
 }
