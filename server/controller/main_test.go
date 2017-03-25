@@ -91,5 +91,6 @@ func AuthTestUser(user *model.User, tx *sql.Tx) (*web.AuthManager, *web.Session,
 		return nil, nil, err
 	}
 	webutil.SetUser(session, user)
-	return auth, auth.SessionCache().Get(session.SessionID), nil
+	cachedSession, _ := auth.SessionCache().Get(session.SessionID)
+	return auth, cachedSession, nil
 }

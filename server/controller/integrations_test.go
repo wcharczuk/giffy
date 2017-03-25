@@ -28,12 +28,12 @@ func TestSlack(t *testing.T) {
 
 	app := web.New()
 
-	var res slackResponse
+	var res slackMessage
 
 	app.IsolateTo(tx)
 	app.SetLogger(logger.New(logger.NewEventFlagSetNone()))
 	app.Register(Integrations{})
-	err = app.Mock().WithPathf("/integrations/slack").
+	err = app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", core.UUIDv4().ToShortString()).
 		WithQueryString("channel_id", core.UUIDv4().ToShortString()).
 		WithQueryString("user_id", core.UUIDv4().ToShortString()).
@@ -53,7 +53,7 @@ func TestSlackErrorsWithShortQuery(t *testing.T) {
 	app := web.New()
 
 	app.Register(Integrations{})
-	res, err := app.Mock().WithPathf("/integrations/slack").
+	res, err := app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", core.UUIDv4().ToShortString()).
 		WithQueryString("channel_id", core.UUIDv4().ToShortString()).
 		WithQueryString("user_id", core.UUIDv4().ToShortString()).
