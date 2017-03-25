@@ -79,6 +79,7 @@ func getCachedColumnCollectionFromInstance(object interface{}) *ColumnCollection
 // The results of this are cached for speed.
 func getCachedColumnCollectionFromType(identifier string, t reflect.Type) *ColumnCollection {
 	metaCacheLock.Lock()
+	defer metaCacheLock.Unlock()
 
 	if metaCache == nil {
 		metaCache = map[string]*ColumnCollection{}
@@ -88,10 +89,8 @@ func getCachedColumnCollectionFromType(identifier string, t reflect.Type) *Colum
 	if !ok {
 		metadata := generateColumnCollectionForType(t)
 		metaCache[identifier] = metadata
-		metaCacheLock.Unlock()
 		return metadata
 	}
-	metaCacheLock.Unlock()
 	return cachedMeta
 }
 
@@ -357,7 +356,7 @@ func (cc ColumnCollection) ColumnNamesCSVFromAlias(tableAlias string) string {
 			names[x] = fmt.Sprintf("%s.%s", tableAlias, c.ColumnName)
 		}
 	}
-	return csv(names)
+	return CSV(names)
 }
 
 // ColumnValues returns the reflected value for all the columns on a given instance.
@@ -406,5 +405,5 @@ func (cc ColumnCollection) String() string {
 
 // ColumnNamesCSV returns a csv of column names.
 func (cc ColumnCollection) ColumnNamesCSV() string {
-	return csv(cc.ColumnNames())
+	return CSV(cc.ColumnNames())
 }

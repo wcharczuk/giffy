@@ -173,3 +173,13 @@ func (fu fileUtil) ReadByChunks(filePath string, chunkSize int, handler ReadChun
 	}
 	return nil
 }
+
+// ReadAllBytes reads all bytes in a file.
+func (fu fileUtil) ReadAllBytes(filePath string) ([]byte, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	return ioutil.ReadAll(file)
+}

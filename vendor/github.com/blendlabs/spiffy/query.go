@@ -14,16 +14,15 @@ import (
 
 // Query is the intermediate result of a query.
 type Query struct {
-	args       []interface{}
-	start      time.Time
-	rows       *sql.Rows
-	statement  string
-	stmt       *sql.Stmt
-	dbc        *Connection
-	tx         *sql.Tx
-	label      string
-	fireEvents bool
-	err        error
+	statement string
+	args      []interface{}
+
+	start time.Time
+	rows  *sql.Rows
+
+	stmt *sql.Stmt
+	ctx  *Ctx
+	err  error
 }
 
 // Close closes and releases any resources retained by the QueryResult.
@@ -36,46 +35,40 @@ func (q *Query) Close() error {
 		q.rows = nil
 	}
 
-	if !q.dbc.useStatementCache {
+	if !q.ctx.conn.useStatementCache {
 		if q.stmt != nil {
 			stmtErr = q.stmt.Close()
 			q.stmt = nil
 		}
 	}
-
+	q.ctx.statementLabel = ""
 	return exception.Nest(rowsErr, stmtErr)
 }
 
 // WithEvents enables or disables query event reporting for a query.
 func (q *Query) WithEvents(enabled bool) *Query {
-	q.fireEvents = enabled
+	q.ctx.fireEvents = enabled
 	return q
 }
 
-// CachedAs assigns a label to a query.
-// It is the key that the statement is cached with, if
-// the connection is configured with .EnableStatementCache().
-// This label can also be used for event filtering.
-func (q *Query) CachedAs(label string) *Query {
-	q.label = label
+// CachedAs sets the statement cache label for the query.
+func (q *Query) CachedAs(cacheLabel string) *Query {
+	q.ctx.statementLabel = cacheLabel
 	return q
-}
-
-func (q *Query) shouldCacheStatement() bool {
-	return q.dbc.useStatementCache && len(q.label) > 0
 }
 
 // Execute runs a given query, yielding the raw results.
 func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 	var stmtErr error
 	if q.shouldCacheStatement() {
-		stmt, stmtErr = q.dbc.PrepareCached(q.label, q.statement, q.tx)
+		stmt, stmtErr = q.ctx.conn.PrepareCached(q.ctx.statementLabel, q.statement, q.ctx.tx)
 	} else {
-		stmt, stmtErr = q.dbc.Prepare(q.statement, q.tx)
+		stmt, stmtErr = q.ctx.conn.Prepare(q.statement, q.ctx.tx)
 	}
+
 	if stmtErr != nil {
 		if q.shouldCacheStatement() {
-			q.dbc.statementCache.InvalidateStatement(q.label)
+			q.ctx.conn.statementCache.InvalidateStatement(q.ctx.statementLabel)
 		}
 		err = exception.Wrap(stmtErr)
 		return
@@ -83,7 +76,7 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			if q.dbc.useStatementCache {
+			if q.ctx.conn.useStatementCache {
 				err = exception.Nest(err, exception.New(r))
 			} else {
 				err = exception.Nest(err, exception.New(r), stmt.Close())
@@ -95,7 +88,7 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 	rows, queryErr = stmt.Query(q.args...)
 	if queryErr != nil {
 		if q.shouldCacheStatement() {
-			q.dbc.statementCache.InvalidateStatement(q.label)
+			q.ctx.conn.statementCache.InvalidateStatement(q.ctx.statementLabel)
 		}
 		err = exception.Wrap(queryErr)
 	}
@@ -104,20 +97,7 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 
 // Any returns if there are any results for the query.
 func (q *Query) Any() (hasRows bool, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			recoveryException := exception.New(r)
-			err = exception.Nest(err, recoveryException)
-		}
-
-		if closeErr := q.Close(); closeErr != nil {
-			err = exception.Nest(err, closeErr)
-		}
-
-		if q.fireEvents {
-			q.dbc.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.label)
-		}
-	}()
+	defer func() { err = q.panicHandler(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -139,20 +119,7 @@ func (q *Query) Any() (hasRows bool, err error) {
 
 // None returns if there are no results for the query.
 func (q *Query) None() (hasRows bool, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			recoveryException := exception.New(r)
-			err = exception.Nest(err, recoveryException)
-		}
-
-		if closeErr := q.Close(); closeErr != nil {
-			err = exception.Nest(err, closeErr)
-		}
-
-		if q.fireEvents {
-			q.dbc.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.label)
-		}
-	}()
+	defer func() { err = q.panicHandler(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 
@@ -175,20 +142,7 @@ func (q *Query) None() (hasRows bool, err error) {
 
 // Scan writes the results to a given set of local variables.
 func (q *Query) Scan(args ...interface{}) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			recoveryException := exception.New(r)
-			err = exception.Nest(err, recoveryException)
-		}
-
-		if closeErr := q.Close(); closeErr != nil {
-			err = exception.Nest(err, closeErr)
-		}
-
-		if q.fireEvents {
-			q.dbc.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.label)
-		}
-	}()
+	defer func() { err = q.panicHandler(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -214,20 +168,7 @@ func (q *Query) Scan(args ...interface{}) (err error) {
 
 // Out writes the query result to a single object via. reflection mapping.
 func (q *Query) Out(object interface{}) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			recoveryException := exception.New(r)
-			err = exception.Nest(err, recoveryException)
-		}
-
-		if closeErr := q.Close(); closeErr != nil {
-			err = exception.Nest(err, closeErr)
-		}
-
-		if q.fireEvents {
-			q.dbc.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.label)
-		}
-	}()
+	defer func() { err = q.panicHandler(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -260,20 +201,7 @@ func (q *Query) Out(object interface{}) (err error) {
 
 // OutMany writes the query results to a slice of objects.
 func (q *Query) OutMany(collection interface{}) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			recoveryException := exception.New(r)
-			err = exception.Nest(err, recoveryException)
-		}
-
-		if closeErr := q.Close(); closeErr != nil {
-			err = exception.Nest(err, closeErr)
-		}
-
-		if q.fireEvents {
-			q.dbc.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.label)
-		}
-	}()
+	defer func() { err = q.panicHandler(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -329,20 +257,7 @@ func (q *Query) OutMany(collection interface{}) (err error) {
 
 // Each writes the query results to a slice of objects.
 func (q *Query) Each(consumer RowsConsumer) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			recoveryException := exception.New(r)
-			err = exception.Nest(err, recoveryException)
-		}
-
-		if closeErr := q.Close(); closeErr != nil {
-			err = exception.Nest(err, closeErr)
-		}
-
-		if q.fireEvents {
-			q.dbc.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.label)
-		}
-	}()
+	defer func() { err = q.panicHandler(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -362,4 +277,28 @@ func (q *Query) Each(consumer RowsConsumer) (err error) {
 		}
 	}
 	return
+}
+
+// --------------------------------------------------------------------------------
+// helpers
+// --------------------------------------------------------------------------------
+
+func (q *Query) panicHandler(r interface{}, err error) error {
+	if r != nil {
+		recoveryException := exception.New(r)
+		err = exception.Nest(err, recoveryException)
+	}
+
+	if closeErr := q.Close(); closeErr != nil {
+		err = exception.Nest(err, closeErr)
+	}
+
+	if q.ctx.fireEvents {
+		q.ctx.conn.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.ctx.statementLabel)
+	}
+	return err
+}
+
+func (q *Query) shouldCacheStatement() bool {
+	return q.ctx.conn.useStatementCache && len(q.ctx.statementLabel) > 0
 }
