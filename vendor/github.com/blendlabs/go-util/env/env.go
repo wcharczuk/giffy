@@ -162,7 +162,7 @@ func (ev Vars) Bytes(key string, defaults ...[]byte) []byte {
 // Base64 returns a []byte value for a given key whose value is encoded in base64.
 func (ev Vars) Base64(key string, defaults ...[]byte) []byte {
 	if value, hasValue := ev[key]; hasValue && len(value) > 0 {
-		result, _ := util.String.Base64Decode(value)
+		result, _ := util.Base64.Decode(value)
 		return result
 	}
 	if len(defaults) > 0 {
@@ -177,14 +177,27 @@ func (ev Vars) HasKey(key string) bool {
 	return hasKey
 }
 
-// HasKeys returns if all of the given keys are present in the set.
-func (ev Vars) HasKeys(key ...string) bool {
-	for _, key := range key {
+// HasAllKeys returns if all of the given keys are present in the set.
+func (ev Vars) HasAllKeys(keys ...string) bool {
+	if len(keys) == 0 {
+		return false
+	}
+	for _, key := range keys {
 		if !ev.HasKey(key) {
 			return false
 		}
 	}
 	return true
+}
+
+// HasAnyKeys returns if any of the given keys are present in the set.
+func (ev Vars) HasAnyKeys(keys ...string) bool {
+	for _, key := range keys {
+		if ev.HasKey(key) {
+			return true
+		}
+	}
+	return false
 }
 
 // Union returns the union of the two sets, other replacing conflicts.

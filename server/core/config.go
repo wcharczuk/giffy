@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-util/env"
 	"github.com/blendlabs/spiffy"
 )
 
@@ -46,22 +47,9 @@ func ConfigLocalIP() string {
 	return ""
 }
 
-var configKey []byte
-
 // ConfigKey is the app secret we use to encrypt things.
 func ConfigKey() []byte {
-	if configKey == nil {
-		keyBlob := os.Getenv("ENCRYPTION_KEY")
-		if len(keyBlob) != 0 {
-			key, keyErr := util.String.Base64Decode(keyBlob)
-			if keyErr != nil {
-				println(keyErr.Error())
-				return key
-			}
-			configKey = key
-		}
-	}
-	return configKey
+	return env.Env().Base64("ENCRYPTION_KEY")
 }
 
 // ConfigEnvironment returns the current environment.

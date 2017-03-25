@@ -75,7 +75,7 @@ func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 		}
 	}
 
-	return r.Redirect("/#/slack/complete")
+	return r.Redirect("/slack/complete")
 }
 
 func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {

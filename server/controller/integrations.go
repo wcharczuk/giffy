@@ -15,8 +15,9 @@ const (
 	slackContenttypeJSON      = "application/json; charset=utf-8"
 	slackContentTypeTextPlain = "text/plain; charset=utf-8"
 	slackErrorInvalidQuery    = "Please type at least (3) characters."
+	slackErrorBadPayload      = "There was an error processing a payload from slack. Saddness."
 	slackErrorInternal        = "There was an error processing your request. Sadness."
-	slackErrorTeamDisabled    = "Your team has been disabled, contact the integration owner to re-enable."
+	slackErrorTeamDisabled    = "Your team has been disabled; contact the integration owner to re-enable."
 )
 
 var (
@@ -29,26 +30,39 @@ type Integrations struct{}
 // Register registers the controller's actions with the app.
 func (i Integrations) Register(app *web.App) {
 	app.POST("/integrations/slack", i.slack)
-	app.POST("/integrations/slack.shuffle", i.slackShuffle)
-	app.POST("/integrations/slack.post", i.slackPost)
+	app.POST("/integrations/slack.action", i.slack)
 	app.POST("/integrations/slack.event", i.slackEvent)
 }
 
-func (i Integrations) slack(rc *web.Ctx) web.Result {
-	teamID := rc.Param("team_id")
-	channelID := rc.Param("channel_id")
-	userID := rc.Param("user_id")
+func (i Integrations) contentRatingFilter(teamID string, rc *web.Ctx) (int, web.Result) {
+	contentRatingFilter := model.ContentRatingNR
+	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
+	if err != nil {
+		rc.Logger().FatalWithReq(err, rc.Request)
+		return contentRatingFilter, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+	} else if !teamSettings.IsZero() {
+		if !teamSettings.IsEnabled {
+			return contentRatingFilter, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
+		}
 
-	teamName := rc.Param("team_domain")
-	channelName := rc.Param("channel_name")
-	userName := rc.Param("user_name")
-
-	query := rc.Param("text")
-
-	if len(query) < 3 {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
+		contentRatingFilter = teamSettings.ContentRatingFilter
 	}
+	return contentRatingFilter, nil
+}
 
+func (i Integrations) arguments(rc *web.Ctx) slackArguments {
+	return slackArguments{
+		TeamID:      rc.Param("team_id"),
+		ChannelID:   rc.Param("channel_id"),
+		UserID:      rc.Param("user_id"),
+		TeamName:    rc.Param("team_domain"),
+		ChannelName: rc.Param("channel_name"),
+		UserName:    rc.Param("user_name"),
+		Query:       rc.Param("text"),
+	}
+}
+
+func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*model.Image, web.Result) {
 	var result *model.Image
 	var resultID *int64
 	var tagID *int64
@@ -56,115 +70,132 @@ func (i Integrations) slack(rc *web.Ctx) web.Result {
 	var err error
 
 	defer func() {
-		rc.Logger().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", teamID, teamName, channelID, channelName, userID, userName, query, foundResult, resultID, tagID))
+		rc.Logger().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
 	}()
 
-	contentRatingFilter := model.ContentRatingNR
-	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
-	if err != nil {
-		rc.Logger().Error(err)
-	} else if !teamSettings.IsZero() {
-		if !teamSettings.IsEnabled {
-			return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
-		}
-
-		contentRatingFilter = teamSettings.ContentRatingFilter
+	contentRatingFilter, errRes := i.contentRatingFilter(args.TeamID, rc)
+	if errRes != nil {
+		return nil, errRes
 	}
 
-	if strings.HasPrefix(query, "img:") {
-		uuid := strings.TrimPrefix(query, "img:")
+	if strings.HasPrefix(args.Query, "img:") {
+		uuid := strings.TrimPrefix(args.Query, "img:")
 		result, err = model.GetImageByUUID(uuid, rc.Tx())
 	} else {
-		result, err = model.SearchImagesBestResult(query, contentRatingFilter, rc.Tx())
+		result, err = model.SearchImagesBestResult(args.Query, contentRatingFilter, rc.Tx())
 	}
+
 	if err != nil {
-		rc.Logger().Error(err)
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+		rc.Logger().FatalWithReq(err, rc.Request)
+		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	if result == nil || result.IsZero() {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
+		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
 	}
 
 	foundResult = true
 	resultID = util.OptionalInt64(result.ID)
 
-	res := slackResponse{}
-	res.ImageUUID = result.UUID
-	res.ResponseType = "in_channel"
+	return result, nil
+}
 
-	if !strings.HasPrefix(query, "img:") {
-		if len(result.Tags) > 0 {
-			tagID = &result.Tags[0].ID
-		}
-
-		res.Attachments = []interface{}{
-			slackImageAttachment{Title: query, ImageURL: result.S3ReadURL},
-		}
-	} else {
-		if len(result.Tags) > 0 {
-			res.Attachments = []interface{}{
-				slackImageAttachment{Title: result.Tags[0].TagValue, ImageURL: result.S3ReadURL},
-			}
-		} else {
-			res.Attachments = []interface{}{
-				slackImageAttachment{Title: query, ImageURL: result.S3ReadURL},
-			}
-		}
-	}
-
+func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
-		rc.Logger().Error(err)
+		rc.Logger().FatalWithReq(err, rc.Request)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
-func (i Integrations) slackSearchAction(rc *web.Ctx) web.Result {
-	query := rc.Param("text")
-	if len(query) < 3 {
+func (i Integrations) slack(rc *web.Ctx) web.Result {
+	args := i.arguments(rc)
+
+	if len(args.Query) < 3 {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
 	}
 
-	teamID := rc.Param("team_id")
-	contentRatingFilter := model.ContentRatingFilterDefault
-	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
-	if err != nil {
-		rc.Logger().Error(err)
-	} else if !teamSettings.IsZero() {
-		if !teamSettings.IsEnabled {
-			return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
+	result, errRes := i.getResult(args, rc)
+	if errRes != nil {
+		return errRes
+	}
+
+	res := slackMessage{}
+	if !strings.HasPrefix(args.Query, "img:") {
+		res.ResponseType = "in_channel"
+		res.Attachments = []interface{}{
+			slackImageAttachment{Title: args.Query, ImageURL: result.S3ReadURL},
+		}
+	} else {
+		res.ResponseType = "ephemeral"
+		var title string
+		if len(result.Tags) > 0 {
+			title = result.Tags[0].TagValue
+		} else {
+			title = fmt.Sprintf("search: `%s`", args.Query)
 		}
 
-		contentRatingFilter = teamSettings.ContentRatingFilter
+		res.Attachments = []interface{}{
+			slackImageAttachment{Title: title, ImageURL: result.S3ReadURL},
+			i.buttonActions(result.UUID),
+		}
 	}
 
-	results, err := model.SearchImagesWeightedRandom(query, contentRatingFilter, 3, rc.Tx())
+	return i.renderResult(res, rc)
+}
+
+func (i Integrations) slackAction(rc *web.Ctx) web.Result {
+	var payload slackActionPayload
+	err := rc.PostBodyAsJSON(&payload)
 	if err != nil {
-		rc.Logger().Error(err)
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 
-	if len(results) == 0 {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
+	var result *model.Image
+	var resultID *int64
+	var tagID *int64
+
+	defer func() {
+		rc.Logger().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.TeamName, payload.ChannelID, payload.ChannelName, payload.UserID, payload.UserName, payload.Query, true, resultID, tagID))
+	}()
+}
+
+func (i Integrations) slackShuffle(rc *web.Ctx) web.Result {
+	args := i.arguments(rc)
+
+	result, errRes := i.getResult(args, rc)
+	if errRes != nil {
+		return errRes
 	}
 
 	res := slackResponse{}
+	res.ReplaceOriginal = true
 	res.ResponseType = "ephemeral"
-	for _, i := range results {
-		res.Attachments = append(res.Attachments,
-			slackImageAttachment{Title: i.GetTagsSummary(), ImageURL: i.S3ReadURL},
-		)
+	var title string
+	if len(result.Tags) > 0 {
+		title = result.Tags[0].TagValue
+	} else {
+		title = fmt.Sprintf("query: %s", args.Query)
 	}
 
-	responseBytes, err := json.Marshal(res)
-	if err != nil {
-		rc.Logger().Error(err)
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+	res.Attachments = []interface{}{
+		slackImageAttachment{Title: title, ImageURL: result.S3ReadURL},
+		i.buttonActions(),
 	}
-	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
+
+	return i.renderResult(res, rc)
+}
+
+func (i Integrations) slackPost(rc *web.Ctx) web.Result {
+	args := i.arguments(rc)
+
+	if len(args.Query) < 3 {
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
+	}
+
+	return nil
 }
 
 func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
@@ -182,11 +213,66 @@ func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
 	return rc.NoContent()
 }
 
-type slackResponse struct {
-	ImageUUID    string        `json:"image_uuid"`
-	ResponseType string        `json:"response_type"`
-	Text         string        `json:"text,omitempty"`
-	Attachments  []interface{} `json:"attachments"`
+func (i Integrations) buttonActions(imageUUID string) slackActionAttachment {
+	return slackActionAttachment{
+		Fallback:       "Unable to do image things.",
+		CallbackID:     imageUUID,
+		AttachmentType: "default",
+		Actions: []slackAction{
+			{
+				Name:  "action",
+				Text:  "Shuffle",
+				Type:  "button",
+				Value: "shuffle",
+			},
+			{
+				Name:  "action",
+				Text:  "Post",
+				Type:  "button",
+				Value: "post",
+			},
+		},
+	}
+}
+
+// --------------------------------------------------------------------------------
+// Slack Types
+// --------------------------------------------------------------------------------
+
+type slackArguments struct {
+	TeamID      string
+	ChannelID   string
+	UserID      string
+	TeamName    string
+	ChannelName string
+	UserName    string
+	Query       string
+}
+
+type slackActionPayload struct {
+	Actions         []slackAction   `json:"actions"`
+	CallbackID      string          `json:"callback_id"`
+	Team            slackIdentifier `json:"team"`
+	Channel         slackIdentifier `json:"channel"`
+	User            slackIdentifier `json:"user"`
+	ActionTS        string          `json:"action_ts"`
+	MessageTS       string          `json:"message_ts"`
+	Token           string          `json:"token"`
+	OriginalMessage slackMessage    `json:"original_message"`
+	ResponseURL     string          `json:"response_url"`
+}
+
+type slackIdentifier struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type slackMessage struct {
+	ResponseType    string        `json:"response_type"`
+	ReplaceOriginal bool          `json:"replace_original"`
+	DeleteOriginal  bool          `json:"delete_original"`
+	Text            string        `json:"text,omitempty"`
+	Attachments     []interface{} `json:"attachments"`
 }
 
 type slackActionAttachment struct {
