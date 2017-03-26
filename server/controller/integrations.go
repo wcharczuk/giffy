@@ -82,7 +82,7 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 		rc.Logger().ErrorWithReq(err, rc.Request)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
-	bodyUnescaped := html.UnescapeString(body)
+	bodyUnescaped := html.UnescapeString(strings.TrimPrefix(body, "payload="))
 	err = util.JSON.Deserialize(&payload, bodyUnescaped)
 	if err != nil {
 		rc.Logger().ErrorWithReq(err, rc.Request)
