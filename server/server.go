@@ -54,7 +54,7 @@ func New() *web.App {
 	app.SetName(AppName)
 	app.SetPort(core.ConfigPort())
 
-	app.Logger().DisableEvent(logger.EventWebRequestPostBody)
+	//app.Logger().DisableEvent(logger.EventWebRequestPostBody)
 	app.Logger().DisableEvent(logger.EventWebResponse)
 
 	app.Logger().AddEventListener(logger.EventWebRequest, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.Ctx) {
