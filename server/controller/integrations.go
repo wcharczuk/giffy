@@ -51,7 +51,7 @@ func (i Integrations) slack(rc *web.Ctx) web.Result {
 	}
 
 	res := slackMessage{}
-	if !strings.HasPrefix(args.Query, "img:") {
+	if strings.HasPrefix(args.Query, "img:") {
 		res.ResponseType = "in_channel"
 		res.Attachments = []interface{}{
 			slackImageAttachment{Title: args.Query, ImageURL: result.S3ReadURL},
@@ -247,6 +247,7 @@ func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {
 
 func (i Integrations) buttonActions(imageUUID string) slackActionAttachment {
 	return slackActionAttachment{
+		Text:           "Hit either `Post` or `Shuffle` (for a new image).",
 		Fallback:       "Unable to do image things.",
 		CallbackID:     imageUUID,
 		AttachmentType: "default",
