@@ -100,7 +100,7 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	case slackActionPost:
 		return i.slackPost(payload, rc)
 	case slackActionCancel:
-		return i.renderResult(slackMessage{ReplaceOriginal: true}, rc)
+		return i.renderResult(slackMessage{DeleteOriginal: true}, rc)
 	}
 	return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidAction))
 }
