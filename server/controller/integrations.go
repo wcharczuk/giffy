@@ -159,6 +159,7 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 
 	res := slackMessage{}
 	res.DeleteOriginal = true
+	res.AsUser = true
 	res.ResponseType = "in_channel"
 	var title string
 	if len(result.Tags) > 0 {
@@ -361,6 +362,7 @@ type slackMessage struct {
 	ReplaceOriginal bool          `json:"replace_original"`
 	DeleteOriginal  bool          `json:"delete_original"`
 	Text            string        `json:"text,omitempty"`
+	AsUser          bool          `json:"as_user"`
 	Attachments     []interface{} `json:"attachments"`
 }
 
