@@ -87,7 +87,6 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 		rc.Logger().ErrorWithReq(err, rc.Request)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
-	rc.Logger().Infof("incoming body: %s", bodyUnescaped)
 	err = util.JSON.Deserialize(&payload, bodyUnescaped)
 	if err != nil {
 		rc.Logger().ErrorWithReq(err, rc.Request)
@@ -110,9 +109,15 @@ func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.
 		return errRes
 	}
 
+	rc.Logger().Infof("%#v", payload)
+	rc.Logger().Infof("search query: %s", query)
 	result, err := model.SearchImagesBestResult(query, contentRatingFilter, rc.Tx())
 	if err != nil {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+	}
+
+	if result == nil || result.IsZero() {
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
 	}
 
 	res := slackMessage{}

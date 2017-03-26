@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -12,12 +13,12 @@ import (
 
 // NewError creates a new error.
 func NewError(err error, req *http.Request) *Error {
-	if ex, isException := err.(*exception.Exception); isException {
+	if _, isException := err.(*exception.Exception); isException {
 		return &Error{
 			UUID:       util.UUIDv4().ToShortString(),
 			CreatedUTC: time.Now().UTC(),
-			Message:    ex.Message(),
-			StackTrace: ex.StackString(),
+			Message:    fmt.Sprintf("%v", err),
+			StackTrace: fmt.Sprintf("%+v", err),
 
 			Verb:  req.Method,
 			Proto: req.Proto,
