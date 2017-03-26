@@ -283,6 +283,7 @@ func (i Integrations) buttonActions(query, imageUUID string) slackActionAttachme
 			{
 				Name:  "action",
 				Text:  "Post",
+				Style: "primary",
 				Type:  "button",
 				Value: slackActionPost,
 			},
@@ -375,6 +376,7 @@ type slackActionAttachment struct {
 type slackAction struct {
 	Name  string `json:"name"`
 	Text  string `json:"text"`
+	Style string `json:"style"`
 	Type  string `json:"type"`
 	Value string `json:"value"`
 }
