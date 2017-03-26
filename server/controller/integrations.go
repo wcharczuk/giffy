@@ -68,7 +68,7 @@ func (i Integrations) slack(rc *web.Ctx) web.Result {
 
 		res.Attachments = []interface{}{
 			slackImageAttachment{Title: title, ImageURL: result.S3ReadURL},
-			i.buttonActions(result.UUID),
+			i.buttonActions(args.Query, result.UUID),
 		}
 	}
 
@@ -103,7 +103,7 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 }
 
 func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.Result {
-	query := payload.OriginalMessage.Text
+	query, _ := i.extractCallbackState(payload.CallbackID)
 	contentRatingFilter, errRes := i.contentRatingFilter(payload.Team.ID, rc)
 	if errRes != nil {
 		return errRes
@@ -132,7 +132,7 @@ func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.
 
 	res.Attachments = []interface{}{
 		slackImageAttachment{Title: title, ImageURL: result.S3ReadURL},
-		i.buttonActions(result.UUID),
+		i.buttonActions(query, result.UUID),
 	}
 
 	return i.renderResult(res, rc)
@@ -146,7 +146,8 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 	defer func() {
 		rc.Logger().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.Team.Name, payload.Channel.ID, payload.Channel.Name, payload.User.ID, payload.User.Name, payload.OriginalMessage.Text, true, resultID, tagID))
 	}()
-	uuid := payload.CallbackID
+
+	_, uuid := i.extractCallbackState(payload.CallbackID)
 
 	result, err := model.GetImageByUUID(uuid, rc.Tx())
 	if err != nil {
@@ -263,11 +264,11 @@ func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {
 	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
-func (i Integrations) buttonActions(imageUUID string) slackActionAttachment {
+func (i Integrations) buttonActions(query, imageUUID string) slackActionAttachment {
 	return slackActionAttachment{
 		Text:           "Hit either `Post` or `Shuffle` (for a new image).",
 		Fallback:       "Unable to do image things.",
-		CallbackID:     imageUUID,
+		CallbackID:     i.callbackState(query, imageUUID),
 		AttachmentType: "default",
 		Actions: []slackAction{
 			{
@@ -284,6 +285,25 @@ func (i Integrations) buttonActions(imageUUID string) slackActionAttachment {
 			},
 		},
 	}
+}
+
+func (i Integrations) callbackState(query, uuid string) string {
+	return fmt.Sprintf("%s||%s", util.Base64.Encode([]byte(query)), uuid)
+}
+
+func (i Integrations) extractCallbackState(callbackID string) (query, uuid string) {
+	if len(callbackID) == 0 {
+		return
+	}
+	parts := strings.SplitN(callbackID, "||", 2)
+	if len(parts) < 2 {
+		return
+	}
+
+	decoded, _ := util.Base64.Decode(parts[0])
+	query = string(decoded)
+	uuid = parts[1]
+	return
 }
 
 // --------------------------------------------------------------------------------
