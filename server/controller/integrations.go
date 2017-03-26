@@ -78,6 +78,7 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	var payload slackActionPayload
 	err := rc.PostBodyAsJSON(&payload)
 	if err != nil {
+		rc.Logger().ErrorWithReq(err, rc.Request)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 
