@@ -34,7 +34,7 @@ type Integrations struct{}
 // Register registers the controller's actions with the app.
 func (i Integrations) Register(app *web.App) {
 	app.POST("/integrations/slack", i.slack)
-	app.POST("/integrations/slack.action", i.slack)
+	app.POST("/integrations/slack.action", i.slackAction)
 	app.POST("/integrations/slack.event", i.slackEvent)
 }
 
