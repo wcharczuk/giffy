@@ -23,6 +23,7 @@ const (
 
 	slackActionShuffle = "shuffle"
 	slackActionPost    = "post"
+	slackActionCancel  = "cancel"
 )
 
 var (
@@ -98,6 +99,8 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 		return i.slackShuffle(payload, rc)
 	case slackActionPost:
 		return i.slackPost(payload, rc)
+	case slackActionCancel:
+		return i.renderResult(slackMessage{ReplaceOriginal: true}, rc)
 	}
 	return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidAction))
 }
@@ -282,6 +285,12 @@ func (i Integrations) buttonActions(query, imageUUID string) slackActionAttachme
 				Text:  "Post",
 				Type:  "button",
 				Value: slackActionPost,
+			},
+			{
+				Name:  "action",
+				Text:  "Cancel",
+				Type:  "button",
+				Value: slackActionCancel,
 			},
 		},
 	}
