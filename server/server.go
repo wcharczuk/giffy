@@ -41,7 +41,7 @@ var (
 // Migrate migrates the db
 func Migrate() error {
 	return migration.Run(func(suite migration.Migration) error {
-		suite.SetLogger(migration.NewLogger())
+		suite.SetLogger(migration.NewLoggerFromAgent(logger.NewFromEnvironment()))
 		return suite.Apply(spiffy.DB())
 	})
 }
@@ -78,17 +78,19 @@ func New() *web.App {
 		}),
 	)
 
-	app.Logger().EnableEvent(spiffy.EventFlagQuery)
-	app.Logger().AddEventListener(
-		spiffy.EventFlagQuery,
-		spiffy.NewPrintStatementListener(),
-	)
+	if app.Logger().IsEnabled(logger.EventDebug) {
+		app.Logger().EnableEvent(spiffy.EventFlagQuery)
+		app.Logger().AddEventListener(
+			spiffy.EventFlagQuery,
+			spiffy.NewPrintStatementListener(),
+		)
 
-	app.Logger().EnableEvent(spiffy.EventFlagExecute)
-	app.Logger().AddEventListener(
-		spiffy.EventFlagExecute,
-		spiffy.NewPrintStatementListener(),
-	)
+		app.Logger().EnableEvent(spiffy.EventFlagExecute)
+		app.Logger().AddEventListener(
+			spiffy.EventFlagExecute,
+			spiffy.NewPrintStatementListener(),
+		)
+	}
 
 	app.Logger().EnableEvent(core.EventFlagSearch)
 	app.Logger().AddEventListener(core.EventFlagSearch, func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
