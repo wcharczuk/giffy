@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	slackErrorNoResults = fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/#/add_image", core.ConfigURL())
+	slackErrorNoResults = fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/add_image", core.ConfigURL())
 )
 
 // Integrations controller is responsible for integration responses.
