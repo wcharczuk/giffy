@@ -3,7 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"html"
+	"net/url"
 	"strings"
 
 	"github.com/blendlabs/go-util"
@@ -82,7 +82,12 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 		rc.Logger().ErrorWithReq(err, rc.Request)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
-	bodyUnescaped := html.UnescapeString(strings.TrimPrefix(body, "payload="))
+	bodyUnescaped, err := url.QueryUnescape(strings.TrimPrefix(body, "payload="))
+	if err != nil {
+		rc.Logger().ErrorWithReq(err, rc.Request)
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
+	}
+	rc.Logger().Infof("incoming body: %s", bodyUnescaped)
 	err = util.JSON.Deserialize(&payload, bodyUnescaped)
 	if err != nil {
 		rc.Logger().ErrorWithReq(err, rc.Request)
