@@ -31,7 +31,7 @@ type SlackProfile struct {
 
 // SlackAuthURL is the url to start the OAuth 2.0 process with slack.
 func SlackAuthURL() string {
-	return fmt.Sprintf("https://slack.com/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s", core.ConfigSlackClientID(), "identify,commands,chat:write:user,chat:write:bot", SlackAuthReturnURL())
+	return fmt.Sprintf("https://slack.com/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s", core.ConfigSlackClientID(), "identity.basic,commands,chat:write:user,chat:write:bot", SlackAuthReturnURL())
 }
 
 //SlackAuthReturnURL formats an oauth return uri.
