@@ -29,7 +29,7 @@ func SecureCookies(app *web.App) {
 			log.Fatal(err)
 		}
 		if util.String.CaseInsensitiveEquals(base.Scheme, "https") {
-			app.Auth().SetCookieAsSecure(true)
+			app.Auth().SetCookieAsHTTPSOnly(true)
 			app.Logger().Infof("using secure cookies")
 		}
 	}

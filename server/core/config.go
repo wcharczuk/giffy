@@ -13,11 +13,11 @@ import (
 
 // DBInit reads the config from the environment and sets up spiffy.
 func DBInit() error {
-	err := spiffy.InitDefault(spiffy.NewConnectionFromEnvironment())
+	err := spiffy.OpenDefault(spiffy.NewConnectionFromEnvironment())
 	if err != nil {
 		return err
 	}
-	spiffy.DB().Connection.SetMaxIdleConns(50)
+	spiffy.Default().Connection.SetMaxIdleConns(50)
 	return nil
 }
 

@@ -63,7 +63,7 @@ func (l *Logger) Errorf(m Migration, err error) error {
 
 // WriteStats writes final stats to output
 func (l *Logger) WriteStats() {
-	l.Output.Eventf(
+	l.Output.WriteEventf(
 		EventFlagMigration,
 		logger.ColorWhite,
 		"%s applied %s skipped %s failed",
@@ -96,7 +96,7 @@ func (l *Logger) write(m Migration, color logger.AnsiColorCode, body string) {
 		resultColor = logger.ColorRed
 	}
 
-	l.Output.Eventf(
+	l.Output.WriteEventf(
 		EventFlagMigration,
 		logger.ColorWhite,
 		"%s %s %s %s %s %s",

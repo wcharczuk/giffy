@@ -5,7 +5,6 @@ import (
 
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
 
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/model"
@@ -132,7 +131,7 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 
 	//create the user if it doesn't exist ...
 	if existingUser.IsZero() {
-		err = spiffy.DB().Create(prototypeUser)
+		err = model.DB().Create(prototypeUser)
 		if err != nil {
 			return r.View().InternalError(err)
 		}
@@ -155,7 +154,7 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 
 	newCredentials.Provider = provider
 
-	err = spiffy.DB().Create(newCredentials)
+	err = model.DB().Create(newCredentials)
 
 	if err != nil {
 		return r.View().InternalError(err)

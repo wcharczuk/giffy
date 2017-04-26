@@ -12,7 +12,6 @@ import (
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
 
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/external"
@@ -54,7 +53,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 			WithURL(refURL.String()).
 			WithHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36").
 			WithHeader("Cache-Control", "no-cache").
-			FetchRawResponse()
+			Response()
 
 		if err != nil {
 			return r.View().InternalError(err)
@@ -128,7 +127,7 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 	newImage.S3Key = remoteEntry.Key
 	newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
 
-	err = spiffy.DB().CreateInTx(newImage, tx)
+	err = model.DB().CreateInTx(newImage, tx)
 	if err != nil {
 		return nil, err
 	}

@@ -64,7 +64,7 @@ func FacebookOAuth(code string) (*FacebookOAuthResponse, error) {
 		WithPostData("client_secret", core.ConfigFacebookClientSecret()).
 		WithPostData("redirect_uri", FacebookAuthReturnURL()).
 		WithPostData("code", code).
-		FetchJSONToObject(&res)
+		JSON(&res)
 
 	return &res, err
 }
@@ -81,7 +81,7 @@ func FetchFacebookProfile(accessToken string) (*FacebookProfile, error) {
 		WithPath("/v2.5/me").
 		WithQueryString("access_token", accessToken).
 		WithQueryString("fields", fields).
-		FetchJSONToObject(&res)
+		JSON(&res)
 
 	return &res, err
 }

@@ -53,7 +53,7 @@ func GoogleOAuth(code string) (*GoogleOAuthResponse, error) {
 		WithPostData("grant_type", "authorization_code").
 		WithPostData("redirect_uri", GoogleAuthReturnURL()).
 		WithPostData("code", code).
-		FetchJSONToObject(&oar)
+		JSON(&oar)
 	return &oar, err
 }
 
@@ -78,6 +78,6 @@ func FetchGoogleProfile(accessToken string) (*GoogleProfile, error) {
 		WithURL("https://www.googleapis.com/oauth2/v1/userinfo").
 		WithQueryString("alt", "json").
 		WithQueryString("access_token", accessToken).
-		FetchJSONToObject(&profile)
+		JSON(&profile)
 	return &profile, err
 }

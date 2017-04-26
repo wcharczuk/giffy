@@ -42,8 +42,7 @@ func TestChartsSeaches(t *testing.T) {
 
 	app := web.New()
 	app.Register(Chart{})
-	app.IsolateTo(tx)
-	contents, meta, err := app.Mock().WithPathf("/chart/searches").BytesWithMeta()
+	contents, meta, err := app.Mock().WithTx(tx).WithPathf("/chart/searches").BytesWithMeta()
 	assert.Nil(err)
 	assert.NotZero(meta.ContentLength)
 	assert.Equal(http.StatusOK, meta.StatusCode)

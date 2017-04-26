@@ -6,6 +6,6 @@ import (
 )
 
 // NewRequest creates a new external request.
-func NewRequest() *request.HTTPRequest {
-	return request.NewHTTPRequest().WithLogger(logger.Default())
+func NewRequest() *request.Request {
+	return request.New().WithLogger(logger.Default())
 }

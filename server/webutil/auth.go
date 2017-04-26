@@ -6,7 +6,6 @@ import (
 	"net/url"
 
 	web "github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -56,7 +55,7 @@ func LoginRedirect(from *url.URL) *url.URL {
 // an auth redirect (if one is provided) or a 403 (not authorized) result.
 func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 	var session model.UserSession
-	err := spiffy.DB().GetByIDInTx(&session, tx, sessionID)
+	err := model.DB().GetByIDInTx(&session, tx, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +66,7 @@ func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 
 	// check if the user exists in the database
 	var dbUser model.User
-	err = spiffy.DB().GetByIDInTx(&dbUser, tx, session.UserID)
+	err = model.DB().GetByIDInTx(&dbUser, tx, session.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +94,7 @@ func PersistSession(context *web.Ctx, session *web.Session, tx *sql.Tx) error {
 		UserID:       session.UserID,
 	}
 
-	return spiffy.DB().CreateIfNotExistsInTx(dbSession, tx)
+	return model.DB().CreateIfNotExistsInTx(dbSession, tx)
 }
 
 // RemoveSession removes a session from the db.
@@ -103,9 +102,9 @@ func PersistSession(context *web.Ctx, session *web.Session, tx *sql.Tx) error {
 // returned by `FetchSession`
 func RemoveSession(sessionID string, tx *sql.Tx) error {
 	var session model.UserSession
-	err := spiffy.DB().GetByIDInTx(&session, tx, sessionID)
+	err := model.DB().GetByIDInTx(&session, tx, sessionID)
 	if err != nil {
 		return err
 	}
-	return spiffy.DB().DeleteInTx(session, tx)
+	return model.DB().DeleteInTx(session, tx)
 }

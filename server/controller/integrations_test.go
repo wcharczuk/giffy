@@ -6,14 +6,13 @@ import (
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestSlack(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DB().Begin()
+	tx, txErr := model.DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
@@ -30,10 +29,9 @@ func TestSlack(t *testing.T) {
 
 	var res slackMessage
 
-	app.IsolateTo(tx)
 	app.SetLogger(logger.New(logger.NewEventFlagSetNone()))
 	app.Register(Integrations{})
-	err = app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
+	err = app.Mock().WithTx(tx).WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", core.UUIDv4().ToShortString()).
 		WithQueryString("channel_id", core.UUIDv4().ToShortString()).
 		WithQueryString("user_id", core.UUIDv4().ToShortString()).

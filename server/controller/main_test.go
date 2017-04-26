@@ -8,7 +8,6 @@ import (
 
 	"github.com/blendlabs/go-assert"
 	web "github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/webutil"
@@ -59,7 +58,7 @@ func CreateTestAdminUser(tx *sql.Tx) (*model.User, error) {
 	u.LastName = "User"
 	u.IsAdmin = true
 	u.IsModerator = true
-	err := spiffy.DB().CreateInTx(u, tx)
+	err := model.DB().CreateInTx(u, tx)
 	return u, err
 }
 
@@ -69,7 +68,7 @@ func CreateTestModeratorUser(tx *sql.Tx) (*model.User, error) {
 	u.LastName = "User"
 	u.IsAdmin = false
 	u.IsModerator = true
-	err := spiffy.DB().CreateInTx(u, tx)
+	err := model.DB().CreateInTx(u, tx)
 	return u, err
 }
 
@@ -80,7 +79,7 @@ func CreateTestBannedUser(tx *sql.Tx) (*model.User, error) {
 	u.IsAdmin = false
 	u.IsModerator = false
 	u.IsBanned = true
-	err := spiffy.DB().CreateInTx(u, tx)
+	err := model.DB().CreateInTx(u, tx)
 	return u, err
 }
 

@@ -42,7 +42,7 @@ var (
 func Migrate() error {
 	return migration.Run(func(suite migration.Migration) error {
 		suite.SetLogger(migration.NewLoggerFromAgent(logger.NewFromEnvironment()))
-		return suite.Apply(spiffy.DB())
+		return suite.Apply(model.DB())
 	})
 }
 
@@ -73,7 +73,7 @@ func New() *web.App {
 
 	app.Logger().AddEventListener(
 		request.Event,
-		request.NewOutgoingListener(func(wr logger.Logger, ts logger.TimeSource, req *request.HTTPRequestMeta) {
+		request.NewOutgoingListener(func(wr logger.Logger, ts logger.TimeSource, req *request.Meta) {
 			request.WriteOutgoingRequest(wr, ts, req)
 		}),
 	)
@@ -136,7 +136,7 @@ func New() *web.App {
 			return err
 		}
 
-		spiffy.DB().SetLogger(a.Logger())
+		model.DB().SetLogger(a.Logger())
 
 		err = Migrate()
 		if err != nil {

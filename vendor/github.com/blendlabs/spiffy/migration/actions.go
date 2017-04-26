@@ -34,6 +34,8 @@ type guard1 func(c *spiffy.Connection, tx *sql.Tx, arg string) (bool, error)
 // guard2 is for guards that require (2) args such as `create column` and `create index`
 type guard2 func(c *spiffy.Connection, tx *sql.Tx, arg1, arg2 string) (bool, error)
 
+// actionImpl is an unguarded action, it doesn't care if something exists or doesn't
+// it is a requirement of the operation to guard itself.
 func actionImpl(o *Operation, verb, noun string, c *spiffy.Connection, tx *sql.Tx) error {
 	err := o.body.Invoke(c, tx)
 
@@ -64,7 +66,9 @@ func actionImpl1(o *Operation, verb, noun string, guard guard1, guardArgName str
 			return o.logger.Errorf(o, err)
 		}
 		return nil
-	} else if (verb == verbCreate && !exists) || (verb == verbAlter && exists) {
+	} else if (verb == verbCreate && !exists) ||
+		(verb == verbAlter && exists) ||
+		(verb == verbRun && exists) {
 		err = o.body.Invoke(c, tx)
 		if err != nil {
 			if o.logger != nil {
@@ -73,12 +77,12 @@ func actionImpl1(o *Operation, verb, noun string, guard guard1, guardArgName str
 			return nil
 		}
 		if o.logger != nil {
-			return o.logger.Applyf(o, "`%s`", subject)
+			return o.logger.Applyf(o, "%s `%s`", verb, subject)
 		}
 		return nil
 	}
 	if o.logger != nil {
-		return o.logger.Skipf(o, "`%s`", subject)
+		return o.logger.Skipf(o, "%s `%s`", verb, subject)
 	}
 	return nil
 }
@@ -100,7 +104,7 @@ func actionImpl2(o *Operation, verb, noun string, guard guard2, guardArgNames []
 			return o.logger.Errorf(o, err)
 		}
 		return err
-	} else if (verb == verbCreate && !exists) || (verb == verbAlter && exists) {
+	} else if (verb == verbCreate && !exists) || (verb == verbAlter && exists) || (verb == verbRun && exists) {
 		err = o.body.Invoke(c, tx)
 		if err != nil {
 			if o.logger != nil {
@@ -109,12 +113,12 @@ func actionImpl2(o *Operation, verb, noun string, guard guard2, guardArgNames []
 			return err
 		}
 		if o.logger != nil {
-			return o.logger.Applyf(o, "`%s` on `%s`", subject2, subject1)
+			return o.logger.Applyf(o, "%s `%s` on `%s`", verb, subject2, subject1)
 		}
 		return nil
 	}
 	if o.logger != nil {
-		return o.logger.Skipf(o, "`%s` on `%s`", subject2, subject1)
+		return o.logger.Skipf(o, "%s `%s` on `%s`", verb, subject2, subject1)
 	}
 	return nil
 }

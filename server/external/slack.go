@@ -46,7 +46,7 @@ func FetchSlackProfile(accessToken string) (*SlackProfile, error) {
 		AsPost().
 		WithURL("https://slack.com/api/auth.test").
 		WithPostData("token", accessToken).
-		FetchJSONToObject(&auth)
+		JSON(&auth)
 	return &auth, err
 }
 
@@ -61,7 +61,7 @@ func SlackOAuth(code string) (*SlackOAuthResponse, error) {
 		WithPostData("client_secret", core.ConfigSlackClientSecret()).
 		WithPostData("redirect_uri", SlackAuthReturnURL()).
 		WithPostData("code", code).
-		FetchJSONToObject(&oar)
+		JSON(&oar)
 
 	return &oar, err
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -24,7 +23,7 @@ func (ot CleanTagValues) Schedule() chronometer.Schedule {
 
 // Execute runs the job
 func (ot CleanTagValues) Execute(ct *chronometer.CancellationToken) error {
-	tx, err := spiffy.DB().Begin()
+	tx, err := model.DB().Begin()
 	if err != nil {
 		return err
 	}

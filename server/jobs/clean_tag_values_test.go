@@ -5,13 +5,12 @@ import (
 
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-chronometer"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestCleanTagValues(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := spiffy.DB().Begin()
+	tx, txErr := model.DB().Begin()
 	assert.Nil(txErr)
 	defer tx.Rollback()
 

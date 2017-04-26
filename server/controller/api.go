@@ -8,7 +8,6 @@ import (
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
 
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/filecache"
@@ -227,7 +226,7 @@ func (api API) updateUserAction(r *web.Ctx) web.Result {
 
 	r.Logger().OnEvent(core.EventFlagModeration, moderationEntry)
 
-	err = spiffy.DB().Update(&postedUser)
+	err = model.DB().Update(&postedUser)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -355,7 +354,7 @@ func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
 		return r.API().NotFound()
 	}
 
-	tx, err := spiffy.DB().Begin()
+	tx, err := model.DB().Begin()
 
 	vote, err := model.GetVote(userID, image.ID, tag.ID, tx)
 	if err != nil {
@@ -548,7 +547,7 @@ func (api API) updateImageAction(r *web.Ctx) web.Result {
 
 	if didUpdate {
 		r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
-		err = spiffy.DB().Update(image)
+		err = model.DB().Update(image)
 		if err != nil {
 			return r.API().InternalError(err)
 		}
@@ -690,7 +689,7 @@ func (api API) createTagsAction(r *web.Ctx) web.Result {
 		}
 
 		tag := model.NewTag(session.UserID, tagValue)
-		err = spiffy.DB().Create(tag)
+		err = model.DB().Create(tag)
 		if err != nil {
 			return r.API().InternalError(err)
 		}
@@ -908,7 +907,7 @@ func (api API) getTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
+	err = model.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -933,7 +932,7 @@ func (api API) createTeamAction(r *web.Ctx) web.Result {
 		return r.API().BadRequest(err.Error())
 	}
 
-	err = spiffy.DB().CreateInTx(&team, r.Tx())
+	err = model.DB().CreateInTx(&team, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -954,7 +953,7 @@ func (api API) updateTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
+	err = model.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -971,7 +970,7 @@ func (api API) updateTeamAction(r *web.Ctx) web.Result {
 
 	updatedTeam.TeamID = teamID
 
-	err = spiffy.DB().UpdateInTx(&updatedTeam, r.Tx())
+	err = model.DB().UpdateInTx(&updatedTeam, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -992,7 +991,7 @@ func (api API) patchTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
+	err = model.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1012,7 +1011,7 @@ func (api API) patchTeamAction(r *web.Ctx) web.Result {
 		return r.API().BadRequest(err.Error())
 	}
 
-	err = spiffy.DB().UpdateInTx(&team, r.Tx())
+	err = model.DB().UpdateInTx(&team, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1033,7 +1032,7 @@ func (api API) deleteTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = spiffy.DB().GetByIDInTx(&team, r.Tx(), teamID)
+	err = model.DB().GetByIDInTx(&team, r.Tx(), teamID)
 	if err != nil {
 		return r.API().InternalError(err)
 	}
@@ -1042,7 +1041,7 @@ func (api API) deleteTeamAction(r *web.Ctx) web.Result {
 		return r.API().NotFound()
 	}
 
-	err = spiffy.DB().DeleteInTx(&team, r.Tx())
+	err = model.DB().DeleteInTx(&team, r.Tx())
 	if err != nil {
 		return r.API().InternalError(err)
 	}

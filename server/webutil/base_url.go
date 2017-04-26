@@ -1,9 +1,6 @@
 package webutil
 
 import (
-	"log"
-	"net/url"
-
 	"github.com/blendlabs/go-util/env"
 	web "github.com/blendlabs/go-web"
 )
@@ -17,11 +14,7 @@ const (
 func BaseURL(app *web.App) {
 	baseURL := env.Env().String(EnvVarBaseURL)
 	if len(baseURL) > 0 {
-		base, err := url.Parse(baseURL)
-		if err != nil {
-			log.Fatal(err)
-		}
-		app.SetDomain(base.Host)
-		app.Logger().Infof("using domain root: %s", base.Host)
+		app.SetBaseURL(baseURL)
+		app.Logger().Infof("using domain root: %s", baseURL)
 	}
 }
