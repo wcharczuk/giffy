@@ -30,3 +30,24 @@ func UnixNano(t time.Time) (int64, int64) {
 	nano := t.UnixNano() - unixSecondsAsNanoseconds
 	return unix, nano
 }
+
+// SumOfDuration adds all the values of a slice together
+func SumOfDuration(values []time.Duration) time.Duration {
+	total := time.Duration(0)
+	for x := 0; x < len(values); x++ {
+		total += values[x]
+	}
+
+	return total
+}
+
+// MeanOfDuration gets the average of a slice of numbers
+func MeanOfDuration(input []time.Duration) time.Duration {
+	if len(input) == 0 {
+		return 0
+	}
+
+	sum := SumOfDuration(input)
+	mean := uint64(sum) / uint64(len(input))
+	return time.Duration(mean)
+}

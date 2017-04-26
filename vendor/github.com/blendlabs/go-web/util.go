@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/blendlabs/go-exception"
-	"github.com/julienschmidt/httprouter"
 )
 
 // NestMiddleware reads the middleware variadic args and organizes the calls recursively in the order they appear.
@@ -88,17 +87,4 @@ func LocalIP() string {
 		}
 	}
 	return ""
-}
-
-func newHandleShim(app *App, handler Action) http.Handler {
-	return &handleShim{action: handler, app: app}
-}
-
-type handleShim struct {
-	action Action
-	app    *App
-}
-
-func (hs handleShim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hs.app.renderAction(hs.action)(w, r, httprouter.Params{})
 }

@@ -54,8 +54,9 @@ func processWork(work chan *Entry, parent *Queue, abort chan bool) {
 func (w *Worker) Close() error {
 	w.Abort <- true
 	close(w.Abort)
-	w.Abort = nil
 	close(w.Work)
+
+	w.Abort = nil
 	w.Work = nil
 	w.Parent = nil
 	return nil

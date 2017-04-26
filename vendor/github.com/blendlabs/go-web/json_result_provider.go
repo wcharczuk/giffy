@@ -1,21 +1,15 @@
 package web
 
-import (
-	"net/http"
-
-	"github.com/blendlabs/go-exception"
-	logger "github.com/blendlabs/go-logger"
-)
+import "net/http"
 
 // NewJSONResultProvider Creates a new JSONResults object.
-func NewJSONResultProvider(diag *logger.Agent, r *Ctx) *JSONResultProvider {
-	return &JSONResultProvider{diagnostics: diag, ctx: r}
+func NewJSONResultProvider(ctx *Ctx) *JSONResultProvider {
+	return &JSONResultProvider{ctx: ctx}
 }
 
 // JSONResultProvider are context results for api methods.
 type JSONResultProvider struct {
-	diagnostics *logger.Agent
-	ctx         *Ctx
+	ctx *Ctx
 }
 
 // NotFound returns a service response.
@@ -36,19 +30,8 @@ func (jrp *JSONResultProvider) NotAuthorized() Result {
 
 // InternalError returns a service response.
 func (jrp *JSONResultProvider) InternalError(err error) Result {
-	if jrp.diagnostics != nil {
-		if jrp.ctx != nil {
-			jrp.diagnostics.FatalWithReq(err, jrp.ctx.Request)
-		} else {
-			jrp.diagnostics.FatalWithReq(err, nil)
-		}
-	}
-
-	if exPtr, isException := err.(*exception.Exception); isException {
-		return &JSONResult{
-			StatusCode: http.StatusInternalServerError,
-			Response:   exPtr,
-		}
+	if jrp.ctx != nil {
+		jrp.ctx.logFatal(err)
 	}
 
 	return &JSONResult{

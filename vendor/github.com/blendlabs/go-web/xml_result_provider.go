@@ -1,21 +1,15 @@
 package web
 
-import (
-	"net/http"
-
-	"github.com/blendlabs/go-exception"
-	logger "github.com/blendlabs/go-logger"
-)
+import "net/http"
 
 // NewXMLResultProvider Creates a new JSONResults object.
-func NewXMLResultProvider(diag *logger.Agent, ctx *Ctx) *XMLResultProvider {
-	return &XMLResultProvider{diagnostics: diag, ctx: ctx}
+func NewXMLResultProvider(ctx *Ctx) *XMLResultProvider {
+	return &XMLResultProvider{ctx: ctx}
 }
 
 // XMLResultProvider are context results for api methods.
 type XMLResultProvider struct {
-	diagnostics *logger.Agent
-	ctx         *Ctx
+	ctx *Ctx
 }
 
 // NotFound returns a service response.
@@ -36,19 +30,8 @@ func (xrp *XMLResultProvider) NotAuthorized() Result {
 
 // InternalError returns a service response.
 func (xrp *XMLResultProvider) InternalError(err error) Result {
-	if xrp.diagnostics != nil {
-		if xrp.ctx != nil {
-			xrp.diagnostics.FatalWithReq(err, xrp.ctx.Request)
-		} else {
-			xrp.diagnostics.FatalWithReq(err, nil)
-		}
-	}
-
-	if exPtr, isException := err.(*exception.Exception); isException {
-		return &XMLResult{
-			StatusCode: http.StatusInternalServerError,
-			Response:   exPtr,
-		}
+	if xrp.ctx != nil {
+		xrp.ctx.logFatal(err)
 	}
 
 	return &XMLResult{

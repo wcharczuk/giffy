@@ -11,7 +11,7 @@ Here is an exmple of fetching an object:
 
 ```go
 myObject := MyObject{}
-reqErr := request.NewRequest().AsGet().WithUrl("http://myservice.com/api/foo").FetchJsonToObject(&myObject)
+reqErr := request.NewRequest().AsGet().WithUrl("http://myservice.com/api/foo").JSON(&myObject)
 ```
 
 Here is an example of fetching a raw response:

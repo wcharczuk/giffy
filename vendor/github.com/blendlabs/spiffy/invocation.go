@@ -15,119 +15,68 @@ const (
 	connectionErrorMessage = "invocation context; db connection is nil"
 )
 
-// NewCtx returns a new ctx.
-func NewCtx() *Ctx {
-	return &Ctx{}
-}
-
-// Ctx represents a connection context.
-type Ctx struct {
-	conn           *Connection
-	tx             *sql.Tx
+// Invocation is a specific operation against a context.
+type Invocation struct {
+	db             *DB
 	fireEvents     bool
 	statementLabel string
 	err            error
 }
 
-// WithConn sets the connection for the context.
-func (c *Ctx) WithConn(conn *Connection) *Ctx {
-	c.conn = conn
-	return c
-}
-
-// Conn returns the underlying connection for the context.
-func (c *Ctx) Conn() *Connection {
-	return c.conn
-}
-
-// InTx isolates a context to a transaction.
-// The order precedence of the three main transaction sources are as follows:
-// - InTx(...) transaction arguments will be used above everything else
-// - an existing transaction on the context (i.e. if you call `.InTx().InTx()`)
-// - beginning a new transaction with the connection
-func (c *Ctx) InTx(txs ...*sql.Tx) *Ctx {
-	if len(txs) > 0 {
-		c.tx = txs[0]
-		return c
-	}
-	if c.tx != nil {
-		return c
-	}
-	if c.conn == nil {
-		c.err = exception.Newf(connectionErrorMessage)
-		return c
-	}
-	c.tx, c.err = c.conn.Begin()
-	return c
-}
-
-// Tx returns the transction for the context.
-func (c *Ctx) Tx() *sql.Tx {
-	return c.tx
-}
-
 // Err returns the context's error.
-func (c *Ctx) Err() error {
-	return c.err
+func (i *Invocation) Err() error {
+	return i.err
 }
 
 // WithLabel instructs the query generator to get or create a cached prepared statement.
-func (c *Ctx) WithLabel(label string) *Ctx {
-	c.statementLabel = label
-	return c
+func (i *Invocation) WithLabel(label string) *Invocation {
+	i.statementLabel = label
+	return i
 }
 
 // Label returns the statement / plan cache label for the context.
-func (c *Ctx) Label() string {
-	return c.statementLabel
+func (i *Invocation) Label() string {
+	return i.statementLabel
 }
 
-// Commit calls `Commit()` on the underlying transaction.
-func (c *Ctx) Commit() error {
-	if c.tx == nil {
-		return nil
-	}
-	return c.tx.Commit()
-}
-
-// Rollback calls `Rollback()` on the underlying transaction.
-func (c *Ctx) Rollback() error {
-	if c.tx == nil {
-		return nil
-	}
-	return c.tx.Rollback()
+// Tx returns the underlying transaction.
+func (i *Invocation) Tx() *sql.Tx {
+	return i.db.tx
 }
 
 // Prepare returns a cached or newly prepared statment plan for a given sql statement.
-func (c *Ctx) Prepare(statement string) (*sql.Stmt, error) {
-	if len(c.statementLabel) > 0 {
-		return c.conn.PrepareCached(c.statementLabel, statement, c.tx)
+func (i *Invocation) Prepare(statement string) (*sql.Stmt, error) {
+	if i.err != nil {
+		return nil, i.err
 	}
-	return c.conn.Prepare(statement, c.tx)
+	if len(i.statementLabel) > 0 {
+		return i.db.conn.PrepareCached(i.statementLabel, statement, i.db.tx)
+	}
+	return i.db.conn.Prepare(statement, i.db.tx)
 }
 
 // Exec executes a sql statement with a given set of arguments.
-func (c *Ctx) Exec(statement string, args ...interface{}) (err error) {
-	err = c.check()
+func (i *Invocation) Exec(statement string, args ...interface{}) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagExecute, statement, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagExecute, statement, start) }()
 
-	stmt, stmtErr := c.Prepare(statement)
+	stmt, stmtErr := i.Prepare(statement)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
 
-	defer c.closeStatement(err, stmt)
+	defer i.closeStatement(err, stmt)
 
 	if _, execErr := stmt.Exec(args...); execErr != nil {
 		err = exception.Wrap(execErr)
 		if err != nil {
-			c.invalidateCachedStatement()
+			i.invalidateCachedStatement()
 		}
 		return
 	}
@@ -136,20 +85,20 @@ func (c *Ctx) Exec(statement string, args ...interface{}) (err error) {
 }
 
 // Query returns a new query object for a given sql query and arguments.
-func (c *Ctx) Query(query string, args ...interface{}) *Query {
-	return &Query{statement: query, args: args, start: time.Now(), ctx: c, err: c.check()}
+func (i *Invocation) Query(query string, args ...interface{}) *Query {
+	return &Query{statement: query, args: args, start: time.Now(), db: i.db, err: i.check(), statementLabel: i.statementLabel}
 }
 
 // Get returns a given object based on a group of primary key ids within a transaction.
-func (c *Ctx) Get(object DatabaseMapped, ids ...interface{}) (err error) {
-	err = c.check()
+func (i *Invocation) Get(object DatabaseMapped, ids ...interface{}) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagQuery, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagQuery, queryBody, start) }()
 
 	if ids == nil {
 		return exception.New("invalid `ids` parameter.")
@@ -159,8 +108,8 @@ func (c *Ctx) Get(object DatabaseMapped, ids ...interface{}) (err error) {
 	standardCols := meta.NotReadOnly()
 	tableName := object.TableName()
 
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_get", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_get", tableName)
 	}
 
 	columnNames := standardCols.ColumnNames()
@@ -170,8 +119,8 @@ func (c *Ctx) Get(object DatabaseMapped, ids ...interface{}) (err error) {
 		return
 	}
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("SELECT ")
 	for i, name := range columnNames {
@@ -196,17 +145,17 @@ func (c *Ctx) Get(object DatabaseMapped, ids ...interface{}) (err error) {
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
-	defer c.closeStatement(err, stmt)
+	defer i.closeStatement(err, stmt)
 
 	rows, queryErr := stmt.Query(ids...)
 	if queryErr != nil {
 		err = exception.Wrap(queryErr)
-		c.invalidateCachedStatement()
+		i.invalidateCachedStatement()
 		return
 	}
 	defer func() {
@@ -235,30 +184,30 @@ func (c *Ctx) Get(object DatabaseMapped, ids ...interface{}) (err error) {
 }
 
 // GetAll returns all rows of an object mapped table wrapped in a transaction.
-func (c *Ctx) GetAll(collection interface{}) (err error) {
-	err = c.check()
+func (i *Invocation) GetAll(collection interface{}) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagQuery, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagQuery, queryBody, start) }()
 
 	collectionValue := reflectValue(collection)
 	t := reflectSliceType(collection)
 	tableName, _ := TableName(t)
 
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_get_all", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_get_all", tableName)
 	}
 
 	meta := getCachedColumnCollectionFromType(tableName, t).NotReadOnly()
 
 	columnNames := meta.ColumnNames()
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("SELECT ")
 	for i, name := range columnNames {
@@ -271,13 +220,13 @@ func (c *Ctx) GetAll(collection interface{}) (err error) {
 	queryBodyBuffer.WriteString(tableName)
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
-		c.invalidateCachedStatement()
+		i.invalidateCachedStatement()
 		return
 	}
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	rows, queryErr := stmt.Query()
 	if queryErr != nil {
@@ -319,15 +268,15 @@ func (c *Ctx) GetAll(collection interface{}) (err error) {
 }
 
 // Create writes an object to the database within a transaction.
-func (c *Ctx) Create(object DatabaseMapped) (err error) {
-	err = c.check()
+func (i *Invocation) Create(object DatabaseMapped) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -336,15 +285,15 @@ func (c *Ctx) Create(object DatabaseMapped) (err error) {
 	serials := cols.Serials()
 	tableName := object.TableName()
 
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_create", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_create", tableName)
 	}
 
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("INSERT INTO ")
 	queryBodyBuffer.WriteString(tableName)
@@ -371,18 +320,18 @@ func (c *Ctx) Create(object DatabaseMapped) (err error) {
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	if serials.Len() == 0 {
 		_, execErr := stmt.Exec(colValues...)
 		if execErr != nil {
 			err = exception.Wrap(execErr)
-			c.invalidateCachedStatement()
+			i.invalidateCachedStatement()
 			return
 		}
 	} else {
@@ -405,15 +354,15 @@ func (c *Ctx) Create(object DatabaseMapped) (err error) {
 }
 
 // CreateIfNotExists writes an object to the database if it does not already exist within a transaction.
-func (c *Ctx) CreateIfNotExists(object DatabaseMapped) (err error) {
-	err = c.check()
+func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -423,15 +372,15 @@ func (c *Ctx) CreateIfNotExists(object DatabaseMapped) (err error) {
 	pks := cols.PrimaryKeys()
 	tableName := object.TableName()
 
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_create_if_not_exists", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_create_if_not_exists", tableName)
 	}
 
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("INSERT INTO ")
 	queryBodyBuffer.WriteString(tableName)
@@ -470,18 +419,18 @@ func (c *Ctx) CreateIfNotExists(object DatabaseMapped) (err error) {
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	if serials.Len() == 0 {
 		_, execErr := stmt.Exec(colValues...)
 		if execErr != nil {
 			err = exception.Wrap(execErr)
-			c.invalidateCachedStatement()
+			i.invalidateCachedStatement()
 			return
 		}
 	} else {
@@ -504,15 +453,15 @@ func (c *Ctx) CreateIfNotExists(object DatabaseMapped) (err error) {
 }
 
 // CreateMany writes many an objects to the database within a transaction.
-func (c *Ctx) CreateMany(objects interface{}) (err error) {
-	err = c.check()
+func (i *Invocation) CreateMany(objects interface{}) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
 
 	sliceValue := reflectValue(objects)
 	if sliceValue.Len() == 0 {
@@ -532,8 +481,8 @@ func (c *Ctx) CreateMany(objects interface{}) (err error) {
 	//serials := cols.Serials()
 	colNames := writeCols.ColumnNames()
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("INSERT INTO ")
 	queryBodyBuffer.WriteString(tableName)
@@ -564,12 +513,12 @@ func (c *Ctx) CreateMany(objects interface{}) (err error) {
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	var colValues []interface{}
 	for row := 0; row < sliceValue.Len(); row++ {
@@ -579,7 +528,7 @@ func (c *Ctx) CreateMany(objects interface{}) (err error) {
 	_, execErr := stmt.Exec(colValues...)
 	if execErr != nil {
 		err = exception.Wrap(execErr)
-		c.invalidateCachedStatement()
+		i.invalidateCachedStatement()
 		return
 	}
 
@@ -587,19 +536,19 @@ func (c *Ctx) CreateMany(objects interface{}) (err error) {
 }
 
 // Update updates an object wrapped in a transaction.
-func (c *Ctx) Update(object DatabaseMapped) (err error) {
-	err = c.check()
+func (i *Invocation) Update(object DatabaseMapped) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
 
 	tableName := object.TableName()
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_update", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_update", tableName)
 	}
 
 	cols := getCachedColumnCollectionFromInstance(object)
@@ -609,8 +558,8 @@ func (c *Ctx) Update(object DatabaseMapped) (err error) {
 	updateValues := updateCols.ColumnValues(object)
 	numColumns := writeCols.Len()
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("UPDATE ")
 	queryBodyBuffer.WriteString(tableName)
@@ -639,18 +588,18 @@ func (c *Ctx) Update(object DatabaseMapped) (err error) {
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
 
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	_, execErr := stmt.Exec(updateValues...)
 	if execErr != nil {
 		err = exception.Wrap(execErr)
-		c.invalidateCachedStatement()
+		i.invalidateCachedStatement()
 		return
 	}
 
@@ -658,19 +607,19 @@ func (c *Ctx) Update(object DatabaseMapped) (err error) {
 }
 
 // Exists returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
-func (c *Ctx) Exists(object DatabaseMapped) (exists bool, err error) {
-	err = c.check()
+func (i *Invocation) Exists(object DatabaseMapped) (exists bool, err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagQuery, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagQuery, queryBody, start) }()
 
 	tableName := object.TableName()
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_exists", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_exists", tableName)
 	}
 	cols := getCachedColumnCollectionFromInstance(object)
 	pks := cols.PrimaryKeys()
@@ -681,8 +630,8 @@ func (c *Ctx) Exists(object DatabaseMapped) (exists bool, err error) {
 		return
 	}
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("SELECT 1 FROM ")
 	queryBodyBuffer.WriteString(tableName)
@@ -699,14 +648,14 @@ func (c *Ctx) Exists(object DatabaseMapped) (exists bool, err error) {
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		exists = false
 		err = exception.Wrap(stmtErr)
 		return
 	}
 
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	pkValues := pks.ColumnValues(object)
 	rows, queryErr := stmt.Query(pkValues...)
@@ -720,7 +669,7 @@ func (c *Ctx) Exists(object DatabaseMapped) (exists bool, err error) {
 	if queryErr != nil {
 		exists = false
 		err = exception.Wrap(queryErr)
-		c.invalidateCachedStatement()
+		i.invalidateCachedStatement()
 		return
 	}
 
@@ -729,20 +678,20 @@ func (c *Ctx) Exists(object DatabaseMapped) (exists bool, err error) {
 }
 
 // Delete deletes an object from the database wrapped in a transaction.
-func (c *Ctx) Delete(object DatabaseMapped) (err error) {
-	err = c.check()
+func (i *Invocation) Delete(object DatabaseMapped) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
 
 	tableName := object.TableName()
 
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_delete", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_delete", tableName)
 	}
 
 	cols := getCachedColumnCollectionFromInstance(object)
@@ -753,8 +702,8 @@ func (c *Ctx) Delete(object DatabaseMapped) (err error) {
 		return
 	}
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("DELETE FROM ")
 	queryBodyBuffer.WriteString(tableName)
@@ -771,33 +720,33 @@ func (c *Ctx) Delete(object DatabaseMapped) (err error) {
 	}
 
 	queryBody = queryBodyBuffer.String()
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	pkValues := pks.ColumnValues(object)
 
 	_, execErr := stmt.Exec(pkValues...)
 	if execErr != nil {
 		err = exception.Wrap(execErr)
-		c.invalidateCachedStatement()
+		i.invalidateCachedStatement()
 	}
 	return
 }
 
 // Upsert inserts the object if it doesn't exist already (as defined by its primary keys) or updates it wrapped in a transaction.
-func (c *Ctx) Upsert(object DatabaseMapped) (err error) {
-	err = c.check()
+func (i *Invocation) Upsert(object DatabaseMapped) (err error) {
+	err = i.check()
 	if err != nil {
 		return
 	}
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = c.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
+	defer func() { err = i.panicHandler(recover(), err, EventFlagExecute, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -808,15 +757,15 @@ func (c *Ctx) Upsert(object DatabaseMapped) (err error) {
 	pks := cols.PrimaryKeys()
 	tableName := object.TableName()
 
-	if len(c.statementLabel) == 0 {
-		c.statementLabel = fmt.Sprintf("%s_upsert", tableName)
+	if len(i.statementLabel) == 0 {
+		i.statementLabel = fmt.Sprintf("%s_upsert", tableName)
 	}
 
 	colNames := writeCols.ColumnNames()
 	colValues := writeCols.ColumnValues(object)
 
-	queryBodyBuffer := c.conn.bufferPool.Get()
-	defer c.conn.bufferPool.Put(queryBodyBuffer)
+	queryBodyBuffer := i.db.conn.bufferPool.Get()
+	defer i.db.conn.bufferPool.Put(queryBodyBuffer)
 
 	queryBodyBuffer.WriteString("INSERT INTO ")
 	queryBodyBuffer.WriteString(tableName)
@@ -871,19 +820,19 @@ func (c *Ctx) Upsert(object DatabaseMapped) (err error) {
 
 	queryBody = queryBodyBuffer.String()
 
-	stmt, stmtErr := c.Prepare(queryBody)
+	stmt, stmtErr := i.Prepare(queryBody)
 	if stmtErr != nil {
 		err = exception.Wrap(stmtErr)
 		return
 	}
-	defer func() { err = c.closeStatement(err, stmt) }()
+	defer func() { err = i.closeStatement(err, stmt) }()
 
 	if serials.Len() != 0 {
 		var id interface{}
 		execErr := stmt.QueryRow(colValues...).Scan(&id)
 		if execErr != nil {
 			err = exception.Wrap(execErr)
-			c.invalidateCachedStatement()
+			i.invalidateCachedStatement()
 			return
 		}
 		setErr := serial.SetValue(object, id)
@@ -906,40 +855,43 @@ func (c *Ctx) Upsert(object DatabaseMapped) (err error) {
 // helpers
 // --------------------------------------------------------------------------------
 
-func (c *Ctx) check() error {
-	if c.conn == nil {
+func (i *Invocation) check() error {
+	if i.db == nil {
 		return exception.Newf(connectionErrorMessage)
 	}
-	if c.err != nil {
-		return c.err
+	if i.db.conn == nil {
+		return exception.Newf(connectionErrorMessage)
+	}
+	if i.err != nil {
+		return i.err
 	}
 	return nil
 }
 
-func (c *Ctx) invalidateCachedStatement() {
-	if c.conn.useStatementCache && len(c.statementLabel) > 0 {
-		c.conn.statementCache.InvalidateStatement(c.statementLabel)
+func (i *Invocation) invalidateCachedStatement() {
+	if i.db.conn.useStatementCache && len(i.statementLabel) > 0 {
+		i.db.conn.statementCache.InvalidateStatement(i.statementLabel)
 	}
 }
 
-func (c *Ctx) closeStatement(err error, stmt *sql.Stmt) error {
-	if !c.conn.useStatementCache {
+func (i *Invocation) closeStatement(err error, stmt *sql.Stmt) error {
+	if !i.db.conn.useStatementCache {
 		closeErr := stmt.Close()
 		if closeErr != nil {
 			return exception.Nest(err, closeErr)
 		}
 	}
-	c.statementLabel = ""
+	i.statementLabel = ""
 	return err
 }
 
-func (c *Ctx) panicHandler(r interface{}, err error, eventFlag logger.EventFlag, statement string, start time.Time) error {
+func (i *Invocation) panicHandler(r interface{}, err error, eventFlag logger.EventFlag, statement string, start time.Time) error {
 	if r != nil {
 		recoveryException := exception.New(r)
 		return exception.Nest(err, recoveryException)
 	}
-	if c.fireEvents {
-		c.conn.fireEvent(eventFlag, statement, time.Now().Sub(start), err, c.statementLabel)
+	if i.fireEvents {
+		i.db.conn.fireEvent(eventFlag, statement, time.Now().Sub(start), err, i.statementLabel)
 	}
 	return err
 }

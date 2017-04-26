@@ -183,16 +183,16 @@
 			"revisionTime": "2017-02-22T02:17:31Z"
 		},
 		{
-			"checksumSHA1": "/BNsS+IXVjm2x3ZDAw8385qxQBk=",
+			"checksumSHA1": "8hI4jIsNZtEbf3FOEAPl62Qs8Xs=",
 			"path": "github.com/blendlabs/go-logger",
-			"revision": "c5a610d8fac1a27d3b8aec3227a2a2d1a653384a",
-			"revisionTime": "2017-03-16T00:14:57Z"
+			"revision": "07074c501cad8ef5c7f71f8a4333b588ee556cb0",
+			"revisionTime": "2017-04-12T23:05:06Z"
 		},
 		{
-			"checksumSHA1": "MUWca0IbYiZRkYXw+/UktFfbFlU=",
+			"checksumSHA1": "RlJ7+YslnO3oSxq7zb4GHsTOLbw=",
 			"path": "github.com/blendlabs/go-request",
-			"revision": "5c68f4c6b56a27a8c89cd4e71fb99e6ccf18860a",
-			"revisionTime": "2017-02-28T00:06:21Z"
+			"revision": "3b116d84b0c4ead25fef27b2081364955e672d19",
+			"revisionTime": "2017-04-25T01:19:35Z"
 		},
 		{
 			"checksumSHA1": "2YG7U8Rt9y0pn4huvoygtSl/ml8=",
@@ -219,22 +219,22 @@
 			"revisionTime": "2017-02-17T01:41:03Z"
 		},
 		{
-			"checksumSHA1": "L7iwJSVMVYz1aiSY97KQnLG+J9I=",
+			"checksumSHA1": "q4ueC7z4j181+sxYKRENMzxGWEI=",
 			"path": "github.com/blendlabs/go-web",
-			"revision": "ee1df45f73a92007cca74428ef7e9208b2847a20",
-			"revisionTime": "2017-03-24T06:46:31Z"
+			"revision": "4bd96f0c20032c25687e0f25a40389d202d89ae5",
+			"revisionTime": "2017-04-13T01:12:24Z"
 		},
 		{
-			"checksumSHA1": "P/wUPcnrmzj0F3q33zs5sL7PVFk=",
+			"checksumSHA1": "uSpftBUP9XhEkEjRcgFoGEb7NvE=",
 			"path": "github.com/blendlabs/go-workqueue",
-			"revision": "3cb9af71c2cee49e4f56a1199d74688e6e907d31",
-			"revisionTime": "2017-02-19T06:32:18Z"
+			"revision": "203544500fd0bfdaac79e7304dc8151b19701cc8",
+			"revisionTime": "2017-04-07T00:53:23Z"
 		},
 		{
-			"checksumSHA1": "yckapo5xZ8ViBDqtOVjgMzK072s=",
+			"checksumSHA1": "WGuxxQaFrkKhBhsq0dA15Of3vDA=",
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "24d95d6fa25f2996cbdc7f1a5ad594a0f8372993",
-			"revisionTime": "2017-03-24T20:30:41Z"
+			"revision": "dc21b05506f234de5270696ccb5d63f18e7004d3",
+			"revisionTime": "2017-04-12T04:46:39Z"
 		},
 		{
 			"checksumSHA1": "BmT4XUaAiKDNjuK1fVxwYYygQnQ=",

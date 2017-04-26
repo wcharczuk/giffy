@@ -17,8 +17,8 @@ func SessionAwareLockFree(action Action) Action {
 
 func sessionAware(action Action, sessionLockPolicy int) Action {
 	return func(context *Ctx) Result {
-		session, err := context.Auth().ReadAndVerifySession(context)
-		if err != nil {
+		session, err := context.Auth().VerifySession(context)
+		if err != nil && err != ErrSessionIDInvalid {
 			return context.DefaultResultProvider().InternalError(err)
 		}
 
@@ -63,43 +63,12 @@ func SessionRequiredLockFree(action Action) Action {
 
 func sessionRequired(action Action, sessionLockPolicy int) Action {
 	return func(context *Ctx) Result {
-		sessionID := context.Auth().ReadSessionID(context)
-		if len(sessionID) == 0 {
-			if context.auth.loginRedirectHandler != nil {
-				redirectTo := context.auth.loginRedirectHandler(context.Request.URL)
-				if redirectTo != nil {
-					return context.Redirect(redirectTo.String())
-				}
-			}
-			return context.DefaultResultProvider().NotAuthorized()
-		}
-
-		session, err := context.auth.VerifySession(sessionID, context)
+		session, err := context.Auth().VerifySession(context)
 		if err != nil {
 			return context.DefaultResultProvider().InternalError(err)
 		}
-
 		if session == nil {
-			if context.auth.loginRedirectHandler != nil {
-				redirectTo := context.auth.loginRedirectHandler(context.Request.URL)
-				if redirectTo != nil {
-					return context.Redirect(redirectTo.String())
-				}
-			}
-			return context.DefaultResultProvider().NotAuthorized()
-		}
-
-		if context.auth.validateHandler != nil {
-			err = context.auth.validateHandler(session, context.Tx())
-			if err != nil {
-				if context.auth.loginRedirectHandler != nil {
-					redirectTo := context.auth.loginRedirectHandler(context.Request.URL)
-					if redirectTo != nil {
-						return context.Redirect(redirectTo.String())
-					}
-				}
-				return context.DefaultResultProvider().NotAuthorized()
-			}
+			return context.Auth().Redirect(context)
 		}
 
 		switch sessionLockPolicy {

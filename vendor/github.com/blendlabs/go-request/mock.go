@@ -1,88 +1,110 @@
 package request
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
-	"sync"
+	"time"
+)
 
-	exception "github.com/blendlabs/go-exception"
+var (
+	isMocked bool
+	mocks    = map[uint32]MockedResponseGenerator{}
+	catchAll MockedResponseGenerator
 )
 
 // MockedResponse is the metadata and response body for a response
 type MockedResponse struct {
-	ResponseBody []byte
-	StatusCode   int
-	Error        error
+	Meta ResponseMeta
+	Res  []byte
+	Err  error
+}
+
+// Response returns a response object for the mock response.
+func (mr MockedResponse) Response() *http.Response {
+	buff := bytes.NewBuffer(mr.Res)
+	res := http.Response{}
+	buffLen := buff.Len()
+	res.Body = ioutil.NopCloser(buff)
+	res.ContentLength = int64(buffLen)
+	res.Header = mr.Meta.Headers
+	res.StatusCode = mr.Meta.StatusCode
+	return &res
 }
 
 // MockedResponseGenerator is a function that returns a mocked response.
-type MockedResponseGenerator func() MockedResponse
-
-var (
-	isMocked  bool
-	mocksLock sync.Mutex
-	mocks     map[string]MockedResponseGenerator
-)
+type MockedResponseGenerator func(*Request) MockedResponse
 
 // MockedResponseInjector injects the mocked response into the request response.
-func MockedResponseInjector(verb string, workingURL *url.URL) (bool, *HTTPResponseMeta, []byte, error) {
-	if isMocked {
-		mocksLock.Lock()
-		storedURL := fmt.Sprintf("%s_%s", verb, workingURL.String())
-		mockResponseHandler, ok := mocks[storedURL]
-		mocksLock.Unlock()
-		if ok {
-			mockResponse := mockResponseHandler()
-			meta := &HTTPResponseMeta{}
-			meta.StatusCode = mockResponse.StatusCode
-			meta.ContentLength = int64(len(mockResponse.ResponseBody))
-			return true, meta, mockResponse.ResponseBody, mockResponse.Error
-		}
-		panic(fmt.Sprintf("attempted to make service request w/o mocking endpoint: %s %s", verb, workingURL.String()))
-	} else {
-		return false, nil, nil, nil
+func MockedResponseInjector(req *Request) *MockedResponse {
+	if !isMocked {
+		return nil
 	}
+
+	if gen, hasGen := mocks[req.Hash()]; hasGen {
+		return ref(gen(req))
+	}
+	if catchAll != nil {
+		return ref(catchAll(req))
+	}
+	panic(fmt.Sprintf("no mock registered for %s %s", req.Verb, req.URL().String()))
+}
+
+// MockCatchAll sets a "catch all" mock generator.
+func MockCatchAll(generator MockedResponseGenerator) {
+	isMocked = true
+	catchAll = generator
 }
 
 // MockResponse mocks are response with a given generator.
-func MockResponse(verb string, url string, gen MockedResponseGenerator) {
-	mocksLock.Lock()
-	defer mocksLock.Unlock()
-
+func MockResponse(req *Request, generator MockedResponseGenerator) {
 	isMocked = true
-	if mocks == nil {
-		mocks = map[string]MockedResponseGenerator{}
-	}
-	storedURL := fmt.Sprintf("%s_%s", verb, url)
-	mocks[storedURL] = gen
+	reqHashCode := req.Hash()
+	mocks[reqHashCode] = generator
 }
 
 // MockResponseFromBinary mocks a service request response from a set of binary responses.
-func MockResponseFromBinary(verb string, url string, statusCode int, responseBody []byte) {
-	MockResponse(verb, url, func() MockedResponse {
+func MockResponseFromBinary(req *Request, statusCode int, responseBody []byte) {
+	MockResponse(req, func(_ *Request) MockedResponse {
 		return MockedResponse{
-			StatusCode:   statusCode,
-			ResponseBody: responseBody,
+			Meta: ResponseMeta{
+				StatusCode:    statusCode,
+				ContentLength: int64(len(responseBody)),
+				CompleteTime:  time.Now().UTC(),
+			},
+			Res: responseBody,
 		}
 	})
 }
 
 // MockResponseFromString mocks a service request response from a string responseBody.
 func MockResponseFromString(verb string, url string, statusCode int, responseBody string) {
-	MockResponseFromBinary(verb, url, statusCode, []byte(responseBody))
+	MockResponseFromBinary(New().WithVerb(verb).WithURL(url), statusCode, []byte(responseBody))
 }
 
 // MockResponseFromFile mocks a service request response from a set of file paths.
 func MockResponseFromFile(verb string, url string, statusCode int, responseFilePath string) {
-	MockResponse(verb, url, func() MockedResponse {
-		f, err := os.Open(responseFilePath)
+	MockResponse(New().WithVerb(verb).WithURL(url), readFile(statusCode, responseFilePath))
+}
+
+// ClearMockedResponses clears any mocked responses that have been set up for the test.
+func ClearMockedResponses() {
+	isMocked = false
+	catchAll = nil
+	mocks = map[uint32]MockedResponseGenerator{}
+}
+
+func readFile(statusCode int, filePath string) MockedResponseGenerator {
+	return func(_ *Request) MockedResponse {
+		f, err := os.Open(filePath)
 		if err != nil {
 			return MockedResponse{
-				StatusCode: statusCode,
-				Error:      err,
+				Meta: ResponseMeta{
+					StatusCode: http.StatusInternalServerError,
+				},
+				Err: err,
 			}
 		}
 		defer f.Close()
@@ -90,33 +112,23 @@ func MockResponseFromFile(verb string, url string, statusCode int, responseFileP
 		contents, err := ioutil.ReadAll(f)
 		if err != nil {
 			return MockedResponse{
-				StatusCode: statusCode,
-				Error:      err,
+				Meta: ResponseMeta{
+					StatusCode: http.StatusInternalServerError,
+				},
+				Err: err,
 			}
 		}
 
 		return MockedResponse{
-			StatusCode:   statusCode,
-			ResponseBody: contents,
+			Meta: ResponseMeta{
+				StatusCode:    statusCode,
+				ContentLength: int64(len(contents)),
+			},
+			Res: contents,
 		}
-	})
+	}
 }
 
-// MockError mocks a service request error.
-func MockError(verb string, url string) {
-	MockResponse(verb, url, func() MockedResponse {
-		return MockedResponse{
-			StatusCode: http.StatusInternalServerError,
-			Error:      exception.New("Error! This is from request#MockError. If you don't want an error don't mock it."),
-		}
-	})
-}
-
-// ClearMockedResponses clears any mocked responses that have been set up for the test.
-func ClearMockedResponses() {
-	mocksLock.Lock()
-	defer mocksLock.Unlock()
-
-	isMocked = false
-	mocks = map[string]MockedResponseGenerator{}
+func ref(res MockedResponse) *MockedResponse {
+	return &res
 }

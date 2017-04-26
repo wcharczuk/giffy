@@ -14,14 +14,15 @@ import (
 
 // Query is the intermediate result of a query.
 type Query struct {
-	statement string
-	args      []interface{}
+	statement      string
+	statementLabel string
+	args           []interface{}
 
 	start time.Time
 	rows  *sql.Rows
 
 	stmt *sql.Stmt
-	ctx  *Ctx
+	db   *DB
 	err  error
 }
 
@@ -35,25 +36,18 @@ func (q *Query) Close() error {
 		q.rows = nil
 	}
 
-	if !q.ctx.conn.useStatementCache {
+	if !q.db.conn.useStatementCache {
 		if q.stmt != nil {
 			stmtErr = q.stmt.Close()
 			q.stmt = nil
 		}
 	}
-	q.ctx.statementLabel = ""
 	return exception.Nest(rowsErr, stmtErr)
-}
-
-// WithEvents enables or disables query event reporting for a query.
-func (q *Query) WithEvents(enabled bool) *Query {
-	q.ctx.fireEvents = enabled
-	return q
 }
 
 // CachedAs sets the statement cache label for the query.
 func (q *Query) CachedAs(cacheLabel string) *Query {
-	q.ctx.statementLabel = cacheLabel
+	q.statementLabel = cacheLabel
 	return q
 }
 
@@ -61,14 +55,14 @@ func (q *Query) CachedAs(cacheLabel string) *Query {
 func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 	var stmtErr error
 	if q.shouldCacheStatement() {
-		stmt, stmtErr = q.ctx.conn.PrepareCached(q.ctx.statementLabel, q.statement, q.ctx.tx)
+		stmt, stmtErr = q.db.conn.PrepareCached(q.statementLabel, q.statement, q.db.tx)
 	} else {
-		stmt, stmtErr = q.ctx.conn.Prepare(q.statement, q.ctx.tx)
+		stmt, stmtErr = q.db.conn.Prepare(q.statement, q.db.tx)
 	}
 
 	if stmtErr != nil {
 		if q.shouldCacheStatement() {
-			q.ctx.conn.statementCache.InvalidateStatement(q.ctx.statementLabel)
+			q.db.conn.statementCache.InvalidateStatement(q.statementLabel)
 		}
 		err = exception.Wrap(stmtErr)
 		return
@@ -76,7 +70,7 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			if q.ctx.conn.useStatementCache {
+			if q.db.conn.useStatementCache {
 				err = exception.Nest(err, exception.New(r))
 			} else {
 				err = exception.Nest(err, exception.New(r), stmt.Close())
@@ -88,7 +82,7 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 	rows, queryErr = stmt.Query(q.args...)
 	if queryErr != nil {
 		if q.shouldCacheStatement() {
-			q.ctx.conn.statementCache.InvalidateStatement(q.ctx.statementLabel)
+			q.db.conn.statementCache.InvalidateStatement(q.statementLabel)
 		}
 		err = exception.Wrap(queryErr)
 	}
@@ -293,12 +287,10 @@ func (q *Query) panicHandler(r interface{}, err error) error {
 		err = exception.Nest(err, closeErr)
 	}
 
-	if q.ctx.fireEvents {
-		q.ctx.conn.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.ctx.statementLabel)
-	}
+	q.db.conn.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.statementLabel)
 	return err
 }
 
 func (q *Query) shouldCacheStatement() bool {
-	return q.ctx.conn.useStatementCache && len(q.ctx.statementLabel) > 0
+	return q.db.conn.useStatementCache && len(q.statementLabel) > 0
 }

@@ -26,16 +26,6 @@ const (
 	StringEmpty = ""
 )
 
-// PostedFile is a file that has been posted to an hc endpoint.
-type PostedFile struct {
-	Key      string
-	FileName string
-	Contents []byte
-}
-
-// State is the collection of state objects on a context.
-type State map[string]interface{}
-
 // NewCtx returns a new hc context.
 func NewCtx(w ResponseWriter, r *http.Request, p RouteParameters) *Ctx {
 	ctx := &Ctx{
@@ -54,41 +44,53 @@ type Ctx struct {
 	Response ResponseWriter
 	Request  *http.Request
 
+	app    *App
+	logger *logger.Agent
+	auth   *AuthManager
+
 	postBody []byte
 
 	//Private fields
-	view *ViewResultProvider
-	api  *APIResultProvider
-
-	json *JSONResultProvider
-	xml  *XMLResultProvider
-
+	view                  *ViewResultProvider
+	api                   *APIResultProvider
+	json                  *JSONResultProvider
+	xml                   *XMLResultProvider
 	text                  *TextResultProvider
 	defaultResultProvider ResultProvider
-	app                   *App
-	logger                *logger.Agent
-	config                interface{}
-	auth                  *AuthManager
-	tx                    *sql.Tx
-	state                 State
-	routeParameters       RouteParameters
-	statusCode            int
-	contentLength         int
-	requestStart          time.Time
-	requestEnd            time.Time
-	requestLogFormat      string
-	session               *Session
+
+	state            State
+	routeParameters  RouteParameters
+	route            *Route
+	statusCode       int
+	contentLength    int
+	requestStart     time.Time
+	requestEnd       time.Time
+	requestLogFormat string
+	session          *Session
+
+	tx *sql.Tx
 }
 
-// IsolateTo isolates a request context to a transaction.
-func (rc *Ctx) IsolateTo(tx *sql.Tx) *Ctx {
+// WithTx sets a transaction on the context.
+func (rc *Ctx) WithTx(tx *sql.Tx) *Ctx {
 	rc.tx = tx
 	return rc
 }
 
-// Tx returns the transaction a request context may or may not be isolated to.
+// Tx returns the transaction for the request.
 func (rc *Ctx) Tx() *sql.Tx {
 	return rc.tx
+}
+
+// WithApp sets the app reference for the ctx.
+func (rc *Ctx) WithApp(app *App) *Ctx {
+	rc.app = app
+	return rc
+}
+
+// App returns the app reference.
+func (rc *Ctx) App() *App {
+	return rc.app
 }
 
 // Auth returns the AuthManager for the request.
@@ -115,34 +117,10 @@ func (rc *Ctx) SetSession(session *Session) {
 	rc.session = session
 }
 
-// TxBegin either returns the existing (testing) transaction on the request, or calls the provider.
-func (rc *Ctx) TxBegin(provider func() (*sql.Tx, error)) (*sql.Tx, error) {
-	if rc.tx != nil {
-		return rc.tx, nil
-	}
-	return provider()
-}
-
-// TxCommit will call the committer if the request context is not isolated to a transaction already.
-func (rc *Ctx) TxCommit(commiter func() error) error {
-	if rc.tx != nil {
-		return nil
-	}
-	return commiter()
-}
-
-// TxRollback will call the rollbacker if the request context is not isolated to a transaction already.
-func (rc *Ctx) TxRollback(rollbacker func() error) error {
-	if rc.tx != nil {
-		return nil
-	}
-	return rollbacker()
-}
-
 // View returns the view result provider.
 func (rc *Ctx) View() *ViewResultProvider {
 	if rc.view == nil {
-		rc.view = NewViewResultProvider(rc.app.logger, rc.app.viewCache, rc)
+		rc.view = NewViewResultProvider(rc, rc.app.viewCache)
 	}
 	return rc.view
 }
@@ -150,7 +128,7 @@ func (rc *Ctx) View() *ViewResultProvider {
 // API returns the view result provider.
 func (rc *Ctx) API() *APIResultProvider {
 	if rc.api == nil {
-		rc.api = NewAPIResultProvider(rc.app.logger, rc)
+		rc.api = NewAPIResultProvider(rc)
 	}
 	return rc.api
 }
@@ -158,7 +136,7 @@ func (rc *Ctx) API() *APIResultProvider {
 // JSON returns the JSON result provider.
 func (rc *Ctx) JSON() *JSONResultProvider {
 	if rc.json == nil {
-		rc.json = NewJSONResultProvider(rc.logger, rc)
+		rc.json = NewJSONResultProvider(rc)
 	}
 	return rc.json
 }
@@ -166,7 +144,7 @@ func (rc *Ctx) JSON() *JSONResultProvider {
 // XML returns the xml result provider.
 func (rc *Ctx) XML() *XMLResultProvider {
 	if rc.xml == nil {
-		rc.xml = NewXMLResultProvider(rc.app.logger, rc)
+		rc.xml = NewXMLResultProvider(rc)
 	}
 	return rc.xml
 }
@@ -174,7 +152,7 @@ func (rc *Ctx) XML() *XMLResultProvider {
 // Text returns the text result provider.
 func (rc *Ctx) Text() *TextResultProvider {
 	if rc.text == nil {
-		rc.text = NewTextResultProvider(rc.app.logger, rc)
+		rc.text = NewTextResultProvider(rc)
 	}
 	return rc.text
 }
@@ -184,7 +162,7 @@ func (rc *Ctx) Text() *TextResultProvider {
 // steps that set it for you.
 func (rc *Ctx) DefaultResultProvider() ResultProvider {
 	if rc.defaultResultProvider == nil {
-		rc.defaultResultProvider = NewTextResultProvider(rc.logger, rc)
+		rc.defaultResultProvider = NewTextResultProvider(rc)
 	}
 	return rc.defaultResultProvider
 }
@@ -502,8 +480,8 @@ func (rc *Ctx) WriteCookie(cookie *http.Cookie) {
 }
 
 func (rc *Ctx) getCookieDomain() string {
-	if rc.app != nil && len(rc.app.domain) > 0 {
-		return rc.app.domain
+	if rc.app != nil && rc.app.baseURL != nil {
+		return rc.app.baseURL.Host
 	}
 	return rc.Request.Host
 }
@@ -569,9 +547,10 @@ func (rc *Ctx) Logger() *logger.Agent {
 	return rc.logger
 }
 
-// Config returns the app config.
-func (rc *Ctx) Config() interface{} {
-	return rc.config
+func (rc *Ctx) logFatal(err error) {
+	if rc.logger != nil {
+		rc.logger.ErrorEventWithState(logger.EventFatalError, logger.ColorRed, err, rc)
+	}
 }
 
 // --------------------------------------------------------------------------------
@@ -683,3 +662,35 @@ func (rc *Ctx) Elapsed() time.Duration {
 	}
 	return time.Now().UTC().Sub(rc.requestStart)
 }
+
+// Route returns the original route match for the request.
+func (rc *Ctx) Route() *Route {
+	return rc.route
+}
+
+// Reset resets the context after handling a request.
+func (rc *Ctx) Reset() {
+	rc.app = nil
+	rc.Request = nil
+	rc.Response = nil
+	rc.postBody = nil
+	rc.route = nil
+	rc.routeParameters = nil
+	rc.session = nil
+	rc.state = nil
+	rc.statusCode = 0
+	rc.contentLength = 0
+	rc.requestStart = time.Time{}
+	rc.requestEnd = time.Time{}
+	rc.tx = nil
+}
+
+// PostedFile is a file that has been posted to an hc endpoint.
+type PostedFile struct {
+	Key      string
+	FileName string
+	Contents []byte
+}
+
+// State is the collection of state objects on a context.
+type State map[string]interface{}

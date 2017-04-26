@@ -1,22 +1,15 @@
 package web
 
-import (
-	"fmt"
-	"net/http"
-
-	"github.com/blendlabs/go-exception"
-	logger "github.com/blendlabs/go-logger"
-)
+import "net/http"
 
 // NewAPIResultProvider Creates a new JSONResults object.
-func NewAPIResultProvider(diag *logger.Agent, ctx *Ctx) *APIResultProvider {
-	return &APIResultProvider{diagnostics: diag, ctx: ctx}
+func NewAPIResultProvider(ctx *Ctx) *APIResultProvider {
+	return &APIResultProvider{ctx: ctx}
 }
 
 // APIResultProvider are context results for api methods.
 type APIResultProvider struct {
-	diagnostics *logger.Agent
-	ctx         *Ctx
+	ctx *Ctx
 }
 
 // NotFound returns a service response.
@@ -47,26 +40,10 @@ func (ar *APIResultProvider) NotAuthorized() Result {
 
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) Result {
-	if ar.diagnostics != nil {
-		if ar.ctx != nil {
-			ar.diagnostics.FatalWithReq(err, ar.ctx.Request)
-		} else {
-			ar.diagnostics.FatalWithReq(err, nil)
-		}
+	if ar.ctx != nil {
+		ar.ctx.logFatal(err)
 	}
 
-	if exPtr, isException := err.(*exception.Exception); isException {
-		return &JSONResult{
-			StatusCode: http.StatusInternalServerError,
-			Response: &APIResponse{
-				Meta: &APIResponseMeta{
-					StatusCode: http.StatusInternalServerError,
-					Message:    fmt.Sprintf("%v", exPtr),
-					Exception:  exPtr,
-				},
-			},
-		}
-	}
 	return &JSONResult{
 		StatusCode: http.StatusInternalServerError,
 		Response: &APIResponse{

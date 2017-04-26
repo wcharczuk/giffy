@@ -2,6 +2,7 @@ package web
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -9,12 +10,12 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
+
+	"net/url"
 
 	exception "github.com/blendlabs/go-exception"
 	logger "github.com/blendlabs/go-logger"
-	"github.com/julienschmidt/httprouter"
 )
 
 const (
@@ -43,13 +44,14 @@ const (
 // New returns a new app.
 func New() *App {
 	return &App{
-		router:             httprouter.New(),
-		staticRewriteRules: map[string][]*RewriteRule{},
-		staticHeaders:      map[string]http.Header{},
-		tlsCertLock:        &sync.Mutex{},
-		auth:               NewAuthManager(),
-		viewCache:          NewViewCache(),
-		readTimeout:        5 * time.Second,
+		staticRewriteRules:    map[string][]*RewriteRule{},
+		staticHeaders:         map[string]http.Header{},
+		auth:                  NewAuthManager(),
+		viewCache:             NewViewCache(),
+		readTimeout:           5 * time.Second,
+		tlsConfig:             &tls.Config{},
+		redirectTrailingSlash: true,
+		//ctxPool:               NewCtxPool(256),
 	}
 }
 
@@ -59,24 +61,28 @@ type AppStartDelegate func(app *App) error
 // App is the server for the app.
 type App struct {
 	name     string
-	domain   string
+	baseURL  *url.URL
 	bindAddr string
 	port     string
 
 	logger *logger.Agent
-	config interface{}
-	router *httprouter.Router
 
-	tlsCertBytes, tlsKeyBytes []byte
-	tlsCertLock               *sync.Mutex
-	tlsCert                   *tls.Certificate
+	listenTLS bool
+	tlsConfig *tls.Config
 
 	startDelegate AppStartDelegate
 
 	staticRewriteRules map[string][]*RewriteRule
 	staticHeaders      map[string]http.Header
 
-	panicHandler PanicAction
+	routes                  map[string]*node
+	notFoundHandler         Handler
+	methodNotAllowedHandler Handler
+	panicHandler            PanicHandler
+	panicAction             PanicAction
+	redirectTrailingSlash   bool
+	handleOptions           bool
+	handleMethodNotAllowed  bool
 
 	defaultMiddleware []Middleware
 
@@ -87,9 +93,8 @@ type App struct {
 	writeTimeout      time.Duration
 	idleTimeout       time.Duration
 
+	tx   *sql.Tx
 	auth *AuthManager
-
-	tx *sql.Tx
 }
 
 // Name returns the app name.
@@ -99,20 +104,25 @@ func (a *App) Name() string {
 
 // SetName sets a log label for the app.
 func (a *App) SetName(name string) {
-	if a.isDiagnosticsEnabled() {
+	a.name = name
+	if a.logger != nil {
 		a.logger.Writer().SetLabel(name)
 	}
-	a.name = name
 }
 
-// Domain returns the domain for the app.
-func (a *App) Domain() string {
-	return a.domain
+// BaseURL returns the domain for the app.
+func (a *App) BaseURL() *url.URL {
+	return a.baseURL
 }
 
-// SetDomain sets the domain for the app.
-func (a *App) SetDomain(domain string) {
-	a.domain = domain
+// SetBaseURL sets the base url for the app.
+func (a *App) SetBaseURL(baseURL string) error {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return exception.Wrap(err)
+	}
+	a.baseURL = u
+	return nil
 }
 
 // ReadTimeout returns the read timeout for the server.
@@ -136,12 +146,30 @@ func (a *App) SetWriteTimeout(writeTimeout time.Duration) {
 }
 
 // UseTLS sets the app to use TLS.
-func (a *App) UseTLS(tlsCert, tlsKey []byte) {
-	a.tlsCertBytes = tlsCert
-	a.tlsKeyBytes = tlsKey
+func (a *App) UseTLS(tlsCert, tlsKey []byte) error {
+	cert, err := tls.X509KeyPair(tlsCert, tlsKey)
+	if err != nil {
+		return err
+	}
+	a.tlsConfig.Certificates = []tls.Certificate{cert}
+	a.listenTLS = true
+	a.auth.SetCookieAsHTTPSOnly(true)
+	return nil
+}
 
-	// this defaults to inferred or true.
-	a.auth.SetCookieAsSecure(true)
+// UseTLSFromFiles reads a tls key pair from a given set of paths.
+func (a *App) UseTLSFromFiles(tlsCertPath, tlsKeyPath string) error {
+	cert, err := ioutil.ReadFile(tlsCertPath)
+	if err != nil {
+		return exception.Wrap(err)
+	}
+
+	key, err := ioutil.ReadFile(tlsKeyPath)
+	if err != nil {
+		return exception.Wrap(err)
+	}
+
+	return a.UseTLS(cert, key)
 }
 
 // UseTLSFromEnvironment reads TLS settings from the environment.
@@ -154,19 +182,29 @@ func (a *App) UseTLSFromEnvironment() error {
 	if len(tlsCert) > 0 && len(tlsKey) > 0 {
 		a.UseTLS([]byte(tlsCert), []byte(tlsKey))
 	} else if len(tlsCertPath) > 0 && len(tlsKeyPath) > 0 {
-		cert, err := ioutil.ReadFile(tlsCertPath)
-		if err != nil {
-			return exception.Wrap(err)
-		}
-
-		key, err := ioutil.ReadFile(tlsKeyPath)
-		if err != nil {
-			return exception.Wrap(err)
-		}
-
-		a.UseTLS(cert, key)
+		return a.UseTLSFromFiles(tlsCertPath, tlsKeyPath)
 	}
 	return nil
+}
+
+// UseTLSClientCertPoolFromCerts set the client cert pool from a given pem.
+func (a *App) UseTLSClientCertPoolFromCerts(certs ...[]byte) error {
+	if a.tlsConfig.ClientCAs == nil {
+		a.tlsConfig.ClientCAs = x509.NewCertPool()
+	}
+	for _, cert := range certs {
+		ok := a.tlsConfig.ClientCAs.AppendCertsFromPEM(cert)
+		if !ok {
+			return exception.New("invalid ca cert for client cert pool")
+		}
+	}
+	a.tlsConfig.BuildNameToCertificate()
+	return nil
+}
+
+// SetTLSClientCertVerification sets the verification level for client certs.
+func (a *App) SetTLSClientCertVerification(verification tls.ClientAuthType) {
+	a.tlsConfig.ClientAuth = verification
 }
 
 // Logger returns the diagnostics agent for the app.
@@ -185,16 +223,6 @@ func (a *App) SetLogger(agent *logger.Agent) {
 	}
 }
 
-// Config returns the app config object.
-func (a *App) Config() interface{} {
-	return a.config
-}
-
-// SetConfig sets the app config object.
-func (a *App) SetConfig(config interface{}) {
-	a.config = config
-}
-
 // Auth returns the session manager.
 func (a *App) Auth() *AuthManager {
 	return a.auth
@@ -203,73 +231,6 @@ func (a *App) Auth() *AuthManager {
 // SetAuth sets the session manager.
 func (a *App) SetAuth(auth *AuthManager) {
 	a.auth = auth
-}
-
-// InitializeConfig reads a config prototype from the environment.
-func (a *App) InitializeConfig(configPrototype interface{}) error {
-	config, err := ReadConfigFromEnvironment(configPrototype)
-	if err != nil {
-		return err
-	}
-	a.config = config
-	return nil
-}
-
-func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-	context, isContext := state[0].(*Ctx)
-	if !isContext {
-		return
-	}
-	logger.WriteRequestStart(writer, ts, context.Request)
-}
-
-func (a *App) onRequestPostBody(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-
-	body, isBody := state[0].([]byte)
-	if !isBody {
-		return
-	}
-
-	logger.WriteRequestBody(writer, ts, body)
-}
-
-func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-	context, isContext := state[0].(*Ctx)
-	if !isContext {
-		return
-	}
-	logger.WriteRequest(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
-}
-
-func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-	body, stateIsBody := state[0].([]byte)
-	if !stateIsBody {
-		return
-	}
-	logger.WriteResponseBody(writer, ts, body)
-}
-
-// IsolateTo sets the app to use a transaction for *all* requests.
-// Caveat: only use during testing.
-func (a *App) IsolateTo(tx *sql.Tx) {
-	a.tx = tx
-}
-
-// Tx returns the isolated transaction.
-func (a *App) Tx() *sql.Tx {
-	return a.tx
 }
 
 // SetPort sets the port the app listens on.
@@ -333,7 +294,6 @@ func (a *App) BindAddr() string {
 
 // Server returns the basic http.Server for the app.
 func (a *App) Server() *http.Server {
-
 	return &http.Server{
 		Addr:              a.BindAddr(),
 		Handler:           a,
@@ -341,23 +301,13 @@ func (a *App) Server() *http.Server {
 		ReadHeaderTimeout: a.readHeaderTimeout,
 		WriteTimeout:      a.writeTimeout,
 		IdleTimeout:       a.idleTimeout,
+		TLSConfig:         a.tlsConfig,
 	}
 }
 
 // Start starts the server and binds to the given address.
 func (a *App) Start() error {
 	return a.StartWithServer(a.Server())
-}
-
-func (a *App) getCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	if a.tlsCert == nil {
-		tlsCert, err := tls.X509KeyPair(a.tlsCertBytes, a.tlsKeyBytes)
-		if err != nil {
-			return nil, err
-		}
-		a.tlsCert = &tlsCert
-	}
-	return a.tlsCert, nil
 }
 
 func (a *App) commonStartupTasks() error {
@@ -368,40 +318,48 @@ func (a *App) commonStartupTasks() error {
 // This lets you configure things like TLS keys and
 // other options.
 func (a *App) StartWithServer(server *http.Server) error {
+	a.logger.OnEvent(EventAppStart, a)
+	defer a.logger.OnEvent(EventAppExit, a)
+
 	var err error
 	if a.startDelegate != nil {
-		a.infof("Startup tasks starting")
+		a.logger.Sync().Infof("app startup tasks starting")
 		err = a.startDelegate(a)
 		if err != nil {
-			a.errorf("Startup tasks error: %v", err)
+			a.logger.Sync().Fatalf("app startup tasks error: %v", err)
 			return err
 		}
-		a.infof("Startup tasks complete")
+		a.logger.Sync().Infof("app startup tasks complete")
 	}
 
+	a.logger.Sync().Infof("common tasks starting")
 	err = a.commonStartupTasks()
 	if err != nil {
-		a.errorf("Startup tasks error: %v", err)
+		a.logger.Sync().Fatalf("common startup tasks error: %v", err)
 		return err
 	}
+	a.logger.Sync().Infof("common startup tasks complete")
 
-	if a.isDiagnosticsEnabled() {
-		serverProtocol := "HTTP"
-		if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
-			serverProtocol = "HTTPS (TLS)"
-		}
-		a.infof("%s server started, listening on %s", serverProtocol, server.Addr)
-		a.infof("%s server diagnostics verbosity %s", serverProtocol, a.logger.Events().String())
+	serverProtocol := "http"
+	if a.listenTLS {
+		serverProtocol = "https (tls)"
 	}
 
-	if len(a.tlsCertBytes) > 0 && len(a.tlsKeyBytes) > 0 {
-		server.TLSConfig = &tls.Config{
-			GetCertificate: a.getCertificate,
-		}
-		return server.ListenAndServeTLS("", "")
+	a.logger.Sync().Infof("%s server started, listening on %s", serverProtocol, server.Addr)
+	if a.logger.Events() != nil {
+		a.logger.Sync().Infof("%s server diagnostics verbosity %s", serverProtocol, a.logger.Events().String())
+	}
+	a.logger.OnEvent(EventAppStartComplete, a)
+
+	if a.tlsConfig.ClientCAs != nil {
+		a.logger.Sync().Infof("%s using client cert pool with (%d) client certs", serverProtocol, len(a.tlsConfig.ClientCAs.Subjects()))
 	}
 
-	return server.ListenAndServe()
+	if a.listenTLS {
+		return exception.Wrap(server.ListenAndServeTLS("", ""))
+	}
+
+	return exception.Wrap(server.ListenAndServe())
 }
 
 // Register registers a controller with the app's router.
@@ -409,55 +367,115 @@ func (a *App) Register(c Controller) {
 	c.Register(a)
 }
 
-func (a *App) middlewarePipeline(action Action, middleware ...Middleware) Action {
-	finalMiddleware := make([]Middleware, len(middleware)+len(a.defaultMiddleware))
-	cursor := len(finalMiddleware) - 1
-	for i := len(a.defaultMiddleware) - 1; i >= 0; i-- {
-		finalMiddleware[cursor] = a.defaultMiddleware[i]
-		cursor--
-	}
-
-	for i := len(middleware) - 1; i >= 0; i-- {
-		finalMiddleware[cursor] = middleware[i]
-		cursor--
-	}
-
-	return NestMiddleware(action, finalMiddleware...)
-}
+// --------------------------------------------------------------------------------
+// Route Registration / HTTP Methods
+// --------------------------------------------------------------------------------
 
 // GET registers a GET request handler.
 func (a *App) GET(path string, action Action, middleware ...Middleware) {
-	a.router.GET(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.handle("GET", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // OPTIONS registers a OPTIONS request handler.
 func (a *App) OPTIONS(path string, action Action, middleware ...Middleware) {
-	a.router.OPTIONS(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.handle("OPTIONS", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // HEAD registers a HEAD request handler.
 func (a *App) HEAD(path string, action Action, middleware ...Middleware) {
-	a.router.HEAD(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.handle("HEAD", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // PUT registers a PUT request handler.
 func (a *App) PUT(path string, action Action, middleware ...Middleware) {
-	a.router.PUT(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.handle("PUT", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // PATCH registers a PATCH request handler.
 func (a *App) PATCH(path string, action Action, middleware ...Middleware) {
-	a.router.PATCH(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.handle("PATCH", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // POST registers a POST request actions.
 func (a *App) POST(path string, action Action, middleware ...Middleware) {
-	a.router.POST(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.handle("POST", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // DELETE registers a DELETE request handler.
 func (a *App) DELETE(path string, action Action, middleware ...Middleware) {
-	a.router.DELETE(path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.handle("DELETE", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// Lookup finds the route data for a given method and path.
+func (a *App) Lookup(method, path string) (route *Route, params RouteParameters, slashRedirect bool) {
+	if root := a.routes[method]; root != nil {
+		return root.getValue(path)
+	}
+	return nil, nil, false
+}
+
+// ServeHTTP makes the router implement the http.Handler interface.
+func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if a.panicHandler != nil {
+		defer a.recover(w, req)
+	}
+
+	path := req.URL.Path
+
+	if root := a.routes[req.Method]; root != nil {
+		if route, params, tsr := root.getValue(path); route != nil {
+			route.Handler(w, req, route, params, nil)
+			return
+		} else if req.Method != "CONNECT" && path != "/" {
+			code := 301 // Permanent redirect, request with GET method
+			if req.Method != "GET" {
+				code = 307
+			}
+
+			if tsr && a.redirectTrailingSlash {
+				if len(path) > 1 && path[len(path)-1] == '/' {
+					req.URL.Path = path[:len(path)-1]
+				} else {
+					req.URL.Path = path + "/"
+				}
+				http.Redirect(w, req, req.URL.String(), code)
+				return
+			}
+		}
+	}
+
+	if req.Method == "OPTIONS" {
+		// Handle OPTIONS requests
+		if a.handleOptions {
+			if allow := a.allowed(path, req.Method); len(allow) > 0 {
+				w.Header().Set("Allow", allow)
+				return
+			}
+		}
+	} else {
+		// Handle 405
+		if a.handleMethodNotAllowed {
+			if allow := a.allowed(path, req.Method); len(allow) > 0 {
+				w.Header().Set("Allow", allow)
+				if a.methodNotAllowedHandler != nil {
+					a.methodNotAllowedHandler(w, req, nil, nil, nil)
+				} else {
+					http.Error(w,
+						http.StatusText(http.StatusMethodNotAllowed),
+						http.StatusMethodNotAllowed,
+					)
+				}
+				return
+			}
+		}
+	}
+
+	// Handle 404
+	if a.notFoundHandler != nil {
+		a.notFoundHandler(w, req, nil, nil, nil)
+	} else {
+		http.NotFound(w, req)
+	}
 }
 
 // --------------------------------------------------------------------------------
@@ -465,7 +483,7 @@ func (a *App) DELETE(path string, action Action, middleware ...Middleware) {
 // --------------------------------------------------------------------------------
 
 // AddStaticRewriteRule adds a rewrite rule for a specific statically served path.
-// Make sure to serve the static path with (app).Static(path, root).
+// Make sure to serve the static path with app.Static(path, root).
 func (a *App) AddStaticRewriteRule(path, match string, action RewriteAction) error {
 	expr, err := regexp.Compile(match)
 	if err != nil {
@@ -497,13 +515,221 @@ func (a *App) AddStaticHeader(path, key, value string) {
 // of the Router's NotFound handler.
 // To use the operating system's file system implementation,
 // use http.Dir:
-//     router.ServeFiles("/src/*filepath", http.Dir("/var/www"))
+//     app.Static("/src/*filepath", http.Dir("/var/www"))
 func (a *App) Static(path string, root http.FileSystem) {
 	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
 		panic("path must end with /*filepath in path '" + path + "'")
 	}
 
-	a.router.GET(path, a.renderAction(a.staticAction(path, root)))
+	a.handle("GET", path, a.renderAction(a.staticAction(path, root)))
+}
+
+// ViewCache returns the view result provider.
+func (a *App) ViewCache() *ViewCache {
+	return a.viewCache
+}
+
+// --------------------------------------------------------------------------------
+// Router internal methods
+// --------------------------------------------------------------------------------
+
+// SetNotFoundHandler sets the not found handler.
+func (a *App) SetNotFoundHandler(handler Action) {
+	a.notFoundHandler = a.renderAction(handler)
+}
+
+// SetMethodNotAllowedHandler sets the not found handler.
+func (a *App) SetMethodNotAllowedHandler(handler Action) {
+	a.methodNotAllowedHandler = a.renderAction(handler)
+}
+
+// SetPanicHandler sets the not found handler.
+func (a *App) SetPanicHandler(handler PanicAction) {
+	a.panicAction = handler
+	a.panicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
+		a.renderAction(func(ctx *Ctx) Result {
+			a.logger.ErrorEventWithState(logger.EventFatalError, logger.ColorRed, fmt.Errorf("%v", err), ctx)
+			return handler(ctx, err)
+		})(w, r, nil, nil, nil)
+	}
+}
+
+// --------------------------------------------------------------------------------
+// Testing Methods
+// --------------------------------------------------------------------------------
+
+// Mock returns a request bulider to facilitate mocking requests.
+func (a *App) Mock() *MockRequestBuilder {
+	return NewMockRequestBuilder(a)
+}
+
+// --------------------------------------------------------------------------------
+// Request Pipeline
+// --------------------------------------------------------------------------------
+
+func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	if len(state) < 1 {
+		return
+	}
+	context, isContext := state[0].(*Ctx)
+	if !isContext {
+		return
+	}
+	logger.WriteRequestStart(writer, ts, context.Request)
+}
+
+func (a *App) onRequestPostBody(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	if len(state) < 1 {
+		return
+	}
+
+	body, isBody := state[0].([]byte)
+	if !isBody {
+		return
+	}
+
+	logger.WriteRequestBody(writer, ts, body)
+}
+
+func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	if len(state) < 1 {
+		return
+	}
+	context, isContext := state[0].(*Ctx)
+	if !isContext {
+		return
+	}
+	logger.WriteRequest(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
+}
+
+func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	if len(state) < 1 {
+		return
+	}
+	body, stateIsBody := state[0].([]byte)
+	if !stateIsBody {
+		return
+	}
+	logger.WriteResponseBody(writer, ts, body)
+}
+
+// renderAction is the translation step from Action to Handler.
+// this is where the bulk of the "pipeline" happens.
+func (a *App) renderAction(action Action) Handler {
+	return func(w http.ResponseWriter, r *http.Request, route *Route, p RouteParameters, tx *sql.Tx) {
+		a.setResponseHeaders(w)
+		response := a.newResponse(w, r)
+		context := a.pipelineInit(response, r, route, p)
+		context = context.WithTx(tx)
+		a.renderResult(action, context)
+		a.pipelineComplete(context)
+	}
+}
+
+func (a *App) setResponseHeaders(w http.ResponseWriter) {
+	w.Header().Set(HeaderServer, PackageName)
+	w.Header().Set(HeaderXServedBy, PackageName)
+}
+
+func (a *App) newResponse(w http.ResponseWriter, r *http.Request) ResponseWriter {
+	var response ResponseWriter
+	if a.shouldCompressOutput(r) {
+		w.Header().Set(HeaderContentEncoding, ContentEncodingGZIP)
+		if a.logger.IsEnabled(logger.EventWebResponse) {
+			response = NewBufferedCompressedResponseWriter(w)
+		} else {
+			response = NewCompressedResponseWriter(w)
+		}
+	} else {
+		w.Header().Set(HeaderContentEncoding, ContentEncodingIdentity)
+		if a.logger.IsEnabled(logger.EventWebResponse) {
+			response = NewBufferedResponseWriter(w)
+		} else {
+			response = NewResponseWriter(w)
+		}
+	}
+	return response
+}
+
+func (a *App) shouldCompressOutput(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+}
+
+func (a *App) pipelineInit(w ResponseWriter, r *http.Request, route *Route, p RouteParameters) *Ctx {
+	context := a.newCtx(w, r, route, p)
+	context.onRequestStart()
+	a.logger.OnEvent(logger.EventWebRequestStart, context)
+	return context
+}
+
+// Ctx creates a context.
+func (a *App) newCtx(w ResponseWriter, r *http.Request, route *Route, p RouteParameters) *Ctx {
+	ctx := NewCtx(w, r, p) //a.ctxPool.Get()
+	ctx.Response = w
+	ctx.Request = r
+	ctx.routeParameters = p
+
+	ctx.app = a
+	ctx.route = route
+	ctx.auth = a.auth
+	ctx.logger = a.logger
+
+	ctx.defaultResultProvider = ctx.Text()
+
+	return ctx
+}
+
+func (a *App) renderResult(action Action, ctx *Ctx) error {
+	result := action(ctx)
+	if result != nil {
+		err := result.Render(ctx)
+		if err != nil {
+			a.logger.Error(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *App) pipelineComplete(ctx *Ctx) {
+	err := ctx.Response.Flush()
+	if err != nil && err != http.ErrBodyNotAllowed {
+		a.logger.Error(err)
+	}
+	ctx.onRequestEnd()
+	ctx.setLoggedStatusCode(ctx.Response.StatusCode())
+	ctx.setLoggedContentLength(ctx.Response.ContentLength())
+	if a.logger.IsEnabled(logger.EventWebResponse) {
+		a.logger.OnEvent(logger.EventWebResponse, ctx.Response.Bytes())
+	}
+
+	err = ctx.Response.Close()
+	if err != nil && err != http.ErrBodyNotAllowed {
+		a.logger.Error(err)
+	}
+
+	// effectively "request complete"
+	a.logger.OnEvent(logger.EventWebRequest, ctx)
+}
+
+func (a *App) middlewarePipeline(action Action, middleware ...Middleware) Action {
+	if len(middleware) == 0 && len(a.defaultMiddleware) == 0 {
+		return action
+	}
+
+	finalMiddleware := make([]Middleware, len(middleware)+len(a.defaultMiddleware))
+	cursor := len(finalMiddleware) - 1
+	for i := len(a.defaultMiddleware) - 1; i >= 0; i-- {
+		finalMiddleware[cursor] = a.defaultMiddleware[i]
+		cursor--
+	}
+
+	for i := len(middleware) - 1; i >= 0; i-- {
+		finalMiddleware[cursor] = middleware[i]
+		cursor--
+	}
+
+	return NestMiddleware(action, finalMiddleware...)
 }
 
 // staticAction returns a Action for a given static path and root.
@@ -534,201 +760,66 @@ func (a *App) staticAction(path string, root http.FileSystem) Action {
 	}
 }
 
-// ViewCache returns the view result provider.
-func (a *App) ViewCache() *ViewCache {
-	return a.viewCache
-}
-
-// --------------------------------------------------------------------------------
-// Router internal methods
-// --------------------------------------------------------------------------------
-
-// SetNotFoundHandler sets the not found handler.
-func (a *App) SetNotFoundHandler(handler Action) {
-	a.router.NotFound = newHandleShim(a, handler)
-}
-
-// SetMethodNotAllowedHandler sets the not found handler.
-func (a *App) SetMethodNotAllowedHandler(handler Action) {
-	a.router.MethodNotAllowed = newHandleShim(a, handler)
-}
-
-// SetPanicHandler sets the not found handler.
-func (a *App) SetPanicHandler(handler PanicAction) {
-	a.panicHandler = handler
-	a.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
-		a.renderAction(func(ctx *Ctx) Result {
-			a.fatalWithReq(fmt.Errorf("%v", err), ctx.Request)
-			return handler(ctx, err)
-		})(w, r, httprouter.Params{})
+func (a *App) handle(method, path string, handler Handler) {
+	if len(path) == 0 {
+		panic("path must not be empty")
 	}
-}
-
-func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	a.router.ServeHTTP(w, req)
-}
-
-// --------------------------------------------------------------------------------
-// Diagnostics Helpers
-// --------------------------------------------------------------------------------
-
-func (a *App) isDiagnosticsEnabled() bool {
-	return a.logger != nil
-}
-
-func (a *App) isDiagnosticsEventEnabled(eventFlag logger.EventFlag) bool {
-	if !a.isDiagnosticsEnabled() {
-		return false
+	if path[0] != '/' {
+		panic("path must begin with '/' in path '" + path + "'")
 	}
-	return a.logger.IsEnabled(eventFlag)
-}
-
-func (a *App) infof(format string, args ...interface{}) {
-	if a.isDiagnosticsEnabled() {
-		a.logger.Infof(format, args...)
+	if a.routes == nil {
+		a.routes = make(map[string]*node)
 	}
-}
 
-func (a *App) errorf(format string, args ...interface{}) {
-	if a.isDiagnosticsEnabled() {
-		a.logger.Errorf(format, args...)
+	root := a.routes[method]
+	if root == nil {
+		root = new(node)
+		a.routes[method] = root
 	}
+
+	root.addRoute(method, path, handler)
 }
 
-func (a *App) fatalF(format string, args ...interface{}) {
-	if a.isDiagnosticsEnabled() {
-		a.logger.Fatalf(format, args...)
-	}
-}
+func (a *App) allowed(path, reqMethod string) (allow string) {
+	if path == "*" { // server-wide
+		for method := range a.routes {
+			if method == "OPTIONS" {
+				continue
+			}
 
-func (a *App) error(err error) {
-	if a.isDiagnosticsEnabled() {
-		a.logger.Error(err)
-	}
-}
-
-func (a *App) fatal(err error) {
-	if a.isDiagnosticsEnabled() {
-		a.logger.Fatal(err)
-	}
-}
-
-func (a *App) fatalWithReq(err error, req *http.Request) {
-	if a.isDiagnosticsEnabled() {
-		a.logger.FatalWithReq(err, req)
-	}
-}
-
-func (a *App) onEvent(eventFlag logger.EventFlag, state ...interface{}) {
-	if a.isDiagnosticsEnabled() {
-		a.logger.OnEvent(eventFlag, state...)
-	}
-}
-
-// --------------------------------------------------------------------------------
-// Testing Methods
-// --------------------------------------------------------------------------------
-
-// Mock returns a request bulider to facilitate mocking requests.
-func (a *App) Mock() *MockRequestBuilder {
-	return NewMockRequestBuilder(a)
-}
-
-// --------------------------------------------------------------------------------
-// Request Pipeline
-// --------------------------------------------------------------------------------
-
-// renderAction is the translation step from Action to httprouter.Handle.
-// this is where the bulk of the "pipeline" happens.
-func (a *App) renderAction(action Action) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		a.setResponseHeaders(w)
-		response := a.newResponse(w, r)
-		context := a.pipelineInit(response, r, NewRouteParameters(p))
-		a.renderResult(action, context)
-		a.pipelineComplete(context)
-	}
-}
-
-func (a *App) setResponseHeaders(w http.ResponseWriter) {
-	w.Header().Set(HeaderServer, PackageName)
-	w.Header().Set(HeaderXServedBy, PackageName)
-}
-
-func (a *App) newResponse(w http.ResponseWriter, r *http.Request) ResponseWriter {
-	var response ResponseWriter
-	if a.shouldCompressOutput(r) {
-		w.Header().Set(HeaderContentEncoding, ContentEncodingGZIP)
-		if a.isDiagnosticsEventEnabled(logger.EventWebResponse) {
-			response = NewBufferedCompressedResponseWriter(w)
-		} else {
-			response = NewCompressedResponseWriter(w)
+			// add request method to list of allowed methods
+			if len(allow) == 0 {
+				allow = method
+			} else {
+				allow += ", " + method
+			}
 		}
-	} else {
-		w.Header().Set(HeaderContentEncoding, ContentEncodingIdentity)
-		if a.isDiagnosticsEventEnabled(logger.EventWebResponse) {
-			response = NewBufferedResponseWriter(w)
-		} else {
-			response = NewResponseWriter(w)
+		return
+	}
+	for method := range a.routes {
+		// Skip the requested method - we already tried this one
+		if method == reqMethod || method == "OPTIONS" {
+			continue
+		}
+
+		handle, _, _ := a.routes[method].getValue(path)
+		if handle != nil {
+			// add request method to list of allowed methods
+			if len(allow) == 0 {
+				allow = method
+			} else {
+				allow += ", " + method
+			}
 		}
 	}
-	return response
-}
-
-func (a *App) shouldCompressOutput(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-}
-
-func (a *App) pipelineInit(w ResponseWriter, r *http.Request, p RouteParameters) *Ctx {
-	context := a.newCtx(w, r, p)
-	context.onRequestStart()
-	a.onEvent(logger.EventWebRequestStart, context)
-	return context
-}
-
-// Ctx creates a context.
-func (a *App) newCtx(w ResponseWriter, r *http.Request, p RouteParameters) *Ctx {
-	ctx := NewCtx(w, r, p)
-	ctx.app = a
-	ctx.auth = a.auth
-	ctx.tx = a.tx
-	ctx.logger = a.logger
-	ctx.config = a.config
-
-	// it is assumed that default middleware will override this at some point.
-	ctx.SetDefaultResultProvider(ctx.Text())
-
-	return ctx
-}
-
-func (a *App) renderResult(action Action, ctx *Ctx) error {
-	result := action(ctx)
-	if result != nil {
-		err := result.Render(ctx)
-		if err != nil {
-			a.error(err)
-			return err
-		}
+	if len(allow) > 0 {
+		allow += ", OPTIONS"
 	}
-	return nil
+	return
 }
 
-func (a *App) pipelineComplete(ctx *Ctx) {
-	err := ctx.Response.Flush()
-	if err != nil && err != http.ErrBodyNotAllowed {
-		a.error(err)
-	}
-	ctx.onRequestEnd()
-	ctx.setLoggedStatusCode(ctx.Response.StatusCode())
-	ctx.setLoggedContentLength(ctx.Response.ContentLength())
-	if a.isDiagnosticsEventEnabled(logger.EventWebResponse) {
-		a.onEvent(logger.EventWebResponse, ctx.Response.Bytes())
-	}
-
-	// effectively "request complete"
-	a.onEvent(logger.EventWebRequest, ctx)
-	err = ctx.Response.Close()
-	if err != nil && err != http.ErrBodyNotAllowed {
-		a.error(err)
+func (a *App) recover(w http.ResponseWriter, req *http.Request) {
+	if rcv := recover(); rcv != nil {
+		a.panicHandler(w, req, rcv)
 	}
 }

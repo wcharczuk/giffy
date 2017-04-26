@@ -169,6 +169,11 @@ func (q *Queue) Close() error {
 		return nil
 	}
 
+	q.abortSignal <- true
+
+	close(q.abortSignal)
+	close(q.actionQueue)
+
 	var err error
 	for x := 0; x < len(q.workers); x++ {
 		err = q.workers[x].Close()
@@ -176,10 +181,8 @@ func (q *Queue) Close() error {
 			return err
 		}
 	}
-	q.abortSignal <- true
-	close(q.abortSignal)
+
 	q.workers = nil
-	close(q.actionQueue)
 	q.actionQueue = nil
 	q.running = false
 	return nil

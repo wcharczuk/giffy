@@ -1,10 +1,6 @@
 package web
 
-import (
-	"net/http"
-
-	logger "github.com/blendlabs/go-logger"
-)
+import "net/http"
 
 const (
 	// DefaultTemplateBadRequest is the default template name for bad request view results.
@@ -21,15 +17,13 @@ const (
 )
 
 // NewViewResultProvider creates a new ViewResults object.
-func NewViewResultProvider(log *logger.Agent, vc *ViewCache, r *Ctx) *ViewResultProvider {
-	return &ViewResultProvider{diagnostics: log, viewCache: vc, ctx: r}
+func NewViewResultProvider(ctx *Ctx, vc *ViewCache) *ViewResultProvider {
+	return &ViewResultProvider{ctx: ctx, viewCache: vc}
 }
 
 // ViewResultProvider returns results based on views.
 type ViewResultProvider struct {
-	diagnostics *logger.Agent
-	ctx         *Ctx
-
+	ctx       *Ctx
 	viewCache *ViewCache
 }
 
@@ -45,12 +39,8 @@ func (vr *ViewResultProvider) BadRequest(message string) Result {
 
 // InternalError returns a view result.
 func (vr *ViewResultProvider) InternalError(err error) Result {
-	if vr.diagnostics != nil {
-		if vr.ctx != nil {
-			vr.diagnostics.FatalWithReq(err, vr.ctx.Request)
-		} else {
-			vr.diagnostics.FatalWithReq(err, nil)
-		}
+	if vr.ctx != nil {
+		vr.ctx.logFatal(err)
 	}
 
 	return &ViewResult{
