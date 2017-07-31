@@ -96,12 +96,18 @@ func viewUtils() template.FuncMap {
 		"short": func(t time.Time) string {
 			return t.Format("1/02/2006 3:04:05 PM")
 		},
+		"shortDate": func(t time.Time) string {
+                        return t.Format("1/02/2006")
+                },
 		"medium": func(t time.Time) string {
 			return t.Format("Jan 02, 2006 3:04:05 PM")
 		},
 		"kitchen": func(t time.Time) string {
 			return t.Format(time.Kitchen)
 		},
+		"monthDate": func(t time.Time) string {
+                        return t.Format("1/2")
+                },
 		"money": func(d float64) string {
 			return fmt.Sprintf("$%0.2f", d)
 		},

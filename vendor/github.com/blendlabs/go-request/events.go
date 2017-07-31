@@ -15,14 +15,14 @@ const (
 )
 
 // NewOutgoingListener creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewOutgoingListener(handler func(writer logger.Logger, ts logger.TimeSource, req *Meta)) logger.EventListener {
-	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+func NewOutgoingListener(handler func(writer *logger.Writer, ts logger.TimeSource, req *Meta)) logger.EventListener {
+	return func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		handler(writer, ts, state[0].(*Meta))
 	}
 }
 
 // WriteOutgoingRequest is a helper method to write outgoing request events to a logger writer.
-func WriteOutgoingRequest(writer logger.Logger, ts logger.TimeSource, req *Meta) {
+func WriteOutgoingRequest(writer *logger.Writer, ts logger.TimeSource, req *Meta) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 	buffer.WriteString(writer.Colorize(string(Event), logger.ColorGreen))
@@ -32,7 +32,7 @@ func WriteOutgoingRequest(writer logger.Logger, ts logger.TimeSource, req *Meta)
 }
 
 // WriteOutgoingRequestBody is a helper method to write outgoing request bodies to a logger writer.
-func WriteOutgoingRequestBody(writer logger.Logger, ts logger.TimeSource, req *Meta) {
+func WriteOutgoingRequestBody(writer *logger.Writer, ts logger.TimeSource, req *Meta) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 	buffer.WriteString(writer.Colorize(string(Event), logger.ColorGreen))
@@ -44,14 +44,14 @@ func WriteOutgoingRequestBody(writer logger.Logger, ts logger.TimeSource, req *M
 }
 
 // NewOutgoingResponseListener creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewOutgoingResponseListener(handler func(writer logger.Logger, ts logger.TimeSource, req *Meta, res *ResponseMeta, body []byte)) logger.EventListener {
-	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+func NewOutgoingResponseListener(handler func(writer *logger.Writer, ts logger.TimeSource, req *Meta, res *ResponseMeta, body []byte)) logger.EventListener {
+	return func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		handler(writer, ts, state[0].(*Meta), state[1].(*ResponseMeta), state[2].([]byte))
 	}
 }
 
 // WriteOutgoingRequestResponse is a helper method to write outgoing request response events to a logger writer.
-func WriteOutgoingRequestResponse(writer logger.Logger, ts logger.TimeSource, req *Meta, res *ResponseMeta, body []byte) {
+func WriteOutgoingRequestResponse(writer *logger.Writer, ts logger.TimeSource, req *Meta, res *ResponseMeta, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 	buffer.WriteString(writer.Colorize(string(EventResponse), logger.ColorGreen))

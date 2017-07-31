@@ -25,7 +25,7 @@ var (
 
 var (
 	// DefaultAgentVerbosity is the default verbosity for a diagnostics agent inited from the environment.
-	DefaultAgentVerbosity = NewEventFlagSetWithEvents(EventFatalError, EventError, EventWebRequest, EventInfo)
+	DefaultAgentVerbosity = NewEventFlagSet(EventFatalError, EventError, EventWebRequest, EventInfo)
 )
 
 // Default returnes a default Agent singleton.
@@ -41,40 +41,51 @@ func SetDefault(agent *Agent) {
 }
 
 // New returns a new diagnostics with a given bitflag verbosity.
-func New(events *EventFlagSet, optionalWriter ...Logger) *Agent {
-	diag := &Agent{
+func New(events *EventFlagSet) *Agent {
+	return &Agent{
 		events:         events,
 		eventQueue:     newEventQueue(),
 		eventListeners: map[EventFlag][]EventListener{},
 		debugListeners: []EventListener{},
+		writer:         NewWriterWithError(os.Stdout, os.Stderr),
 	}
+}
 
-	if len(optionalWriter) > 0 {
-		diag.writer = optionalWriter[0]
-	} else {
-		diag.writer = NewLogWriter(os.Stdout, os.Stderr)
+// NewWithWriter returns a new diagnostics with a given bitflag verbosity and writer.
+func NewWithWriter(events *EventFlagSet, writer *Writer) *Agent {
+	return &Agent{
+		events:         events,
+		eventQueue:     newEventQueue(),
+		eventListeners: map[EventFlag][]EventListener{},
+		debugListeners: []EventListener{},
+		writer:         writer,
 	}
-	return diag
 }
 
 // NewFromEnvironment returns a new diagnostics with a given bitflag verbosity.
 func NewFromEnvironment() *Agent {
-	return New(NewEventFlagSetFromEnvironment(), NewLogWriterFromEnvironment())
+	return NewWithWriter(NewEventFlagSetFromEnvironment(), NewWriterFromEnvironment())
 }
 
 // All returns a valid agent that fires all events.
-func All(optionalWriter ...Logger) *Agent {
-	return New(NewEventFlagSetAll(), optionalWriter...)
+func All(writer ...*Writer) *Agent {
+	if len(writer) > 0 {
+		return NewWithWriter(NewEventFlagSetAll(), writer[0])
+	}
+	return NewWithWriter(NewEventFlagSetAll(), NewWriterFromEnvironment())
 }
 
 // None returns a valid agent that won't fire any events.
-func None(optionalWriter ...Logger) *Agent {
-	return New(NewEventFlagSetNone(), optionalWriter...)
+func None(writer ...*Writer) *Agent {
+	if len(writer) > 0 {
+		return NewWithWriter(NewEventFlagSetNone(), writer[0])
+	}
+	return NewWithWriter(NewEventFlagSetNone(), NewWriterFromEnvironment())
 }
 
 // Agent is a handler for various logging events with descendent handlers.
 type Agent struct {
-	writer             Logger
+	writer             *Writer
 	eventsLock         sync.Mutex
 	events             *EventFlagSet
 	eventListenersLock sync.Mutex
@@ -84,7 +95,7 @@ type Agent struct {
 }
 
 // Writer returns the inner Logger for the diagnostics agent.
-func (da *Agent) Writer() Logger {
+func (da *Agent) Writer() *Writer {
 	return da.writer
 }
 
@@ -327,8 +338,17 @@ func (da *Agent) Sync() *SyncAgent {
 // --------------------------------------------------------------------------------
 
 // Close releases shared resources for the agent.
-func (da *Agent) Close() error {
-	return da.eventQueue.Close()
+func (da *Agent) Close() (err error) {
+	if da.eventQueue != nil {
+		err = da.eventQueue.Close()
+		if err != nil {
+			return
+		}
+	}
+	if da.writer != nil {
+		err = da.writer.Close()
+	}
+	return
 }
 
 // Drain waits for the agent to finish it's queue of events before closing.
@@ -401,6 +421,8 @@ func (da *Agent) write(actionState ...interface{}) error {
 func (da *Agent) writeError(actionState ...interface{}) error {
 	return da.writeWithOutput(da.writer.ErrorfWithTimeSource, actionState...)
 }
+
+type loggerOutputWithTimeSource func(ts TimeSource, format string, args ...interface{}) (int64, error)
 
 // writeEventMessage writes an event message.
 func (da *Agent) writeWithOutput(output loggerOutputWithTimeSource, actionState ...interface{}) error {

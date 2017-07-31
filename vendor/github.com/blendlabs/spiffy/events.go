@@ -15,11 +15,11 @@ const (
 )
 
 // EventListener is an event listener for logger events.
-type EventListener func(writer logger.Logger, ts logger.TimeSource, flag logger.EventFlag, query string, elapsed time.Duration, err error, queryLabel string)
+type EventListener func(writer *logger.Writer, ts logger.TimeSource, flag logger.EventFlag, query string, elapsed time.Duration, err error, queryLabel string)
 
 // NewEventListener returns a new listener for diagnostics events.
 func NewEventListener(action EventListener) logger.EventListener {
-	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	return func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 
 		var queryBody = state[0].(string)
 		var elapsed = state[1].(time.Duration)
@@ -40,7 +40,7 @@ func NewEventListener(action EventListener) logger.EventListener {
 
 // NewPrintStatementListener is a helper listener.
 func NewPrintStatementListener() logger.EventListener {
-	return func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	return func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		var queryBody = state[0].(string)
 		var elapsed = state[1].(time.Duration)
 

@@ -189,9 +189,7 @@ func (a *App) UseTLSFromEnvironment() error {
 
 // UseTLSClientCertPoolFromCerts set the client cert pool from a given pem.
 func (a *App) UseTLSClientCertPoolFromCerts(certs ...[]byte) error {
-	if a.tlsConfig.ClientCAs == nil {
-		a.tlsConfig.ClientCAs = x509.NewCertPool()
-	}
+	a.tlsConfig.ClientCAs = x509.NewCertPool()
 	for _, cert := range certs {
 		ok := a.tlsConfig.ClientCAs.AppendCertsFromPEM(cert)
 		if !ok {
@@ -199,6 +197,12 @@ func (a *App) UseTLSClientCertPoolFromCerts(certs ...[]byte) error {
 		}
 	}
 	a.tlsConfig.BuildNameToCertificate()
+	// This is a solution to enforce the server fetch the new config when a new
+	// request comes in. The server would use the old ClientCAs pool if this is
+	// not called.
+	a.tlsConfig.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
+		return a.tlsConfig, nil
+	}
 	return nil
 }
 
@@ -567,7 +571,7 @@ func (a *App) Mock() *MockRequestBuilder {
 // Request Pipeline
 // --------------------------------------------------------------------------------
 
-func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+func (a *App) onRequestStart(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 	if len(state) < 1 {
 		return
 	}
@@ -578,7 +582,7 @@ func (a *App) onRequestStart(writer logger.Logger, ts logger.TimeSource, eventFl
 	logger.WriteRequestStart(writer, ts, context.Request)
 }
 
-func (a *App) onRequestPostBody(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+func (a *App) onRequestPostBody(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 	if len(state) < 1 {
 		return
 	}
@@ -591,7 +595,7 @@ func (a *App) onRequestPostBody(writer logger.Logger, ts logger.TimeSource, even
 	logger.WriteRequestBody(writer, ts, body)
 }
 
-func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+func (a *App) onRequestComplete(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 	if len(state) < 1 {
 		return
 	}
@@ -602,7 +606,7 @@ func (a *App) onRequestComplete(writer logger.Logger, ts logger.TimeSource, even
 	logger.WriteRequest(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
 }
 
-func (a *App) onResponse(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+func (a *App) onResponse(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 	if len(state) < 1 {
 		return
 	}

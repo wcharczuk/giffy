@@ -11,11 +11,11 @@ const (
 )
 
 // AverageQueueLatencyListener is a listener for EventAverageQueueLatency.
-type AverageQueueLatencyListener func(Logger, TimeSource, time.Duration)
+type AverageQueueLatencyListener func(*Writer, TimeSource, time.Duration)
 
 // NewAverageQueueLatencyListener returns a new listener for Average Queue Latency events.
 func NewAverageQueueLatencyListener(listener AverageQueueLatencyListener) EventListener {
-	return func(wr Logger, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
+	return func(wr *Writer, ts TimeSource, eventFlag EventFlag, state ...interface{}) {
 		if len(state) > 0 {
 			if typed, isTyped := state[0].(time.Duration); isTyped {
 				listener(wr, ts, typed)
@@ -32,7 +32,7 @@ func DebugPrintAverageLatency(agent *Agent) {
 	)
 
 	agent.EnableEvent(EventAverageQueueLatency)
-	agent.AddDebugListener(func(_ Logger, ts TimeSource, ef EventFlag, _ ...interface{}) {
+	agent.AddDebugListener(func(_ *Writer, ts TimeSource, ef EventFlag, _ ...interface{}) {
 		if ef != EventAverageQueueLatency {
 			debugLatenciesLock.Lock()
 			debugLatencies = append(debugLatencies, time.Now().UTC().Sub(ts.UTCNow()))

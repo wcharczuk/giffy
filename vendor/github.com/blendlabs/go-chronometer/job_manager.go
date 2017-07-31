@@ -123,13 +123,13 @@ func (jm *JobManager) ShouldShowMessagesFor(taskName string) bool {
 	return true
 }
 
-func (jm *JobManager) taskListener(wr logger.Logger, ts logger.TimeSource, taskName string) {
+func (jm *JobManager) taskListener(wr *logger.Writer, ts logger.TimeSource, taskName string) {
 	if jm.ShouldShowMessagesFor(taskName) {
 		logger.WriteEventf(wr, ts, EventTask, logger.ColorBlue, "`%s` starting", taskName)
 	}
 }
 
-func (jm *JobManager) taskCompleteListener(wr logger.Logger, ts logger.TimeSource, taskName string, elapsed time.Duration, err error) {
+func (jm *JobManager) taskCompleteListener(wr *logger.Writer, ts logger.TimeSource, taskName string, elapsed time.Duration, err error) {
 	if jm.ShouldShowMessagesFor(taskName) {
 		if err != nil {
 			logger.WriteEventf(wr, ts, EventTaskComplete, logger.ColorRed, "`%s` failed %v", taskName, elapsed)

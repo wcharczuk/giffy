@@ -7,7 +7,7 @@ type DiagnosticsRequestCompleteHandler func(ctx *Ctx)
 
 // NewDiagnosticsRequestCompleteHandler returns a binder for EventListener.
 func NewDiagnosticsRequestCompleteHandler(handler DiagnosticsRequestCompleteHandler) logger.EventListener {
-	return func(wr logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	return func(wr *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		if len(state) < 1 {
 			return
 		}
@@ -26,7 +26,7 @@ type DiagnosticsErrorHandler func(ctx *Ctx, err error)
 
 // NewDiagnosticsErrorHandler returns a binder for EventListener.
 func NewDiagnosticsErrorHandler(handler DiagnosticsErrorHandler) logger.EventListener {
-	return func(wr logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	return func(wr *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		if len(state) < 2 {
 			return
 		}

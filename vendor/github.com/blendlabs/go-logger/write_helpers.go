@@ -8,7 +8,7 @@ import (
 )
 
 // WriteEventf is a helper for creating new logging messasges.
-func WriteEventf(writer Logger, ts TimeSource, event EventFlag, color AnsiColorCode, format string, args ...interface{}) {
+func WriteEventf(writer *Writer, ts TimeSource, event EventFlag, color AnsiColorCode, format string, args ...interface{}) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
@@ -21,7 +21,7 @@ func WriteEventf(writer Logger, ts TimeSource, event EventFlag, color AnsiColorC
 }
 
 // WriteRequestStart is a helper method to write request start events to a writer.
-func WriteRequestStart(writer Logger, ts TimeSource, req *http.Request) {
+func WriteRequestStart(writer *Writer, ts TimeSource, req *http.Request) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
@@ -37,7 +37,7 @@ func WriteRequestStart(writer Logger, ts TimeSource, req *http.Request) {
 }
 
 // WriteRequest is a helper method to write request complete events to a writer.
-func WriteRequest(writer Logger, ts TimeSource, req *http.Request, statusCode, contentLengthBytes int, elapsed time.Duration) {
+func WriteRequest(writer *Writer, ts TimeSource, req *http.Request, statusCode, contentLengthBytes int, elapsed time.Duration) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
@@ -59,7 +59,7 @@ func WriteRequest(writer Logger, ts TimeSource, req *http.Request, statusCode, c
 }
 
 // WriteRequestBody is a helper method to write request start events to a writer.
-func WriteRequestBody(writer Logger, ts TimeSource, body []byte) {
+func WriteRequestBody(writer *Writer, ts TimeSource, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 	buffer.WriteString(writer.Colorize(string(EventWebRequestPostBody), ColorGreen))
@@ -69,7 +69,7 @@ func WriteRequestBody(writer Logger, ts TimeSource, body []byte) {
 }
 
 // WriteResponseBody is a helper method to write request start events to a writer.
-func WriteResponseBody(writer Logger, ts TimeSource, body []byte) {
+func WriteResponseBody(writer *Writer, ts TimeSource, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 	buffer.WriteString(writer.Colorize(string(EventWebResponse), ColorGreen))
