@@ -73,7 +73,7 @@ func New() *web.App {
 
 	app.Logger().AddEventListener(
 		request.Event,
-		request.NewOutgoingListener(func(wr logger.Logger, ts logger.TimeSource, req *request.Meta) {
+		request.NewOutgoingListener(func(wr *logger.Writer, ts logger.TimeSource, req *request.Meta) {
 			request.WriteOutgoingRequest(wr, ts, req)
 		}),
 	)
@@ -93,7 +93,7 @@ func New() *web.App {
 	}
 
 	app.Logger().EnableEvent(core.EventFlagSearch)
-	app.Logger().AddEventListener(core.EventFlagSearch, func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	app.Logger().AddEventListener(core.EventFlagSearch, func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		external.StatHatSearch()
 		if len(state) > 0 {
 			logger.WriteEventf(writer, ts, "Image Search", logger.ColorLightWhite, "query: %s", state[0].(*model.SearchHistory).SearchQuery)
@@ -102,7 +102,7 @@ func New() *web.App {
 	})
 
 	app.Logger().EnableEvent(core.EventFlagModeration)
-	app.Logger().AddEventListener(core.EventFlagModeration, func(writer logger.Logger, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
+	app.Logger().AddEventListener(core.EventFlagModeration, func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
 		if len(state) > 0 {
 			logger.WriteEventf(writer, ts, "Moderation", logger.ColorLightWhite, "verb: %s", state[0].(*model.Moderation).Verb)
 			workqueue.Default().Enqueue(model.CreateObject, state[0])
