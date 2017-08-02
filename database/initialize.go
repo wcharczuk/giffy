@@ -10,15 +10,13 @@ import (
 )
 
 func main() {
-	err := spiffy.InitDefault(spiffy.NewConnectionFromEnvironment())
+	err := spiffy.OpenDefault(spiffy.NewConnectionFromEnvironment())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = migration.Run(func(suite migration.Migration) error {
-		suite.SetLogger(migration.NewLogger())
-		return suite.Apply(spiffy.DB())
-	})
+	migration.Default().SetLogger(migration.NewLogger())
+	err = migration.Default().Apply(spiffy.Default())
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -40,10 +40,8 @@ var (
 
 // Migrate migrates the db
 func Migrate() error {
-	return migration.Run(func(suite migration.Migration) error {
-		suite.SetLogger(migration.NewLoggerFromAgent(logger.NewFromEnvironment()))
-		return suite.Apply(model.DB())
-	})
+	migration.Default().SetLogger(migration.NewLoggerFromAgent(logger.NewFromEnvironment()))
+	return migration.Default().Apply(model.DB())
 }
 
 // New returns a new server instance.

@@ -33,8 +33,8 @@ func init() {
 		migration.New(
 			fmt.Sprintf("drop & recreate `%s` schema", appName()),
 			migration.Step(
-				migration.AlwaysRun,
-				migration.Body(
+				migration.AlwaysRun(),
+				migration.BodyStatements(
 					"DROP SCHEMA public CASCADE;",
 					"CREATE SCHEMA public;",
 				),
@@ -49,11 +49,10 @@ func init() {
 			migration.New(
 				fmt.Sprintf("add `%s` user", dbUser()),
 				migration.Step(
-					migration.CreateRole,
-					migration.Body(
+					migration.RoleNotExists(dbUser()),
+					migration.BodyStatements(
 						fmt.Sprintf("CREATE USER %s WITH LOGIN NOCREATEDB NOCREATEROLE PASSWORD '%s';", dbUser(), dbPassword()),
 					),
-					dbUser(),
 				),
 			),
 		),
@@ -67,8 +66,8 @@ func init() {
 			migration.New(
 				"add db extensions",
 				migration.Step(
-					migration.AlwaysRun,
-					migration.Body(
+					migration.AlwaysRun(),
+					migration.BodyStatements(
 						"create extension if not exists pgcrypto;",
 						"create extension if not exists pg_trgm;",
 					),
@@ -78,8 +77,8 @@ func init() {
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("error"),
+					migration.BodyStatements(
 						`CREATE TABLE error (
 							uuid varchar(32) not null,
 							created_utc timestamp not null,
@@ -95,15 +94,14 @@ func init() {
 						`ALTER TABLE error ADD CONSTRAINT pk_error_uuid PRIMARY KEY (uuid);`,
 						`CREATE INDEX ix_error_created_utc ON error(created_utc);`,
 					),
-					"error",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("users"),
+					migration.BodyStatements(
 						`CREATE TABLE users (
 							id serial not null,
 							uuid varchar(32) not null,
@@ -121,15 +119,14 @@ func init() {
 						`ALTER TABLE users ADD CONSTRAINT uk_users_uuid UNIQUE (uuid);`,
 						`ALTER TABLE users ADD CONSTRAINT uk_users_username UNIQUE (username);`,
 					),
-					"users",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("user_auth"),
+					migration.BodyStatements(
 						`CREATE TABLE user_auth (
 							user_id bigint not null,
 							provider varchar(32) not null,
@@ -142,15 +139,14 @@ func init() {
 						`ALTER TABLE user_auth ADD CONSTRAINT fk_user_auth_user_id FOREIGN KEY (user_id) REFERENCES users(id);`,
 						`CREATE INDEX ix_user_auth_auth_token_hash ON user_auth(auth_token_hash);`,
 					),
-					"user_auth",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("user_session"),
+					migration.BodyStatements(
 						`CREATE TABLE user_session (
 							session_id varchar(32) not null,
 							user_id bigint not null,
@@ -159,15 +155,14 @@ func init() {
 						`ALTER TABLE user_session ADD CONSTRAINT pk_user_session_session_id PRIMARY KEY (session_id);`,
 						`ALTER TABLE user_session ADD CONSTRAINT fk_user_session_user_id FOREIGN KEY (user_id) REFERENCES users(id);`,
 					),
-					"user_session",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("content_rating"),
+					migration.BodyStatements(
 						`CREATE TABLE content_rating (
 							id int not null,
 							name varchar(32) not null,
@@ -175,15 +170,14 @@ func init() {
 						);`,
 						`ALTER TABLE content_rating ADD CONSTRAINT pk_content_rating_id PRIMARY KEY (id);`,
 					),
-					"content_rating",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("image"),
+					migration.BodyStatements(
 						`CREATE TABLE image (
 							id serial not null,
 							uuid varchar(32) not null,
@@ -211,15 +205,14 @@ func init() {
 						`ALTER TABLE image ADD CONSTRAINT fk_image_created_by_user_id FOREIGN KEY (created_by) REFERENCES users(id);`,
 						`ALTER TABLE image ADD CONSTRAINT fk_image_content_rating FOREIGN KEY (content_rating) REFERENCES content_rating(id);`,
 					),
-					"image",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("tag"),
+					migration.BodyStatements(
 						`CREATE TABLE tag (
 							id serial not null,
 							uuid varchar(32) not null,
@@ -233,15 +226,14 @@ func init() {
 						`ALTER TABLE tag ADD CONSTRAINT fk_tag_created_by_user_id FOREIGN KEY (created_by) REFERENCES users(id);`,
 						`CREATE INDEX idx_tag_tag_value_gin ON tag USING gin (tag_value gin_trgm_ops);`,
 					),
-					"tag",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("vote_summary"),
+					migration.BodyStatements(
 						`CREATE TABLE vote_summary (
 							image_id bigint not null,
 							tag_id bigint not null,
@@ -256,15 +248,14 @@ func init() {
 						`ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_image_id FOREIGN KEY (image_id) REFERENCES image(id);`,
 						`ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_tag_id FOREIGN KEY (tag_id) REFERENCES tag(id);`,
 					),
-					"vote_summary",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("vote"),
+					migration.BodyStatements(
 						`CREATE TABLE vote (
 							user_id bigint not null,
 							image_id bigint not null,
@@ -277,15 +268,14 @@ func init() {
 						`ALTER TABLE vote ADD CONSTRAINT fk_vote_image_id FOREIGN KEY (image_id) REFERENCES image(id);`,
 						`ALTER TABLE vote ADD CONSTRAINT fk_vote_tag_id FOREIGN KEY (tag_id) REFERENCES tag(id);`,
 					),
-					"vote",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("moderation"),
+					migration.BodyStatements(
 						`CREATE TABLE moderation (
 							user_id bigint not null,
 							uuid varchar(32) not null,
@@ -298,15 +288,14 @@ func init() {
 						`ALTER TABLE moderation ADD CONSTRAINT pk_moderation_uuid PRIMARY KEY (uuid);`,
 						`ALTER TABLE moderation add CONSTRAINT fk_moderation_user_id FOREIGN KEY (user_id) REFERENCES users(id);`,
 					),
-					"moderation",
 				),
 			),
 
 			migration.New(
 				"create",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("search_history"),
+					migration.BodyStatements(
 						`create table search_history (
 							source varchar(255) not null,
 
@@ -327,15 +316,14 @@ func init() {
 							tag_id bigint
 						);`,
 					),
-					"search_history",
 				),
 			),
 
 			migration.New(
 				"add `slack_team` table",
 				migration.Step(
-					migration.CreateTable,
-					migration.Body(
+					migration.TableNotExists("slack_team"),
+					migration.BodyStatements(
 						`CREATE TABLE slack_team (
 							team_id varchar(32) not null,
 							team_name varchar(128) not null,
@@ -347,7 +335,6 @@ func init() {
 						);`,
 						`ALTER TABLE slack_team ADD CONSTRAINT pk_content_rating_team_id PRIMARY KEY (team_id);`,
 					),
-					"slack_team",
 				),
 			),
 		),
@@ -355,8 +342,8 @@ func init() {
 		migration.New(
 			fmt.Sprintf("add admin user for %s", adminUserEmail()),
 			migration.Step(
-				migration.AlwaysRun,
-				migration.Body(
+				migration.AlwaysRun(),
+				migration.BodyStatements(
 					fmt.Sprintf(`
 						insert into users
 							(uuid, username, created_utc, first_name, last_name, email_address, is_email_verified, is_admin, is_moderator)
@@ -372,8 +359,8 @@ func init() {
 		migration.New(
 			"add `content_rating` ref-data",
 			migration.Step(
-				migration.AlwaysRun,
-				migration.Body(
+				migration.AlwaysRun(),
+				migration.BodyStatements(
 					"INSERT INTO content_rating (id, name, description) select 1, 'G', 'General Audiences; no violence or sexual content. No live action.' where not exists ( select 1 from content_rating where id = 1 );",
 					"INSERT INTO content_rating (id, name, description) select 2, 'PG', 'Parental Guidance; limited violence and sexual content. Some live action' where not exists ( select 1 from content_rating where id = 2 );",
 					"INSERT INTO content_rating (id, name, description) select 3, 'PG-13', 'Parental Guidance (13 and over); some violence and sexual content. Live action and animated.' where not exists ( select 1 from content_rating where id = 3 );",
