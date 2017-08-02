@@ -349,6 +349,11 @@ func (dbc *Connection) DB(dbs ...*DB) *DB {
 	return &DB{conn: dbc}
 }
 
+// InTx is a shortcut for DB().InTx(...).
+func (dbc *Connection) InTx(txs ...*sql.Tx) *DB {
+	return &DB{conn: dbc, tx: OptionalTx(txs...)}
+}
+
 // --------------------------------------------------------------------------------
 // Invocation Context Stubs
 // --------------------------------------------------------------------------------

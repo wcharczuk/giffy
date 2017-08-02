@@ -176,6 +176,12 @@ func (q *Query) Out(object interface{}) (err error) {
 		return
 	}
 
+	sliceType := reflectType(object)
+	if sliceType.Kind() != reflect.Struct {
+		err = exception.New("destination object is not a struct")
+		return
+	}
+
 	columnMeta := getCachedColumnCollectionFromInstance(object)
 	var popErr error
 	if q.rows.Next() {
@@ -211,7 +217,7 @@ func (q *Query) OutMany(collection interface{}) (err error) {
 
 	sliceType := reflectType(collection)
 	if sliceType.Kind() != reflect.Slice {
-		err = exception.New("Destination collection is not a slice.")
+		err = exception.New("destination collection is not a slice")
 		return
 	}
 

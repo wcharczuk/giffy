@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"net/http"
+	"os"
 )
 
 // SyncAgent is an agent that fires events synchronously.
@@ -11,12 +12,22 @@ type SyncAgent struct {
 	a *Agent
 }
 
+// Agent returns the underlying agent.
+func (sa *SyncAgent) Agent() *Agent {
+	return sa.a
+}
+
+// Writer returns the underlying writer.
+func (sa *SyncAgent) Writer() *Writer {
+	return sa.a.Writer()
+}
+
 // Infof logs an informational message to the output stream.
 func (sa *SyncAgent) Infof(format string, args ...interface{}) {
 	if sa == nil {
 		return
 	}
-	sa.WriteEventf(EventInfo, ColorWhite, format, args...)
+	sa.WriteEventf(EventInfo, ColorLightWhite, format, args...)
 }
 
 // Debugf logs a debug message to the output stream.
@@ -99,6 +110,17 @@ func (sa *SyncAgent) FatalWithReq(err error, req *http.Request) error {
 	return sa.ErrorEventWithState(EventFatalError, ColorRed, err, req)
 }
 
+// FatalExit logs the result of a fatal error to std err and calls `exit(1)`.
+// NOTE: this terminates the program.
+func (sa *SyncAgent) FatalExit(err error) {
+	if sa == nil {
+		os.Exit(1)
+	}
+
+	sa.ErrorEventWithState(EventFatalError, ColorRed, err)
+	os.Exit(1)
+}
+
 // WriteEventf writes to the standard output and triggers events.
 func (sa *SyncAgent) WriteEventf(event EventFlag, color AnsiColorCode, format string, args ...interface{}) {
 	if sa == nil {
@@ -108,7 +130,7 @@ func (sa *SyncAgent) WriteEventf(event EventFlag, color AnsiColorCode, format st
 		return
 	}
 	if sa.a.IsEnabled(event) {
-		sa.a.write(append([]interface{}{TimeNow(), event, ColorLightYellow, format}, args...)...)
+		sa.a.write(append([]interface{}{TimeNow(), event, color, format}, args...)...)
 
 		if sa.a.HasListener(event) {
 			sa.a.triggerListeners(append([]interface{}{TimeNow(), event, format}, args...)...)
@@ -125,7 +147,7 @@ func (sa *SyncAgent) WriteErrorEventf(event EventFlag, color AnsiColorCode, form
 		return
 	}
 	if sa.a.IsEnabled(event) {
-		sa.a.writeError(append([]interface{}{TimeNow(), event, ColorLightYellow, format}, args...)...)
+		sa.a.writeError(append([]interface{}{TimeNow(), event, color, format}, args...)...)
 
 		if sa.a.HasListener(event) {
 			sa.a.triggerListeners(append([]interface{}{TimeNow(), event, format}, args...)...)
@@ -143,7 +165,7 @@ func (sa *SyncAgent) ErrorEventWithState(event EventFlag, color AnsiColorCode, e
 	}
 	if err != nil {
 		if sa.a.IsEnabled(event) {
-			sa.a.writeError(TimeNow(), event, ColorLightYellow, "%+v", err)
+			sa.a.writeError(TimeNow(), event, color, "%+v", err)
 			if sa.a.HasListener(event) {
 				sa.a.triggerListeners(append([]interface{}{TimeNow(), event, err}, state...)...)
 			}

@@ -33,7 +33,7 @@ func ReadDataFile(filePath string) *DataFileReader {
 
 // DataFileReader reads a postgres dump.
 type DataFileReader struct {
-	parent *Runner
+	parent Migration
 	label  string
 	path   string
 	logger *Logger
@@ -55,12 +55,12 @@ func (dfr *DataFileReader) SetLabel(value string) {
 }
 
 // Parent returns the parent for the data file reader.
-func (dfr *DataFileReader) Parent() *Runner {
+func (dfr *DataFileReader) Parent() Migration {
 	return dfr.parent
 }
 
 // SetParent sets the parent for the data file reader.
-func (dfr *DataFileReader) SetParent(parent *Runner) {
+func (dfr *DataFileReader) SetParent(parent Migration) {
 	dfr.parent = parent
 }
 
@@ -90,9 +90,9 @@ func (dfr *DataFileReader) Test(c *spiffy.Connection, optionalTx ...*sql.Tx) (er
 			err = fmt.Errorf("%v", err)
 		}
 		if err == nil {
-			dfr.logger.Applyf(dfr, "done!")
+			dfr.logger.Applyf(dfr, "done")
 		} else {
-			dfr.logger.Errorf(dfr, err)
+			dfr.logger.Error(dfr, err)
 		}
 		tx.Rollback()
 	}()
@@ -112,10 +112,10 @@ func (dfr *DataFileReader) Apply(c *spiffy.Connection, optionalTx ...*sql.Tx) (e
 		}
 		if err == nil {
 			tx.Commit()
-			dfr.logger.Applyf(dfr, "done!")
+			dfr.logger.Applyf(dfr, "done")
 		} else {
 			tx.Rollback()
-			dfr.logger.Errorf(dfr, err)
+			dfr.logger.Error(dfr, err)
 		}
 	}()
 

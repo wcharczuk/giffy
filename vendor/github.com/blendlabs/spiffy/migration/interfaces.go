@@ -6,21 +6,13 @@ import (
 	"github.com/blendlabs/spiffy"
 )
 
-// Action is a step in a migration.
-type Action func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error
-
-// Invocable is a thing that can be invoked.
-type Invocable interface {
-	Invoke(c *spiffy.Connection, tx *sql.Tx) error
-}
-
-// Migration is an Invocable that can tested before running.
+// Migration is either a group of steps or the entire suite.
 type Migration interface {
 	Label() string
 	SetLabel(label string)
 
-	Parent() *Runner
-	SetParent(parent *Runner)
+	Parent() Migration
+	SetParent(parent Migration)
 
 	Logger() *Logger
 	SetLogger(logger *Logger)
@@ -30,3 +22,14 @@ type Migration interface {
 	Test(c *spiffy.Connection, optionalTx ...*sql.Tx) error
 	Apply(c *spiffy.Connection, optionalTx ...*sql.Tx) error
 }
+
+// GuardAction is a control for migration steps.
+type GuardAction func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error
+
+// Invocable is a thing that can be invoked.
+type Invocable interface {
+	Invoke(c *spiffy.Connection, tx *sql.Tx) error
+}
+
+// InvocableAction is a function that can be run during a migration step.
+type InvocableAction func(c *spiffy.Connection, tx *sql.Tx) error

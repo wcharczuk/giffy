@@ -4,8 +4,8 @@ import "github.com/blendlabs/spiffy/migration"
 
 func contentRating() migration.Migration {
 	createContentRating := migration.Step(
-		migration.CreateTable,
-		migration.Body(`
+		migration.TableNotExists("content_rating"),
+		migration.BodyStatements(`
 				CREATE TABLE content_rating (
 					id int not null,
 					name varchar(32) not null,
@@ -18,27 +18,22 @@ func contentRating() migration.Migration {
 			`INSERT INTO content_rating (id, name, description) VALUES (4, 'R', 'Restricted; very violent or sexual in content.');`,
 			`INSERT INTO content_rating (id, name, description) VALUES (5, 'NR', 'Not Rated; reserved for the dankest of may-mays, may be disturbing. Usually NSFW, will generally get you fired if you look at these at work.');`,
 		),
-		"content_rating",
 	)
 
 	addContentRatingToImage := migration.Step(
-		migration.CreateColumn,
-		migration.Body(
+		migration.ColumnNotExists("image", "content_rating"),
+		migration.BodyStatements(
 			"ALTER TABLE image ADD content_rating int;",
 			"UPDATE image set content_rating = 3;",
 			"UPDATE image set content_rating = 5 WHERE is_censored = true;",
 		),
-		"image",
-		"content_rating",
 	)
 
 	dropIsCensoredFromImage := migration.Step(
-		migration.AlterColumn,
-		migration.Body(
+		migration.ColumnExists("image", "is_censored"),
+		migration.BodyStatements(
 			"ALTER TABLE image DROP is_censored;",
 		),
-		"image",
-		"is_censored",
 	)
 
 	return migration.New(
@@ -53,8 +48,8 @@ func slackTeam() migration.Migration {
 	return migration.New(
 		"create",
 		migration.Step(
-			migration.CreateTable,
-			migration.Body(
+			migration.TableNotExists("slack_team"),
+			migration.BodyStatements(
 				`CREATE TABLE slack_team (
 					team_id varchar(32) not null,
 					team_name varchar(128) not null,
@@ -90,7 +85,6 @@ func slackTeam() migration.Migration {
 				) as data
 				where data.team_rank = 1`,
 			),
-			"slack_team",
 		),
 	)
 }
@@ -99,8 +93,8 @@ func errors() migration.Migration {
 	return migration.New(
 		"create",
 		migration.Step(
-			migration.CreateTable,
-			migration.Body(
+			migration.TableNotExists("error"),
+			migration.BodyStatements(
 				`CREATE TABLE error (
 					uuid varchar(32) not null,
 					created_utc timestamp not null,
@@ -116,7 +110,6 @@ func errors() migration.Migration {
 				`ALTER TABLE error ADD CONSTRAINT pk_error_uuid PRIMARY KEY (uuid);`,
 				`CREATE INDEX ix_error_created_utc ON error(created_utc);`,
 			),
-			"error",
 		),
 	)
 }
@@ -125,10 +118,8 @@ func sessionIDs() migration.Migration {
 	return migration.New(
 		"alter",
 		migration.Step(
-			migration.AlterColumn,
-			migration.Body(`AlTER TABLE user_session ALTER session_id TYPE varchar(128)`),
-			"user_session",
-			"session_id",
+			migration.ColumnExists("user_session", "session_id"),
+			migration.BodyStatements(`AlTER TABLE user_session ALTER session_id TYPE varchar(128)`),
 		),
 	)
 }

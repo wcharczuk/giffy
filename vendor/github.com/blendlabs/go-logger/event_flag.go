@@ -8,6 +8,8 @@ const (
 
 	// EventFatalError fires for fatal errors (panics or errors returned to users).
 	EventFatalError EventFlag = "fatal"
+	// EventFatal fires for fatal errors and is an alias to `Fatal`.
+	EventFatal = EventFatalError
 	// EventError fires for errors that are severe enough to log but not so severe as to abort a process.
 	EventError EventFlag = "error"
 	// EventWarning fires for warnings.

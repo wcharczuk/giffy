@@ -193,7 +193,7 @@ func (da *Agent) Infof(format string, args ...interface{}) {
 	if da == nil {
 		return
 	}
-	da.WriteEventf(EventInfo, ColorWhite, format, args...)
+	da.WriteEventf(EventInfo, ColorLightWhite, format, args...)
 }
 
 // Debugf logs a debug message to the output stream.
@@ -353,6 +353,9 @@ func (da *Agent) Close() (err error) {
 
 // Drain waits for the agent to finish it's queue of events before closing.
 func (da *Agent) Drain() error {
+	if da == nil {
+		return nil
+	}
 	da.SetVerbosity(NewEventFlagSetNone())
 
 	for da.eventQueue.Len() > 0 {
@@ -450,7 +453,7 @@ func (da *Agent) writeWithOutput(output loggerOutputWithTimeSource, actionState 
 		return err
 	}
 
-	_, err = output(timeSource, "%s %s", da.writer.Colorize(string(eventFlag), labelColor), fmt.Sprintf(format, actionState[4:]...))
+	_, err = output(timeSource, "%s %s", da.writer.FormatEvent(eventFlag, labelColor), fmt.Sprintf(format, actionState[4:]...))
 	return err
 }
 

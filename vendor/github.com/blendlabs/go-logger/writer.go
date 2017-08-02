@@ -132,6 +132,16 @@ func (wr *Writer) Colorize(value string, color AnsiColorCode) string {
 	return value
 }
 
+// FormatEvent formats an event label.
+func (wr *Writer) FormatEvent(event EventFlag, color AnsiColorCode) string {
+	return fmt.Sprintf("[%s]", wr.Colorize(string(event), color))
+}
+
+// FormatLabel returns the app name.
+func (wr *Writer) FormatLabel() string {
+	return wr.Colorize(wr.label, ColorBlue)
+}
+
 // ColorizeByStatusCode colorizes a string by a status code (green, yellow, red).
 func (wr *Writer) ColorizeByStatusCode(statusCode int, value string) string {
 	if wr.useAnsiColors {
@@ -156,11 +166,6 @@ func (wr *Writer) GetTimestamp(optionalTimeSource ...TimeSource) string {
 		return wr.Colorize(optionalTimeSource[0].UTCNow().Format(timeFormat), ColorGray)
 	}
 	return wr.Colorize(time.Now().UTC().Format(timeFormat), ColorGray)
-}
-
-// formatLabel returns the app name.
-func (wr *Writer) formatLabel() string {
-	return wr.Colorize(wr.label, ColorBlue)
 }
 
 // Printf writes to the output stream.
@@ -199,7 +204,7 @@ func (wr *Writer) WriteWithTimeSource(ts TimeSource, binary []byte) (int64, erro
 	}
 
 	if wr.showLabel && len(wr.label) > 0 {
-		buf.WriteString(wr.formatLabel())
+		buf.WriteString(wr.FormatLabel())
 		buf.WriteRune(RuneSpace)
 	}
 
@@ -235,7 +240,7 @@ func (wr *Writer) FprintfWithTimeSource(ts TimeSource, w io.Writer, format strin
 	}
 
 	if wr.showLabel && len(wr.label) > 0 {
-		buf.WriteString(wr.formatLabel())
+		buf.WriteString(wr.FormatLabel())
 		buf.WriteRune(RuneSpace)
 	}
 

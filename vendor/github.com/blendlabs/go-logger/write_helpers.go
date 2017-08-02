@@ -12,7 +12,7 @@ func WriteEventf(writer *Writer, ts TimeSource, event EventFlag, color AnsiColor
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
-	buffer.WriteString(writer.Colorize(string(event), color))
+	buffer.WriteString(writer.FormatEvent(event, color))
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(fmt.Sprintf(format, args...))
 	buffer.WriteRune(RuneSpace)
@@ -25,7 +25,7 @@ func WriteRequestStart(writer *Writer, ts TimeSource, req *http.Request) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
-	buffer.WriteString(writer.Colorize(string(EventWebRequestStart), ColorGreen))
+	buffer.WriteString(writer.FormatEvent(EventWebRequestStart, ColorGreen))
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(GetIP(req))
 	buffer.WriteRune(RuneSpace)
@@ -41,7 +41,7 @@ func WriteRequest(writer *Writer, ts TimeSource, req *http.Request, statusCode, 
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
 
-	buffer.WriteString(writer.Colorize(string(EventWebRequest), ColorGreen))
+	buffer.WriteString(writer.FormatEvent(EventWebRequest, ColorGreen))
 	buffer.WriteRune(RuneSpace)
 	buffer.WriteString(GetIP(req))
 	buffer.WriteRune(RuneSpace)
@@ -62,7 +62,7 @@ func WriteRequest(writer *Writer, ts TimeSource, req *http.Request, statusCode, 
 func WriteRequestBody(writer *Writer, ts TimeSource, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(EventWebRequestPostBody), ColorGreen))
+	buffer.WriteString("[" + writer.Colorize(string(EventWebRequestPostBody), ColorGreen) + "]")
 	buffer.WriteRune(RuneSpace)
 	buffer.Write(body)
 	writer.WriteWithTimeSource(ts, buffer.Bytes())
@@ -72,7 +72,7 @@ func WriteRequestBody(writer *Writer, ts TimeSource, body []byte) {
 func WriteResponseBody(writer *Writer, ts TimeSource, body []byte) {
 	buffer := writer.GetBuffer()
 	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(EventWebResponse), ColorGreen))
+	buffer.WriteString("[" + writer.Colorize(string(EventWebResponse), ColorGreen) + "]")
 	buffer.WriteRune(RuneSpace)
 	buffer.Write(body)
 	writer.WriteWithTimeSource(ts, buffer.Bytes())

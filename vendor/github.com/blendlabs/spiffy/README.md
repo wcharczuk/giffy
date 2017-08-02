@@ -2,6 +2,7 @@ Spiffy
 ======
 
 [![Build Status](https://travis-ci.org/blendlabs/spiffy.svg?branch=master)](https://travis-ci.org/blendlabs/spiffy)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Fblendlabs%2Fspiffy.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Fblendlabs%2Fspiffy?ref=badge_shield)
 
 This is a very bare bones database interface for golang. It abstracts away a bunch of boilerplate so that the developer can concentrate on writing their app.
 

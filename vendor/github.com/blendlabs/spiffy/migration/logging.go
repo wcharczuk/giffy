@@ -14,8 +14,10 @@ const (
 
 // NewLogger returns a new logger instance.
 func NewLogger() *Logger {
+	agent := logger.NewFromEnvironment()
+	agent.EnableEvent(EventFlagMigration)
 	return &Logger{
-		Output: logger.NewFromEnvironment(),
+		Output: agent,
 	}
 }
 
@@ -39,6 +41,10 @@ type Logger struct {
 
 // Applyf active actions to the log.
 func (l *Logger) Applyf(m Migration, body string, args ...interface{}) error {
+	if l == nil {
+		return nil
+	}
+
 	l.applied = l.applied + 1
 	l.Result = "applied"
 	l.write(m, logger.ColorLightGreen, fmt.Sprintf(body, args...))
@@ -47,6 +53,9 @@ func (l *Logger) Applyf(m Migration, body string, args ...interface{}) error {
 
 // Skipf passive actions to the log.
 func (l *Logger) Skipf(m Migration, body string, args ...interface{}) error {
+	if l == nil {
+		return nil
+	}
 	l.skipped = l.skipped + 1
 	l.Result = "skipped"
 	l.write(m, logger.ColorGreen, fmt.Sprintf(body, args...))
@@ -54,7 +63,10 @@ func (l *Logger) Skipf(m Migration, body string, args ...interface{}) error {
 }
 
 // Errorf writes errors to the log.
-func (l *Logger) Errorf(m Migration, err error) error {
+func (l *Logger) Error(m Migration, err error) error {
+	if l == nil {
+		return err
+	}
 	l.failed = l.failed + 1
 	l.Result = "failed"
 	l.write(m, logger.ColorRed, fmt.Sprintf("%v", err.Error()))
@@ -96,16 +108,30 @@ func (l *Logger) write(m Migration, color logger.AnsiColorCode, body string) {
 		resultColor = logger.ColorRed
 	}
 
+	buffer := l.Output.Writer().GetBuffer()
+	defer l.Output.Writer().PutBuffer(buffer)
+
+	buffer.WriteString(l.colorizeFixedWidthLeftAligned(l.Phase, logger.ColorBlue, 5))
+	buffer.WriteRune(logger.RuneSpace)
+	buffer.WriteString(l.colorize("--", logger.ColorLightBlack))
+	buffer.WriteRune(logger.RuneSpace)
+	buffer.WriteString(l.colorizeFixedWidthLeftAligned(l.Result, resultColor, 5))
+
+	if stack := l.renderStack(m, color); len(stack) > 0 {
+		buffer.WriteRune(logger.RuneSpace)
+		buffer.WriteString(stack)
+	}
+	if len(body) > 0 {
+		buffer.WriteRune(logger.RuneSpace)
+		buffer.WriteString(l.colorize("--", logger.ColorLightBlack))
+		buffer.WriteRune(logger.RuneSpace)
+		buffer.WriteString(body)
+	}
+
 	l.Output.WriteEventf(
 		EventFlagMigration,
 		logger.ColorWhite,
-		"%s %s %s %s %s %s",
-		l.colorizeFixedWidthLeftAligned(l.Phase, logger.ColorBlue, 5), //2
-		l.colorize("--", logger.ColorLightBlack),                      //3
-		l.colorizeFixedWidthLeftAligned(l.Result, resultColor, 5),     //4
-		l.renderStack(m, color),                                       //5
-		l.colorize("--", logger.ColorLightBlack),                      //6
-		body, //7
+		buffer.String(),
 	)
 }
 
