@@ -9,8 +9,8 @@ server {
   return 301 https://$host$request_uri;
 }
 server {
-  listen      [::]:443 ssl;
-  listen      443 ssl;
+  listen      [::]:443 ssl http2;
+  listen      443 ssl http2;
   {{ if .SSL_SERVER_NAME }}server_name {{ .SSL_SERVER_NAME }}; {{ end }}
 
   access_log  /var/log/nginx/{{ .APP }}-access.log;
