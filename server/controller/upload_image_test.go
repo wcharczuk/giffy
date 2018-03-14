@@ -9,8 +9,9 @@ import (
 
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-logger"
+	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-web"
-	"github.com/wcharczuk/giffy/server/filecache"
+	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -20,8 +21,9 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	filecache.Mock()
-	defer filecache.ReleaseMock()
+	fm := filemanager.New("", nil)
+	fm.Mock()
+	defer fm.ReleaseMock()
 
 	auth, session := MockAuth(assert, tx, MockModeratorLogin)
 	defer auth.Logout(session, nil)
@@ -32,22 +34,22 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.SetAuth(auth)
-	app.SetLogger(logger.New(logger.NewEventFlagSetNone()))
+	app.WithAuth(auth)
+	app.WithLogger(logger.None())
 	app.Register(UploadImage{})
-	app.ViewCache().AddPaths(
+	app.Views().AddPaths(
 		"server/_views/footer.html",
 		"server/_views/upload_image.html",
 		"server/_views/upload_image_complete.html",
 		"server/_views/header.html",
 	)
-	err = app.ViewCache().Initialize()
+	err = app.Views().Initialize()
 	assert.Nil(err)
 	res, err := app.Mock().WithTx(tx).WithVerb("POST").WithPathf("/images/upload").WithPostedFile(web.PostedFile{
 		Key:      "image",
 		FileName: "image.gif",
 		Contents: contents,
-	}).WithHeader(auth.SessionParamName(), session.SessionID).Response()
+	}).WithHeader(auth.CookieName(), session.SessionID).Response()
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.StatusCode)
 	assert.NotNil(res.Body)
@@ -58,7 +60,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	assert.Nil(err)
 	assert.True(strings.Contains(string(resContents), "SUCCESS"))
 
-	imagesByUser, err := model.GetImagesForUserID(session.UserID, tx)
+	imagesByUser, err := model.GetImagesForUserID(util.Parse.Int64(session.UserID), tx)
 	assert.Nil(err)
 	assert.NotEmpty(imagesByUser)
 	assert.Equal("image.gif", imagesByUser[0].DisplayName)

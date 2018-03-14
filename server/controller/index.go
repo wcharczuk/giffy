@@ -2,32 +2,33 @@ package controller
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-web"
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/config"
 )
 
 // Index is the root controller.
-type Index struct{}
+type Index struct {
+	Config *config.Giffy
+}
 
 func (i Index) indexAction(r *web.Ctx) web.Result {
-	if core.ConfigIsProduction() {
+	if i.Config.IsProduction() {
 		return r.Static("_client/dist/index.html")
 	}
 	return r.Static("_client/src/index.html")
 }
 
 func (i Index) faviconAction(r *web.Ctx) web.Result {
-	if core.ConfigIsProduction() {
+	if i.Config.IsProduction() {
 		return r.Static("_client/dist/images/favicon.ico")
 	}
 	return r.Static("_client/src/images/favicon.ico")
 }
 
 func (i Index) methodNotAllowedHandler(r *web.Ctx) web.Result {
-	return r.View().BadRequest("Method Not Allowed")
+	return r.View().BadRequest(fmt.Errorf("method Not Allowed"))
 }
 
 func (i Index) notFoundHandler(r *web.Ctx) web.Result {
@@ -40,16 +41,16 @@ func (i Index) panicHandler(r *web.Ctx, err interface{}) web.Result {
 
 // Register registers the controller
 func (i Index) Register(app *web.App) {
-	app.SetMethodNotAllowedHandler(i.methodNotAllowedHandler)
-	app.SetNotFoundHandler(i.notFoundHandler)
-	app.SetPanicHandler(i.panicHandler)
+	app.WithMethodNotAllowedHandler(i.methodNotAllowedHandler)
+	app.WithNotFoundHandler(i.notFoundHandler)
+	app.WithPanicAction(i.panicHandler)
 
 	app.GET("/", i.indexAction)
 	app.GET("/index.html", i.indexAction)
 	app.GET("/favicon.ico", i.faviconAction)
 
-	if core.ConfigIsProduction() {
-		app.Static("/static/*filepath", http.Dir("_client/dist"))
+	if i.Config.IsProduction() {
+		app.Static("/static/*filepath", "_client/dist")
 		app.AddStaticRewriteRule("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
 			if len(parts) < 4 {
 				return path
@@ -59,7 +60,7 @@ func (i Index) Register(app *web.App) {
 		app.AddStaticHeader("/static/*filepath", "access-control-allow-origin", "*")
 		app.AddStaticHeader("/static/*filepath", "cache-control", "public,max-age=315360000")
 	} else {
-		app.Static("/bower/*filepath", http.Dir("_client/bower"))
-		app.Static("/static/*filepath", http.Dir("_client/src"))
+		app.Static("/bower/*filepath", "_client/bower")
+		app.Static("/static/*filepath", "_client/src")
 	}
 }

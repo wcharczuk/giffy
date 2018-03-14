@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
@@ -26,13 +27,21 @@ const (
 	StringEmpty = ""
 )
 
+// Request is an alias to Ctx.
+// It is part of a longer term transition.
+type Request = Ctx
+
 // NewCtx returns a new hc context.
-func NewCtx(w ResponseWriter, r *http.Request, p RouteParameters) *Ctx {
+func NewCtx(w ResponseWriter, r *http.Request, p RouteParameters, s State) *Ctx {
 	ctx := &Ctx{
 		Response:        w,
 		Request:         r,
 		routeParameters: p,
-		state:           State{},
+		state:           s,
+	}
+
+	if ctx.state == nil {
+		ctx.state = State{}
 	}
 
 	return ctx
@@ -44,15 +53,13 @@ type Ctx struct {
 	Response ResponseWriter
 	Request  *http.Request
 
-	app    *App
-	logger *logger.Agent
-	auth   *AuthManager
+	app  *App
+	log  *logger.Logger
+	auth *AuthManager
 
 	postBody []byte
 
-	//Private fields
 	view                  *ViewResultProvider
-	api                   *APIResultProvider
 	json                  *JSONResultProvider
 	xml                   *XMLResultProvider
 	text                  *TextResultProvider
@@ -68,18 +75,37 @@ type Ctx struct {
 	requestLogFormat string
 	session          *Session
 
-	tx *sql.Tx
+	ctx    context.Context
+	cancel context.CancelFunc
+	tx     *sql.Tx
 }
 
 // WithTx sets a transaction on the context.
-func (rc *Ctx) WithTx(tx *sql.Tx) *Ctx {
-	rc.tx = tx
+func (rc *Ctx) WithTx(tx *sql.Tx, keys ...string) *Ctx {
+	key := StateKeyTx
+	if keys != nil && len(keys) > 0 {
+		key = StateKeyPrefixTx + keys[0]
+	}
+	rc.SetState(key, tx)
 	return rc
 }
 
-// Tx returns the transaction for the request.
-func (rc *Ctx) Tx() *sql.Tx {
-	return rc.tx
+// WithContext sets the background context for the request.
+func (rc *Ctx) WithContext(ctx context.Context) *Ctx {
+	rc.ctx = ctx
+	return rc
+}
+
+// Background returns the background context for a request.
+func (rc *Ctx) Background() context.Context {
+	return rc.ctx
+}
+
+// Cancel calls the cancel func if it's set.
+func (rc *Ctx) Cancel() {
+	if rc.cancel != nil {
+		rc.cancel()
+	}
 }
 
 // WithApp sets the app reference for the ctx.
@@ -119,41 +145,21 @@ func (rc *Ctx) SetSession(session *Session) {
 
 // View returns the view result provider.
 func (rc *Ctx) View() *ViewResultProvider {
-	if rc.view == nil {
-		rc.view = NewViewResultProvider(rc, rc.app.viewCache)
-	}
 	return rc.view
-}
-
-// API returns the view result provider.
-func (rc *Ctx) API() *APIResultProvider {
-	if rc.api == nil {
-		rc.api = NewAPIResultProvider(rc)
-	}
-	return rc.api
 }
 
 // JSON returns the JSON result provider.
 func (rc *Ctx) JSON() *JSONResultProvider {
-	if rc.json == nil {
-		rc.json = NewJSONResultProvider(rc)
-	}
 	return rc.json
 }
 
 // XML returns the xml result provider.
 func (rc *Ctx) XML() *XMLResultProvider {
-	if rc.xml == nil {
-		rc.xml = NewXMLResultProvider(rc)
-	}
 	return rc.xml
 }
 
 // Text returns the text result provider.
 func (rc *Ctx) Text() *TextResultProvider {
-	if rc.text == nil {
-		rc.text = NewTextResultProvider(rc)
-	}
 	return rc.text
 }
 
@@ -161,15 +167,13 @@ func (rc *Ctx) Text() *TextResultProvider {
 // set by calling SetDefaultResultProvider or using one of the pre-built middleware
 // steps that set it for you.
 func (rc *Ctx) DefaultResultProvider() ResultProvider {
-	if rc.defaultResultProvider == nil {
-		rc.defaultResultProvider = NewTextResultProvider(rc)
-	}
 	return rc.defaultResultProvider
 }
 
-// SetDefaultResultProvider sets the current result provider.
-func (rc *Ctx) SetDefaultResultProvider(provider ResultProvider) {
+// WithDefaultResultProvider sets the default result provider.
+func (rc *Ctx) WithDefaultResultProvider(provider ResultProvider) *Ctx {
 	rc.defaultResultProvider = provider
+	return rc
 }
 
 // State returns an object in the state cache.
@@ -182,110 +186,113 @@ func (rc *Ctx) State(key string) interface{} {
 
 // SetState sets the state for a key to an object.
 func (rc *Ctx) SetState(key string, value interface{}) {
+	if rc.state == nil {
+		rc.state = State{}
+	}
 	rc.state[key] = value
 }
 
+// ParamString is a shortcut for ParamString that swallows the missing value error.
+func (rc *Ctx) ParamString(name string) string {
+	value, _ := rc.Param(name)
+	return value
+}
+
 // Param returns a parameter from the request.
-func (rc *Ctx) Param(name string) string {
+func (rc *Ctx) Param(name string) (string, error) {
 	if rc.routeParameters != nil {
 		routeValue := rc.routeParameters.Get(name)
 		if len(routeValue) > 0 {
-			return routeValue
+			return routeValue, nil
 		}
 	}
 	if rc.Request != nil {
 		if rc.Request.URL != nil {
 			queryValue := rc.Request.URL.Query().Get(name)
 			if len(queryValue) > 0 {
-				return queryValue
+				return queryValue, nil
 			}
 		}
 		if rc.Request.Header != nil {
 			headerValue := rc.Request.Header.Get(name)
 			if len(headerValue) > 0 {
-				return headerValue
+				return headerValue, nil
 			}
 		}
 
 		formValue := rc.Request.FormValue(name)
 		if len(formValue) > 0 {
-			return formValue
+			return formValue, nil
 		}
 
 		cookie, cookieErr := rc.Request.Cookie(name)
 		if cookieErr == nil && len(cookie.Value) != 0 {
-			return cookie.Value
+			return cookie.Value, nil
 		}
 	}
 
-	return ""
+	return "", newParameterMissingError(name)
 }
 
 // ParamInt returns a parameter from any location as an integer.
 func (rc *Ctx) ParamInt(name string) (int, error) {
-	paramValue := rc.Param(name)
-	if len(paramValue) == 0 {
-		return 0, newParameterMissingError(name)
+	paramValue, err := rc.Param(name)
+	if err != nil {
+		return 0, err
 	}
 	return strconv.Atoi(paramValue)
 }
 
 // ParamInt64 returns a parameter from any location as an int64.
 func (rc *Ctx) ParamInt64(name string) (int64, error) {
-	paramValue := rc.Param(name)
-	if len(paramValue) == 0 {
-		return 0, newParameterMissingError(name)
+	paramValue, err := rc.Param(name)
+	if err != nil {
+		return 0, err
 	}
 	return strconv.ParseInt(paramValue, 10, 64)
 }
 
 // ParamFloat64 returns a parameter from any location as a float64.
 func (rc *Ctx) ParamFloat64(name string) (float64, error) {
-	paramValue := rc.Param(name)
-	if len(paramValue) == 0 {
-		return 0, newParameterMissingError(name)
+	paramValue, err := rc.Param(name)
+	if err != nil {
+		return 0, err
 	}
 	return strconv.ParseFloat(paramValue, 64)
 }
 
 // ParamTime returns a parameter from any location as a time with a given format.
 func (rc *Ctx) ParamTime(name, format string) (time.Time, error) {
-	paramValue := rc.Param(name)
-	if len(paramValue) == 0 {
-		return time.Time{}, newParameterMissingError(name)
+	paramValue, err := rc.Param(name)
+	if err != nil {
+		return time.Time{}, err
 	}
 	return time.Parse(format, paramValue)
 }
 
 // ParamBool returns a boolean value for a param.
 func (rc *Ctx) ParamBool(name string) (bool, error) {
-	paramValue := rc.Param(name)
-	if len(paramValue) == 0 {
-		return false, newParameterMissingError(name)
+	paramValue, err := rc.Param(name)
+	if err != nil {
+		return false, err
 	}
 	lower := strings.ToLower(paramValue)
 	return lower == "true" || lower == "1" || lower == "yes", nil
-}
-
-func (rc *Ctx) onPostBody(bodyContents []byte) {
-	if rc.logger != nil {
-		rc.logger.OnEvent(logger.EventWebRequestPostBody, rc.postBody)
-	}
 }
 
 // PostBody returns the bytes in a post body.
 func (rc *Ctx) PostBody() ([]byte, error) {
 	var err error
 	if len(rc.postBody) == 0 {
-		defer rc.Request.Body.Close()
-		rc.postBody, err = ioutil.ReadAll(rc.Request.Body)
+		if rc.Request != nil && rc.Request.Body != nil {
+			defer rc.Request.Body.Close()
+			rc.postBody, err = ioutil.ReadAll(rc.Request.Body)
+		}
 		if err != nil {
 			return nil, err
 		}
-		rc.onPostBody(rc.postBody)
 	}
-
-	return rc.postBody, err
+	return rc.postBody, nil
 }
 
 // PostBodyAsString returns the post body as a string.
@@ -488,13 +495,14 @@ func (rc *Ctx) getCookieDomain() string {
 
 // WriteNewCookie is a helper method for WriteCookie.
 func (rc *Ctx) WriteNewCookie(name string, value string, expires *time.Time, path string, secure bool) {
-	c := http.Cookie{}
-	c.Name = name
-	c.HttpOnly = true
-	c.Value = value
-	c.Path = path
-	c.Secure = secure
-	c.Domain = rc.getCookieDomain()
+	c := http.Cookie{
+		Name:     name,
+		HttpOnly: true,
+		Value:    value,
+		Path:     path,
+		Secure:   secure,
+		Domain:   rc.getCookieDomain(),
+	}
 	if expires != nil {
 		c.Expires = *expires
 	}
@@ -543,14 +551,8 @@ func (rc *Ctx) ExpireCookie(name string, path string) {
 // --------------------------------------------------------------------------------
 
 // Logger returns the diagnostics agent.
-func (rc *Ctx) Logger() *logger.Agent {
-	return rc.logger
-}
-
-func (rc *Ctx) logFatal(err error) {
-	if rc.logger != nil {
-		rc.logger.ErrorEventWithState(logger.EventFatalError, logger.ColorRed, err, rc)
-	}
+func (rc *Ctx) Logger() *logger.Logger {
+	return rc.log
 }
 
 // --------------------------------------------------------------------------------
@@ -568,22 +570,6 @@ func (rc *Ctx) RawWithContentType(contentType string, body []byte) *RawResult {
 	return &RawResult{ContentType: contentType, Body: body}
 }
 
-// RawJSON returns a basic json result.
-func (rc *Ctx) RawJSON(object interface{}) *JSONResult {
-	return &JSONResult{
-		StatusCode: http.StatusOK,
-		Response:   object,
-	}
-}
-
-// RawXML returns a basic xml result.
-func (rc *Ctx) RawXML(object interface{}) *XMLResult {
-	return &XMLResult{
-		StatusCode: http.StatusOK,
-		Response:   object,
-	}
-}
-
 // NoContent returns a service response.
 func (rc *Ctx) NoContent() *NoContentResult {
 	return &NoContentResult{}
@@ -591,20 +577,18 @@ func (rc *Ctx) NoContent() *NoContentResult {
 
 // Static returns a static result.
 func (rc *Ctx) Static(filePath string) *StaticResult {
-	return NewStaticResultForSingleFile(filePath)
-}
-
-// Redirect returns a redirect result.
-func (rc *Ctx) Redirect(path string) *RedirectResult {
-	return &RedirectResult{
-		RedirectURI: path,
-	}
+	return NewStaticResultForFile(filePath)
 }
 
 // Redirectf returns a redirect result.
 func (rc *Ctx) Redirectf(format string, args ...interface{}) *RedirectResult {
+	if len(args) > 0 {
+		return &RedirectResult{
+			RedirectURI: fmt.Sprintf(format, args...),
+		}
+	}
 	return &RedirectResult{
-		RedirectURI: fmt.Sprintf(format, args...),
+		RedirectURI: format,
 	}
 }
 
@@ -666,23 +650,6 @@ func (rc *Ctx) Elapsed() time.Duration {
 // Route returns the original route match for the request.
 func (rc *Ctx) Route() *Route {
 	return rc.route
-}
-
-// Reset resets the context after handling a request.
-func (rc *Ctx) Reset() {
-	rc.app = nil
-	rc.Request = nil
-	rc.Response = nil
-	rc.postBody = nil
-	rc.route = nil
-	rc.routeParameters = nil
-	rc.session = nil
-	rc.state = nil
-	rc.statusCode = 0
-	rc.contentLength = 0
-	rc.requestStart = time.Time{}
-	rc.requestEnd = time.Time{}
-	rc.tx = nil
 }
 
 // PostedFile is a file that has been posted to an hc endpoint.

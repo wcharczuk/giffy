@@ -7,13 +7,13 @@ import (
 )
 
 // Body returns an invocable of a set of invocable actions.
-func Body(actions ...InvocableAction) Invocable {
+func Body(actions ...Action) Invocable {
 	return &body{actions: actions}
 }
 
 // body wraps a user supplied invocation body.
 type body struct {
-	actions []InvocableAction
+	actions []Action
 }
 
 // Invoke applies the invocation.

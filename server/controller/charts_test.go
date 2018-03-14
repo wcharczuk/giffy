@@ -7,6 +7,7 @@ import (
 
 	assert "github.com/blendlabs/go-assert"
 	util "github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-util/uuid"
 	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/model"
 )
@@ -23,7 +24,7 @@ func TestChartsSeaches(t *testing.T) {
 	img, err := model.CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	tag, err := model.CreateTestTagForImageWithVote(u.ID, img.ID, util.UUIDv4().ToShortString(), tx)
+	tag, err := model.CreateTestTagForImageWithVote(u.ID, img.ID, uuid.V4().String(), tx)
 	assert.Nil(err)
 
 	for x := 0; x < 30; x++ {

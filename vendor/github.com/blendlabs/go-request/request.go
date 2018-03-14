@@ -2,7 +2,9 @@ package request
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"time"
 
@@ -65,13 +68,17 @@ type Request struct {
 
 	TLSClientCertPath string
 	TLSClientKeyPath  string
+	TLSClientCert     []byte
+	TLSClientKey      []byte
 	TLSSkipVerify     bool
+
+	TLSCAPool *x509.CertPool
 
 	KeepAlive        bool
 	KeepAliveTimeout time.Duration
 	Label            string
 
-	logger         *logger.Agent
+	log            *logger.Logger
 	state          interface{}
 	postedFiles    []PostedFile
 	responseBuffer Buffer
@@ -79,6 +86,8 @@ type Request struct {
 
 	err error
 
+	ctx                             context.Context
+	trace                           *httptrace.ClientTrace
 	transport                       *http.Transport
 	createTransportHandler          CreateTransportHandler
 	incomingResponseHandler         ResponseHandler
@@ -87,27 +96,39 @@ type Request struct {
 	mockProvider                    MockedResponseProvider
 }
 
-// OnResponse configures an event receiver.
-func (hr *Request) OnResponse(hook ResponseHandler) *Request {
+// WithOnResponse configures an event receiver.
+func (hr *Request) WithOnResponse(hook ResponseHandler) *Request {
 	hr.incomingResponseHandler = hook
 	return hr
 }
 
-// OnResponseStateful configures an event receiver that includes the request state.
-func (hr *Request) OnResponseStateful(hook StatefulResponseHandler) *Request {
+// WithOnResponseStateful configures an event receiver that includes the request state.
+func (hr *Request) WithOnResponseStateful(hook StatefulResponseHandler) *Request {
 	hr.statefulIncomingResponseHandler = hook
 	return hr
 }
 
-// OnCreateTransport configures an event receiver.
-func (hr *Request) OnCreateTransport(hook CreateTransportHandler) *Request {
+// WithOnCreateTransport configures an event receiver.
+func (hr *Request) WithOnCreateTransport(hook CreateTransportHandler) *Request {
 	hr.createTransportHandler = hook
 	return hr
 }
 
-// OnRequest configures an event receiver.
-func (hr *Request) OnRequest(hook OutgoingRequestHandler) *Request {
+// WithOnRequest configures an event receiver.
+func (hr *Request) WithOnRequest(hook OutgoingRequestHandler) *Request {
 	hr.outgoingRequestHandler = hook
+	return hr
+}
+
+// WithContext sets a context for the request.
+func (hr *Request) WithContext(ctx context.Context) *Request {
+	hr.ctx = ctx
+	return hr
+}
+
+// WithClientTrace sets up a trace for the request.
+func (hr *Request) WithClientTrace(trace *httptrace.ClientTrace) *Request {
+	hr.trace = trace
 	return hr
 }
 
@@ -136,14 +157,14 @@ func (hr *Request) WithMockProvider(provider MockedResponseProvider) *Request {
 }
 
 // WithLogger enables logging with HTTPRequestLogLevelErrors.
-func (hr *Request) WithLogger(agent *logger.Agent) *Request {
-	hr.logger = agent
+func (hr *Request) WithLogger(agent *logger.Logger) *Request {
+	hr.log = agent
 	return hr
 }
 
 // Logger returns the request diagnostics agent.
-func (hr *Request) Logger() *logger.Agent {
-	return hr.logger
+func (hr *Request) Logger() *logger.Logger {
+	return hr.log
 }
 
 // WithTransport sets a transport for the request.
@@ -199,6 +220,11 @@ func (hr *Request) WithPathf(format string, args ...interface{}) *Request {
 func (hr *Request) WithCombinedPath(components ...string) *Request {
 	hr.Path = util.String.CombinePathComponents(components...)
 	return hr
+}
+
+// WithURLf sets the url based on a format and args.
+func (hr *Request) WithURLf(format string, args ...interface{}) *Request {
+	return hr.WithURL(fmt.Sprintf(format, args...))
 }
 
 // WithURL sets the request target url whole hog.
@@ -290,15 +316,33 @@ func (hr *Request) WithTimeout(timeout time.Duration) *Request {
 	return hr
 }
 
-// WithClientTLSCert sets a tls cert on the transport for the request.
-func (hr *Request) WithClientTLSCert(certPath string) *Request {
+// WithClientTLSCertPath sets a tls cert on the transport for the request.
+func (hr *Request) WithClientTLSCertPath(certPath string) *Request {
 	hr.TLSClientCertPath = certPath
 	return hr
 }
 
-// WithClientTLSKey sets a tls key on the transport for the request.
-func (hr *Request) WithClientTLSKey(keyPath string) *Request {
+// WithClientTLSCert sets a tls cert on the transport for the request.
+func (hr *Request) WithClientTLSCert(cert []byte) *Request {
+	hr.TLSClientCert = cert
+	return hr
+}
+
+// WithClientTLSKeyPath sets a tls key on the transport for the request.
+func (hr *Request) WithClientTLSKeyPath(keyPath string) *Request {
 	hr.TLSClientKeyPath = keyPath
+	return hr
+}
+
+// WithClientTLSKey sets a tls key on the transport for the request.
+func (hr *Request) WithClientTLSKey(key []byte) *Request {
+	hr.TLSClientKey = key
+	return hr
+}
+
+// WithTLSRootCAPool sets the root TLS ca pool for the request.
+func (hr *Request) WithTLSRootCAPool(certPool *x509.CertPool) *Request {
+	hr.TLSCAPool = certPool
 	return hr
 }
 
@@ -434,6 +478,14 @@ func (hr *Request) Request() (*http.Request, error) {
 	req, err := http.NewRequest(hr.Verb, workingURL.String(), bytes.NewBuffer(hr.PostBody()))
 	if err != nil {
 		return nil, exception.Wrap(err)
+	}
+
+	if hr.ctx != nil {
+		req = req.WithContext(hr.ctx)
+	}
+
+	if hr.trace != nil {
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), hr.trace))
 	}
 
 	if !isEmpty(hr.BasicAuthUsername) {
@@ -610,6 +662,8 @@ func (hr *Request) Deserialized(deserialize Deserializer) (*ResponseMeta, error)
 
 func (hr *Request) requiresCustomTransport() bool {
 	return (!isEmpty(hr.TLSClientCertPath) && !isEmpty(hr.TLSClientKeyPath)) ||
+		(!isEmpty(string(hr.TLSClientCert)) && !isEmpty(string(hr.TLSClientKey))) ||
+		hr.TLSCAPool != nil ||
 		hr.transport != nil ||
 		hr.createTransportHandler != nil ||
 		hr.TLSSkipVerify
@@ -644,18 +698,27 @@ func (hr *Request) Transport() (*http.Transport, error) {
 
 	transport.Dial = dialer.Dial
 
-	if !isEmpty(hr.TLSClientCertPath) && !isEmpty(hr.TLSClientKeyPath) {
-		cert, err := tls.LoadX509KeyPair(hr.TLSClientCertPath, hr.TLSClientKeyPath)
+	if (!isEmpty(hr.TLSClientCertPath) && !isEmpty(hr.TLSClientKeyPath)) || !isEmpty(string(hr.TLSClientCert)) && !isEmpty(string(hr.TLSClientKey)) {
+		var cert tls.Certificate
+		var err error
+
+		if !isEmpty(hr.TLSClientCertPath) {
+			cert, err = tls.LoadX509KeyPair(hr.TLSClientCertPath, hr.TLSClientKeyPath)
+		} else {
+			cert, err = tls.X509KeyPair(hr.TLSClientCert, hr.TLSClientKey)
+		}
 		if err != nil {
 			return nil, exception.Wrap(err)
 		}
 		tlsConfig := &tls.Config{
+			RootCAs:            hr.TLSCAPool,
 			InsecureSkipVerify: hr.TLSSkipVerify,
 			Certificates:       []tls.Certificate{cert},
 		}
 		transport.TLSClientConfig = tlsConfig
 	} else {
 		tlsConfig := &tls.Config{
+			RootCAs:            hr.TLSCAPool,
 			InsecureSkipVerify: hr.TLSSkipVerify,
 		}
 		transport.TLSClientConfig = tlsConfig
@@ -684,7 +747,7 @@ func (hr *Request) deserialize(handler Deserializer) (*ResponseMeta, error) {
 
 	meta.ContentLength = int64(len(body))
 	hr.logResponse(meta, body, hr.state)
-	if handler != nil {
+	if meta.ContentLength > 0 && handler != nil {
 		err = handler(body)
 	}
 	return meta, exception.Wrap(err)
@@ -706,12 +769,14 @@ func (hr *Request) deserializeWithError(okHandler Deserializer, errorHandler Des
 
 	meta.ContentLength = int64(len(body))
 	hr.logResponse(meta, body, hr.state)
-	if res.StatusCode == http.StatusOK {
-		if okHandler != nil {
-			err = okHandler(body)
+	if meta.ContentLength > 0 {
+		if res.StatusCode == http.StatusOK {
+			if okHandler != nil {
+				err = okHandler(body)
+			}
+		} else if errorHandler != nil {
+			err = errorHandler(body)
 		}
-	} else if errorHandler != nil {
-		err = errorHandler(body)
 	}
 	return meta, exception.Wrap(err)
 }
@@ -724,8 +789,11 @@ func (hr *Request) logRequest() {
 		hr.outgoingRequestHandler(meta)
 	}
 
-	if hr.logger != nil {
-		hr.logger.OnEvent(Event, meta)
+	if hr.log != nil {
+		hr.log.Trigger(Event{
+			ts:  time.Now().UTC(),
+			req: meta,
+		})
 	}
 }
 
@@ -737,8 +805,13 @@ func (hr *Request) logResponse(resMeta *ResponseMeta, responseBody []byte, state
 		hr.incomingResponseHandler(hr.Meta(), resMeta, responseBody)
 	}
 
-	if hr.logger != nil {
-		hr.logger.OnEvent(EventResponse, hr.Meta(), resMeta, responseBody, state)
+	if hr.log != nil {
+		hr.log.Trigger(ResponseEvent{
+			ts:   time.Now().UTC(),
+			req:  hr.Meta(),
+			res:  resMeta,
+			body: responseBody,
+		})
 	}
 }
 

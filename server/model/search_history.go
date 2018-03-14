@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	logger "github.com/blendlabs/go-logger"
 	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 // NewSearchHistory returns a new search history.
@@ -65,6 +67,16 @@ type SearchHistory struct {
 // TableName returns the table name
 func (sh SearchHistory) TableName() string {
 	return "search_history"
+}
+
+// Flag implements logger.Event.
+func (sh SearchHistory) Flag() logger.Flag {
+	return core.FlagSearch
+}
+
+// Timestamp implements logger.Event.
+func (sh SearchHistory) Timestamp() time.Time {
+	return sh.TimestampUTC
 }
 
 func createSearchHistoryQuery(whereClause ...string) string {

@@ -1,63 +1,115 @@
 package request
 
 import (
+	"bytes"
 	"fmt"
-	"strconv"
+	"time"
 
 	logger "github.com/blendlabs/go-logger"
 )
 
 const (
-	// Event is a diagnostics agent event flag.
-	Event logger.EventFlag = "request"
-	// EventResponse is a diagnostics agent event flag.
-	EventResponse logger.EventFlag = "request.response"
+	// Flag is a logger event flag.
+	Flag logger.Flag = "request"
+	// FlagResponse is a logger event flag.
+	FlagResponse logger.Flag = "request.response"
 )
 
-// NewOutgoingListener creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewOutgoingListener(handler func(writer *logger.Writer, ts logger.TimeSource, req *Meta)) logger.EventListener {
-	return func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-		handler(writer, ts, state[0].(*Meta))
+// NewRequestListener creates a new request listener.
+func NewRequestListener(listener func(Event)) logger.Listener {
+	return func(e logger.Event) {
+		if typed, isTyped := e.(Event); isTyped {
+			listener(typed)
+		}
 	}
 }
 
-// WriteOutgoingRequest is a helper method to write outgoing request events to a logger writer.
-func WriteOutgoingRequest(writer *logger.Writer, ts logger.TimeSource, req *Meta) {
-	buffer := writer.GetBuffer()
-	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(Event), logger.ColorGreen))
-	buffer.WriteRune(logger.RuneSpace)
-	buffer.WriteString(fmt.Sprintf("%s %s", req.Verb, req.URL.String()))
-	writer.WriteWithTimeSource(ts, buffer.Bytes())
+// Event is a logger event for outgoing requests.
+type Event struct {
+	ts  time.Time
+	req *Meta
 }
 
-// WriteOutgoingRequestBody is a helper method to write outgoing request bodies to a logger writer.
-func WriteOutgoingRequestBody(writer *logger.Writer, ts logger.TimeSource, req *Meta) {
-	buffer := writer.GetBuffer()
-	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(Event), logger.ColorGreen))
-	buffer.WriteRune(logger.RuneSpace)
-	buffer.WriteString("request body")
-	buffer.WriteRune(logger.RuneNewline)
-	buffer.Write(req.Body)
-	writer.WriteWithTimeSource(ts, buffer.Bytes())
+// Flag returns the event flag.
+func (re Event) Flag() logger.Flag {
+	return Flag
 }
 
-// NewOutgoingResponseListener creates a new logger handler for `EventFlagOutgoingResponse` events.
-func NewOutgoingResponseListener(handler func(writer *logger.Writer, ts logger.TimeSource, req *Meta, res *ResponseMeta, body []byte)) logger.EventListener {
-	return func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-		handler(writer, ts, state[0].(*Meta), state[1].(*ResponseMeta), state[2].([]byte))
+// Timestamp returns the event timestamp.
+func (re Event) Timestamp() time.Time {
+	return re.ts
+}
+
+// Request returns the request meta.
+func (re Event) Request() *Meta {
+	return re.req
+}
+
+// WriteText writes an outgoing request as text to a given buffer.
+func (re Event) WriteText(tf logger.TextFormatter, buf *bytes.Buffer) {
+	buf.WriteString(fmt.Sprintf("%s %s", re.req.Verb, re.req.URL.String()))
+	if len(re.req.Body) > 0 {
+		buf.WriteRune(logger.RuneNewline)
+		buf.WriteString("request body")
+		buf.WriteRune(logger.RuneNewline)
+		buf.Write(re.req.Body)
 	}
 }
 
-// WriteOutgoingRequestResponse is a helper method to write outgoing request response events to a logger writer.
-func WriteOutgoingRequestResponse(writer *logger.Writer, ts logger.TimeSource, req *Meta, res *ResponseMeta, body []byte) {
-	buffer := writer.GetBuffer()
-	defer writer.PutBuffer(buffer)
-	buffer.WriteString(writer.Colorize(string(EventResponse), logger.ColorGreen))
-	buffer.WriteRune(logger.RuneSpace)
-	buffer.WriteString(fmt.Sprintf("%s %s %s", writer.ColorizeByStatusCode(res.StatusCode, strconv.Itoa(res.StatusCode)), req.Verb, req.URL.String()))
-	buffer.WriteRune(logger.RuneNewline)
-	buffer.Write(body)
-	writer.WriteWithTimeSource(ts, buffer.Bytes())
+// WriteJSON implements logger.JSONWritable.
+func (re Event) WriteJSON() logger.JSONObj {
+	return logger.JSONObj{
+		"req": re.req,
+	}
+}
+
+// ResponseEvent is a response to outgoing requests.
+type ResponseEvent struct {
+	ts   time.Time
+	req  *Meta
+	res  *ResponseMeta
+	body []byte
+}
+
+// Flag returns the event flag.
+func (re ResponseEvent) Flag() logger.Flag {
+	return FlagResponse
+}
+
+// Timestamp returns the event timestamp.
+func (re ResponseEvent) Timestamp() time.Time {
+	return re.ts
+}
+
+// Request returns the request meta.
+func (re ResponseEvent) Request() *Meta {
+	return re.req
+}
+
+// Response returns the response meta.
+func (re ResponseEvent) Response() *ResponseMeta {
+	return re.res
+}
+
+// Body returns the outgoing request body.
+func (re ResponseEvent) Body() []byte {
+	return re.body
+}
+
+// WriteText writes the event to a text writer.
+func (re ResponseEvent) WriteText(tf logger.TextFormatter, buf *bytes.Buffer) {
+	buf.WriteString(fmt.Sprintf("%s %s %s", re.req.Verb, re.req.URL.String(), tf.ColorizeStatusCode(re.res.StatusCode)))
+	if len(re.body) > 0 {
+		buf.WriteRune(logger.RuneNewline)
+		buf.Write(re.body)
+	}
+}
+
+// WriteJSON implements logger.JSONWritable.
+func (re ResponseEvent) WriteJSON() logger.JSONObj {
+	return logger.JSONObj{
+		"req":  re.req,
+		"res":  re.res,
+		"body": re.body,
+	}
 }

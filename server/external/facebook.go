@@ -3,7 +3,7 @@ package external
 import (
 	"fmt"
 
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -42,27 +42,27 @@ func (fp FacebookProfile) AsUser() *model.User {
 }
 
 // FacebookAuthURL is the link url to open the facebook auth dialogue.
-func FacebookAuthURL() string {
+func FacebookAuthURL(cfg *config.Giffy) string {
 	grantedScopes := "public_profile,email"
-	return fmt.Sprintf("https://www.facebook.com/dialog/oauth?response_type=code&client_id=%s&redirect_uri=%s&scope=%s", core.ConfigFacebookClientID(), FacebookAuthReturnURL(), grantedScopes)
+	return fmt.Sprintf("https://www.facebook.com/dialog/oauth?response_type=code&client_id=%s&redirect_uri=%s&scope=%s", cfg.FacebookClientID, FacebookAuthReturnURL(cfg), grantedScopes)
 }
 
 // FacebookAuthReturnURL formats an oauth return uri.
-func FacebookAuthReturnURL() string {
-	return fmt.Sprintf("%s/oauth/facebook", core.ConfigURL())
+func FacebookAuthReturnURL(cfg *config.Giffy) string {
+	return fmt.Sprintf("%s/oauth/facebook", cfg.Web.GetBaseURL())
 }
 
 // FacebookOAuth exchanges an auth code for a token.
-func FacebookOAuth(code string) (*FacebookOAuthResponse, error) {
+func FacebookOAuth(code string, cfg *config.Giffy) (*FacebookOAuthResponse, error) {
 	var res FacebookOAuthResponse
 	err := NewRequest().
 		AsPost().
 		WithScheme("https").
 		WithHost("graph.facebook.com").
 		WithPath("v2.3/oauth/access_token").
-		WithPostData("client_id", core.ConfigFacebookClientID()).
-		WithPostData("client_secret", core.ConfigFacebookClientSecret()).
-		WithPostData("redirect_uri", FacebookAuthReturnURL()).
+		WithPostData("client_id", cfg.FacebookClientID).
+		WithPostData("client_secret", cfg.FacebookClientSecret).
+		WithPostData("redirect_uri", FacebookAuthReturnURL(cfg)).
 		WithPostData("code", code).
 		JSON(&res)
 

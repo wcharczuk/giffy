@@ -5,8 +5,8 @@ import (
 	"path"
 )
 
-// NewStaticResultForSingleFile returns a static result for an individual file.
-func NewStaticResultForSingleFile(filePath string) *StaticResult {
+// NewStaticResultForFile returns a static result for an individual file.
+func NewStaticResultForFile(filePath string) *StaticResult {
 	file := path.Base(filePath)
 	root := path.Dir(filePath)
 	return &StaticResult{
@@ -15,21 +15,11 @@ func NewStaticResultForSingleFile(filePath string) *StaticResult {
 	}
 }
 
-// NewStaticResultForDirectory returns a new static result for a directory and url path.
-func NewStaticResultForDirectory(directoryPath, path string) *StaticResult {
-	return &StaticResult{
-		FilePath:   path,
-		FileServer: http.FileServer(http.Dir(directoryPath)),
-	}
-}
-
 // StaticResult represents a static output.
 type StaticResult struct {
-	FilePath   string
-	FileSystem http.FileSystem
-	FileServer http.Handler
-
-	RewriteRules []*RewriteRule
+	FilePath     string
+	FileSystem   http.FileSystem
+	RewriteRules []RewriteRule
 	Headers      http.Header
 }
 
@@ -42,25 +32,13 @@ func (sr StaticResult) Render(ctx *Ctx) error {
 		}
 	}
 
-	if sr.Headers != nil {
-		for key, values := range sr.Headers {
-			for _, value := range values {
-				ctx.Response.Header().Add(key, value)
-			}
+	for key, values := range sr.Headers {
+		for _, value := range values {
+			ctx.Response.Header().Add(key, value)
 		}
 	}
 
-	if sr.FileServer != nil {
-		ctx.Request.URL.Path = filePath
-		sr.FileServer.ServeHTTP(ctx.Response, ctx.Request)
-		return nil
-	}
-
-	return sr.serveStaticFile(ctx.Response, ctx.Request, sr.FileSystem, path.Clean(filePath))
-}
-
-func (sr StaticResult) serveStaticFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name string) error {
-	f, err := fs.Open(name)
+	f, err := sr.FileSystem.Open(sr.FilePath)
 	if err != nil {
 		return err
 	}
@@ -71,6 +49,6 @@ func (sr StaticResult) serveStaticFile(w http.ResponseWriter, r *http.Request, f
 		return err
 	}
 
-	http.ServeContent(w, r, name, d.ModTime(), f)
+	http.ServeContent(ctx.Response, ctx.Request, filePath, d.ModTime(), f)
 	return nil
 }

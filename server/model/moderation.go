@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	logger "github.com/blendlabs/go-logger"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -90,6 +91,16 @@ func (m Moderation) TableName() string {
 // IsZero returns if the object is set.
 func (m Moderation) IsZero() bool {
 	return m.UserID == 0
+}
+
+// Flag implements logger.event.
+func (m Moderation) Flag() logger.Flag {
+	return core.FlagModeration
+}
+
+// Timestamp implements logger.event.
+func (m Moderation) Timestamp() time.Time {
+	return m.TimestampUTC
 }
 
 func getModerationQuery(whereClause string) string {

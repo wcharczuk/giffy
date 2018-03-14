@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 
+	util "github.com/blendlabs/go-util"
 	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/model"
 )
@@ -55,7 +56,7 @@ func LoginRedirect(from *url.URL) *url.URL {
 // an auth redirect (if one is provided) or a 403 (not authorized) result.
 func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 	var session model.UserSession
-	err := model.DB().GetByIDInTx(&session, tx, sessionID)
+	err := model.DB().GetInTx(&session, tx, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +67,7 @@ func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 
 	// check if the user exists in the database
 	var dbUser model.User
-	err = model.DB().GetByIDInTx(&dbUser, tx, session.UserID)
+	err = model.DB().GetInTx(&dbUser, tx, session.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +79,7 @@ func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 	newSession := &web.Session{
 		CreatedUTC: session.TimestampUTC,
 		SessionID:  sessionID,
-		UserID:     int64(session.UserID),
+		UserID:     util.String.FromInt64(session.UserID),
 	}
 	SetUser(newSession, &dbUser)
 	return newSession, nil
@@ -91,7 +92,7 @@ func PersistSession(context *web.Ctx, session *web.Session, tx *sql.Tx) error {
 	dbSession := &model.UserSession{
 		SessionID:    session.SessionID,
 		TimestampUTC: session.CreatedUTC,
-		UserID:       session.UserID,
+		UserID:       util.Parse.Int64(session.UserID),
 	}
 
 	return model.DB().CreateIfNotExistsInTx(dbSession, tx)
@@ -102,7 +103,7 @@ func PersistSession(context *web.Ctx, session *web.Session, tx *sql.Tx) error {
 // returned by `FetchSession`
 func RemoveSession(sessionID string, tx *sql.Tx) error {
 	var session model.UserSession
-	err := model.DB().GetByIDInTx(&session, tx, sessionID)
+	err := model.DB().GetInTx(&session, tx, sessionID)
 	if err != nil {
 		return err
 	}

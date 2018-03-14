@@ -3,7 +3,7 @@ package external
 import (
 	"fmt"
 
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -40,7 +40,7 @@ func (gp GoogleProfile) AsUser() *model.User {
 }
 
 // GoogleOAuth performs the second phase of the oauth 2.0 flow with google.
-func GoogleOAuth(code string) (*GoogleOAuthResponse, error) {
+func GoogleOAuth(code string, cfg *config.Giffy) (*GoogleOAuthResponse, error) {
 	var oar GoogleOAuthResponse
 
 	err := NewRequest().
@@ -48,27 +48,27 @@ func GoogleOAuth(code string) (*GoogleOAuthResponse, error) {
 		WithScheme("https").
 		WithHost("accounts.google.com").
 		WithPath("o/oauth2/token").
-		WithPostData("client_id", core.ConfigGoogleClientID()).
-		WithPostData("client_secret", core.ConfigGoogleSecret()).
+		WithPostData("client_id", cfg.GoogleClientID).
+		WithPostData("client_secret", cfg.GoogleClientSecret).
 		WithPostData("grant_type", "authorization_code").
-		WithPostData("redirect_uri", GoogleAuthReturnURL()).
+		WithPostData("redirect_uri", GoogleAuthReturnURL(cfg)).
 		WithPostData("code", code).
 		JSON(&oar)
 	return &oar, err
 }
 
 // GoogleAuthURL is the auth url for google.
-func GoogleAuthURL() string {
+func GoogleAuthURL(cfg *config.Giffy) string {
 	return fmt.Sprintf(
 		"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=%s&redirect_uri=%s&scope=https://www.googleapis.com/auth/userinfo.email%%20https://www.googleapis.com/auth/userinfo.profile",
-		core.ConfigGoogleClientID(),
-		GoogleAuthReturnURL(),
+		cfg.GoogleClientID,
+		GoogleAuthReturnURL(cfg),
 	)
 }
 
 //GoogleAuthReturnURL formats an oauth return uri.
-func GoogleAuthReturnURL() string {
-	return fmt.Sprintf("%s/oauth/google", core.ConfigURL())
+func GoogleAuthReturnURL(cfg *config.Giffy) string {
+	return fmt.Sprintf("%s/oauth/google", cfg.Web.GetBaseURL())
 }
 
 // FetchGoogleProfile gets a google proflile for an access token.

@@ -30,7 +30,7 @@ var (
 		time.Saturday,
 	}
 
-	//Epoch is unix epoc saved for utility purposes.
+	// Epoch is unix epoch saved for utility purposes.
 	Epoch = time.Unix(0, 0)
 )
 
@@ -55,9 +55,10 @@ func IsWeekendDay(day time.Weekday) bool {
 	return day == time.Saturday || day == time.Sunday
 }
 
-// The Schedule interface defines the form a schedule should take. All schedules are resposible for is giving a next run time after a last run time.
+// Schedule is a type that provides a next runtime after a given previous runtime.
 type Schedule interface {
-	// Returns the next start time after a given "last run time". Note: after will be `nil` if the job is running for the first time.
+	// GetNextRuntime should return the next runtime after a given previous runtime. If `after` is <nil> it should be assumed
+	// the job hasn't run yet. If <nil> is returned by the schedule it is inferred that the job should not run again.
 	GetNextRunTime(after *time.Time) *time.Time
 }
 
@@ -125,7 +126,8 @@ func WeekendsAt(hour, minute, second int) Schedule {
 // Schedule Implementations
 // --------------------------------------------------------------------------------
 
-// OnDemand returns an on demand schedule.
+// OnDemand returns an on demand schedule, or a schedule that only allows the job to be run
+// explicitly by calling `RunJob` on the `JobManager`.
 func OnDemand() Schedule {
 	return OnDemandSchedule{}
 }
@@ -138,18 +140,34 @@ func (ods OnDemandSchedule) GetNextRunTime(after *time.Time) *time.Time {
 	return nil
 }
 
-// Immediately Returns a schedule that casues a job to run immediately after completion.
-func Immediately() Schedule {
-	return ImmediateSchedule{}
+// Immediately Returns a schedule that casues a job to run immediately on start,
+// with an optional subsequent schedule.
+func Immediately() *ImmediateSchedule {
+	return &ImmediateSchedule{}
 }
 
-// ImmediateSchedule fires immediately.
-type ImmediateSchedule struct{}
+// ImmediateSchedule fires immediately with an optional subsequent schedule..
+type ImmediateSchedule struct {
+	didRun bool
+	then   Schedule
+}
+
+// Then allows you to specify a subsequent schedule after the first run.
+func (i *ImmediateSchedule) Then(then Schedule) Schedule {
+	i.then = then
+	return i
+}
 
 // GetNextRunTime implements Schedule.
-func (i ImmediateSchedule) GetNextRunTime(after *time.Time) *time.Time {
-	now := Now()
-	return &now
+func (i *ImmediateSchedule) GetNextRunTime(after *time.Time) *time.Time {
+	if !i.didRun {
+		i.didRun = true
+		return optional(Now())
+	}
+	if i.then != nil {
+		return i.then.GetNextRunTime(after)
+	}
+	return optional(Now())
 }
 
 // IntervalSchedule is as chedule that fires every given interval with an optional start delay.
@@ -188,8 +206,7 @@ func (ds DailySchedule) checkDayOfWeekMask(day time.Weekday) bool {
 // GetNextRunTime implements Schedule.
 func (ds DailySchedule) GetNextRunTime(after *time.Time) *time.Time {
 	if after == nil {
-		now := Now()
-		after = &now
+		after = optional(Now())
 	}
 
 	todayInstance := time.Date(after.Year(), after.Month(), after.Day(), ds.TimeOfDayUTC.Hour(), ds.TimeOfDayUTC.Minute(), ds.TimeOfDayUTC.Second(), 0, time.UTC)
@@ -274,4 +291,15 @@ func (o OnTheHourAt) GetNextRunTime(after *time.Time) *time.Time {
 		}
 	}
 	return &returnValue
+}
+
+// --------------------------------------------------------------------------------
+// Helpers
+// --------------------------------------------------------------------------------
+
+func optional(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }

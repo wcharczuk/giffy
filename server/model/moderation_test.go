@@ -24,7 +24,7 @@ func TestModerationCreate(t *testing.T) {
 	assert.Nil(err)
 
 	var verify Moderation
-	err = DB().GetByIDInTx(&verify, tx, m.UUID)
+	err = DB().InTx(tx).Get(&verify, m.UUID)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }

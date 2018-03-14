@@ -1,21 +1,18 @@
 package logger
 
-// AnsiColorCode represents an ansi color code fragment.
-type AnsiColorCode string
+// AnsiColor represents an ansi color code fragment.
+type AnsiColor string
 
-func (acc AnsiColorCode) escaped() string {
+func (acc AnsiColor) escaped() string {
 	return "\033[" + string(acc)
 }
 
 // Apply returns a string with the color code applied.
-func (acc AnsiColorCode) Apply(text string) string {
+func (acc AnsiColor) Apply(text string) string {
 	return acc.escaped() + text + ColorReset.escaped()
 }
 
 const (
-	// StringEmpty is the empty string
-	StringEmpty = ""
-
 	// RuneSpace is a single rune representing a space.
 	RuneSpace rune = ' '
 
@@ -23,56 +20,79 @@ const (
 	RuneNewline rune = '\n'
 
 	// ColorBlack is the posix escape code fragment for black.
-	ColorBlack AnsiColorCode = "30m"
+	ColorBlack AnsiColor = "30m"
 
 	// ColorRed is the posix escape code fragment for red.
-	ColorRed AnsiColorCode = "31m"
+	ColorRed AnsiColor = "31m"
 
 	// ColorGreen is the posix escape code fragment for green.
-	ColorGreen AnsiColorCode = "32m"
+	ColorGreen AnsiColor = "32m"
 
 	// ColorYellow is the posix escape code fragment for yellow.
-	ColorYellow AnsiColorCode = "33m"
+	ColorYellow AnsiColor = "33m"
 
 	// ColorBlue is the posix escape code fragment for blue.
-	ColorBlue AnsiColorCode = "34m"
+	ColorBlue AnsiColor = "34m"
 
 	// ColorPurple is the posix escape code fragement for magenta (purple)
-	ColorPurple AnsiColorCode = "35m"
+	ColorPurple AnsiColor = "35m"
 
 	// ColorCyan is the posix escape code fragement for cyan.
-	ColorCyan AnsiColorCode = "36m"
+	ColorCyan AnsiColor = "36m"
 
 	// ColorWhite is the posix escape code fragment for white.
-	ColorWhite AnsiColorCode = "37m"
+	ColorWhite AnsiColor = "37m"
 
 	// ColorLightBlack is the posix escape code fragment for black.
-	ColorLightBlack AnsiColorCode = "90m"
+	ColorLightBlack AnsiColor = "90m"
 
 	// ColorLightRed is the posix escape code fragment for red.
-	ColorLightRed AnsiColorCode = "91m"
+	ColorLightRed AnsiColor = "91m"
 
 	// ColorLightGreen is the posix escape code fragment for green.
-	ColorLightGreen AnsiColorCode = "92m"
+	ColorLightGreen AnsiColor = "92m"
 
 	// ColorLightYellow is the posix escape code fragment for yellow.
-	ColorLightYellow AnsiColorCode = "93m"
+	ColorLightYellow AnsiColor = "93m"
 
 	// ColorLightBlue is the posix escape code fragment for blue.
-	ColorLightBlue AnsiColorCode = "94m"
+	ColorLightBlue AnsiColor = "94m"
 
 	// ColorLightPurple is the posix escape code fragement for magenta (purple)
-	ColorLightPurple AnsiColorCode = "95m"
+	ColorLightPurple AnsiColor = "95m"
 
 	// ColorLightCyan is the posix escape code fragement for cyan.
-	ColorLightCyan AnsiColorCode = "96m"
+	ColorLightCyan AnsiColor = "96m"
 
 	// ColorLightWhite is the posix escape code fragment for white.
-	ColorLightWhite AnsiColorCode = "97m"
+	ColorLightWhite AnsiColor = "97m"
 
 	// ColorGray is an alias to ColorLightWhite to preserve backwards compatibility.
-	ColorGray AnsiColorCode = ColorLightBlack
+	ColorGray AnsiColor = ColorLightBlack
 
 	// ColorReset is the posix escape code fragment to reset all formatting.
-	ColorReset AnsiColorCode = "0m"
+	ColorReset AnsiColor = "0m"
 )
+
+var (
+	// DefaultFlagTextColors is the default color for each known flag.
+	DefaultFlagTextColors = map[Flag]AnsiColor{
+		Info:    ColorLightWhite,
+		Silly:   ColorLightBlack,
+		Debug:   ColorLightYellow,
+		Warning: ColorLightYellow,
+		Error:   ColorRed,
+		Fatal:   ColorRed,
+	}
+
+	// DefaultFlagTextColor is the default flag color.
+	DefaultFlagTextColor = ColorLightWhite
+)
+
+// GetFlagTextColor returns the color for a flag.
+func GetFlagTextColor(flag Flag) AnsiColor {
+	if color, hasColor := DefaultFlagTextColors[flag]; hasColor {
+		return color
+	}
+	return DefaultFlagTextColor
+}

@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/blendlabs/go-chronometer"
@@ -22,12 +23,12 @@ func (ot CleanTagValues) Schedule() chronometer.Schedule {
 }
 
 // Execute runs the job
-func (ot CleanTagValues) Execute(ct *chronometer.CancellationToken) error {
+func (ot CleanTagValues) Execute(ctx context.Context) error {
 	tx, err := model.DB().Begin()
 	if err != nil {
 		return err
 	}
-	err = ot.ExecuteInTx(ct, tx)
+	err = ot.ExecuteInTx(ctx, tx)
 	if err != nil {
 		return exception.Wrap(tx.Rollback())
 	}
@@ -35,15 +36,13 @@ func (ot CleanTagValues) Execute(ct *chronometer.CancellationToken) error {
 }
 
 // ExecuteInTx runs the job in a transaction
-func (ot CleanTagValues) ExecuteInTx(ct *chronometer.CancellationToken, tx *sql.Tx) error {
+func (ot CleanTagValues) ExecuteInTx(ctx context.Context, tx *sql.Tx) error {
 	allTags, err := model.GetAllTags(tx)
 	if err != nil {
 		return err
 	}
 
 	for _, tag := range allTags {
-		ct.CheckCancellation()
-
 		newTagValue := model.CleanTagValue(tag.TagValue)
 		if newTagValue != tag.TagValue {
 			existingTag, err := model.GetTagByValue(newTagValue, tx)

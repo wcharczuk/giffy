@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -22,7 +23,7 @@ func (fis FixContentRating) Schedule() chronometer.Schedule {
 }
 
 // Execute runs the job
-func (fis FixContentRating) Execute(ct *chronometer.CancellationToken) error {
+func (fis FixContentRating) Execute(ctx context.Context) error {
 	imageIDs := []int64{}
 
 	err := model.DB().Query(`select id from image where content_rating = 0;`).Each(func(r *sql.Rows) error {
@@ -42,14 +43,10 @@ func (fis FixContentRating) Execute(ct *chronometer.CancellationToken) error {
 	var image model.Image
 	for _, id := range imageIDs {
 
-		ct.CheckCancellation()
-
-		err = model.DB().GetByID(&image, id)
+		err = model.DB().Get(&image, id)
 		if err != nil {
 			return err
 		}
-
-		ct.CheckCancellation()
 
 		image.ContentRating = model.ContentRatingG
 		err = model.DB().Update(&image)

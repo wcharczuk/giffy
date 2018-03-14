@@ -1,21 +1,21 @@
 package migration
 
 var (
-	defaultSuite = &Suite{}
+	defaultGroup = &Group{}
 )
 
-// Register adds a process to the default suite.
-func Register(m ...Migration) error {
-	defaultSuite.Add(m...)
+// RegisterDefault adds migrations to the default group.
+func RegisterDefault(m ...Migration) error {
+	defaultGroup.Add(m...)
 	return nil
 }
 
-// SetDefault sets the default.
-func SetDefault(suite *Suite) {
-	defaultSuite = suite
+// SetDefault sets the default group.
+func SetDefault(group *Group) {
+	defaultGroup = group
 }
 
 // Default returns the default migration suite.
-func Default() Migration {
-	return defaultSuite
+func Default() *Group {
+	return defaultGroup
 }

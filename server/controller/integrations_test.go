@@ -29,7 +29,7 @@ func TestSlack(t *testing.T) {
 
 	var res slackMessage
 
-	app.SetLogger(logger.New(logger.NewEventFlagSetNone()))
+	app.WithLogger(logger.None())
 	app.Register(Integrations{})
 	err = app.Mock().WithTx(tx).WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", core.UUIDv4().ToShortString()).

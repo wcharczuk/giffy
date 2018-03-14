@@ -3,13 +3,12 @@ package controller
 import (
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-web"
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/config"
 )
 
 func TestIndex(t *testing.T) {
@@ -32,13 +31,8 @@ func TestIndex(t *testing.T) {
 func TestStaticRewrite(t *testing.T) {
 	assert := assert.New(t)
 
-	oldEnv := core.ConfigEnvironment()
-
-	os.Setenv("GIFFY_ENV", "prod")
-	defer os.Setenv("GIFFY_ENV", oldEnv)
-
 	app := web.New()
-	app.Register(Index{})
+	app.Register(Index{Config: &config.Giffy{Environment: config.EnvironmentProd}})
 	contents, err := app.Mock().WithPathf("/static/js/giffy.min.1231231232313.js").Bytes()
 	assert.Nil(err)
 	assert.NotEmpty(contents)

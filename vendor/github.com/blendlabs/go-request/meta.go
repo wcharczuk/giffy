@@ -1,6 +1,7 @@
 package request
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -62,22 +63,26 @@ func NewResponseMeta(res *http.Response) *ResponseMeta {
 	meta.StatusCode = res.StatusCode
 	meta.ContentLength = res.ContentLength
 
-	contentTypeHeader := res.Header["Content-Type"]
-	if contentTypeHeader != nil && len(contentTypeHeader) > 0 {
-		meta.ContentType = strings.Join(contentTypeHeader, ";")
-	}
-
-	contentEncodingHeader := res.Header["Content-Encoding"]
-	if contentEncodingHeader != nil && len(contentEncodingHeader) > 0 {
-		meta.ContentEncoding = strings.Join(contentEncodingHeader, ";")
-	}
+	meta.ContentType = tryHeader(res.Header, "Content-Type", "content-type")
+	meta.ContentEncoding = tryHeader(res.Header, "Content-Encoding", "content-encoding")
 
 	meta.Headers = res.Header
+	meta.Cert = NewCertInfo(res)
 	return meta
+}
+
+func tryHeader(headers http.Header, keys ...string) string {
+	for _, key := range keys {
+		if values, hasValues := headers[key]; hasValues {
+			return strings.Join(values, ";")
+		}
+	}
+	return ""
 }
 
 // ResponseMeta is just the meta information for an http response.
 type ResponseMeta struct {
+	Cert            *CertInfo
 	CompleteTime    time.Time
 	StatusCode      int
 	ContentLength   int64
@@ -128,4 +133,50 @@ type Buffer interface {
 	Len() int64
 	ReadFrom(io.ReadCloser) (int64, error)
 	Bytes() []byte
+}
+
+// NewCertInfo returns a new cert info from a response.
+func NewCertInfo(res *http.Response) *CertInfo {
+	if res.TLS != nil && len(res.TLS.PeerCertificates) > 0 {
+		var earliestExpiration time.Time
+		var latestNotBefore time.Time
+		for _, cert := range res.TLS.PeerCertificates {
+			if earliestExpiration.IsZero() || earliestExpiration.After(cert.NotAfter) {
+				earliestExpiration = cert.NotAfter
+			}
+			if latestNotBefore.IsZero() || latestNotBefore.Before(cert.NotBefore) {
+				latestNotBefore = cert.NotBefore
+			}
+		}
+
+		firstCert := res.TLS.PeerCertificates[0]
+
+		var issuerCommonName string
+		if len(firstCert.Issuer.CommonName) > 0 {
+			issuerCommonName = firstCert.Issuer.CommonName
+		} else {
+			for _, name := range firstCert.Issuer.Names {
+				if name.Type.String() == "2.5.4.3" {
+					issuerCommonName = fmt.Sprintf("%v", name.Value)
+				}
+			}
+		}
+
+		return &CertInfo{
+			DNSNames:         firstCert.DNSNames,
+			NotAfter:         earliestExpiration,
+			NotBefore:        latestNotBefore,
+			IssuerCommonName: issuerCommonName,
+		}
+	}
+
+	return nil
+}
+
+// CertInfo is the information for a certificate.
+type CertInfo struct {
+	IssuerCommonName string
+	DNSNames         []string
+	NotAfter         time.Time
+	NotBefore        time.Time
 }

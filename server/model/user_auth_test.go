@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	util "github.com/blendlabs/go-util"
 )
 
 func TestGetUserAuthByToken(t *testing.T) {
@@ -12,13 +13,16 @@ func TestGetUserAuthByToken(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
+	key, err := util.Crypto.CreateKey(32)
+	assert.Nil(err)
+
 	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	_, err = CreateTestUserAuth(u.ID, "test", "password", tx)
+	_, err = CreateTestUserAuth(u.ID, "test", "password", key, tx)
 	assert.Nil(err)
 
-	verify, err := GetUserAuthByToken("test", tx)
+	verify, err := GetUserAuthByToken("test", key, tx)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 
@@ -32,16 +36,19 @@ func TestDeleteUserAuthForProvider(t *testing.T) {
 	assert.Nil(txErr)
 	defer tx.Rollback()
 
+	key, err := util.Crypto.CreateKey(32)
+	assert.Nil(err)
+
 	u, err := CreateTestUser(tx)
 	assert.Nil(err)
 
-	_, err = CreateTestUserAuth(u.ID, "test", "password", tx)
+	_, err = CreateTestUserAuth(u.ID, "test", "password", key, tx)
 	assert.Nil(err)
 
 	err = DeleteUserAuthForProvider(u.ID, "test", tx)
 	assert.Nil(err)
 
-	verify, err := GetUserAuthByToken("test", tx)
+	verify, err := GetUserAuthByToken("test", key, tx)
 	assert.Nil(err)
 	assert.True(verify.IsZero())
 }

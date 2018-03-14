@@ -27,7 +27,7 @@ func TestSlackTeam(t *testing.T) {
 	assert.Nil(err)
 
 	var verify SlackTeam
-	err = DB().GetByIDInTx(&verify, tx, newTeam.TeamID)
+	err = DB().InTx(tx).Get(&verify, newTeam.TeamID)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }

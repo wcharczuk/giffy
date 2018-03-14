@@ -28,116 +28,116 @@ const (
 // Guards
 // --------------------------------------------------------------------------------
 
-// Guard is a dynamic guard.
-func Guard(label string, guard func(c *spiffy.Connection, tx *sql.Tx) (bool, error)) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		o.SetLabel(label)
+// DynamicGuard is a dynamic guard.
+func DynamicGuard(label string, guard func(c *spiffy.Connection, tx *sql.Tx) (bool, error)) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		s.SetLabel(label)
 
 		proceed, err := guard(c, tx)
 		if err != nil {
-			return o.logger.Error(o, err)
+			return s.logger.Error(s, err)
 		}
 
 		if proceed {
-			err = o.body.Invoke(c, tx)
+			err = s.body.Invoke(c, tx)
 			if err != nil {
-				return o.logger.Error(o, err)
+				return s.logger.Error(s, err)
 			}
-			return o.logger.Applyf(o, label)
+			return s.logger.Applyf(s, label)
 		}
 
-		return o.logger.Skipf(o, label)
+		return s.logger.Skipf(s, label)
 	}
 }
 
 // AlwaysRun always runs a step.
-func AlwaysRun() GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl(o, verbRun, adverbAlways, c, tx)
+func AlwaysRun() Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl(s, verbRun, adverbAlways, c, tx)
 	}
 }
 
 // IfExists only runs the statement if the given item exists.
-func IfExists(statement string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbRun, adverbExists, exists, statement, c, tx)
+func IfExists(statement string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbRun, adverbExists, exists, statement, c, tx)
 	}
 }
 
 // IfNotExists only runs the statement if the given item doesn't exist.
-func IfNotExists(statement string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbRun, adverbNotExists, notExists, statement, c, tx)
+func IfNotExists(statement string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbRun, adverbNotExists, notExists, statement, c, tx)
 	}
 }
 
 // ColumnNotExists creates a table on the given connection if it does not exist.
-func ColumnNotExists(tableName, columnName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl2(o, verbCreate, nounColumn, columnExists, tableName, columnName, c, tx)
+func ColumnNotExists(tableName, columnName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl2(s, verbCreate, nounColumn, columnExists, tableName, columnName, c, tx)
 	}
 }
 
-// ContraintNotExists creates a table on the given connection if it does not exist.
-func ContraintNotExists(constraintName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbCreate, nounConstraint, constraintExists, constraintName, c, tx)
+// ConstraintNotExists creates a table on the given connection if it does not exist.
+func ConstraintNotExists(constraintName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbCreate, nounConstraint, constraintExists, constraintName, c, tx)
 	}
 }
 
 // TableNotExists creates a table on the given connection if it does not exist.
-func TableNotExists(tableName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbCreate, nounTable, tableExists, tableName, c, tx)
+func TableNotExists(tableName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbCreate, nounTable, tableExists, tableName, c, tx)
 	}
 }
 
 // IndexNotExists creates a index on the given connection if it does not exist.
-func IndexNotExists(tableName, indexName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl2(o, verbCreate, nounIndex, indexExists, tableName, indexName, c, tx)
+func IndexNotExists(tableName, indexName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl2(s, verbCreate, nounIndex, indexExists, tableName, indexName, c, tx)
 	}
 }
 
 // RoleNotExists creates a new role if it doesn't exist.
-func RoleNotExists(roleName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbCreate, nounRole, roleExists, roleName, c, tx)
+func RoleNotExists(roleName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbCreate, nounRole, roleExists, roleName, c, tx)
 	}
 }
 
 // ColumnExists alters an existing column, erroring if it doesn't exist
-func ColumnExists(tableName, columnName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl2(o, verbAlter, nounTable, columnExists, tableName, columnName, c, tx)
+func ColumnExists(tableName, columnName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl2(s, verbAlter, nounTable, columnExists, tableName, columnName, c, tx)
 	}
 }
 
 // ConstraintExists alters an existing constraint, erroring if it doesn't exist
-func ConstraintExists(constraintName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbAlter, nounConstraint, constraintExists, constraintName, c, tx)
+func ConstraintExists(constraintName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbAlter, nounConstraint, constraintExists, constraintName, c, tx)
 	}
 }
 
 // TableExists alters an existing table, erroring if it doesn't exist
-func TableExists(tableName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbAlter, nounTable, tableExists, tableName, c, tx)
+func TableExists(tableName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbAlter, nounTable, tableExists, tableName, c, tx)
 	}
 }
 
 // IndexExists alters an existing index, erroring if it doesn't exist
-func IndexExists(tableName, indexName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl2(o, verbAlter, nounIndex, indexExists, tableName, indexName, c, tx)
+func IndexExists(tableName, indexName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl2(s, verbAlter, nounIndex, indexExists, tableName, indexName, c, tx)
 	}
 }
 
 // RoleExists alters an existing role in the db
-func RoleExists(roleName string) GuardAction {
-	return func(o *Operation, c *spiffy.Connection, tx *sql.Tx) error {
-		return guardImpl1(o, verbAlter, nounRole, roleExists, roleName, c, tx)
+func RoleExists(roleName string) Guard {
+	return func(s *Step, c *spiffy.Connection, tx *sql.Tx) error {
+		return guardImpl1(s, verbAlter, nounRole, roleExists, roleName, c, tx)
 	}
 }
 
@@ -154,53 +154,53 @@ type guard2 func(c *spiffy.Connection, tx *sql.Tx, arg1, arg2 string) (bool, err
 
 // actionImpl is an unguarded action, it doesn't care if something exists or doesn't
 // it is a requirement of the operation to guard itself.
-func guardImpl(o *Operation, verb, noun string, c *spiffy.Connection, tx *sql.Tx) error {
-	err := o.body.Invoke(c, tx)
+func guardImpl(s *Step, verb, noun string, c *spiffy.Connection, tx *sql.Tx) error {
+	err := s.body.Invoke(c, tx)
 
 	if err != nil {
-		if o.logger != nil {
-			return o.logger.Error(o, err)
+		if s.logger != nil {
+			return s.logger.Error(s, err)
 		}
 		return nil
 	}
-	if o.logger != nil {
-		return o.logger.Applyf(o, "done")
+	if s.logger != nil {
+		return s.logger.Applyf(s, "done")
 	}
 	return nil
 }
 
-func guardImpl1(o *Operation, verb, noun string, guard guard1, subject string, c *spiffy.Connection, tx *sql.Tx) error {
-	o.SetLabel(actionName(verb, noun))
+func guardImpl1(s *Step, verb, noun string, guard guard1, subject string, c *spiffy.Connection, tx *sql.Tx) error {
+	s.SetLabel(actionName(verb, noun))
 
 	if exists, err := guard(c, tx, subject); err != nil {
-		return o.logger.Error(o, err)
+		return s.logger.Error(s, err)
 	} else if (verb == verbCreate && !exists) ||
 		(verb == verbAlter && exists) ||
 		(verb == verbRun && exists) {
-		err = o.body.Invoke(c, tx)
+		err = s.body.Invoke(c, tx)
 		if err != nil {
-			return o.logger.Error(o, err)
+			return s.logger.Error(s, err)
 		}
-		return o.logger.Applyf(o, "%s `%s`", verb, subject)
+		return s.logger.Applyf(s, "%s `%s`", verb, subject)
 	}
-	return o.logger.Skipf(o, "%s `%s`", verb, subject)
+	return s.logger.Skipf(s, "%s `%s`", verb, subject)
 }
 
-func guardImpl2(o *Operation, verb, noun string, guard guard2, subject1, subject2 string, c *spiffy.Connection, tx *sql.Tx) error {
-	o.SetLabel(actionName(verb, noun))
+func guardImpl2(s *Step, verb, noun string, guard guard2, subject1, subject2 string, c *spiffy.Connection, tx *sql.Tx) error {
+	s.SetLabel(actionName(verb, noun))
 
 	if exists, err := guard(c, tx, subject1, subject2); err != nil {
-		return o.logger.Error(o, err)
+		return s.logger.Error(s, err)
 	} else if (verb == verbCreate && !exists) || (verb == verbAlter && exists) || (verb == verbRun && exists) {
-		err = o.body.Invoke(c, tx)
+		err = s.body.Invoke(c, tx)
 		if err != nil {
-			return o.logger.Error(o, err)
+			return s.logger.Error(s, err)
 		}
 
-		return o.logger.Applyf(o, "%s `%s` on `%s`", verb, subject2, subject1)
+		return s.logger.Applyf(s, "%s `%s` on `%s`", verb, subject2, subject1)
 	}
 
-	return o.logger.Skipf(o, "%s `%s` on `%s`", verb, subject2, subject1)
+	return s.logger.Skipf(s, "%s `%s` on `%s`", verb, subject2, subject1)
 }
 
 // --------------------------------------------------------------------------------

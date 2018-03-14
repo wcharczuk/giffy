@@ -3,6 +3,9 @@ package spiffy
 import "database/sql"
 
 // DatabaseMapped is the interface that any objects passed into database mapped methods like Create, Update, Delete, Get, GetAll etc.
+type DatabaseMapped interface{}
+
+// TableNameProvider is a type that implements the TableName() function.
 // The only required method is TableName() string that returns the name of the table in the database this type is mapped to.
 //
 //	type MyDatabaseMappedObject {
@@ -12,7 +15,7 @@ import "database/sql"
 //		return "my_database_mapped_object"
 //	}
 // If you require different table names based on alias, create another type.
-type DatabaseMapped interface {
+type TableNameProvider interface {
 	TableName() string
 }
 

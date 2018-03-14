@@ -3,11 +3,14 @@ package controller
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	util "github.com/blendlabs/go-util"
 	web "github.com/blendlabs/go-web"
+	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/webutil"
@@ -16,7 +19,10 @@ import (
 func TestMain(m *testing.M) {
 	// we do this because a lot of static results depend on relative paths.
 	core.Setwd("../../")
-	core.DBInit()
+	err := spiffy.OpenDefault(spiffy.NewFromConfig(spiffy.NewConfigFromEnv()))
+	if err != nil {
+		log.Fatal(err)
+	}
 	os.Exit(m.Run())
 }
 
@@ -85,11 +91,11 @@ func CreateTestBannedUser(tx *sql.Tx) (*model.User, error) {
 
 func AuthTestUser(user *model.User, tx *sql.Tx) (*web.AuthManager, *web.Session, error) {
 	auth := web.NewAuthManager()
-	session, err := auth.Login(user.ID, nil)
+	session, err := auth.Login(util.String.FromInt64(user.ID), nil)
 	if err != nil {
 		return nil, nil, err
 	}
 	webutil.SetUser(session, user)
-	cachedSession, _ := auth.SessionCache().Get(session.SessionID)
+	cachedSession := auth.SessionCache().Get(session.SessionID)
 	return auth, cachedSession, nil
 }

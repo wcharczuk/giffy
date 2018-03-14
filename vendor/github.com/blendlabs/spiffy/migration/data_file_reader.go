@@ -54,6 +54,12 @@ func (dfr *DataFileReader) SetLabel(value string) {
 	dfr.label = value
 }
 
+// WithLabel sets the migration label.
+func (dfr *DataFileReader) WithLabel(value string) Migration {
+	dfr.label = value
+	return dfr
+}
+
 // Parent returns the parent for the data file reader.
 func (dfr *DataFileReader) Parent() Migration {
 	return dfr.parent
@@ -64,6 +70,12 @@ func (dfr *DataFileReader) SetParent(parent Migration) {
 	dfr.parent = parent
 }
 
+// WithParent sets the parent for the data file reader.
+func (dfr *DataFileReader) WithParent(parent Migration) Migration {
+	dfr.parent = parent
+	return dfr
+}
+
 // Logger returns the logger.
 func (dfr *DataFileReader) Logger() *Logger {
 	return dfr.logger
@@ -72,6 +84,12 @@ func (dfr *DataFileReader) Logger() *Logger {
 // SetLogger sets the logger for the data file reader.
 func (dfr *DataFileReader) SetLogger(logger *Logger) {
 	dfr.logger = logger
+}
+
+// WithLogger sets the logger for the data file reader.
+func (dfr *DataFileReader) WithLogger(logger *Logger) Migration {
+	dfr.logger = logger
+	return dfr
 }
 
 // IsTransactionIsolated returns if the migration is transaction isolated or not.
@@ -96,7 +114,7 @@ func (dfr *DataFileReader) Test(c *spiffy.Connection, optionalTx ...*sql.Tx) (er
 		}
 		tx.Rollback()
 	}()
-	err = dfr.invoke(c, tx)
+	err = dfr.Invoke(c, tx)
 	return
 }
 
@@ -119,12 +137,12 @@ func (dfr *DataFileReader) Apply(c *spiffy.Connection, optionalTx ...*sql.Tx) (e
 		}
 	}()
 
-	err = dfr.invoke(c, tx)
+	err = dfr.Invoke(c, tx)
 	return
 }
 
 // Invoke consumes the data file and writes it to the db.
-func (dfr *DataFileReader) invoke(c *spiffy.Connection, tx *sql.Tx) (err error) {
+func (dfr *DataFileReader) Invoke(c *spiffy.Connection, tx *sql.Tx) (err error) {
 	var f *os.File
 	if f, err = os.Open(dfr.path); err != nil {
 		return

@@ -6,6 +6,7 @@ import (
 
 	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/viewmodel"
+	"github.com/wcharczuk/giffy/server/webutil"
 	chart "github.com/wcharczuk/go-chart"
 )
 
@@ -14,9 +15,9 @@ type Chart struct{}
 
 func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 
-	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -6, 0), rc.Tx())
+	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -6, 0), web.Tx(rc))
 	if err != nil {
-		return rc.API().InternalError(err)
+		return webutil.API(rc).InternalError(err)
 	}
 
 	var width, height int
@@ -80,7 +81,7 @@ func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 	rc.Response.Header().Set("Content-Type", "image/svg+xml")
 	err = graph.Render(chart.SVG, rc.Response)
 	if err != nil {
-		return rc.API().InternalError(err)
+		return webutil.API(rc).InternalError(err)
 	}
 	rc.Response.WriteHeader(http.StatusOK)
 	return nil

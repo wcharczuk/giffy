@@ -13,15 +13,18 @@ import (
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-web"
 
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/external"
-	"github.com/wcharczuk/giffy/server/filecache"
+	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 // UploadImage is the controller responsible for image actions.
-type UploadImage struct{}
+type UploadImage struct {
+	Config *config.Giffy
+	Files  *filemanager.FileManager
+}
 
 func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
 	sessionUser := webutil.GetUser(r.Session())
@@ -41,11 +44,11 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	var fileContents []byte
 	var fileName string
 
-	imageURL := r.Param("image_url")
+	imageURL := r.ParamString("image_url")
 	if len(imageURL) != 0 {
 		refURL, err := url.Parse(imageURL)
 		if err != nil {
-			return r.View().BadRequest("`image_url` was malformed.")
+			return r.View().BadRequest(fmt.Errorf("`image_url` was malformed"))
 		}
 
 		res, err := external.NewRequest().
@@ -60,7 +63,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		}
 
 		if res.StatusCode != http.StatusOK {
-			return r.View().BadRequest("Non 200 returned from `image_url` host.")
+			return r.View().BadRequest(fmt.Errorf("non 200 returned from `image_url` host"))
 		}
 		defer res.Body.Close()
 		bytes, err := ioutil.ReadAll(res.Body)
@@ -73,15 +76,15 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	} else {
 		files, filesErr := r.PostedFiles()
 		if filesErr != nil {
-			return r.View().BadRequest(fmt.Sprintf("Problem reading posted file: %v", filesErr))
+			return r.View().BadRequest(fmt.Errorf("problem reading posted file: %v", filesErr))
 		}
 
 		if len(files) == 0 {
-			return r.View().BadRequest("No files posted.")
+			return r.View().BadRequest(fmt.Errorf("no files posted"))
 		}
 
 		if len(files) > 1 {
-			return r.View().BadRequest("Too many files posted.")
+			return r.View().BadRequest(fmt.Errorf("too many files posted"))
 		}
 
 		fileName = files[0].FileName
@@ -98,7 +101,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().View("upload_image_complete", existing)
 	}
 
-	image, err := CreateImageFromFile(sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, r.Tx())
+	image, err := CreateImageFromFile(sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files, web.Tx(r))
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -106,19 +109,19 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
 
-	r.Logger().OnEvent(core.EventFlagModeration, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+	r.Logger().Trigger(model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return r.View().View("upload_image_complete", image)
 }
 
 // CreateImageFromFile creates and uploads a new image.
-func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte, fileName string, tx *sql.Tx) (*model.Image, error) {
+func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte, fileName string, fm *filemanager.FileManager, tx *sql.Tx) (*model.Image, error) {
 	newImage, err := model.NewImageFromPostedFile(userID, shouldValidate, fileContents, fileName)
 	if err != nil {
 		return nil, err
 	}
 
 	buf := bytes.NewBuffer(fileContents)
-	remoteEntry, err := filecache.UploadFile(buf, filecache.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(fileContents)})
+	remoteEntry, err := fm.UploadFile(buf, filemanager.FileType{Extension: newImage.Extension, MimeType: http.DetectContentType(fileContents)})
 	if err != nil {
 		return nil, err
 	}

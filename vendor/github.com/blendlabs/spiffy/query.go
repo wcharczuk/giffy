@@ -1,6 +1,7 @@
 package spiffy
 
 import (
+	"context"
 	"database/sql"
 	"reflect"
 	"time"
@@ -21,9 +22,12 @@ type Query struct {
 	start time.Time
 	rows  *sql.Rows
 
-	stmt *sql.Stmt
-	db   *DB
-	err  error
+	stmt       *sql.Stmt
+	fireEvents bool
+	conn       *Connection
+	ctx        context.Context
+	tx         *sql.Tx
+	err        error
 }
 
 // Close closes and releases any resources retained by the QueryResult.
@@ -36,7 +40,7 @@ func (q *Query) Close() error {
 		q.rows = nil
 	}
 
-	if !q.db.conn.useStatementCache {
+	if !q.conn.useStatementCache {
 		if q.stmt != nil {
 			stmtErr = q.stmt.Close()
 			q.stmt = nil
@@ -55,14 +59,14 @@ func (q *Query) CachedAs(cacheLabel string) *Query {
 func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 	var stmtErr error
 	if q.shouldCacheStatement() {
-		stmt, stmtErr = q.db.conn.PrepareCached(q.statementLabel, q.statement, q.db.tx)
+		stmt, stmtErr = q.conn.PrepareCached(q.statementLabel, q.statement, q.tx)
 	} else {
-		stmt, stmtErr = q.db.conn.Prepare(q.statement, q.db.tx)
+		stmt, stmtErr = q.conn.Prepare(q.statement, q.tx)
 	}
 
 	if stmtErr != nil {
 		if q.shouldCacheStatement() {
-			q.db.conn.statementCache.InvalidateStatement(q.statementLabel)
+			q.conn.statementCache.InvalidateStatement(q.statementLabel)
 		}
 		err = exception.Wrap(stmtErr)
 		return
@@ -70,7 +74,7 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			if q.db.conn.useStatementCache {
+			if q.conn.useStatementCache {
 				err = exception.Nest(err, exception.New(r))
 			} else {
 				err = exception.Nest(err, exception.New(r), stmt.Close())
@@ -79,10 +83,15 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 	}()
 
 	var queryErr error
-	rows, queryErr = stmt.Query(q.args...)
+	if q.ctx != nil {
+		rows, queryErr = stmt.QueryContext(q.ctx, q.args...)
+	} else {
+		rows, queryErr = stmt.Query(q.args...)
+	}
+
 	if queryErr != nil {
 		if q.shouldCacheStatement() {
-			q.db.conn.statementCache.InvalidateStatement(q.statementLabel)
+			q.conn.statementCache.InvalidateStatement(q.statementLabel)
 		}
 		err = exception.Wrap(queryErr)
 	}
@@ -91,7 +100,7 @@ func (q *Query) Execute() (stmt *sql.Stmt, rows *sql.Rows, err error) {
 
 // Any returns if there are any results for the query.
 func (q *Query) Any() (hasRows bool, err error) {
-	defer func() { err = q.panicHandler(recover(), err) }()
+	defer func() { err = q.finalizer(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -113,7 +122,7 @@ func (q *Query) Any() (hasRows bool, err error) {
 
 // None returns if there are no results for the query.
 func (q *Query) None() (hasRows bool, err error) {
-	defer func() { err = q.panicHandler(recover(), err) }()
+	defer func() { err = q.finalizer(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 
@@ -136,7 +145,7 @@ func (q *Query) None() (hasRows bool, err error) {
 
 // Scan writes the results to a given set of local variables.
 func (q *Query) Scan(args ...interface{}) (err error) {
-	defer func() { err = q.panicHandler(recover(), err) }()
+	defer func() { err = q.finalizer(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -162,7 +171,7 @@ func (q *Query) Scan(args ...interface{}) (err error) {
 
 // Out writes the query result to a single object via. reflection mapping.
 func (q *Query) Out(object interface{}) (err error) {
-	defer func() { err = q.panicHandler(recover(), err) }()
+	defer func() { err = q.finalizer(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -201,7 +210,7 @@ func (q *Query) Out(object interface{}) (err error) {
 
 // OutMany writes the query results to a slice of objects.
 func (q *Query) OutMany(collection interface{}) (err error) {
-	defer func() { err = q.panicHandler(recover(), err) }()
+	defer func() { err = q.finalizer(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -257,7 +266,7 @@ func (q *Query) OutMany(collection interface{}) (err error) {
 
 // Each writes the query results to a slice of objects.
 func (q *Query) Each(consumer RowsConsumer) (err error) {
-	defer func() { err = q.panicHandler(recover(), err) }()
+	defer func() { err = q.finalizer(recover(), err) }()
 
 	q.stmt, q.rows, q.err = q.Execute()
 	if q.err != nil {
@@ -283,7 +292,7 @@ func (q *Query) Each(consumer RowsConsumer) (err error) {
 // helpers
 // --------------------------------------------------------------------------------
 
-func (q *Query) panicHandler(r interface{}, err error) error {
+func (q *Query) finalizer(r interface{}, err error) error {
 	if r != nil {
 		recoveryException := exception.New(r)
 		err = exception.Nest(err, recoveryException)
@@ -293,10 +302,12 @@ func (q *Query) panicHandler(r interface{}, err error) error {
 		err = exception.Nest(err, closeErr)
 	}
 
-	q.db.conn.fireEvent(EventFlagQuery, q.statement, time.Since(q.start), err, q.statementLabel)
+	if q.fireEvents {
+		q.conn.fireEvent(FlagQuery, q.statement, time.Since(q.start), err, q.statementLabel)
+	}
 	return err
 }
 
 func (q *Query) shouldCacheStatement() bool {
-	return q.db.conn.useStatementCache && len(q.statementLabel) > 0
+	return q.conn.useStatementCache && len(q.statementLabel) > 0
 }

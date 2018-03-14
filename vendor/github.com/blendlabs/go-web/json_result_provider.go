@@ -1,15 +1,19 @@
 package web
 
-import "net/http"
+import (
+	"net/http"
+
+	logger "github.com/blendlabs/go-logger"
+)
 
 // NewJSONResultProvider Creates a new JSONResults object.
-func NewJSONResultProvider(ctx *Ctx) *JSONResultProvider {
-	return &JSONResultProvider{ctx: ctx}
+func NewJSONResultProvider(log *logger.Logger) *JSONResultProvider {
+	return &JSONResultProvider{log: log}
 }
 
 // JSONResultProvider are context results for api methods.
 type JSONResultProvider struct {
-	ctx *Ctx
+	log *logger.Logger
 }
 
 // NotFound returns a service response.
@@ -30,8 +34,8 @@ func (jrp *JSONResultProvider) NotAuthorized() Result {
 
 // InternalError returns a service response.
 func (jrp *JSONResultProvider) InternalError(err error) Result {
-	if jrp.ctx != nil {
-		jrp.ctx.logFatal(err)
+	if jrp.log != nil {
+		jrp.log.Fatal(err)
 	}
 
 	return &JSONResult{
@@ -41,10 +45,16 @@ func (jrp *JSONResultProvider) InternalError(err error) Result {
 }
 
 // BadRequest returns a service response.
-func (jrp *JSONResultProvider) BadRequest(message string) Result {
+func (jrp *JSONResultProvider) BadRequest(err error) Result {
+	if err != nil {
+		return &JSONResult{
+			StatusCode: http.StatusBadRequest,
+			Response:   err,
+		}
+	}
 	return &JSONResult{
 		StatusCode: http.StatusBadRequest,
-		Response:   message,
+		Response:   "Bad Request",
 	}
 }
 

@@ -5,11 +5,11 @@ Go-Web
 
 Go Web is a lightweight framework for building web applications in go. It rolls together very tightly scoped middleware with API endpoint and view endpoint patterns. 
 
-##Requirements
+## Requirements
 
 * go 1.8+
 
-##Example
+## Example
 
 Let's say we have a controller we need to implement:
 
@@ -38,7 +38,7 @@ func main() {
 And that's it! There are options to configure things like the port and tls certificates, but the core use case is to bind
 on 8080 or whatever is specified in the `PORT` environment variable. 
 
-##Middleware
+## Middleware
 
 If you want to run some steps before controller actions fire (such as for auth etc.) you can add those steps as "middleware". 
 
@@ -64,7 +64,7 @@ func middle1(action web.ControllerAction) web.ControllerAction {
 }
 ```
 
-##Serving Static Files
+## Serving Static Files
 
 You can set a path root to serve static files.
 
@@ -117,7 +117,7 @@ func main() {
 
 This will then set the specified cache headers on response for the static files. 
 
-##Benchmarks
+## Benchmarks
 
 Benchmarks are key, obviously, because the ~200us you save choosing a framework won't be wiped out by the 50ms ping time to your servers. 
 

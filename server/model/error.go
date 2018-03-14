@@ -7,15 +7,15 @@ import (
 	"time"
 
 	exception "github.com/blendlabs/go-exception"
-	util "github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-util/uuid"
 	"github.com/blendlabs/spiffy"
 )
 
 // NewError creates a new error.
 func NewError(err error, req *http.Request) *Error {
-	if _, isException := err.(*exception.Exception); isException {
+	if _, isException := err.(*exception.Ex); isException {
 		return &Error{
-			UUID:       util.UUIDv4().ToShortString(),
+			UUID:       uuid.V4().String(),
 			CreatedUTC: time.Now().UTC(),
 			Message:    fmt.Sprintf("%v", err),
 			StackTrace: fmt.Sprintf("%+v", err),
@@ -28,7 +28,7 @@ func NewError(err error, req *http.Request) *Error {
 		}
 	}
 	return &Error{
-		UUID:       util.UUIDv4().ToShortString(),
+		UUID:       uuid.V4().String(),
 		CreatedUTC: time.Now().UTC(),
 		Message:    err.Error(),
 

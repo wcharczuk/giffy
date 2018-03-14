@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"database/sql"
 	"io/ioutil"
 	"net/http"
@@ -23,7 +24,7 @@ func (fis FixImageSizes) Schedule() chronometer.Schedule {
 }
 
 // Execute runs the job
-func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
+func (fis FixImageSizes) Execute(ctx context.Context) error {
 	imageIDs := []int64{}
 
 	err := model.DB().Query(`select id from image where file_size = 0;`).Each(func(r *sql.Rows) error {
@@ -43,9 +44,7 @@ func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
 	var image model.Image
 	for _, id := range imageIDs {
 
-		ct.CheckCancellation()
-
-		err = model.DB().GetByID(&image, id)
+		err = model.DB().Get(&image, id)
 		if err != nil {
 			return err
 		}
@@ -54,8 +53,6 @@ func (fis FixImageSizes) Execute(ct *chronometer.CancellationToken) error {
 		if err != nil {
 			return err
 		}
-
-		ct.CheckCancellation()
 
 		image.FileSize = size
 		err = model.DB().Update(&image)

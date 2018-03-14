@@ -3,16 +3,18 @@ package web
 import (
 	"fmt"
 	"net/http"
+
+	logger "github.com/blendlabs/go-logger"
 )
 
 // NewTextResultProvider returns a new text result provider.
-func NewTextResultProvider(ctx *Ctx) *TextResultProvider {
-	return &TextResultProvider{ctx: ctx}
+func NewTextResultProvider(log *logger.Logger) *TextResultProvider {
+	return &TextResultProvider{log: log}
 }
 
 // TextResultProvider is the default response provider if none is specified.
 type TextResultProvider struct {
-	ctx *Ctx
+	log *logger.Logger
 }
 
 // NotFound returns a text response.
@@ -35,8 +37,8 @@ func (trp *TextResultProvider) NotAuthorized() Result {
 
 // InternalError returns a text response.
 func (trp *TextResultProvider) InternalError(err error) Result {
-	if trp.ctx != nil {
-		trp.ctx.logFatal(err)
+	if trp.log != nil {
+		trp.log.Fatal(err)
 	}
 
 	if err != nil {
@@ -55,12 +57,12 @@ func (trp *TextResultProvider) InternalError(err error) Result {
 }
 
 // BadRequest returns a text response.
-func (trp *TextResultProvider) BadRequest(message string) Result {
-	if len(message) > 0 {
+func (trp *TextResultProvider) BadRequest(err error) Result {
+	if err != nil {
 		return &RawResult{
 			StatusCode:  http.StatusBadRequest,
 			ContentType: ContentTypeText,
-			Body:        []byte(fmt.Sprintf("Bad Request: %s", message)),
+			Body:        []byte(fmt.Sprintf("Bad Request: %v", err)),
 		}
 	}
 	return &RawResult{

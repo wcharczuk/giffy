@@ -3,76 +3,43 @@ package web
 import (
 	"bytes"
 	"html/template"
-	"net/http"
 
-	"github.com/blendlabs/go-exception"
+	exception "github.com/blendlabs/go-exception"
 )
 
-// ViewModel is a wrapping viewmodel.
-type ViewModel struct {
-	Ctx       *Ctx
-	Template  string
-	ViewModel interface{}
-}
+const (
+	// ErrUnsetViewTemplate is a common error.
+	ErrUnsetViewTemplate Error = "view result template is unset"
+)
 
 // ViewResult is a result that renders a view.
 type ViewResult struct {
 	StatusCode int
 	ViewModel  interface{}
-	Template   string
-
-	viewCache *ViewCache
+	Template   *template.Template
 }
 
 // Render renders the result to the given response writer.
-func (vr *ViewResult) Render(ctx *Ctx) error {
-	if vr.viewCache == nil {
-		err := exception.New("<ViewResult>.viewCache is nil at Render()")
-		http.Error(ctx.Response, err.Error(), http.StatusInternalServerError)
-		return err
+func (vr *ViewResult) Render(ctx *Ctx) (err error) {
+	if vr.Template == nil {
+		err = exception.New(ErrUnsetViewTemplate)
+		return
 	}
-
-	var viewTemplates *template.Template
-	var err error
-
-	if vr.viewCache.Enabled() {
-		viewTemplates = vr.viewCache.Templates()
-	} else {
-		viewTemplates, err = vr.viewCache.Parse()
-		if err != nil {
-			http.Error(ctx.Response, err.Error(), http.StatusInternalServerError)
-			return err
-		}
-	}
-	if viewTemplates == nil {
-		err := exception.New("<ViewResult>.viewCache.Templates is nil at Render()")
-		http.Error(ctx.Response, err.Error(), http.StatusInternalServerError)
-		return err
-	}
-
 	ctx.Response.Header().Set(HeaderContentType, ContentTypeHTML)
-
 	buffer := bytes.NewBuffer([]byte{})
-	err = viewTemplates.ExecuteTemplate(buffer, vr.Template, &ViewModel{
+	err = vr.Template.Execute(buffer, &ViewModel{
 		Ctx:       ctx,
-		Template:  vr.Template,
 		ViewModel: vr.ViewModel,
 	})
-
 	if err != nil {
-		buffer.Reset()
-
-		err = vr.viewCache.Templates().ExecuteTemplate(buffer, DefaultTemplateInternalServerError, &ViewModel{
-			Ctx:       ctx,
-			Template:  DefaultTemplateInternalServerError,
-			ViewModel: err,
-		})
-
-		ctx.Response.WriteHeader(http.StatusInternalServerError)
-		ctx.Response.Write(buffer.Bytes())
-		return err
+		err = exception.Wrap(err)
+		return
 	}
+
 	ctx.Response.WriteHeader(vr.StatusCode)
 	_, err = ctx.Response.Write(buffer.Bytes())
-	return err
+	if err != nil && ctx != nil && ctx.Logger() != nil {
+		ctx.Logger().Error(err)
+	}
+	return nil
 }

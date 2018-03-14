@@ -79,15 +79,15 @@ func GetUsersByCountAndOffset(count, offset int, tx *sql.Tx) ([]User, error) {
 // GetUserByID returns a user by id.
 func GetUserByID(id int64, tx *sql.Tx) (*User, error) {
 	var user User
-	err := DB().GetByIDInTx(&user, tx, id)
+	err := DB().InTx(tx).Get(&user, id)
 	return &user, err
 }
 
 // GetUserByUUID returns a user for a uuid.
 func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
 	var user User
-	err := DB().
-		QueryInTx(`select * from users where uuid = $1`, tx, uuid).Out(&user)
+	err := DB().InTx(tx).
+		Query(`select * from users where uuid = $1`, uuid).Out(&user)
 	return &user, err
 }
 
@@ -96,14 +96,14 @@ func SearchUsers(query string, tx *sql.Tx) ([]User, error) {
 	var users []User
 	queryFormat := fmt.Sprintf("%%%s%%", query)
 	sqlQuery := `select * from users where username ilike $1 or first_name ilike $1 or last_name ilike $1 or email_address ilike $1`
-	err := DB().QueryInTx(sqlQuery, tx, queryFormat).OutMany(&users)
+	err := DB().InTx(tx).Query(sqlQuery, queryFormat).OutMany(&users)
 	return users, err
 }
 
 // GetUserByUsername returns a user for a uuid.
 func GetUserByUsername(username string, tx *sql.Tx) (*User, error) {
 	var user User
-	err := DB().
-		QueryInTx(`select * from users where username = $1`, tx, username).Out(&user)
+	err := DB().InTx(tx).
+		Query(`select * from users where username = $1`, username).Out(&user)
 	return &user, err
 }

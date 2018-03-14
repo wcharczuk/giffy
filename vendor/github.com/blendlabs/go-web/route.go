@@ -1,13 +1,19 @@
 package web
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 )
 
 // Handler is the most basic route handler.
-type Handler func(http.ResponseWriter, *http.Request, *Route, RouteParameters, *sql.Tx)
+type Handler func(http.ResponseWriter, *http.Request, *Route, RouteParameters, State)
+
+// WrapHandler wraps an http.Handler as a Handler.
+func WrapHandler(handler http.Handler) Handler {
+	return func(w http.ResponseWriter, r *http.Request, _ *Route, _ RouteParameters, _ State) {
+		handler.ServeHTTP(w, r)
+	}
+}
 
 // PanicHandler is a handler for panics that also takes an error.
 type PanicHandler func(http.ResponseWriter, *http.Request, interface{})

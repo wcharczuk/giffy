@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"time"
 
 	"github.com/blendlabs/go-chronometer"
@@ -21,6 +22,6 @@ func (ot DeleteOrphanedTags) Schedule() chronometer.Schedule {
 }
 
 // Execute runs the job
-func (ot DeleteOrphanedTags) Execute(ct *chronometer.CancellationToken) error {
+func (ot DeleteOrphanedTags) Execute(ctx context.Context) error {
 	return model.DeleteOrphanedTags(nil)
 }

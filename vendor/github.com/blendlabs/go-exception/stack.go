@@ -1,12 +1,18 @@
 package exception
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"path"
 	"runtime"
 	"strings"
 )
+
+// GetStackTrace is a utility method to get the current stack trace at call time.
+func GetStackTrace() string {
+	return fmt.Sprintf("%+v", callers())
+}
 
 // Frame represents a program counter inside a stack frame.
 type Frame uintptr
@@ -59,7 +65,8 @@ func (f Frame) Format(s fmt.State, verb rune) {
 				io.WriteString(s, "unknown")
 			} else {
 				file, _ := fn.FileLine(pc)
-				fmt.Fprintf(s, "%s\n\t%s", fn.Name(), file)
+				fname := fn.Name()
+				fmt.Fprintf(s, "%s\n\t%s", fname, trimGOPATH(fname, file))
 			}
 		default:
 			io.WriteString(s, path.Base(f.file()))
@@ -96,6 +103,20 @@ func (st StackTrace) Format(s fmt.State, verb rune) {
 	case 's':
 		fmt.Fprintf(s, "%s", []Frame(st))
 	}
+}
+
+// AsStringSlice dereferences the StackTrace as a string slice
+func (st StackTrace) AsStringSlice() []string {
+	res := make([]string, len(st))
+	for i, frame := range st {
+		res[i] = fmt.Sprintf("%+v", frame)
+	}
+	return res
+}
+
+//MarshalJSON is a custom json marshaler.
+func (st StackTrace) MarshalJSON() ([]byte, error) {
+	return json.Marshal(st.AsStringSlice())
 }
 
 // stack represents a stack of program counters.

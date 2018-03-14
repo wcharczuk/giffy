@@ -1,5 +1,7 @@
 package web
 
+import "time"
+
 const (
 	// PackageName is the full name of this package.
 	PackageName = "github.com/blendlabs/go-web"
@@ -88,4 +90,65 @@ const (
 	ContentEncodingIdentity = "identity"
 	// ContentEncodingGZIP is the gzip (compressed) content encoding.
 	ContentEncodingGZIP = "gzip"
+)
+
+// Environment Variables
+const (
+	// EnvironmentVariableBindAddr is an env var that determines (if set) what the bind address should be.
+	EnvironmentVariableBindAddr = "BIND_ADDR"
+
+	// EnvironmentVariablePort is an env var that determines what the default bind address port segment returns.
+	EnvironmentVariablePort = "PORT"
+
+	// EnvironmentVariableTLSCert is an env var that contains the TLS cert.
+	EnvironmentVariableTLSCert = "TLS_CERT"
+
+	// EnvironmentVariableTLSKey is an env var that contains the TLS key.
+	EnvironmentVariableTLSKey = "TLS_KEY"
+
+	// EnvironmentVariableTLSCertFile is an env var that contains the file path to the TLS cert.
+	EnvironmentVariableTLSCertFile = "TLS_CERT_FILE"
+
+	// EnvironmentVariableTLSKeyFile is an env var that contains the file path to the TLS key.
+	EnvironmentVariableTLSKeyFile = "TLS_KEY_FILE"
+)
+
+// Defaults
+const (
+	// DefaultBindAddr is the default bind address.
+	DefaultBindAddr = ":8080"
+	// DefaultRedirectTrailingSlash is the default if we should redirect for missing trailing slashes.
+	DefaultRedirectTrailingSlash = true
+	// DefaultHandleOptions is a default.
+	DefaultHandleOptions = false
+	// DefaultHandleMethodNotAllowed is a default.
+	DefaultHandleMethodNotAllowed = false
+	// DefaultRecoverPanics returns if we should recover panics by default.
+	DefaultRecoverPanics = true
+	// DefaultMaxHeaderBytes is a default that is unset.
+	DefaultMaxHeaderBytes = 0
+	// DefaultReadTimeout is a default.
+	DefaultReadTimeout = 5 * time.Second
+	// DefaultReadHeaderTimeout is a default.
+	DefaultReadHeaderTimeout time.Duration = 0
+	// DefaultWriteTimeout is a default.
+	DefaultWriteTimeout time.Duration = 0
+	// DefaultIdleTimeout is a default.
+	DefaultIdleTimeout time.Duration = 0
+	// DefaultCookieHTTPS is a default.
+	DefaultCookieHTTPS = false
+	// DefaultCookieName is the default name of the field that contains the session id.
+	DefaultCookieName = "SID"
+	// DefaultSecureCookieName is the default name of the field that contains the secure session id.
+	DefaultSecureCookieName = "SSID"
+	// DefaultSecureCookieHTTPS is a default.
+	DefaultSecureCookieHTTPS = false
+	// DefaultCookiePath is the default cookie path.
+	DefaultCookiePath = "/"
+	// DefaultSessionTimeout is the default absolute timeout for a session (here implying we should use session lived sessions).
+	DefaultSessionTimeout time.Duration = 0
+	// DefaultUseSessionCache is the default if we should use the auth manager session cache.
+	DefaultUseSessionCache = true
+	// DefaultSessionTimeoutIsAbsolute is the default if we should set absolute session expiries.
+	DefaultSessionTimeoutIsAbsolute = true
 )

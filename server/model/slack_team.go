@@ -51,6 +51,6 @@ func GetAllSlackTeams(txs ...*sql.Tx) ([]SlackTeam, error) {
 // GetSlackTeamByTeamID gets a slack team by the team id.
 func GetSlackTeamByTeamID(teamID string, txs ...*sql.Tx) (*SlackTeam, error) {
 	var team SlackTeam
-	err := DB().GetByIDInTx(&team, spiffy.OptionalTx(txs...), teamID)
+	err := DB().InTx(txs...).Get(&team, teamID)
 	return &team, err
 }

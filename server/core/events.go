@@ -3,12 +3,12 @@ package core
 import logger "github.com/blendlabs/go-logger"
 
 var (
-	// EventFlagSearch denotes an event.
-	EventFlagSearch logger.EventFlag = "giffy.search"
+	// FlagSearch denotes an event.
+	FlagSearch logger.Flag = "giffy.search"
 
-	// EventFlagModeration denotes an event.
-	EventFlagModeration logger.EventFlag = "giffy.moderation"
+	// FlagModeration denotes an event.
+	FlagModeration logger.Flag = "giffy.moderation"
 
-	// EventFlagVote denotes an event.
-	EventFlagVote logger.EventFlag = "giffy.vote"
+	// FlagVote denotes an event.
+	FlagVote logger.Flag = "giffy.vote"
 )

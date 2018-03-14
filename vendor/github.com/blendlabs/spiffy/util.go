@@ -29,14 +29,22 @@ func Tx(txs ...*sql.Tx) *sql.Tx {
 	return OptionalTx(txs...)
 }
 
-// TableName returns the table name for a given reflect.Type by instantiating it and calling o.TableName().
+// TableNameByType returns the table name for a given reflect.Type by instantiating it and calling o.TableName().
 // The type must implement DatabaseMapped or an exception will be returned.
-func TableName(t reflect.Type) (string, error) {
-	i, err := makeNewDatabaseMapped(t)
-	if err == nil {
-		return i.TableName(), nil
+func TableNameByType(t reflect.Type) string {
+	instance := reflect.New(t).Interface()
+	if typed, isTyped := instance.(TableNameProvider); isTyped {
+		return typed.TableName()
 	}
-	return "", err
+	return strings.ToLower(t.Name())
+}
+
+// TableName returns the mapped table name for a given instance; it will sniff for the `TableName()` function on the type.
+func TableName(obj DatabaseMapped) string {
+	if typed, isTyped := obj.(TableNameProvider); isTyped {
+		return typed.TableName()
+	}
+	return strings.ToLower(reflectType(obj).Name())
 }
 
 // --------------------------------------------------------------------------------

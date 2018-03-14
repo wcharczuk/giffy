@@ -16,14 +16,14 @@ func SessionAwareLockFree(action Action) Action {
 }
 
 func sessionAware(action Action, sessionLockPolicy int) Action {
-	return func(context *Ctx) Result {
-		session, err := context.Auth().VerifySession(context)
-		if err != nil && err != ErrSessionIDInvalid {
-			return context.DefaultResultProvider().InternalError(err)
+	return func(ctx *Ctx) Result {
+		session, err := ctx.Auth().VerifySession(ctx)
+		if err != nil && !IsErrSessionInvalid(err) {
+			return ctx.DefaultResultProvider().InternalError(err)
 		}
 
 		if session != nil {
-			context.SetSession(session)
+			ctx.SetSession(session)
 
 			switch sessionLockPolicy {
 			case SessionReadLock:
@@ -41,7 +41,7 @@ func sessionAware(action Action, sessionLockPolicy int) Action {
 			}
 		}
 
-		return action(context)
+		return action(ctx)
 	}
 }
 
@@ -62,13 +62,13 @@ func SessionRequiredLockFree(action Action) Action {
 }
 
 func sessionRequired(action Action, sessionLockPolicy int) Action {
-	return func(context *Ctx) Result {
-		session, err := context.Auth().VerifySession(context)
-		if err != nil {
-			return context.DefaultResultProvider().InternalError(err)
+	return func(ctx *Ctx) Result {
+		session, err := ctx.Auth().VerifySession(ctx)
+		if err != nil && !IsErrSessionInvalid(err) {
+			return ctx.DefaultResultProvider().InternalError(err)
 		}
 		if session == nil {
-			return context.Auth().Redirect(context)
+			return ctx.Auth().Redirect(ctx)
 		}
 
 		switch sessionLockPolicy {
@@ -86,7 +86,7 @@ func sessionRequired(action Action, sessionLockPolicy int) Action {
 			}
 		}
 
-		context.SetSession(session)
-		return action(context)
+		ctx.SetSession(session)
+		return action(ctx)
 	}
 }

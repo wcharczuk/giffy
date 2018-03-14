@@ -63,10 +63,12 @@ func newColumnCollectionWithPrefixFromColumns(prefix string, columns []Column) *
 
 // newColumnCacheKey creates a cache key for a type.
 func newColumnCacheKey(objectType reflect.Type) string {
-	if dbm, err := makeNewDatabaseMapped(objectType); err == nil {
-		return fmt.Sprintf("%s_%s", objectType.String(), dbm.TableName())
+	typeName := objectType.String()
+	instance := reflect.New(objectType).Interface()
+	if typed, isTyped := instance.(TableNameProvider); isTyped {
+		return typeName + "_" + typed.TableName()
 	}
-	return objectType.String()
+	return typeName
 }
 
 // getCachedColumnCollectionFromInstance reflects an object instance into a new column collection.
@@ -100,7 +102,7 @@ func generateColumnCollectionForType(t reflect.Type) *ColumnCollection {
 		t = t.Elem()
 	}
 
-	tableName, _ := TableName(t)
+	tableName := TableNameByType(t)
 	numFields := t.NumField()
 
 	var cols []Column

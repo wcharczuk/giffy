@@ -1,7 +1,6 @@
 package web
 
 import (
-	"bytes"
 	"compress/gzip"
 	"net/http"
 )
@@ -11,27 +10,18 @@ import (
 // --------------------------------------------------------------------------------
 
 // NewCompressedResponseWriter returns a new gzipped response writer.
-func NewCompressedResponseWriter(w http.ResponseWriter) ResponseWriter {
+func NewCompressedResponseWriter(w http.ResponseWriter) *CompressedResponseWriter {
 	return &CompressedResponseWriter{
 		innerResponse: w,
 	}
 }
 
-// NewBufferedCompressedResponseWriter returns a new gzipped response writer.
-func NewBufferedCompressedResponseWriter(w http.ResponseWriter) ResponseWriter {
-	return &CompressedResponseWriter{
-		innerResponse:  w,
-		responseBuffer: bytes.NewBuffer([]byte{}),
-	}
-}
-
 // CompressedResponseWriter is a response writer that compresses output.
 type CompressedResponseWriter struct {
-	gzipWriter     *gzip.Writer
-	innerResponse  http.ResponseWriter
-	responseBuffer *bytes.Buffer
-	statusCode     int
-	contentLength  int
+	gzipWriter    *gzip.Writer
+	innerResponse http.ResponseWriter
+	statusCode    int
+	contentLength int
 }
 
 func (crw *CompressedResponseWriter) ensureCompressedStream() {
@@ -42,15 +32,10 @@ func (crw *CompressedResponseWriter) ensureCompressedStream() {
 
 // Write writes the byes to the stream.
 func (crw *CompressedResponseWriter) Write(b []byte) (int, error) {
-	if crw.responseBuffer == nil {
-		crw.ensureCompressedStream()
-		written, err := crw.gzipWriter.Write(b)
-		crw.contentLength += written
-		return written, err
-	}
-	written, err := crw.responseBuffer.Write(b)
-	crw.contentLength += written
-	return written, err
+	crw.ensureCompressedStream()
+	_, err := crw.gzipWriter.Write(b)
+	crw.contentLength += len(b)
+	return len(b), err
 }
 
 // Header returns the headers for the response.
@@ -79,30 +64,14 @@ func (crw *CompressedResponseWriter) ContentLength() int {
 	return crw.contentLength
 }
 
-// Bytes returns the raw response.
-func (crw *CompressedResponseWriter) Bytes() []byte {
-	if crw.responseBuffer == nil {
-		return []byte{}
-	}
-	return crw.responseBuffer.Bytes()
-}
-
 // Flush pushes any buffered data out to the response.
 func (crw *CompressedResponseWriter) Flush() error {
 	crw.ensureCompressedStream()
-	if crw.responseBuffer != nil {
-		written, err := crw.gzipWriter.Write(crw.responseBuffer.Bytes())
-		crw.contentLength = written
-		if err != nil {
-			return err
-		}
-	}
 	return crw.gzipWriter.Flush()
 }
 
 // Close closes any underlying resources.
 func (crw *CompressedResponseWriter) Close() error {
-	crw.responseBuffer = nil
 	if crw.gzipWriter != nil {
 		err := crw.gzipWriter.Close()
 		crw.gzipWriter = nil

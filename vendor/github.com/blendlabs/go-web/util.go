@@ -1,11 +1,16 @@
 package web
 
 import (
+	"crypto/hmac"
+	cryptoRand "crypto/rand"
+	"crypto/sha512"
 	"encoding/json"
 	"encoding/xml"
 	"io"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/blendlabs/go-exception"
 )
@@ -50,20 +55,14 @@ func WriteRawContent(w http.ResponseWriter, statusCode int, content []byte) erro
 func WriteJSON(w http.ResponseWriter, r *http.Request, statusCode int, response interface{}) error {
 	w.Header().Set(HeaderContentType, ContentTypeApplicationJSON)
 	w.WriteHeader(statusCode)
-
-	enc := json.NewEncoder(w)
-	err := enc.Encode(response)
-	return exception.Wrap(err)
+	return exception.Wrap(json.NewEncoder(w).Encode(response))
 }
 
 // WriteXML marshalls an object to json.
 func WriteXML(w http.ResponseWriter, r *http.Request, statusCode int, response interface{}) error {
 	w.Header().Set(HeaderContentType, ContentTypeXML)
 	w.WriteHeader(statusCode)
-
-	enc := xml.NewEncoder(w)
-	err := enc.Encode(response)
-	return exception.Wrap(err)
+	return exception.Wrap(xml.NewEncoder(w).Encode(response))
 }
 
 // DeserializeReaderAsJSON deserializes a post body as json to a given object.
@@ -87,4 +86,63 @@ func LocalIP() string {
 		}
 	}
 	return ""
+}
+
+// NewSessionID returns a new session id.
+// It is not a uuid; session ids are generated using a secure random source.
+// SessionIDs are generally 64 bytes.
+func NewSessionID() string {
+	return String.SecureRandom(LenSessionID)
+}
+
+// SignSessionID returns a new secure session id.
+func SignSessionID(sessionID string, key []byte) ([]byte, error) {
+	mac := hmac.New(sha512.New, key)
+	_, err := mac.Write([]byte(sessionID))
+	if err != nil {
+		return nil, err
+	}
+	return mac.Sum(nil), nil
+}
+
+// EncodeSignSessionID returns a new secure session id base64 encoded..
+func EncodeSignSessionID(sessionID string, key []byte) (string, error) {
+	signed, err := SignSessionID(sessionID, key)
+	if err != nil {
+		return "", err
+	}
+	return Base64.Encode(signed), nil
+}
+
+// GenerateCryptoKey generates a cryptographic key.
+func GenerateCryptoKey(keySize int) []byte {
+	key := make([]byte, keySize)
+	io.ReadFull(cryptoRand.Reader, key)
+	return key
+}
+
+// GenerateSHA512Key generates a crypto key for SHA512 hashing.
+func GenerateSHA512Key() []byte {
+	return GenerateCryptoKey(64)
+}
+
+// PortFromBindAddr returns a port number as an integer from a bind addr.
+func PortFromBindAddr(bindAddr string) int32 {
+	if len(bindAddr) == 0 {
+		return 0
+	}
+	parts := strings.SplitN(bindAddr, ":", 2)
+	if len(parts) == 0 {
+		return 0
+	}
+	if len(parts) < 2 {
+		return ParseInt32(parts[0])
+	}
+	return ParseInt32(parts[1])
+}
+
+// ParseInt32 parses an int32.
+func ParseInt32(v string) int32 {
+	parsed, _ := strconv.Atoi(v)
+	return int32(parsed)
 }

@@ -6,8 +6,6 @@ package spiffy
 import (
 	"database/sql"
 	"fmt"
-	"net/url"
-	"os"
 	"sync"
 	"time"
 
@@ -34,116 +32,44 @@ const (
 // Connection
 // --------------------------------------------------------------------------------
 
-// NewConnection returns a new DbConnectin.
-func NewConnection() *Connection {
+// New returns a new Connection.
+func New() *Connection {
 	return &Connection{
-		bufferPool:         NewBufferPool(1024),
-		useStatementCache:  false, //doesnt actually help perf, maybe someday.
+		Config:             &Config{},
+		bufferPool:         NewBufferPool(DefaultBufferPoolSize),
+		useStatementCache:  DefaultUseStatementCache,
 		statementCacheLock: &sync.Mutex{},
 		connectionLock:     &sync.Mutex{},
 	}
 }
 
-// NewConnectionWithHost creates a new Connection using current user peer authentication.
-func NewConnectionWithHost(host, dbName string) *Connection {
-	dbc := NewConnection()
-	dbc.Host = host
-	dbc.Database = dbName
-	dbc.SSLMode = "disable"
-	return dbc
-}
-
-// NewConnectionWithPassword creates a new connection with SSLMode set to "disable"
-func NewConnectionWithPassword(host, dbName, username, password string) *Connection {
-	dbc := NewConnection()
-	dbc.Host = host
-	dbc.Database = dbName
-	dbc.Username = username
-	dbc.Password = password
-	dbc.SSLMode = "disable"
-	return dbc
-}
-
-// NewConnectionWithSSLMode creates a new connection with all available options (including SSLMode)
-func NewConnectionWithSSLMode(host, dbName, username, password, sslMode string) *Connection {
-	dbc := NewConnection()
-	dbc.Host = host
-	dbc.Database = dbName
-	dbc.Username = username
-	dbc.Password = password
-	dbc.SSLMode = sslMode
-	return dbc
-}
-
-// NewConnectionFromDSN creates a new connection with SSLMode set to "disable"
-func NewConnectionFromDSN(dsn string) *Connection {
-	dbc := NewConnection()
-	dbc.DSN = dsn
-	return dbc
-}
-
-func envVarWithDefault(varName, defaultValue string) string {
-	envVarValue := os.Getenv(varName)
-	if len(envVarValue) > 0 {
-		return envVarValue
+// NewFromConfig returns a new connection from a config.
+func NewFromConfig(cfg *Config) *Connection {
+	return &Connection{
+		Config:             cfg,
+		bufferPool:         NewBufferPool(cfg.GetBufferPoolSize()),
+		useStatementCache:  cfg.GetUseStatementCache(), //doesnt actually help perf, maybe someday.
+		statementCacheLock: &sync.Mutex{},
+		connectionLock:     &sync.Mutex{},
 	}
-	return defaultValue
 }
 
-// NewConnectionFromEnvironment creates a new db connection from environment variables.
-//
-// The environment variable mappings are as follows:
-//	-	DATABSE_URL 	= DSN 	//note that this trumps other vars (!!)
-// 	-	DB_HOST 		= Host
-//	-	DB_PORT 		= Port
-//	- 	DB_NAME 		= Database
-//	-	DB_SCHEMA		= Schema
-//	-	DB_USER 		= Username
-//	-	DB_PASSWORD 	= Password
-//	-	DB_SSLMODE 		= SSLMode
-func NewConnectionFromEnvironment() *Connection {
-	if len(os.Getenv("DATABASE_URL")) > 0 {
-		return NewConnectionFromDSN(os.Getenv("DATABASE_URL"))
-	}
-
-	dbc := NewConnection()
-	dbc.Host = envVarWithDefault("DB_HOST", "localhost")
-	dbc.Database = os.Getenv("DB_NAME")
-	dbc.Schema = os.Getenv("DB_SCHEMA")
-	dbc.Username = os.Getenv("DB_USER")
-	dbc.Password = os.Getenv("DB_PASSWORD")
-	dbc.SSLMode = envVarWithDefault("DB_SSLMODE", "disable")
-	return dbc
+// NewFromEnv creates a new db connection from environment variables.
+func NewFromEnv() *Connection {
+	return NewFromConfig(NewConfigFromEnv())
 }
 
 // Connection is the basic wrapper for connection parameters and saves a reference to the created sql.Connection.
 type Connection struct {
-	// DSN is a fully formed DSN (this skips DSN formation from other variables).
-	DSN string
-
-	// Host is the server to connect to.
-	Host string
-	// Port is the port to connect to.
-	Port string
-	// DBName is the database name
-	Database string
-	// Schema is the application schema within the database, defaults to `public`.
-	Schema string
-	// Username is the username for the connection via password auth.
-	Username string
-	// Password is the password for the connection via password auth.
-	Password string
-	// SSLMode is the sslmode for the connection.
-	SSLMode string
-
 	// Connection is the underlying sql driver connection for the Connection.
 	Connection *sql.DB
+	Config     *Config
 
 	connectionLock     *sync.Mutex
 	statementCacheLock *sync.Mutex
 
 	bufferPool *BufferPool
-	logger     *logger.Agent
+	log        *logger.Logger
 
 	useStatementCache bool
 	statementCache    *StatementCache
@@ -161,24 +87,25 @@ func (dbc *Connection) Close() error {
 	return dbc.Connection.Close()
 }
 
-// SetLogger sets the connection's diagnostic agent.
-func (dbc *Connection) SetLogger(agent *logger.Agent) {
-	dbc.logger = agent
+// WithLogger sets the connection's diagnostic agent.
+func (dbc *Connection) WithLogger(log *logger.Logger) {
+	dbc.log = log
 }
 
 // Logger returns the diagnostics agent.
-func (dbc *Connection) Logger() *logger.Agent {
-	return dbc.logger
+func (dbc *Connection) Logger() *logger.Logger {
+	return dbc.log
 }
 
-func (dbc *Connection) fireEvent(flag logger.EventFlag, query string, elapsed time.Duration, err error, optionalQueryLabel ...string) {
-	if dbc.logger != nil {
+func (dbc *Connection) fireEvent(flag logger.Flag, query string, elapsed time.Duration, err error, optionalQueryLabel ...string) {
+	if dbc.log != nil {
 		var queryLabel string
 		if len(optionalQueryLabel) > 0 {
 			queryLabel = optionalQueryLabel[0]
 		}
 
-		dbc.logger.OnEvent(flag, query, elapsed, err, queryLabel)
+		dbc.log.Trigger(NewEvent(flag, queryLabel, elapsed, err))
+		dbc.log.Trigger(NewStatementEvent(flag, queryLabel, query, elapsed, err))
 	}
 }
 
@@ -192,77 +119,60 @@ func (dbc *Connection) DisableStatementCache() {
 	dbc.useStatementCache = false
 }
 
+// WithUseStatementCache returns if we should use the statement cache.
+func (dbc *Connection) WithUseStatementCache(enabled bool) *Connection {
+	dbc.useStatementCache = enabled
+	return dbc
+}
+
 // StatementCache returns the statement cache.
 func (dbc *Connection) StatementCache() *StatementCache {
 	return dbc.statementCache
 }
 
-// CreatePostgresConnectionString returns a sql connection string from a given set of Connection parameters.
-func (dbc *Connection) CreatePostgresConnectionString() (string, error) {
-	if len(dbc.DSN) != 0 {
-		return dbc.DSN, nil
-	}
-
-	if len(dbc.Database) == 0 {
-		return "", exception.New("`DB_NAME` is required to open a new connection")
-	}
-
-	sslMode := "?sslmode=disable"
-	if len(dbc.SSLMode) > 0 {
-		sslMode = fmt.Sprintf("?sslmode=%s", url.QueryEscape(dbc.SSLMode))
-	}
-
-	var portSegment string
-	if len(dbc.Port) > 0 {
-		portSegment = fmt.Sprintf(":%s", dbc.Port)
-	}
-
-	if dbc.Username != "" {
-		if dbc.Password != "" {
-			return fmt.Sprintf("postgres://%s:%s@%s%s/%s%s", url.QueryEscape(dbc.Username), url.QueryEscape(dbc.Password), dbc.Host, portSegment, dbc.Database, sslMode), nil
-		}
-		return fmt.Sprintf("postgres://%s@%s%s/%s%s", url.QueryEscape(dbc.Username), dbc.Host, portSegment, dbc.Database, sslMode), nil
-	}
-	return fmt.Sprintf("postgres://%s%s/%s%s", dbc.Host, portSegment, dbc.Database, sslMode), nil
-}
-
-// openNew returns a new connection object.
-func (dbc *Connection) openNew() (*sql.DB, error) {
-	connStr, err := dbc.CreatePostgresConnectionString()
-	if err != nil {
-		return nil, err
-	}
-
-	dbConn, err := sql.Open("postgres", connStr)
+// openNewSQLConnection returns a new connection object.
+func (dbc *Connection) openNewSQLConnection() (*sql.DB, error) {
+	dbConn, err := sql.Open("postgres", dbc.Config.CreateDSN())
 	if err != nil {
 		return nil, exception.Wrap(err)
 	}
 
-	if len(dbc.Schema) > 0 {
-		_, err = dbConn.Exec(fmt.Sprintf("SET search_path TO %s,public;", dbc.Schema))
+	if dbc.Config != nil {
+		dbConn.SetConnMaxLifetime(dbc.Config.GetMaxLifetime())
+		dbConn.SetMaxIdleConns(dbc.Config.GetIdleConnections())
+		dbConn.SetMaxOpenConns(dbc.Config.GetMaxConnections())
+	}
+
+	if len(dbc.Config.GetSchema()) > 0 {
+		_, err = dbConn.Exec(fmt.Sprintf("SET search_path TO %s,public;", dbc.Config.GetSchema()))
 		if err != nil {
-			return nil, err
+			return nil, exception.Wrap(err)
 		}
+	}
+
+	_, err = dbConn.Exec("select 'ok!'")
+	if err != nil {
+		return nil, exception.Wrap(err)
 	}
 
 	return dbConn, nil
 }
 
 // Open returns a connection object, either a cached connection object or creating a new one in the process.
-func (dbc *Connection) Open() (*sql.DB, error) {
+func (dbc *Connection) Open() (*Connection, error) {
 	if dbc.Connection == nil {
 		dbc.connectionLock.Lock()
 		defer dbc.connectionLock.Unlock()
 
 		if dbc.Connection == nil {
-			newConn, err := dbc.openNew()
+			newConn, err := dbc.openNewSQLConnection()
 			if err != nil {
-				return nil, exception.Wrap(err)
+				return nil, err
 			}
 			dbc.Connection = newConn
 		}
 	}
-	return dbc.Connection, nil
+	return dbc, nil
 }
 
 // Begin starts a new transaction.
@@ -296,7 +206,7 @@ func (dbc *Connection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error) 
 		return nil, exception.Wrap(err)
 	}
 
-	stmt, err := dbConn.Prepare(statement)
+	stmt, err := dbConn.Connection.Prepare(statement)
 	if err != nil {
 		return nil, exception.Wrap(err)
 	}
@@ -312,7 +222,7 @@ func (dbc *Connection) ensureStatementCache() error {
 			if err != nil {
 				return exception.Wrap(err)
 			}
-			dbc.statementCache = newStatementCache(db)
+			dbc.statementCache = newStatementCache(db.Connection)
 		}
 	}
 	return nil
@@ -336,22 +246,30 @@ func (dbc *Connection) PrepareCached(id, statement string, tx *sql.Tx) (*sql.Stm
 }
 
 // --------------------------------------------------------------------------------
-// DB context
+// Invocation context
 // --------------------------------------------------------------------------------
 
 // DB returns a new db context.
-// You can optionally pass in an existing context and that will
-// supercede the context the connection would have created for you.
-func (dbc *Connection) DB(dbs ...*DB) *DB {
-	if len(dbs) > 0 {
-		return dbs[0]
+func (dbc *Connection) DB(txs ...*sql.Tx) *DB {
+	return &DB{
+		conn:       dbc,
+		tx:         OptionalTx(txs...),
+		fireEvents: dbc.log != nil,
 	}
-	return &DB{conn: dbc}
 }
 
-// InTx is a shortcut for DB().InTx(...).
-func (dbc *Connection) InTx(txs ...*sql.Tx) *DB {
-	return &DB{conn: dbc, tx: OptionalTx(txs...)}
+// Invoke returns a new invocation.
+func (dbc *Connection) Invoke(txs ...*sql.Tx) *Invocation {
+	return &Invocation{
+		conn:       dbc,
+		tx:         OptionalTx(txs...),
+		fireEvents: dbc.log != nil,
+	}
+}
+
+// InTx is an alias to Invoke.
+func (dbc *Connection) InTx(txs ...*sql.Tx) *Invocation {
+	return dbc.Invoke(txs...)
 }
 
 // --------------------------------------------------------------------------------
@@ -375,7 +293,7 @@ func (dbc *Connection) ExecInTx(statement string, tx *sql.Tx, args ...interface{
 
 // ExecInTxWithCacheLabel runs a statement within a transaction.
 func (dbc *Connection) ExecInTxWithCacheLabel(statement, cacheLabel string, tx *sql.Tx, args ...interface{}) (err error) {
-	return dbc.DB().InTx(tx).Invoke().WithLabel(cacheLabel).Exec(statement, args...)
+	return dbc.Invoke(tx).WithLabel(cacheLabel).Exec(statement, args...)
 }
 
 // Query runs the selected statement and returns a Query.
@@ -385,17 +303,17 @@ func (dbc *Connection) Query(statement string, args ...interface{}) *Query {
 
 // QueryInTx runs the selected statement in a transaction and returns a Query.
 func (dbc *Connection) QueryInTx(statement string, tx *sql.Tx, args ...interface{}) (result *Query) {
-	return dbc.DB().InTx(tx).Invoke().Query(statement, args...)
+	return dbc.Invoke(tx).Query(statement, args...)
 }
 
-// GetByID returns a given object based on a group of primary key ids.
-func (dbc *Connection) GetByID(object DatabaseMapped, ids ...interface{}) error {
-	return dbc.GetByIDInTx(object, nil, ids...)
+// Get returns a given object based on a group of primary key ids.
+func (dbc *Connection) Get(object DatabaseMapped, ids ...interface{}) error {
+	return dbc.GetInTx(object, nil, ids...)
 }
 
-// GetByIDInTx returns a given object based on a group of primary key ids within a transaction.
-func (dbc *Connection) GetByIDInTx(object DatabaseMapped, tx *sql.Tx, args ...interface{}) error {
-	return dbc.DB().InTx(tx).Invoke().Get(object, args...)
+// GetInTx returns a given object based on a group of primary key ids within a transaction.
+func (dbc *Connection) GetInTx(object DatabaseMapped, tx *sql.Tx, args ...interface{}) error {
+	return dbc.Invoke(tx).Get(object, args...)
 }
 
 // GetAll returns all rows of an object mapped table.
@@ -405,7 +323,7 @@ func (dbc *Connection) GetAll(collection interface{}) error {
 
 // GetAllInTx returns all rows of an object mapped table wrapped in a transaction.
 func (dbc *Connection) GetAllInTx(collection interface{}, tx *sql.Tx) error {
-	return dbc.DB().InTx(tx).Invoke().GetAll(collection)
+	return dbc.Invoke(tx).GetAll(collection)
 }
 
 // Create writes an object to the database.
@@ -415,7 +333,7 @@ func (dbc *Connection) Create(object DatabaseMapped) error {
 
 // CreateInTx writes an object to the database within a transaction.
 func (dbc *Connection) CreateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
-	return dbc.DB().InTx(tx).Invoke().Create(object)
+	return dbc.Invoke(tx).Create(object)
 }
 
 // CreateIfNotExists writes an object to the database if it does not already exist.
@@ -425,7 +343,7 @@ func (dbc *Connection) CreateIfNotExists(object DatabaseMapped) error {
 
 // CreateIfNotExistsInTx writes an object to the database if it does not already exist within a transaction.
 func (dbc *Connection) CreateIfNotExistsInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
-	return dbc.DB().InTx(tx).Invoke().CreateIfNotExists(object)
+	return dbc.Invoke(tx).CreateIfNotExists(object)
 }
 
 // CreateMany writes many an objects to the database.
@@ -435,7 +353,7 @@ func (dbc *Connection) CreateMany(objects interface{}) error {
 
 // CreateManyInTx writes many an objects to the database within a transaction.
 func (dbc *Connection) CreateManyInTx(objects interface{}, tx *sql.Tx) (err error) {
-	return dbc.DB().InTx(tx).Invoke().CreateMany(objects)
+	return dbc.Invoke(tx).CreateMany(objects)
 }
 
 // Update updates an object.
@@ -445,7 +363,7 @@ func (dbc *Connection) Update(object DatabaseMapped) error {
 
 // UpdateInTx updates an object wrapped in a transaction.
 func (dbc *Connection) UpdateInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
-	return dbc.DB().InTx(tx).Invoke().Update(object)
+	return dbc.Invoke(tx).Update(object)
 }
 
 // Exists returns a bool if a given object exists (utilizing the primary key columns if they exist).
@@ -455,7 +373,7 @@ func (dbc *Connection) Exists(object DatabaseMapped) (bool, error) {
 
 // ExistsInTx returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
 func (dbc *Connection) ExistsInTx(object DatabaseMapped, tx *sql.Tx) (exists bool, err error) {
-	return dbc.DB().InTx(tx).Invoke().Exists(object)
+	return dbc.Invoke(tx).Exists(object)
 }
 
 // Delete deletes an object from the database.
@@ -465,7 +383,7 @@ func (dbc *Connection) Delete(object DatabaseMapped) error {
 
 // DeleteInTx deletes an object from the database wrapped in a transaction.
 func (dbc *Connection) DeleteInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
-	return dbc.DB().InTx(tx).Invoke().Delete(object)
+	return dbc.Invoke(tx).Delete(object)
 }
 
 // Upsert inserts the object if it doesn't exist already (as defined by its primary keys) or updates it.
@@ -475,5 +393,15 @@ func (dbc *Connection) Upsert(object DatabaseMapped) error {
 
 // UpsertInTx inserts the object if it doesn't exist already (as defined by its primary keys) or updates it wrapped in a transaction.
 func (dbc *Connection) UpsertInTx(object DatabaseMapped, tx *sql.Tx) (err error) {
-	return dbc.DB().InTx(tx).Invoke().Upsert(object)
+	return dbc.Invoke(tx).Upsert(object)
+}
+
+// Truncate fully removes an tables rows in a single opertation.
+func (dbc *Connection) Truncate(object DatabaseMapped) error {
+	return dbc.TruncateInTx(object, nil)
+}
+
+// TruncateInTx applies a truncation in a transaction.
+func (dbc *Connection) TruncateInTx(object DatabaseMapped, tx *sql.Tx) error {
+	return dbc.Invoke(tx).Truncate(object)
 }

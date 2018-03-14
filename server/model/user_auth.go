@@ -5,8 +5,33 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-exception"
-	"github.com/wcharczuk/giffy/server/core"
+	util "github.com/blendlabs/go-util"
 )
+
+// NewUserAuth returns a new user auth entry, encrypting the authToken and authSecret.
+func NewUserAuth(userID int64, authToken, authSecret string, key []byte) (*UserAuth, error) {
+	auth := &UserAuth{
+		UserID:       userID,
+		TimestampUTC: time.Now().UTC(),
+	}
+
+	token, err := util.Crypto.Encrypt(key, []byte(authToken))
+	if err != nil {
+		return auth, err
+	}
+	auth.AuthToken = token
+	auth.AuthTokenHash = util.Crypto.Hash(key, []byte(authToken))
+
+	if len(authSecret) != 0 {
+		secret, err := util.Crypto.Encrypt(key, []byte(authSecret))
+		if err != nil {
+			return auth, err
+		}
+		auth.AuthSecret = secret
+	}
+
+	return auth, nil
+}
 
 // UserAuth is what we use to store auth credentials.
 type UserAuth struct {
@@ -28,40 +53,13 @@ func (ua UserAuth) IsZero() bool {
 	return ua.UserID == 0
 }
 
-// NewUserAuth returns a new user auth entry, encrypting the authToken and authSecret.
-func NewUserAuth(userID int64, authToken, authSecret string) (*UserAuth, error) {
-	auth := &UserAuth{
-		UserID:       userID,
-		TimestampUTC: time.Now().UTC(),
-	}
-
-	key := core.ConfigKey()
-	token, err := core.Encrypt(key, authToken)
-	if err != nil {
-		return auth, err
-	}
-	auth.AuthToken = token
-	auth.AuthTokenHash = core.Hash(key, authToken)
-
-	if len(authSecret) != 0 {
-		secret, err := core.Encrypt(key, authSecret)
-		if err != nil {
-			return auth, err
-		}
-		auth.AuthSecret = secret
-	}
-
-	return auth, nil
-}
-
 // GetUserAuthByToken returns an auth entry for the given auth token.
-func GetUserAuthByToken(token string, tx *sql.Tx) (*UserAuth, error) {
-	if len(core.ConfigKey()) == 0 {
+func GetUserAuthByToken(token string, key []byte, tx *sql.Tx) (*UserAuth, error) {
+	if len(key) == 0 {
 		return nil, exception.New("`ENCRYPTION_KEY` is not set, cannot continue.")
 	}
 
-	key := core.ConfigKey()
-	authTokenHash := core.Hash(key, token)
+	authTokenHash := util.Crypto.Hash(key, []byte(token))
 
 	var auth UserAuth
 	err := DB().QueryInTx("SELECT * FROM user_auth where auth_token_hash = $1", tx, authTokenHash).Out(&auth)

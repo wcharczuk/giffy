@@ -1,10 +1,10 @@
 package jobs
 
 import (
+	"context"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/go-chronometer"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -31,9 +31,8 @@ func TestCleanTagValues(t *testing.T) {
 	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "crushing it", tx)
 	assert.Nil(err)
 
-	ct := chronometer.NewCancellationToken()
 	job := &CleanTagValues{}
-	err = job.ExecuteInTx(ct, tx)
+	err = job.ExecuteInTx(context.TODO(), tx)
 
 	assert.Nil(err)
 

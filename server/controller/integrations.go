@@ -8,8 +8,9 @@ import (
 
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-web"
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 const (
@@ -26,12 +27,10 @@ const (
 	slackActionCancel  = "cancel"
 )
 
-var (
-	slackErrorNoResults = fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/add_image", core.ConfigURL())
-)
-
 // Integrations controller is responsible for integration responses.
-type Integrations struct{}
+type Integrations struct {
+	Config *config.Giffy
+}
 
 // Register registers the controller's actions with the app.
 func (i Integrations) Register(app *web.App) {
@@ -105,6 +104,10 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidAction))
 }
 
+func (i Integrations) slackErrorNoResults() string {
+	return fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/add_image", i.Config.Web.GetBaseURL())
+}
+
 func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.Result {
 	query, _ := i.extractCallbackState(payload.CallbackID)
 	contentRatingFilter, errRes := i.contentRatingFilter(payload.Team.ID, rc)
@@ -114,13 +117,13 @@ func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.
 
 	rc.Logger().Infof("%#v", payload)
 	rc.Logger().Infof("search query: %s", query)
-	result, err := model.SearchImagesBestResult(query, contentRatingFilter, rc.Tx())
+	result, err := model.SearchImagesBestResult(query, contentRatingFilter, web.Tx(rc))
 	if err != nil {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	if result == nil || result.IsZero() {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
 	}
 
 	res := slackMessage{}
@@ -147,12 +150,12 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 	var tagID *int64
 
 	defer func() {
-		rc.Logger().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.Team.Name, payload.Channel.ID, payload.Channel.Name, payload.User.ID, payload.User.Name, payload.OriginalMessage.Text, true, resultID, tagID))
+		rc.Logger().Trigger(model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.Team.Name, payload.Channel.ID, payload.Channel.Name, payload.User.ID, payload.User.Name, payload.OriginalMessage.Text, true, resultID, tagID))
 	}()
 
 	_, uuid := i.extractCallbackState(payload.CallbackID)
 
-	result, err := model.GetImageByUUID(uuid, rc.Tx())
+	result, err := model.GetImageByUUID(uuid, web.Tx(rc))
 	if err != nil {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
@@ -179,7 +182,7 @@ func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
 	var e slackEvent
 	err := rc.PostBodyAsJSON(&e)
 	if err != nil {
-		return rc.API().BadRequest(err.Error())
+		return webutil.API(rc).BadRequest(err)
 	}
 
 	switch e.Type {
@@ -196,7 +199,7 @@ func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
 
 func (i Integrations) contentRatingFilter(teamID string, rc *web.Ctx) (int, web.Result) {
 	contentRatingFilter := model.ContentRatingNR
-	teamSettings, err := model.GetSlackTeamByTeamID(teamID, rc.Tx())
+	teamSettings, err := model.GetSlackTeamByTeamID(teamID, web.Tx(rc))
 	if err != nil {
 		rc.Logger().FatalWithReq(err, rc.Request)
 		return contentRatingFilter, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
@@ -212,13 +215,13 @@ func (i Integrations) contentRatingFilter(teamID string, rc *web.Ctx) (int, web.
 
 func (i Integrations) arguments(rc *web.Ctx) slackArguments {
 	return slackArguments{
-		TeamID:      rc.Param("team_id"),
-		ChannelID:   rc.Param("channel_id"),
-		UserID:      rc.Param("user_id"),
-		TeamName:    rc.Param("team_domain"),
-		ChannelName: rc.Param("channel_name"),
-		UserName:    rc.Param("user_name"),
-		Query:       rc.Param("text"),
+		TeamID:      rc.ParamString("team_id"),
+		ChannelID:   rc.ParamString("channel_id"),
+		UserID:      rc.ParamString("user_id"),
+		TeamName:    rc.ParamString("team_domain"),
+		ChannelName: rc.ParamString("channel_name"),
+		UserName:    rc.ParamString("user_name"),
+		Query:       rc.ParamString("text"),
 	}
 }
 
@@ -230,7 +233,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*model.Image,
 	var err error
 
 	defer func() {
-		rc.Logger().OnEvent(core.EventFlagSearch, model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
+		rc.Logger().Trigger(model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
 	}()
 
 	contentRatingFilter, errRes := i.contentRatingFilter(args.TeamID, rc)
@@ -240,9 +243,9 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*model.Image,
 
 	if strings.HasPrefix(args.Query, "img:") {
 		uuid := strings.TrimPrefix(args.Query, "img:")
-		result, err = model.GetImageByUUID(uuid, rc.Tx())
+		result, err = model.GetImageByUUID(uuid, web.Tx(rc))
 	} else {
-		result, err = model.SearchImagesBestResult(args.Query, contentRatingFilter, rc.Tx())
+		result, err = model.SearchImagesBestResult(args.Query, contentRatingFilter, web.Tx(rc))
 	}
 
 	if err != nil {
@@ -251,7 +254,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*model.Image,
 	}
 
 	if result == nil || result.IsZero() {
-		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorNoResults))
+		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
 	}
 
 	foundResult = true

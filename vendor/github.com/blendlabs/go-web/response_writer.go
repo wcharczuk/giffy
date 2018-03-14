@@ -11,7 +11,5 @@ type ResponseWriter interface {
 	InnerResponse() http.ResponseWriter
 	StatusCode() int
 	ContentLength() int
-	Bytes() []byte
-	Flush() error
 	Close() error
 }

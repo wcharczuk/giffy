@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-util/uuid"
 	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
+	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 const (
@@ -17,38 +18,38 @@ const (
 )
 
 type testUserResponse struct {
-	Meta     *web.APIResponseMeta `json:"meta"`
-	Response *model.User          `json:"response"`
+	Meta     *webutil.APIResponseMeta `json:"meta"`
+	Response *model.User              `json:"response"`
 }
 
 type testUsersResponse struct {
-	Meta     *web.APIResponseMeta `json:"meta"`
-	Response []model.User         `json:"response"`
+	Meta     *webutil.APIResponseMeta `json:"meta"`
+	Response []model.User             `json:"response"`
 }
 
 type testImagesResponse struct {
-	Meta     *web.APIResponseMeta `json:"meta"`
-	Response []model.Image        `json:"response"`
+	Meta     *webutil.APIResponseMeta `json:"meta"`
+	Response []model.Image            `json:"response"`
 }
 
 type testCurrentUserResponse struct {
-	Meta     *web.APIResponseMeta   `json:"meta"`
-	Response *viewmodel.CurrentUser `json:"response"`
+	Meta     *webutil.APIResponseMeta `json:"meta"`
+	Response *viewmodel.CurrentUser   `json:"response"`
 }
 
 type testSiteStatsResponse struct {
-	Meta     *web.APIResponseMeta `json:"meta"`
-	Response *viewmodel.SiteStats `json:"response"`
+	Meta     *webutil.APIResponseMeta `json:"meta"`
+	Response *viewmodel.SiteStats     `json:"response"`
 }
 
 type testTeamsResponse struct {
-	Meta     *web.APIResponseMeta `json:"meta"`
-	Response []model.SlackTeam    `json:"response"`
+	Meta     *webutil.APIResponseMeta `json:"meta"`
+	Response []model.SlackTeam        `json:"response"`
 }
 
 type testTeamResponse struct {
-	Meta     *web.APIResponseMeta `json:"meta"`
-	Response *model.SlackTeam     `json:"response"`
+	Meta     *webutil.APIResponseMeta `json:"meta"`
+	Response *model.SlackTeam         `json:"response"`
 }
 
 func TestAPIUsers(t *testing.T) {
@@ -61,11 +62,11 @@ func TestAPIUsers(t *testing.T) {
 	defer auth.Logout(session, nil)
 
 	app := web.New()
-	app.SetAuth(auth)
+	app.WithAuth(auth)
 	app.Register(new(API))
 
 	var res testUsersResponse
-	err = app.Mock().WithTx(tx).WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").JSON(&res)
+	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
@@ -80,11 +81,11 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 	defer auth.Logout(session, nil)
 
 	app := web.New()
-	app.SetAuth(auth)
+	app.WithAuth(auth)
 	app.Register(API{})
 
 	var res testUsersResponse
-	err = app.Mock().WithTx(tx).WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/users").JSON(&res)
+	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
@@ -99,12 +100,12 @@ func TestAPIUserSearch(t *testing.T) {
 	defer auth.Logout(session, nil)
 
 	app := web.New()
-	app.SetAuth(auth)
+	app.WithAuth(auth)
 	app.Register(new(API))
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).
-		WithHeader(auth.SessionParamName(), session.SessionID).
+		WithHeader(auth.CookieName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
 		JSON(&res)
@@ -122,12 +123,12 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 	defer auth.Logout(session, nil)
 
 	app := web.New()
-	app.SetAuth(auth)
+	app.WithAuth(auth)
 	app.Register(new(API))
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).
-		WithHeader(auth.SessionParamName(), session.SessionID).
+		WithHeader(auth.CookieName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
 		JSON(&res)
@@ -221,11 +222,11 @@ func TestAPISessionUser(t *testing.T) {
 	defer auth.Logout(session, nil)
 
 	app := web.New()
-	app.SetAuth(auth)
+	app.WithAuth(auth)
 	app.Register(new(API))
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithTx(tx).WithHeader(auth.SessionParamName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
+	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.True(res.Response.IsLoggedIn)
@@ -274,10 +275,10 @@ func TestAPIGetTeams(t *testing.T) {
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
-		TeamID:              util.UUIDv4().ToShortString(),
+		TeamID:              uuid.V4().String(),
 		TeamName:            "Test Team",
 		ContentRatingFilter: model.ContentRatingFilterDefault,
-		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByID:         uuid.V4().String(),
 		CreatedByName:       "Test User",
 		IsEnabled:           true,
 	}
@@ -286,10 +287,10 @@ func TestAPIGetTeams(t *testing.T) {
 
 	team2 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
-		TeamID:              util.UUIDv4().ToShortString(),
+		TeamID:              uuid.V4().String(),
 		TeamName:            "Test Team",
 		ContentRatingFilter: model.ContentRatingFilterDefault,
-		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByID:         uuid.V4().String(),
 		CreatedByName:       "Test User",
 		IsEnabled:           true,
 	}
@@ -298,12 +299,12 @@ func TestAPIGetTeams(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.SetAuth(auth)
+	app.WithAuth(auth)
 
 	app.Register(new(API))
 
 	var res testTeamsResponse
-	err = app.Mock().WithTx(tx).WithPathf("/api/teams").WithHeader(auth.SessionParamName(), session.SessionID).JSON(&res)
+	err = app.Mock().WithTx(tx).WithPathf("/api/teams").WithHeader(auth.CookieName(), session.SessionID).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotEmpty(res.Response)
@@ -318,10 +319,10 @@ func TestAPIGetTeamNotAuthed(t *testing.T) {
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
-		TeamID:              util.UUIDv4().ToShortString(),
+		TeamID:              uuid.V4().String(),
 		TeamName:            "Test Team",
 		ContentRatingFilter: model.ContentRatingFilterDefault,
-		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByID:         uuid.V4().String(),
 		CreatedByName:       "Test User",
 		IsEnabled:           true,
 	}
@@ -348,10 +349,10 @@ func TestAPIGetTeam(t *testing.T) {
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
-		TeamID:              util.UUIDv4().ToShortString(),
+		TeamID:              uuid.V4().String(),
 		TeamName:            "Test Team",
 		ContentRatingFilter: model.ContentRatingFilterDefault,
-		CreatedByID:         util.UUIDv4().ToShortString(),
+		CreatedByID:         uuid.V4().String(),
 		CreatedByName:       "Test User",
 		IsEnabled:           true,
 	}
@@ -359,12 +360,12 @@ func TestAPIGetTeam(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.SetAuth(auth)
+	app.WithAuth(auth)
 
 	app.Register(new(API))
 
 	var res testTeamResponse
-	err = app.Mock().WithTx(tx).WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.SessionParamName(), session.SessionID).JSON(&res)
+	err = app.Mock().WithTx(tx).WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.CookieName(), session.SessionID).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotNil(res.Response)

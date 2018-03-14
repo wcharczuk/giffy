@@ -1,14 +1,13 @@
 package web
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -16,64 +15,100 @@ import (
 
 	exception "github.com/blendlabs/go-exception"
 	logger "github.com/blendlabs/go-logger"
-)
-
-const (
-	// EnvironmentVariableBindAddr is an env var that determines (if set) what the bind address should be.
-	EnvironmentVariableBindAddr = "BIND_ADDR"
-
-	// EnvironmentVariablePort is an env var that determines what the default bind address port segment returns.
-	EnvironmentVariablePort = "PORT"
-
-	// EnvironmentVariableTLSCert is an env var that contains the TLS cert.
-	EnvironmentVariableTLSCert = "TLS_CERT"
-
-	// EnvironmentVariableTLSKey is an env var that contains the TLS key.
-	EnvironmentVariableTLSKey = "TLS_KEY"
-
-	// EnvironmentVariableTLSCertFile is an env var that contains the file path to the TLS cert.
-	EnvironmentVariableTLSCertFile = "TLS_CERT_FILE"
-
-	// EnvironmentVariableTLSKeyFile is an env var that contains the file path to the TLS key.
-	EnvironmentVariableTLSKeyFile = "TLS_KEY_FILE"
-
-	// DefaultPort is the default port the server binds to.
-	DefaultPort = "8080"
+	env "github.com/blendlabs/go-util/env"
 )
 
 // New returns a new app.
 func New() *App {
+	views := NewViewCache()
+	vrp := &ViewResultProvider{views: views}
 	return &App{
-		staticRewriteRules:    map[string][]*RewriteRule{},
-		staticHeaders:         map[string]http.Header{},
 		auth:                  NewAuthManager(),
-		viewCache:             NewViewCache(),
-		readTimeout:           5 * time.Second,
-		tlsConfig:             &tls.Config{},
+		state:                 map[string]interface{}{},
+		views:                 views,
+		statics:               map[string]Fileserver{},
+		readTimeout:           DefaultReadTimeout,
 		redirectTrailingSlash: true,
-		//ctxPool:               NewCtxPool(256),
+		recoverPanics:         true,
+
+		viewProvider: vrp,
+		jsonProvider: &JSONResultProvider{},
+		xmlProvider:  &XMLResultProvider{},
+		textProvider: &TextResultProvider{},
 	}
 }
 
-// AppStartDelegate is a function that is run on start. Typically you use this to initialize the app.
-type AppStartDelegate func(app *App) error
+// NewFromEnv returns a new app from the environment.
+func NewFromEnv() *App {
+	return NewFromConfig(NewConfigFromEnv())
+}
+
+// NewFromConfig returns a new app from a given config.
+func NewFromConfig(cfg *Config) *App {
+	views, err := NewViewCacheFromConfig(&cfg.ViewCache)
+	if err != nil {
+		return &App{err: err}
+	}
+	vrp := &ViewResultProvider{views: views}
+
+	tlsConfig, err := cfg.TLS.GetConfig()
+	if err != nil {
+		return &App{err: err}
+	}
+
+	baseURL := cfg.GetBaseURL()
+	var base *url.URL
+	if len(baseURL) > 0 {
+		base, err = url.Parse(baseURL)
+		if err != nil {
+			return &App{err: err}
+		}
+	}
+
+	return &App{
+		auth:                   NewAuthManagerFromConfig(&cfg.Auth),
+		state:                  map[string]interface{}{},
+		views:                  views,
+		statics:                map[string]Fileserver{},
+		tlsConfig:              tlsConfig,
+		redirectTrailingSlash:  cfg.GetRedirectTrailingSlash(),
+		handleMethodNotAllowed: cfg.GetHandleMethodNotAllowed(),
+		handleOptions:          cfg.GetHandleOptions(),
+		recoverPanics:          cfg.GetRecoverPanics(),
+
+		bindAddr: cfg.GetBindAddr(),
+		baseURL:  base,
+
+		maxHeaderBytes:    cfg.GetMaxHeaderBytes(),
+		readHeaderTimeout: cfg.GetReadHeaderTimeout(),
+		readTimeout:       cfg.GetReadTimeout(),
+		writeTimeout:      cfg.GetWriteTimeout(),
+		idleTimeout:       cfg.GetIdleTimeout(),
+
+		viewProvider: vrp,
+		jsonProvider: &JSONResultProvider{},
+		xmlProvider:  &XMLResultProvider{},
+		textProvider: &TextResultProvider{},
+	}
+}
 
 // App is the server for the app.
 type App struct {
-	name     string
 	baseURL  *url.URL
 	bindAddr string
-	port     string
 
-	logger *logger.Agent
+	log   *logger.Logger
+	auth  *AuthManager
+	views *ViewCache
 
 	listenTLS bool
 	tlsConfig *tls.Config
 
 	startDelegate AppStartDelegate
+	server        *http.Server
 
-	staticRewriteRules map[string][]*RewriteRule
-	staticHeaders      map[string]http.Header
+	// statics serve files at various routes
+	statics map[string]Fileserver
 
 	routes                  map[string]*node
 	notFoundHandler         Handler
@@ -86,33 +121,90 @@ type App struct {
 
 	defaultMiddleware []Middleware
 
-	viewCache *ViewCache
+	viewProvider *ViewResultProvider
+	jsonProvider *JSONResultProvider
+	xmlProvider  *XMLResultProvider
+	textProvider *TextResultProvider
 
+	maxHeaderBytes    int
 	readTimeout       time.Duration
 	readHeaderTimeout time.Duration
 	writeTimeout      time.Duration
 	idleTimeout       time.Duration
 
-	tx   *sql.Tx
-	auth *AuthManager
+	state map[string]interface{}
+
+	recoverPanics bool
+
+	err error
+	tx  *sql.Tx
 }
 
-// Name returns the app name.
-func (a *App) Name() string {
-	return a.name
+// Err returns an initialization error.
+func (a *App) Err() error {
+	return a.err
 }
 
-// SetName sets a log label for the app.
-func (a *App) SetName(name string) {
-	a.name = name
-	if a.logger != nil {
-		a.logger.Writer().SetLabel(name)
-	}
+// State is a bag for common app state.
+func (a *App) State() map[string]interface{} {
+	return a.state
+}
+
+// WithState sets app state and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithState(key string, value interface{}) *App {
+	a.state[key] = value
+	return a
+}
+
+// SetState sets app state.
+func (a *App) SetState(key string, value interface{}) {
+	a.state[key] = value
+}
+
+// HandleMethodNotAllowed returns if we should handle unhandled verbs.
+func (a *App) HandleMethodNotAllowed() bool {
+	return a.handleMethodNotAllowed
+}
+
+// WithHandleMethodNotAllowed sets if we should handlem ethod not allowed.
+func (a *App) WithHandleMethodNotAllowed(handle bool) *App {
+	a.handleMethodNotAllowed = handle
+	return a
+}
+
+// HandleOptions returns if we should handle OPTIONS requests.
+func (a *App) HandleOptions() bool {
+	return a.handleOptions
+}
+
+// WithHandleOptions returns if we should handle OPTIONS requests.
+func (a *App) WithHandleOptions(handle bool) *App {
+	a.handleOptions = handle
+	return a
+}
+
+// RecoverPanics returns if the app recovers panics.
+func (a *App) RecoverPanics() bool {
+	return a.recoverPanics
+}
+
+// WithRecoverPanics sets if the app should recover panics.
+func (a *App) WithRecoverPanics(value bool) *App {
+	a.recoverPanics = value
+	return a
 }
 
 // BaseURL returns the domain for the app.
 func (a *App) BaseURL() *url.URL {
 	return a.baseURL
+}
+
+// WithBaseURL sets the `BaseURL` field and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithBaseURL(baseURL string) *App {
+	if err := a.SetBaseURL(baseURL); err != nil {
+		a.err = err
+	}
+	return a
 }
 
 // SetBaseURL sets the base url for the app.
@@ -125,14 +217,48 @@ func (a *App) SetBaseURL(baseURL string) error {
 	return nil
 }
 
+// MaxHeaderBytes returns the app max header bytes.
+func (a *App) MaxHeaderBytes() int {
+	return a.maxHeaderBytes
+}
+
+// WithMaxHeaderBytes sets the max header bytes value and returns a reference.
+func (a *App) WithMaxHeaderBytes(byteCount int) *App {
+	a.maxHeaderBytes = byteCount
+	return a
+}
+
+// ReadHeaderTimeout returns the read header timeout for the server.
+func (a *App) ReadHeaderTimeout() time.Duration {
+	return a.readHeaderTimeout
+}
+
+// WithReadHeaderTimeout returns the read header timeout for the server.
+func (a *App) WithReadHeaderTimeout(timeout time.Duration) *App {
+	a.readHeaderTimeout = timeout
+	return a
+}
+
 // ReadTimeout returns the read timeout for the server.
 func (a *App) ReadTimeout() time.Duration {
 	return a.readTimeout
 }
 
-// SetReadTimeout sets the read timeout for the server.
-func (a *App) SetReadTimeout(readTimeout time.Duration) {
-	a.readTimeout = readTimeout
+// WithReadTimeout sets the read timeout for the server and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithReadTimeout(timeout time.Duration) *App {
+	a.readTimeout = timeout
+	return a
+}
+
+// IdleTimeout is the time before we close a connection.
+func (a *App) IdleTimeout() time.Duration {
+	return a.idleTimeout
+}
+
+// WithIdleTimeout sets the idle timeout.
+func (a *App) WithIdleTimeout(timeout time.Duration) *App {
+	a.idleTimeout = timeout
+	return a
 }
 
 // WriteTimeout returns the write timeout for the server.
@@ -140,25 +266,60 @@ func (a *App) WriteTimeout() time.Duration {
 	return a.writeTimeout
 }
 
-// SetWriteTimeout sets the write timeout for the server.
-func (a *App) SetWriteTimeout(writeTimeout time.Duration) {
-	a.writeTimeout = writeTimeout
+// WithWriteTimeout sets the write timeout for the server and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithWriteTimeout(timeout time.Duration) *App {
+	a.writeTimeout = timeout
+	return a
 }
 
-// UseTLS sets the app to use TLS.
-func (a *App) UseTLS(tlsCert, tlsKey []byte) error {
+// WithTLSConfig sets the tls config for the app.
+func (a *App) WithTLSConfig(config *tls.Config) *App {
+	a.SetTLSConfig(config)
+	return a
+}
+
+// SetTLSConfig sets the tls config.
+func (a *App) SetTLSConfig(config *tls.Config) {
+	a.tlsConfig = config
+}
+
+// TLSConfig returns the app tls config.
+func (a *App) TLSConfig() *tls.Config {
+	return a.tlsConfig
+}
+
+// WithTLSCert sets the app to use TLS when listening, and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithTLSCert(tlsCert, tlsKey []byte) *App {
+	if err := a.SetTLSCert(tlsCert, tlsKey); err != nil {
+		a.err = err
+	}
+	return a
+}
+
+// SetTLSCert sets the app to use TLS with a given cert.
+func (a *App) SetTLSCert(tlsCert, tlsKey []byte) error {
 	cert, err := tls.X509KeyPair(tlsCert, tlsKey)
 	if err != nil {
 		return err
 	}
-	a.tlsConfig.Certificates = []tls.Certificate{cert}
-	a.listenTLS = true
-	a.auth.SetCookieAsHTTPSOnly(true)
+	if a.tlsConfig == nil {
+		a.tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+	} else {
+		a.tlsConfig.Certificates = []tls.Certificate{cert}
+	}
 	return nil
 }
 
-// UseTLSFromFiles reads a tls key pair from a given set of paths.
-func (a *App) UseTLSFromFiles(tlsCertPath, tlsKeyPath string) error {
+// WithTLSFromFiles sets the tls key pair from a given set of paths to files, and returns a reference to the app.
+func (a *App) WithTLSFromFiles(tlsCertPath, tlsKeyPath string) *App {
+	a.err = a.SetTLSFromFiles(tlsCertPath, tlsKeyPath)
+	return a
+}
+
+// SetTLSFromFiles reads a tls key pair from a given set of paths.
+func (a *App) SetTLSFromFiles(tlsCertPath, tlsKeyPath string) error {
 	cert, err := ioutil.ReadFile(tlsCertPath)
 	if err != nil {
 		return exception.Wrap(err)
@@ -169,26 +330,45 @@ func (a *App) UseTLSFromFiles(tlsCertPath, tlsKeyPath string) error {
 		return exception.Wrap(err)
 	}
 
-	return a.UseTLS(cert, key)
+	return a.SetTLSCert(cert, key)
 }
 
-// UseTLSFromEnvironment reads TLS settings from the environment.
-func (a *App) UseTLSFromEnvironment() error {
-	tlsCert := os.Getenv(EnvironmentVariableTLSCert)
-	tlsKey := os.Getenv(EnvironmentVariableTLSKey)
-	tlsCertPath := os.Getenv(EnvironmentVariableTLSCertFile)
-	tlsKeyPath := os.Getenv(EnvironmentVariableTLSKeyFile)
+// WithTLSFromEnv reads TLS settings from the environment, and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithTLSFromEnv() *App {
+	if err := a.SetTLSFromEnv(); err != nil {
+		a.err = err
+	}
+	return a
+}
+
+// SetTLSFromEnv reads TLS settings from the environment.
+func (a *App) SetTLSFromEnv() error {
+	tlsCert := env.Env().Bytes(EnvironmentVariableTLSCert)
+	tlsKey := env.Env().Bytes(EnvironmentVariableTLSKey)
+	tlsCertPath := env.Env().String(EnvironmentVariableTLSCertFile)
+	tlsKeyPath := env.Env().String(EnvironmentVariableTLSKeyFile)
 
 	if len(tlsCert) > 0 && len(tlsKey) > 0 {
-		a.UseTLS([]byte(tlsCert), []byte(tlsKey))
+		return a.SetTLSCert(tlsCert, tlsKey)
 	} else if len(tlsCertPath) > 0 && len(tlsKeyPath) > 0 {
-		return a.UseTLSFromFiles(tlsCertPath, tlsKeyPath)
+		return a.SetTLSFromFiles(tlsCertPath, tlsKeyPath)
 	}
 	return nil
 }
 
-// UseTLSClientCertPoolFromCerts set the client cert pool from a given pem.
-func (a *App) UseTLSClientCertPoolFromCerts(certs ...[]byte) error {
+// WithTLSClientCertPool sets the client cert pool and returns a reference to the app.
+func (a *App) WithTLSClientCertPool(certs ...[]byte) *App {
+	if err := a.SetTLSClientCertPool(certs...); err != nil {
+		a.err = err
+	}
+	return a
+}
+
+// SetTLSClientCertPool set the client cert pool from a given set of pems.
+func (a *App) SetTLSClientCertPool(certs ...[]byte) error {
+	if a.tlsConfig == nil {
+		a.tlsConfig = &tls.Config{}
+	}
 	a.tlsConfig.ClientCAs = x509.NewCertPool()
 	for _, cert := range certs {
 		ok := a.tlsConfig.ClientCAs.AppendCertsFromPEM(cert)
@@ -206,25 +386,46 @@ func (a *App) UseTLSClientCertPoolFromCerts(certs ...[]byte) error {
 	return nil
 }
 
-// SetTLSClientCertVerification sets the verification level for client certs.
-func (a *App) SetTLSClientCertVerification(verification tls.ClientAuthType) {
+// WithTLSClientCertVerification sets the verification level for client certs.
+func (a *App) WithTLSClientCertVerification(verification tls.ClientAuthType) *App {
+	if a.tlsConfig == nil {
+		a.tlsConfig = &tls.Config{}
+	}
 	a.tlsConfig.ClientAuth = verification
+	return a
 }
 
 // Logger returns the diagnostics agent for the app.
-func (a *App) Logger() *logger.Agent {
-	return a.logger
+func (a *App) Logger() *logger.Logger {
+	return a.log
 }
 
-// SetLogger sets the diagnostics agent.
-func (a *App) SetLogger(agent *logger.Agent) {
-	a.logger = agent
-	if a.logger != nil {
-		a.logger.AddEventListener(logger.EventWebRequestStart, a.onRequestStart)
-		a.logger.AddEventListener(logger.EventWebRequestPostBody, a.onRequestPostBody)
-		a.logger.AddEventListener(logger.EventWebRequest, a.onRequestComplete)
-		a.logger.AddEventListener(logger.EventWebResponse, a.onResponse)
+// WithLogger sets the app logger agent and returns a reference to the app.
+// It also sets underlying loggers in any child resources like providers and the auth manager.
+func (a *App) WithLogger(log *logger.Logger) *App {
+	a.log = log
+	if a.viewProvider != nil {
+		a.viewProvider.log = log
 	}
+	if a.jsonProvider != nil {
+		a.jsonProvider.log = log
+	}
+	if a.xmlProvider != nil {
+		a.xmlProvider.log = log
+	}
+	if a.textProvider != nil {
+		a.textProvider.log = log
+	}
+	if a.auth != nil {
+		a.auth.log = log
+	}
+	return a
+}
+
+// WithAuth sets the auth manager.
+func (a *App) WithAuth(am *AuthManager) *App {
+	a.auth = am
+	return a
 }
 
 // Auth returns the session manager.
@@ -232,36 +433,55 @@ func (a *App) Auth() *AuthManager {
 	return a.auth
 }
 
-// SetAuth sets the session manager.
-func (a *App) SetAuth(auth *AuthManager) {
-	a.auth = auth
+// WithPort sets the port for the bind address of the app, and returns a reference to the app.
+func (a *App) WithPort(port int32) *App {
+	a.SetPort(port)
+	return a
 }
 
-// SetPort sets the port the app listens on.
-// If BindAddr is not set, this will be returned in the form
-// :Port(), as a result the server will bind to all available interfaces.
-func (a *App) SetPort(port string) {
-	a.port = port
+// SetPort sets the port the app listens on, typically to `:%d` which indicates listen on any interface.
+func (a *App) SetPort(port int32) {
+	a.bindAddr = fmt.Sprintf(":%v", port)
 }
 
-// Port returns the port for the app.
-// Port is the last in precedence behind BindAddr() for what
-// ultimately forms the bind address the server binds to.
-func (a *App) Port() string {
-	if len(a.port) != 0 {
-		return a.port
+// WithPortFromEnv sets the port from an environment variable, and returns a reference to the app.
+func (a *App) WithPortFromEnv() *App {
+	a.SetPortFromEnv()
+	return a
+}
+
+// SetPortFromEnv sets the port from an environment variable, and returns a reference to the app.
+func (a *App) SetPortFromEnv() {
+	if env.Env().Has(EnvironmentVariablePort) {
+		port, err := env.Env().Int32(EnvironmentVariablePort)
+		if err != nil {
+			a.err = err
+		}
+		a.bindAddr = fmt.Sprintf(":%v", port)
 	}
-	envVar := os.Getenv(EnvironmentVariablePort)
-	if len(envVar) != 0 {
-		return envVar
-	}
-
-	return DefaultPort
 }
 
-// SetDefaultMiddleware sets the application wide default middleware.
-func (a *App) SetDefaultMiddleware(middleware ...Middleware) {
+// BindAddr returns the address the server will bind to.
+func (a *App) BindAddr() string {
+	return a.bindAddr
+}
+
+// WithBindAddr sets the address the app listens on, and returns a reference to the app.
+func (a *App) WithBindAddr(bindAddr string) *App {
+	a.bindAddr = bindAddr
+	return a
+}
+
+// WithBindAddrFromEnv sets the address the app listens on, and returns a reference to the app.
+func (a *App) WithBindAddrFromEnv() *App {
+	a.bindAddr = env.Env().String(EnvironmentVariableBindAddr)
+	return a
+}
+
+// WithDefaultMiddleware sets the application wide default middleware.
+func (a *App) WithDefaultMiddleware(middleware ...Middleware) *App {
 	a.defaultMiddleware = middleware
+	return a
 }
 
 // DefaultMiddleware returns the default middleware.
@@ -275,32 +495,12 @@ func (a *App) OnStart(action AppStartDelegate) {
 	a.startDelegate = action
 }
 
-// SetBindAddr sets the bind address of the server.
-// It is the first in order of precedence for what ultimately will
-// form the bind address that the server binds to.
-func (a *App) SetBindAddr(bindAddr string) {
-	a.bindAddr = bindAddr
-}
-
-// BindAddr returns the address the server will bind to.
-func (a *App) BindAddr() string {
-	if len(a.bindAddr) > 0 {
-		return a.bindAddr
-	}
-
-	envVar := os.Getenv(EnvironmentVariableBindAddr)
-	if len(envVar) > 0 {
-		return envVar
-	}
-
-	return fmt.Sprintf(":%s", a.Port())
-}
-
 // Server returns the basic http.Server for the app.
 func (a *App) Server() *http.Server {
 	return &http.Server{
 		Addr:              a.BindAddr(),
 		Handler:           a,
+		MaxHeaderBytes:    a.maxHeaderBytes,
 		ReadTimeout:       a.readTimeout,
 		ReadHeaderTimeout: a.readHeaderTimeout,
 		WriteTimeout:      a.writeTimeout,
@@ -314,56 +514,76 @@ func (a *App) Start() error {
 	return a.StartWithServer(a.Server())
 }
 
-func (a *App) commonStartupTasks() error {
-	return a.viewCache.Initialize()
-}
-
 // StartWithServer starts the app on a custom server.
 // This lets you configure things like TLS keys and
 // other options.
-func (a *App) StartWithServer(server *http.Server) error {
-	a.logger.OnEvent(EventAppStart, a)
-	defer a.logger.OnEvent(EventAppExit, a)
+func (a *App) StartWithServer(server *http.Server) (err error) {
+	start := time.Now()
+	if a.log != nil {
+		a.log.Trigger(NewAppStartEvent(a))
+		defer a.log.Trigger(NewAppExitEvent(a, err))
+	}
 
-	var err error
+	// early exit if we already had an issue.
+	if a.err != nil {
+		err = a.err
+		return
+	}
+
 	if a.startDelegate != nil {
-		a.logger.Sync().Infof("app startup tasks starting")
 		err = a.startDelegate(a)
 		if err != nil {
-			a.logger.Sync().Fatalf("app startup tasks error: %v", err)
-			return err
+			return
 		}
-		a.logger.Sync().Infof("app startup tasks complete")
 	}
 
-	a.logger.Sync().Infof("common tasks starting")
 	err = a.commonStartupTasks()
 	if err != nil {
-		a.logger.Sync().Fatalf("common startup tasks error: %v", err)
-		return err
+		return
 	}
-	a.logger.Sync().Infof("common startup tasks complete")
 
 	serverProtocol := "http"
-	if a.listenTLS {
+	if server.TLSConfig != nil {
 		serverProtocol = "https (tls)"
 	}
 
-	a.logger.Sync().Infof("%s server started, listening on %s", serverProtocol, server.Addr)
-	if a.logger.Events() != nil {
-		a.logger.Sync().Infof("%s server diagnostics verbosity %s", serverProtocol, a.logger.Events().String())
-	}
-	a.logger.OnEvent(EventAppStartComplete, a)
-
-	if a.tlsConfig.ClientCAs != nil {
-		a.logger.Sync().Infof("%s using client cert pool with (%d) client certs", serverProtocol, len(a.tlsConfig.ClientCAs.Subjects()))
+	a.syncInfof("%s server started, listening on %s", serverProtocol, server.Addr)
+	if a.log != nil {
+		if a.log.Flags() != nil {
+			a.syncInfof("%s server logging flags %s", serverProtocol, a.log.Flags().String())
+		}
+		a.log.Trigger(NewAppStartCompleteEvent(a, time.Since(start), err))
 	}
 
-	if a.listenTLS {
-		return exception.Wrap(server.ListenAndServeTLS("", ""))
+	if server.TLSConfig != nil && server.TLSConfig.ClientCAs != nil {
+		a.syncInfof("%s using client cert pool with (%d) client certs", serverProtocol, len(a.tlsConfig.ClientCAs.Subjects()))
 	}
 
-	return exception.Wrap(server.ListenAndServe())
+	if server.TLSConfig != nil {
+		err = exception.Wrap(server.ListenAndServeTLS("", ""))
+		return
+	}
+
+	a.server = server
+	err = exception.Wrap(server.ListenAndServe())
+	return
+}
+
+// Shutdown stops the server.
+func (a *App) Shutdown() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	a.server.SetKeepAlivesEnabled(false)
+	return exception.Wrap(a.server.Shutdown(ctx))
+}
+
+// WithControllers registers given controllers and returns a reference to the app.
+func (a *App) WithControllers(controllers ...Controller) *App {
+	for _, c := range controllers {
+		a.Register(c)
+	}
+	return a
 }
 
 // Register registers a controller with the app's router.
@@ -377,37 +597,58 @@ func (a *App) Register(c Controller) {
 
 // GET registers a GET request handler.
 func (a *App) GET(path string, action Action, middleware ...Middleware) {
-	a.handle("GET", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.Handle("GET", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // OPTIONS registers a OPTIONS request handler.
 func (a *App) OPTIONS(path string, action Action, middleware ...Middleware) {
-	a.handle("OPTIONS", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.Handle("OPTIONS", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // HEAD registers a HEAD request handler.
 func (a *App) HEAD(path string, action Action, middleware ...Middleware) {
-	a.handle("HEAD", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.Handle("HEAD", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // PUT registers a PUT request handler.
 func (a *App) PUT(path string, action Action, middleware ...Middleware) {
-	a.handle("PUT", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.Handle("PUT", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // PATCH registers a PATCH request handler.
 func (a *App) PATCH(path string, action Action, middleware ...Middleware) {
-	a.handle("PATCH", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.Handle("PATCH", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // POST registers a POST request actions.
 func (a *App) POST(path string, action Action, middleware ...Middleware) {
-	a.handle("POST", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.Handle("POST", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
 }
 
 // DELETE registers a DELETE request handler.
 func (a *App) DELETE(path string, action Action, middleware ...Middleware) {
-	a.handle("DELETE", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+	a.Handle("DELETE", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// Handle adds a raw handler at a given method and path.
+func (a *App) Handle(method, path string, handler Handler) {
+	if len(path) == 0 {
+		panic("path must not be empty")
+	}
+	if path[0] != '/' {
+		panic("path must begin with '/' in path '" + path + "'")
+	}
+	if a.routes == nil {
+		a.routes = make(map[string]*node)
+	}
+
+	root := a.routes[method]
+	if root == nil {
+		root = new(node)
+		a.routes[method] = root
+	}
+
+	root.addRoute(method, path, handler)
 }
 
 // Lookup finds the route data for a given method and path.
@@ -420,9 +661,7 @@ func (a *App) Lookup(method, path string) (route *Route, params RouteParameters,
 
 // ServeHTTP makes the router implement the http.Handler interface.
 func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if a.panicHandler != nil {
-		defer a.recover(w, req)
-	}
+	defer a.recover(w, req)
 
 	path := req.URL.Path
 
@@ -483,79 +722,90 @@ func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // --------------------------------------------------------------------------------
+// Views
+// --------------------------------------------------------------------------------
+
+// Views returns the view cache.
+func (a *App) Views() *ViewCache {
+	return a.views
+}
+
+// --------------------------------------------------------------------------------
 // Static Result Methods
 // --------------------------------------------------------------------------------
 
 // AddStaticRewriteRule adds a rewrite rule for a specific statically served path.
-// Make sure to serve the static path with app.Static(path, root).
-func (a *App) AddStaticRewriteRule(path, match string, action RewriteAction) error {
-	expr, err := regexp.Compile(match)
-	if err != nil {
-		return err
+// It mutates the path for the incoming static file request to the fileserver according to the action.
+func (a *App) AddStaticRewriteRule(route, match string, action RewriteAction) error {
+	mountedRoute := a.createStaticMountRoute(route)
+	if static, hasRoute := a.statics[mountedRoute]; hasRoute {
+		return static.AddRewriteRule(mountedRoute, match, action)
 	}
-	a.staticRewriteRules[path] = append(a.staticRewriteRules[path], &RewriteRule{
-		MatchExpression: match,
-		expr:            expr,
-		Action:          action,
-	})
-
-	return nil
+	return exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", route)
 }
 
 // AddStaticHeader adds a header for the given static path.
-func (a *App) AddStaticHeader(path, key, value string) {
-	if _, hasHeaders := a.staticHeaders[path]; !hasHeaders {
-		a.staticHeaders[path] = http.Header{}
+// These headers are automatically added to any result that the static path fileserver sends.
+func (a *App) AddStaticHeader(route, key, value string) error {
+	mountedRoute := a.createStaticMountRoute(route)
+	if static, hasRoute := a.statics[mountedRoute]; hasRoute {
+		return static.AddHeader(key, value)
 	}
-	a.staticHeaders[path].Add(key, value)
+	return exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", mountedRoute)
 }
 
 // Static serves files from the given file system root.
-// The path must end with "/*filepath", files are then served from the local
-// path /defined/root/dir/*filepath.
+// If the path does not end with "/*filepath" that suffix will be added for you internally.
 // For example if root is "/etc" and *filepath is "passwd", the local file
 // "/etc/passwd" would be served.
-// Internally a http.FileServer is used, therefore http.NotFound is used instead
-// of the Router's NotFound handler.
-// To use the operating system's file system implementation,
-// use http.Dir:
-//     app.Static("/src/*filepath", http.Dir("/var/www"))
-func (a *App) Static(path string, root http.FileSystem) {
-	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
-		panic("path must end with /*filepath in path '" + path + "'")
-	}
-
-	a.handle("GET", path, a.renderAction(a.staticAction(path, root)))
+func (a *App) Static(route, filepath string) {
+	sfs := NewStaticFileServer(http.Dir(filepath))
+	mountedRoute := a.createStaticMountRoute(route)
+	a.statics[mountedRoute] = sfs
+	a.Handle("GET", mountedRoute, a.renderAction(a.middlewarePipeline(sfs.Action)))
 }
 
-// ViewCache returns the view result provider.
-func (a *App) ViewCache() *ViewCache {
-	return a.viewCache
+// StaticCached serves files from the given file system root.
+// If the path does not end with "/*filepath" that suffix will be added for you internally.
+func (a *App) StaticCached(route, filepath string) {
+	sfs := NewCachedStaticFileServer(http.Dir(filepath))
+	mountedRoute := a.createStaticMountRoute(route)
+	a.statics[mountedRoute] = sfs
+	a.Handle("GET", mountedRoute, a.renderAction(a.middlewarePipeline(sfs.Action)))
+}
+
+func (a *App) createStaticMountRoute(route string) string {
+	mountedRoute := route
+	if !strings.HasSuffix(mountedRoute, "*filepath") {
+		if strings.HasSuffix(mountedRoute, "/") {
+			mountedRoute = mountedRoute + "*filepath"
+		} else {
+			mountedRoute = mountedRoute + "/*filepath"
+		}
+	}
+	return mountedRoute
 }
 
 // --------------------------------------------------------------------------------
 // Router internal methods
 // --------------------------------------------------------------------------------
 
-// SetNotFoundHandler sets the not found handler.
-func (a *App) SetNotFoundHandler(handler Action) {
+// WithNotFoundHandler sets the not found handler.
+func (a *App) WithNotFoundHandler(handler Action) *App {
 	a.notFoundHandler = a.renderAction(handler)
+	return a
 }
 
-// SetMethodNotAllowedHandler sets the not found handler.
-func (a *App) SetMethodNotAllowedHandler(handler Action) {
+// WithMethodNotAllowedHandler sets the not allowed handler.
+func (a *App) WithMethodNotAllowedHandler(handler Action) *App {
 	a.methodNotAllowedHandler = a.renderAction(handler)
+	return a
 }
 
-// SetPanicHandler sets the not found handler.
-func (a *App) SetPanicHandler(handler PanicAction) {
-	a.panicAction = handler
-	a.panicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
-		a.renderAction(func(ctx *Ctx) Result {
-			a.logger.ErrorEventWithState(logger.EventFatalError, logger.ColorRed, fmt.Errorf("%v", err), ctx)
-			return handler(ctx, err)
-		})(w, r, nil, nil, nil)
-	}
+// WithPanicAction sets the panic action.
+func (a *App) WithPanicAction(action PanicAction) *App {
+	a.panicAction = action
+	return a
 }
 
 // --------------------------------------------------------------------------------
@@ -568,152 +818,143 @@ func (a *App) Mock() *MockRequestBuilder {
 }
 
 // --------------------------------------------------------------------------------
-// Request Pipeline
+// App Lifecycle
 // --------------------------------------------------------------------------------
 
-func (a *App) onRequestStart(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-	context, isContext := state[0].(*Ctx)
-	if !isContext {
-		return
-	}
-	logger.WriteRequestStart(writer, ts, context.Request)
+func (a *App) commonStartupTasks() error {
+	return a.views.Initialize()
 }
 
-func (a *App) onRequestPostBody(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-
-	body, isBody := state[0].([]byte)
-	if !isBody {
-		return
-	}
-
-	logger.WriteRequestBody(writer, ts, body)
-}
-
-func (a *App) onRequestComplete(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-	context, isContext := state[0].(*Ctx)
-	if !isContext {
-		return
-	}
-	logger.WriteRequest(writer, ts, context.Request, context.Response.StatusCode(), context.Response.ContentLength(), context.Elapsed())
-}
-
-func (a *App) onResponse(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-	if len(state) < 1 {
-		return
-	}
-	body, stateIsBody := state[0].([]byte)
-	if !stateIsBody {
-		return
-	}
-	logger.WriteResponseBody(writer, ts, body)
-}
+// --------------------------------------------------------------------------------
+// Request Pipeline
+// --------------------------------------------------------------------------------
 
 // renderAction is the translation step from Action to Handler.
 // this is where the bulk of the "pipeline" happens.
 func (a *App) renderAction(action Action) Handler {
-	return func(w http.ResponseWriter, r *http.Request, route *Route, p RouteParameters, tx *sql.Tx) {
-		a.setResponseHeaders(w)
-		response := a.newResponse(w, r)
-		context := a.pipelineInit(response, r, route, p)
-		context = context.WithTx(tx)
-		a.renderResult(action, context)
-		a.pipelineComplete(context)
-	}
-}
+	return func(w http.ResponseWriter, r *http.Request, route *Route, p RouteParameters, state State) {
+		var err error
 
-func (a *App) setResponseHeaders(w http.ResponseWriter) {
-	w.Header().Set(HeaderServer, PackageName)
-	w.Header().Set(HeaderXServedBy, PackageName)
-}
+		w.Header().Set(HeaderServer, PackageName)
+		w.Header().Set(HeaderXServedBy, PackageName)
 
-func (a *App) newResponse(w http.ResponseWriter, r *http.Request) ResponseWriter {
-	var response ResponseWriter
-	if a.shouldCompressOutput(r) {
-		w.Header().Set(HeaderContentEncoding, ContentEncodingGZIP)
-		if a.logger.IsEnabled(logger.EventWebResponse) {
-			response = NewBufferedCompressedResponseWriter(w)
-		} else {
+		var response ResponseWriter
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set(HeaderContentEncoding, ContentEncodingGZIP)
 			response = NewCompressedResponseWriter(w)
-		}
-	} else {
-		w.Header().Set(HeaderContentEncoding, ContentEncodingIdentity)
-		if a.logger.IsEnabled(logger.EventWebResponse) {
-			response = NewBufferedResponseWriter(w)
 		} else {
-			response = NewResponseWriter(w)
+			w.Header().Set(HeaderContentEncoding, ContentEncodingIdentity)
+			response = NewRawResponseWriter(w)
+		}
+		context := a.createCtx(response, r, route, p, state)
+		context.onRequestStart()
+		if a.log != nil {
+			a.log.Trigger(a.loggerRequestStartEvent(context))
+		}
+
+		result := action(context)
+		if result != nil {
+			err = result.Render(context)
+			if err != nil {
+				a.logError(err)
+			}
+		}
+
+		context.onRequestEnd()
+		context.setLoggedStatusCode(response.StatusCode())
+		context.setLoggedContentLength(response.ContentLength())
+
+		err = response.Close()
+		if err != nil && err != http.ErrBodyNotAllowed {
+			a.logError(err)
+		}
+
+		// call the cancel func if it's set.
+		if context.cancel != nil {
+			context.cancel()
+		}
+
+		// effectively "request complete"
+		if a.log != nil {
+			a.log.Trigger(a.loggerRequestEvent(context))
 		}
 	}
-	return response
 }
 
-func (a *App) shouldCompressOutput(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+func (a *App) loggerRequestStartEvent(ctx *Ctx) *logger.WebRequestEvent {
+	event := logger.NewWebRequestStartEvent(ctx.Request).
+		WithState(ctx.state)
+
+	if ctx.Route() != nil {
+		event = event.WithRoute(ctx.Route().String())
+	}
+	return event
 }
 
-func (a *App) pipelineInit(w ResponseWriter, r *http.Request, route *Route, p RouteParameters) *Ctx {
-	context := a.newCtx(w, r, route, p)
-	context.onRequestStart()
-	a.logger.OnEvent(logger.EventWebRequestStart, context)
-	return context
+func (a *App) loggerRequestEvent(ctx *Ctx) *logger.WebRequestEvent {
+	event := logger.NewWebRequestEvent(ctx.Request).
+		WithStatusCode(ctx.statusCode).
+		WithElapsed(ctx.Elapsed()).
+		WithContentLength(int64(ctx.contentLength)).
+		WithState(ctx.state)
+
+	if ctx.Route() != nil {
+		event = event.WithRoute(ctx.Route().String())
+	}
+	if ctx.Response.Header() != nil {
+		event = event.WithContentType(ctx.Response.Header().Get(HeaderContentType))
+		event = event.WithContentEncoding(ctx.Response.Header().Get(HeaderContentEncoding))
+	}
+	return event
 }
 
-// Ctx creates a context.
-func (a *App) newCtx(w ResponseWriter, r *http.Request, route *Route, p RouteParameters) *Ctx {
-	ctx := NewCtx(w, r, p) //a.ctxPool.Get()
-	ctx.Response = w
-	ctx.Request = r
-	ctx.routeParameters = p
+func (a *App) recover(w http.ResponseWriter, req *http.Request) {
+	if a.recoverPanics {
+		if rcv := recover(); rcv != nil {
+			if a.panicAction != nil {
+				a.handlePanic(w, req, rcv)
+			} else if a.log != nil {
+				a.log.Fatalf("%v", rcv)
+			}
+		}
+	}
+}
 
-	ctx.app = a
-	ctx.route = route
-	ctx.auth = a.auth
-	ctx.logger = a.logger
+func (a *App) handlePanic(w http.ResponseWriter, r *http.Request, err interface{}) {
+	a.renderAction(func(ctx *Ctx) Result {
+		if a.log != nil {
+			a.log.Fatalf("%v", err)
+		}
+		return a.panicAction(ctx, err)
+	})(w, r, nil, nil, nil)
+}
 
-	ctx.defaultResultProvider = ctx.Text()
+func (a *App) createCtx(w ResponseWriter, r *http.Request, route *Route, p RouteParameters, s State) *Ctx {
+	ctx := &Ctx{
+		Response:        w,
+		Request:         r,
+		app:             a,
+		route:           route,
+		routeParameters: p,
+		state:           s,
+		auth:            a.auth,
+		log:             a.log,
+		view:            a.viewProvider,
+		json:            a.jsonProvider,
+		xml:             a.xmlProvider,
+		text:            a.textProvider,
+		defaultResultProvider: a.textProvider,
+	}
+	if ctx.state == nil {
+		ctx.state = State{}
+	}
+	if a.state != nil && len(a.state) > 0 {
+		for key, value := range a.state {
+			ctx.state[key] = value
+		}
+	}
 
 	return ctx
-}
-
-func (a *App) renderResult(action Action, ctx *Ctx) error {
-	result := action(ctx)
-	if result != nil {
-		err := result.Render(ctx)
-		if err != nil {
-			a.logger.Error(err)
-			return err
-		}
-	}
-	return nil
-}
-
-func (a *App) pipelineComplete(ctx *Ctx) {
-	err := ctx.Response.Flush()
-	if err != nil && err != http.ErrBodyNotAllowed {
-		a.logger.Error(err)
-	}
-	ctx.onRequestEnd()
-	ctx.setLoggedStatusCode(ctx.Response.StatusCode())
-	ctx.setLoggedContentLength(ctx.Response.ContentLength())
-	if a.logger.IsEnabled(logger.EventWebResponse) {
-		a.logger.OnEvent(logger.EventWebResponse, ctx.Response.Bytes())
-	}
-
-	err = ctx.Response.Close()
-	if err != nil && err != http.ErrBodyNotAllowed {
-		a.logger.Error(err)
-	}
-
-	// effectively "request complete"
-	a.logger.OnEvent(logger.EventWebRequest, ctx)
 }
 
 func (a *App) middlewarePipeline(action Action, middleware ...Middleware) Action {
@@ -734,54 +975,6 @@ func (a *App) middlewarePipeline(action Action, middleware ...Middleware) Action
 	}
 
 	return NestMiddleware(action, finalMiddleware...)
-}
-
-// staticAction returns a Action for a given static path and root.
-func (a *App) staticAction(path string, root http.FileSystem) Action {
-	fileServer := http.FileServer(root)
-
-	return func(ctx *Ctx) Result {
-
-		var staticRewriteRules []*RewriteRule
-		var staticHeaders http.Header
-
-		if rules, hasRules := a.staticRewriteRules[path]; hasRules {
-			staticRewriteRules = rules
-		}
-
-		if headers, hasHeaders := a.staticHeaders[path]; hasHeaders {
-			staticHeaders = headers
-		}
-
-		filePath, _ := ctx.RouteParam("filepath")
-
-		return &StaticResult{
-			FilePath:     filePath,
-			FileServer:   fileServer,
-			RewriteRules: staticRewriteRules,
-			Headers:      staticHeaders,
-		}
-	}
-}
-
-func (a *App) handle(method, path string, handler Handler) {
-	if len(path) == 0 {
-		panic("path must not be empty")
-	}
-	if path[0] != '/' {
-		panic("path must begin with '/' in path '" + path + "'")
-	}
-	if a.routes == nil {
-		a.routes = make(map[string]*node)
-	}
-
-	root := a.routes[method]
-	if root == nil {
-		root = new(node)
-		a.routes[method] = root
-	}
-
-	root.addRoute(method, path, handler)
 }
 
 func (a *App) allowed(path, reqMethod string) (allow string) {
@@ -822,8 +1015,24 @@ func (a *App) allowed(path, reqMethod string) (allow string) {
 	return
 }
 
-func (a *App) recover(w http.ResponseWriter, req *http.Request) {
-	if rcv := recover(); rcv != nil {
-		a.panicHandler(w, req, rcv)
+func (a *App) logError(err error) {
+	if a.log == nil {
+		return
 	}
+
+	a.log.Error(err)
+}
+
+func (a *App) syncInfof(format string, args ...interface{}) {
+	if a.log == nil {
+		return
+	}
+	a.log.SyncInfof(format, args...)
+}
+
+func (a *App) syncFatalf(format string, args ...interface{}) {
+	if a.log == nil {
+		return
+	}
+	a.log.SyncFatalf(format, args...)
 }

@@ -3,9 +3,9 @@ package migrations
 import "github.com/blendlabs/spiffy/migration"
 
 func contentRating() migration.Migration {
-	createContentRating := migration.Step(
+	createContentRating := migration.NewStep(
 		migration.TableNotExists("content_rating"),
-		migration.BodyStatements(`
+		migration.Statements(`
 				CREATE TABLE content_rating (
 					id int not null,
 					name varchar(32) not null,
@@ -20,24 +20,23 @@ func contentRating() migration.Migration {
 		),
 	)
 
-	addContentRatingToImage := migration.Step(
+	addContentRatingToImage := migration.NewStep(
 		migration.ColumnNotExists("image", "content_rating"),
-		migration.BodyStatements(
+		migration.Statements(
 			"ALTER TABLE image ADD content_rating int;",
 			"UPDATE image set content_rating = 3;",
 			"UPDATE image set content_rating = 5 WHERE is_censored = true;",
 		),
 	)
 
-	dropIsCensoredFromImage := migration.Step(
+	dropIsCensoredFromImage := migration.NewStep(
 		migration.ColumnExists("image", "is_censored"),
-		migration.BodyStatements(
+		migration.Statements(
 			"ALTER TABLE image DROP is_censored;",
 		),
 	)
 
 	return migration.New(
-		"create",
 		createContentRating,
 		addContentRatingToImage,
 		dropIsCensoredFromImage,
@@ -46,10 +45,9 @@ func contentRating() migration.Migration {
 
 func slackTeam() migration.Migration {
 	return migration.New(
-		"create",
-		migration.Step(
+		migration.NewStep(
 			migration.TableNotExists("slack_team"),
-			migration.BodyStatements(
+			migration.Statements(
 				`CREATE TABLE slack_team (
 					team_id varchar(32) not null,
 					team_name varchar(128) not null,
@@ -91,10 +89,9 @@ func slackTeam() migration.Migration {
 
 func errors() migration.Migration {
 	return migration.New(
-		"create",
-		migration.Step(
+		migration.NewStep(
 			migration.TableNotExists("error"),
-			migration.BodyStatements(
+			migration.Statements(
 				`CREATE TABLE error (
 					uuid varchar(32) not null,
 					created_utc timestamp not null,
@@ -116,17 +113,16 @@ func errors() migration.Migration {
 
 func sessionIDs() migration.Migration {
 	return migration.New(
-		"alter",
-		migration.Step(
+		migration.NewStep(
 			migration.ColumnExists("user_session", "session_id"),
-			migration.BodyStatements(`AlTER TABLE user_session ALTER session_id TYPE varchar(128)`),
+			migration.Statements(`AlTER TABLE user_session ALTER session_id TYPE varchar(128)`),
 		),
 	)
 }
 
 func init() {
-	migration.Register(contentRating())
-	migration.Register(slackTeam())
-	migration.Register(errors())
-	migration.Register(sessionIDs())
+	migration.RegisterDefault(contentRating())
+	migration.RegisterDefault(slackTeam())
+	migration.RegisterDefault(errors())
+	migration.RegisterDefault(sessionIDs())
 }
