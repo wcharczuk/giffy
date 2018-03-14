@@ -5,13 +5,16 @@ import (
 	"time"
 
 	web "github.com/blendlabs/go-web"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 	"github.com/wcharczuk/giffy/server/webutil"
 	chart "github.com/wcharczuk/go-chart"
 )
 
 // Chart is a controller for common chart endpoints.
-type Chart struct{}
+type Chart struct {
+	Config *config.Giffy
+}
 
 func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 

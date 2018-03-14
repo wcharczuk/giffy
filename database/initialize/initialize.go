@@ -29,12 +29,11 @@ func adminUserEmail() string {
 
 func init() {
 	// drop & create public schema
-	migration.Register(
+	migration.RegisterDefault(
 		migration.New(
-			fmt.Sprintf("drop & recreate `%s` schema", appName()),
-			migration.Step(
+			migration.NewStep(
 				migration.AlwaysRun(),
-				migration.BodyStatements(
+				migration.Statements(
 					"DROP SCHEMA public CASCADE;",
 					"CREATE SCHEMA public;",
 				),
@@ -43,14 +42,12 @@ func init() {
 	)
 
 	// add `blend_app` user
-	migration.Register(
+	migration.RegisterDefault(
 		migration.New(
-			fmt.Sprintf("initialize `%s` db user", appName()),
 			migration.New(
-				fmt.Sprintf("add `%s` user", dbUser()),
-				migration.Step(
+				migration.NewStep(
 					migration.RoleNotExists(dbUser()),
-					migration.BodyStatements(
+					migration.Statements(
 						fmt.Sprintf("CREATE USER %s WITH LOGIN NOCREATEDB NOCREATEROLE PASSWORD '%s';", dbUser(), dbPassword()),
 					),
 				),
@@ -59,15 +56,12 @@ func init() {
 	)
 
 	// add the tables (scribe_model, scribe_field_description etc.)
-	migration.Register(
+	migration.RegisterDefault(
 		migration.New(
-			fmt.Sprintf("initialize `%s` schema", appName()),
-
 			migration.New(
-				"add db extensions",
-				migration.Step(
+				migration.NewStep(
 					migration.AlwaysRun(),
-					migration.BodyStatements(
+					migration.Statements(
 						"create extension if not exists pgcrypto;",
 						"create extension if not exists pg_trgm;",
 					),
@@ -75,10 +69,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("error"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE error (
 							uuid varchar(32) not null,
 							created_utc timestamp not null,
@@ -98,10 +91,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("users"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE users (
 							id serial not null,
 							uuid varchar(32) not null,
@@ -123,10 +115,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("user_auth"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE user_auth (
 							user_id bigint not null,
 							provider varchar(32) not null,
@@ -143,10 +134,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("user_session"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE user_session (
 							session_id varchar(32) not null,
 							user_id bigint not null,
@@ -159,10 +149,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("content_rating"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE content_rating (
 							id int not null,
 							name varchar(32) not null,
@@ -174,10 +163,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("image"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE image (
 							id serial not null,
 							uuid varchar(32) not null,
@@ -209,10 +197,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("tag"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE tag (
 							id serial not null,
 							uuid varchar(32) not null,
@@ -230,10 +217,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("vote_summary"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE vote_summary (
 							image_id bigint not null,
 							tag_id bigint not null,
@@ -252,10 +238,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("vote"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE vote (
 							user_id bigint not null,
 							image_id bigint not null,
@@ -272,10 +257,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("moderation"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE moderation (
 							user_id bigint not null,
 							uuid varchar(32) not null,
@@ -292,10 +276,9 @@ func init() {
 			),
 
 			migration.New(
-				"create",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("search_history"),
-					migration.BodyStatements(
+					migration.Statements(
 						`create table search_history (
 							source varchar(255) not null,
 
@@ -320,10 +303,9 @@ func init() {
 			),
 
 			migration.New(
-				"add `slack_team` table",
-				migration.Step(
+				migration.NewStep(
 					migration.TableNotExists("slack_team"),
-					migration.BodyStatements(
+					migration.Statements(
 						`CREATE TABLE slack_team (
 							team_id varchar(32) not null,
 							team_name varchar(128) not null,
@@ -340,10 +322,9 @@ func init() {
 		),
 
 		migration.New(
-			fmt.Sprintf("add admin user for %s", adminUserEmail()),
-			migration.Step(
+			migration.NewStep(
 				migration.AlwaysRun(),
-				migration.BodyStatements(
+				migration.Statements(
 					fmt.Sprintf(`
 						insert into users
 							(uuid, username, created_utc, first_name, last_name, email_address, is_email_verified, is_admin, is_moderator)
@@ -357,10 +338,9 @@ func init() {
 		),
 
 		migration.New(
-			"add `content_rating` ref-data",
-			migration.Step(
+			migration.NewStep(
 				migration.AlwaysRun(),
-				migration.BodyStatements(
+				migration.Statements(
 					"INSERT INTO content_rating (id, name, description) select 1, 'G', 'General Audiences; no violence or sexual content. No live action.' where not exists ( select 1 from content_rating where id = 1 );",
 					"INSERT INTO content_rating (id, name, description) select 2, 'PG', 'Parental Guidance; limited violence and sexual content. Some live action' where not exists ( select 1 from content_rating where id = 2 );",
 					"INSERT INTO content_rating (id, name, description) select 3, 'PG-13', 'Parental Guidance (13 and over); some violence and sexual content. Live action and animated.' where not exists ( select 1 from content_rating where id = 3 );",

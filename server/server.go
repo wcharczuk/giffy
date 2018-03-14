@@ -1,9 +1,10 @@
 package server
 
 import (
+	"net/http"
+
 	"github.com/blendlabs/go-chronometer"
 	"github.com/blendlabs/go-logger"
-	"github.com/blendlabs/go-request"
 	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/go-workqueue"
 	"github.com/blendlabs/spiffy"
@@ -11,9 +12,9 @@ import (
 
 	// includes migrations
 	_ "github.com/wcharczuk/giffy/database/migrations"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
-	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/jobs"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/webutil"
@@ -40,101 +41,67 @@ var (
 
 // Migrate migrates the db
 func Migrate() error {
-	migration.Default().SetLogger(migration.NewLoggerFromAgent(logger.NewFromEnvironment()))
+	migration.Default().SetLogger(migration.NewLogger(logger.NewFromEnv()))
 	return migration.Default().Apply(model.DB())
 }
 
 // New returns a new server instance.
-func New() *web.App {
-	app := web.New()
-	app.SetLogger(logger.NewFromEnvironment())
+func New(cfg *config.Giffy) *web.App {
+	app := web.NewFromConfig(&cfg.Web)
+	app.WithLogger(logger.NewFromConfig(&cfg.Logger))
 	logger.SetDefault(app.Logger())
-	app.SetName(AppName)
-	app.SetPort(core.ConfigPort())
 
-	//app.Logger().DisableEvent(logger.EventWebRequestPostBody)
-	app.Logger().DisableEvent(logger.EventWebResponse)
-
-	app.Logger().AddEventListener(logger.EventWebRequest, web.NewDiagnosticsRequestCompleteHandler(func(rc *web.Ctx) {
-		external.StatHatRequestTiming(rc.Elapsed())
+	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
+		if req, isReq := ev.State().(*http.Request); isReq {
+			model.DB().Create(model.NewError(ev.Err(), req))
+		}
+	}))
+	app.Logger().Listen(logger.Error, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
+		if req, isReq := ev.State().(*http.Request); isReq {
+			model.DB().Create(model.NewError(ev.Err(), req))
+		}
 	}))
 
-	app.Logger().AddEventListener(logger.EventFatalError, web.NewDiagnosticsErrorHandler(func(rc *web.Ctx, err error) {
-		external.StatHatError()
-		model.DB().CreateInTx(model.NewError(err, rc.Request), rc.Tx())
-	}))
-
-	app.Logger().AddEventListener(logger.EventError, web.NewDiagnosticsErrorHandler(func(rc *web.Ctx, err error) {
-		external.StatHatError()
-		model.DB().CreateInTx(model.NewError(err, rc.Request), rc.Tx())
-	}))
-
-	app.Logger().AddEventListener(
-		request.Event,
-		request.NewOutgoingListener(func(wr *logger.Writer, ts logger.TimeSource, req *request.Meta) {
-			request.WriteOutgoingRequest(wr, ts, req)
-		}),
-	)
-
-	if app.Logger().IsEnabled(logger.EventDebug) {
-		app.Logger().EnableEvent(spiffy.EventFlagQuery)
-		app.Logger().AddEventListener(
-			spiffy.EventFlagQuery,
-			spiffy.NewPrintStatementListener(),
-		)
-
-		app.Logger().EnableEvent(spiffy.EventFlagExecute)
-		app.Logger().AddEventListener(
-			spiffy.EventFlagExecute,
-			spiffy.NewPrintStatementListener(),
-		)
+	if app.Logger().IsEnabled(logger.Debug) {
+		app.Logger().Enable(spiffy.FlagQuery)
+		app.Logger().Enable(spiffy.FlagExecute)
 	}
 
-	app.Logger().EnableEvent(core.EventFlagSearch)
-	app.Logger().AddEventListener(core.EventFlagSearch, func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-		external.StatHatSearch()
-		if len(state) > 0 {
-			logger.WriteEventf(writer, ts, "Image Search", logger.ColorLightWhite, "query: %s", state[0].(*model.SearchHistory).SearchQuery)
-			workqueue.Default().Enqueue(model.CreateObject, state[0])
-		}
+	app.Logger().Enable(core.FlagSearch, core.FlagModeration)
+	app.Logger().Listen(core.FlagSearch, "event-writer", func(e logger.Event) {
+		workqueue.Default().Enqueue(model.CreateObject, e)
+	})
+	app.Logger().Listen(core.FlagModeration, "event-writer", func(e logger.Event) {
+		workqueue.Default().Enqueue(model.CreateObject, e)
 	})
 
-	app.Logger().EnableEvent(core.EventFlagModeration)
-	app.Logger().AddEventListener(core.EventFlagModeration, func(writer *logger.Writer, ts logger.TimeSource, eventFlag logger.EventFlag, state ...interface{}) {
-		if len(state) > 0 {
-			logger.WriteEventf(writer, ts, "Moderation", logger.ColorLightWhite, "verb: %s", state[0].(*model.Moderation).Verb)
-			workqueue.Default().Enqueue(model.CreateObject, state[0])
-		}
-	})
-
-	if core.ConfigIsProduction() {
-		app.ViewCache().AddPaths("server/_views/header_prod.html")
+	if cfg.IsProduction() {
+		app.Views().AddPaths("server/_views/header_prod.html")
 	} else {
-		app.ViewCache().AddPaths("server/_views/header.html")
+		app.Views().AddPaths("server/_views/header.html")
 	}
 
 	webutil.LiveReloads(app)
 	webutil.BaseURL(app)
 	webutil.SecureCookies(app)
 
-	app.Auth().SetSessionParamName("giffy")
+	app.Auth().SetCookieName("giffy")
+	app.Views().AddPaths(ViewPaths...)
 
-	app.ViewCache().AddPaths(ViewPaths...)
-
-	app.Register(new(controller.Index))
-	app.Register(new(controller.API))
-	app.Register(new(controller.Integrations))
-	app.Register(new(controller.Auth))
-	app.Register(new(controller.UploadImage))
-	app.Register(new(controller.Chart))
+	app.Register(controller.Index{Config: cfg})
+	app.Register(controller.API{Config: cfg})
+	app.Register(controller.Integrations{Config: cfg})
+	app.Register(controller.Auth{Config: cfg})
+	app.Register(controller.UploadImage{Config: cfg})
+	app.Register(controller.Chart{Config: cfg})
 
 	app.OnStart(func(a *web.App) error {
-		err := core.DBInit()
+		err := spiffy.OpenDefault(spiffy.NewFromConfig(&cfg.DB))
 		if err != nil {
 			return err
 		}
 
-		model.DB().SetLogger(a.Logger())
+		model.DB().WithLogger(a.Logger())
 
 		err = Migrate()
 		if err != nil {

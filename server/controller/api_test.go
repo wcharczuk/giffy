@@ -8,6 +8,7 @@ import (
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-util/uuid"
 	"github.com/blendlabs/go-web"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 	"github.com/wcharczuk/giffy/server/webutil"
@@ -63,7 +64,7 @@ func TestAPIUsers(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
@@ -101,7 +102,7 @@ func TestAPIUserSearch(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).
@@ -124,7 +125,7 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).
@@ -143,7 +144,7 @@ func TestAPIUser(t *testing.T) {
 	defer tx.Rollback()
 
 	app := web.New()
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testUserResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
@@ -166,7 +167,7 @@ func TestAPIImages(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testImagesResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/images").JSON(&res)
@@ -188,7 +189,7 @@ func TestAPIImagesRandom(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testImagesResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/images/random/10").JSON(&res)
@@ -204,7 +205,7 @@ func TestAPISiteStats(t *testing.T) {
 	defer tx.Rollback()
 
 	app := web.New()
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testSiteStatsResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/stats").JSON(&res)
@@ -223,7 +224,7 @@ func TestAPISessionUser(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
@@ -257,7 +258,7 @@ func TestAPIGetTeamsNoAuth(t *testing.T) {
 	defer tx.Rollback()
 
 	app := web.New()
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testTeamsResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/teams").JSON(&res)
@@ -301,7 +302,7 @@ func TestAPIGetTeams(t *testing.T) {
 	app := web.New()
 	app.WithAuth(auth)
 
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testTeamsResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/teams").WithHeader(auth.CookieName(), session.SessionID).JSON(&res)
@@ -331,7 +332,7 @@ func TestAPIGetTeamNotAuthed(t *testing.T) {
 
 	app := web.New()
 
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testTeamResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/team/%s", team1.TeamID).JSON(&res)
@@ -362,7 +363,7 @@ func TestAPIGetTeam(t *testing.T) {
 	app := web.New()
 	app.WithAuth(auth)
 
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testTeamResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.CookieName(), session.SessionID).JSON(&res)
