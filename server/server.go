@@ -15,6 +15,7 @@ import (
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
+	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/jobs"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/webutil"
@@ -88,11 +89,13 @@ func New(cfg *config.Giffy) *web.App {
 	app.Auth().SetCookieName("giffy")
 	app.Views().AddPaths(ViewPaths...)
 
+	fm := filemanager.New(cfg.GetS3Bucket(), &cfg.Aws)
+
 	app.Register(controller.Index{Config: cfg})
-	app.Register(controller.API{Config: cfg})
+	app.Register(controller.API{Config: cfg, Files: fm})
 	app.Register(controller.Integrations{Config: cfg})
 	app.Register(controller.Auth{Config: cfg})
-	app.Register(controller.UploadImage{Config: cfg})
+	app.Register(controller.UploadImage{Config: cfg, Files: fm})
 	app.Register(controller.Chart{Config: cfg})
 
 	app.OnStart(func(a *web.App) error {

@@ -241,7 +241,7 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	defer tx.Rollback()
 
 	app := web.New()
-	app.Register(new(API))
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/session.user").JSON(&res)

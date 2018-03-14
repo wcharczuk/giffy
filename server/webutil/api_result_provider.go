@@ -10,7 +10,10 @@ import (
 
 // API returns the api result provider.
 func API(ctx *web.Ctx) *APIResultProvider {
-	return ctx.DefaultResultProvider().(*APIResultProvider)
+	if typed, isTyped := ctx.DefaultResultProvider().(*APIResultProvider); isTyped {
+		return typed
+	}
+	return NewAPIResultProvider(ctx)
 }
 
 // APIProviderAsDefault sets the context.CurrrentProvider() equal to context.API().

@@ -10,7 +10,9 @@ import (
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-logger"
 	util "github.com/blendlabs/go-util"
+	"github.com/blendlabs/go-util/uuid"
 	"github.com/blendlabs/go-web"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/model"
 )
@@ -21,7 +23,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	assert.Nil(err)
 	defer tx.Rollback()
 
-	fm := filemanager.New("", nil)
+	fm := filemanager.New(uuid.V4().String(), config.NewAwsFromEnv())
 	fm.Mock()
 	defer fm.ReleaseMock()
 
@@ -36,7 +38,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	app := web.New()
 	app.WithAuth(auth)
 	app.WithLogger(logger.None())
-	app.Register(UploadImage{})
+	app.Register(UploadImage{Config: config.NewFromEnv(), Files: fm})
 	app.Views().AddPaths(
 		"server/_views/footer.html",
 		"server/_views/upload_image.html",
