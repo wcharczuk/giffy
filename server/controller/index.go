@@ -6,6 +6,7 @@ import (
 	"github.com/blendlabs/go-exception"
 	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/config"
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 // Index is the root controller.
@@ -39,6 +40,15 @@ func (i Index) panicHandler(r *web.Ctx, err interface{}) web.Result {
 	return r.View().InternalError(exception.Newf("%v", err))
 }
 
+func (i Index) statusAction(r *web.Ctx) web.Result {
+	_, err := model.DB().Query("select 'ok!'").Any()
+	if err != nil {
+		r.Logger().Error(err)
+		return r.JSON().Result(map[string]interface{}{"status": false})
+	}
+	return r.JSON().Result(map[string]interface{}{"status": true})
+}
+
 // Register registers the controller
 func (i Index) Register(app *web.App) {
 	app.WithMethodNotAllowedHandler(i.methodNotAllowedHandler)
@@ -63,4 +73,6 @@ func (i Index) Register(app *web.App) {
 		app.Static("/bower/*filepath", "_client/bower")
 		app.Static("/static/*filepath", "_client/src")
 	}
+
+	app.GET("/status", i.statusAction)
 }
