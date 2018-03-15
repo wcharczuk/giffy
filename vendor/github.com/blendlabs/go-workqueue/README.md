@@ -1,11 +1,11 @@
-Work Queue
+go-workqueue
 =============
 
-[![Build Status](https://travis-ci.org/wcharczuk/go-workqueue.svg?branch=master)](https://travis-ci.org/wcharczuk/go-workqueue)
+[![Build Status](https://travis-ci.org/blendlabs/go-workqueue.svg?branch=master)](https://travis-ci.org/blendlabs/go-workqueue)
 
 This library implements a simple work queue, driven by a configurable number of goroutine workers.
 
-##Example
+## Example
 
 ```golang
 wq := workqueue.New()

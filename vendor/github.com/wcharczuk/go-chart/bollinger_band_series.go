@@ -1,9 +1,6 @@
 package chart
 
-import (
-	"fmt"
-	"math"
-)
+import "math"
 
 // BollingerBandsSeries draws bollinger bands for an inner series.
 // Bollinger bands are defined by two lines, one at SMA+k*stddev, one at SMA-k*stdev.
@@ -149,12 +146,4 @@ func (bbs BollingerBandsSeries) getVariance(valueBuffer *RingBuffer) float64 {
 
 func (bbs BollingerBandsSeries) getStdDev(valueBuffer *RingBuffer) float64 {
 	return math.Pow(bbs.getVariance(valueBuffer), 0.5)
-}
-
-// Validate validates the series.
-func (bbs BollingerBandsSeries) Validate() error {
-	if bbs.InnerSeries == nil {
-		return fmt.Errorf("bollinger bands series requires InnerSeries to be set")
-	}
-	return nil
 }

@@ -12,12 +12,8 @@ const (
 	DefaultChartHeight = 400
 	// DefaultChartWidth is the default chart width.
 	DefaultChartWidth = 1024
-	// DefaultStrokeWidth is the default chart stroke width.
-	DefaultStrokeWidth = 0.0
-	// DefaultDotWidth is the default chart dot width.
-	DefaultDotWidth = 0.0
-	// DefaultSeriesLineWidth is the default line width.
-	DefaultSeriesLineWidth = 1.0
+	// DefaultStrokeWidth is the default chart line/stroke width.
+	DefaultStrokeWidth = 1.0
 	// DefaultAxisLineWidth is the line width of the axis lines.
 	DefaultAxisLineWidth = 1.0
 	//DefaultDPI is the default dots per inch for the chart.
@@ -36,11 +32,6 @@ const (
 	DefaultAxisFontSize = 10.0
 	// DefaultTitleTop is the default distance from the top of the chart to put the title.
 	DefaultTitleTop = 10
-
-	// DefaultBackgroundStrokeWidth is the default stroke on the chart background.
-	DefaultBackgroundStrokeWidth = 0.0
-	// DefaultCanvasStrokeWidth is the default stroke on the chart canvas.
-	DefaultCanvasStrokeWidth = 0.0
 
 	// DefaultLineSpacing is the default vertical distance between lines of text.
 	DefaultLineSpacing = 5
@@ -112,9 +103,6 @@ var (
 	ColorAlternateYellow = drawing.Color{R: 240, G: 174, B: 90, A: 255}
 	// ColorAlternateLightGray is a alternate theme color.
 	ColorAlternateLightGray = drawing.Color{R: 187, G: 190, B: 191, A: 255}
-
-	// ColorTransparent is a transparent (alpha zero) color.
-	ColorTransparent = drawing.Color{R: 1, G: 1, B: 1, A: 0}
 )
 
 var (
@@ -200,7 +188,6 @@ func GetAlternateColor(index int) drawing.Color {
 var (
 	// DefaultAnnotationPadding is the padding around an annotation.
 	DefaultAnnotationPadding = Box{Top: 5, Left: 5, Right: 5, Bottom: 5}
-
 	// DefaultBackgroundPadding is the default canvas padding config.
 	DefaultBackgroundPadding = Box{Top: 5, Left: 5, Right: 5, Bottom: 5}
 )
@@ -225,11 +212,3 @@ func GetDefaultFont() (*truetype.Font, error) {
 	}
 	return _defaultFont, nil
 }
-
-const (
-	// ContentTypePNG is the png mime type.
-	ContentTypePNG = "image/png"
-
-	// ContentTypeSVG is the svg mime type.
-	ContentTypeSVG = "image/svg+xml"
-)

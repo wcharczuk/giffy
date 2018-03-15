@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"io"
 	"os"
+
+	exception "github.com/blendlabs/go-exception"
 )
 
 var (
@@ -24,7 +26,7 @@ func (fu fileUtil) ReadByLines(filePath string, handler func(line string)) error
 			handler(line)
 		}
 	} else {
-		return err
+		return exception.Wrap(err)
 	}
 	return nil
 }
@@ -44,7 +46,7 @@ func (fu fileUtil) ReadByChunks(filePath string, chunkSize int, handler func(lin
 			handler(readData)
 		}
 	} else {
-		return err
+		return exception.Wrap(err)
 	}
 	return nil
 }

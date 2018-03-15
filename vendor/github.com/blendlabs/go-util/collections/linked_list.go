@@ -7,7 +7,7 @@ type listNode struct {
 }
 
 // NewLinkedList returns a new Queue instance.
-func NewLinkedList() Queue {
+func NewLinkedList() *LinkedList {
 	return &LinkedList{}
 }
 
@@ -85,6 +85,26 @@ func (q *LinkedList) Clear() {
 	q.length = 0
 }
 
+// Drain calls the consumer for each element of the linked list.
+func (q *LinkedList) Drain() []interface{} {
+	if q.head == nil {
+		return nil
+	}
+
+	contents := make([]interface{}, q.length)
+	nodePtr := q.head
+	var index int
+	for nodePtr != nil {
+		contents[index] = nodePtr.Value
+		nodePtr = nodePtr.Previous
+		index++
+	}
+	q.tail = nil
+	q.head = nil
+	q.length = 0
+	return contents
+}
+
 // Each calls the consumer for each element of the linked list.
 func (q *LinkedList) Each(consumer func(value interface{})) {
 	if q.head == nil {
@@ -96,6 +116,22 @@ func (q *LinkedList) Each(consumer func(value interface{})) {
 		consumer(nodePtr.Value)
 		nodePtr = nodePtr.Previous
 	}
+}
+
+// Consume calls the consumer for each element of the linked list, removing it.
+func (q *LinkedList) Consume(consumer func(value interface{})) {
+	if q.head == nil {
+		return
+	}
+
+	nodePtr := q.head
+	for nodePtr != nil {
+		consumer(nodePtr.Value)
+		nodePtr = nodePtr.Previous
+	}
+	q.tail = nil
+	q.head = nil
+	q.length = 0
 }
 
 // EachUntil calls the consumer for each element of the linked list, but can abort.
@@ -128,8 +164,8 @@ func (q *LinkedList) ReverseEachUntil(consumer func(value interface{}) bool) {
 	}
 }
 
-// AsSlice returns the full contents of the queue as a slice.
-func (q *LinkedList) AsSlice() []interface{} {
+// Contents returns the full contents of the queue as a slice.
+func (q *LinkedList) Contents() []interface{} {
 	if q.head == nil {
 		return []interface{}{}
 	}

@@ -8,7 +8,6 @@ import (
 
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-util/linq"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
@@ -34,14 +33,14 @@ func TestGetAllImages(t *testing.T) {
 	assert.Nil(err)
 	assert.NotEmpty(allImages)
 
-	firstResult := linq.First(allImages, NewImagePredicate(func(image Image) bool {
-		return image.ID == i.ID
-	}))
+	var firstImage *Image
+	for _, image := range allImages {
+		if image.ID == i.ID {
+			firstImage = &image
+			break
+		}
+	}
 
-	assert.NotNil(firstResult)
-
-	firstImage, resultIsImage := firstResult.(Image)
-	assert.True(resultIsImage)
 	assert.NotNil(firstImage)
 	assert.False(firstImage.IsZero())
 	assert.NotNil(firstImage.CreatedByUser)

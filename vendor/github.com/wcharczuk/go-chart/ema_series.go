@@ -1,7 +1,5 @@
 package chart
 
-import "fmt"
-
 const (
 	// DefaultEMAPeriod is the default EMA period used in the sigma calculation.
 	DefaultEMAPeriod = 12
@@ -100,12 +98,4 @@ func (ema *EMASeries) ensureCachedValues() {
 func (ema *EMASeries) Render(r Renderer, canvasBox Box, xrange, yrange Range, defaults Style) {
 	style := ema.Style.InheritFrom(defaults)
 	Draw.LineSeries(r, canvasBox, xrange, yrange, style, ema)
-}
-
-// Validate validates the series.
-func (ema *EMASeries) Validate() error {
-	if ema.InnerSeries == nil {
-		return fmt.Errorf("ema series requires InnerSeries to be set")
-	}
-	return nil
 }

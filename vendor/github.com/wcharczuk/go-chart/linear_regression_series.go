@@ -1,7 +1,5 @@
 package chart
 
-import "fmt"
-
 // LinearRegressionSeries is a series that plots the n-nearest neighbors
 // linear regression for the values.
 type LinearRegressionSeries struct {
@@ -49,9 +47,7 @@ func (lrs LinearRegressionSeries) GetWindow() int {
 
 // GetEndIndex returns the effective window end.
 func (lrs LinearRegressionSeries) GetEndIndex() int {
-	offset := lrs.GetOffset() + lrs.Len()
-	innerSeriesLastIndex := lrs.InnerSeries.Len() - 1
-	return Math.MinInt(offset, innerSeriesLastIndex)
+	return Math.MinInt(lrs.GetOffset()+(lrs.Len()), (lrs.InnerSeries.Len() - 1))
 }
 
 // GetOffset returns the data offset.
@@ -64,7 +60,7 @@ func (lrs LinearRegressionSeries) GetOffset() int {
 
 // GetValue gets a value at a given index.
 func (lrs *LinearRegressionSeries) GetValue(index int) (x, y float64) {
-	if lrs.InnerSeries == nil || lrs.InnerSeries.Len() == 0 {
+	if lrs.InnerSeries == nil {
 		return
 	}
 	if lrs.m == 0 && lrs.b == 0 {
@@ -80,7 +76,7 @@ func (lrs *LinearRegressionSeries) GetValue(index int) (x, y float64) {
 // GetLastValue computes the last moving average value but walking back window size samples,
 // and recomputing the last moving average chunk.
 func (lrs *LinearRegressionSeries) GetLastValue() (x, y float64) {
-	if lrs.InnerSeries == nil || lrs.InnerSeries.Len() == 0 {
+	if lrs.InnerSeries == nil {
 		return
 	}
 	if lrs.m == 0 && lrs.b == 0 {
@@ -133,12 +129,4 @@ func (lrs *LinearRegressionSeries) computeCoefficients() {
 func (lrs *LinearRegressionSeries) Render(r Renderer, canvasBox Box, xrange, yrange Range, defaults Style) {
 	style := lrs.Style.InheritFrom(defaults)
 	Draw.LineSeries(r, canvasBox, xrange, yrange, style, lrs)
-}
-
-// Validate validates the series.
-func (lrs *LinearRegressionSeries) Validate() error {
-	if lrs.InnerSeries == nil {
-		return fmt.Errorf("linear regression series requires InnerSeries to be set")
-	}
-	return nil
 }

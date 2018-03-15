@@ -1,9 +1,6 @@
 package chart
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 // TimeSeries is a line on a chart.
 type TimeSeries struct {
@@ -61,16 +58,4 @@ func (ts TimeSeries) GetYAxis() YAxisType {
 func (ts TimeSeries) Render(r Renderer, canvasBox Box, xrange, yrange Range, defaults Style) {
 	style := ts.Style.InheritFrom(defaults)
 	Draw.LineSeries(r, canvasBox, xrange, yrange, style, ts)
-}
-
-// Validate validates the series.
-func (ts TimeSeries) Validate() error {
-	if len(ts.XValues) == 0 {
-		return fmt.Errorf("time series must have xvalues set")
-	}
-
-	if len(ts.YValues) == 0 {
-		return fmt.Errorf("time series must have yvalues set")
-	}
-	return nil
 }

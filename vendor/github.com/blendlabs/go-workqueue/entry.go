@@ -8,9 +8,10 @@ import (
 
 // Entry is an individual item of work.
 type Entry struct {
-	Action Action
-	Args   []interface{}
-	Tries  int32
+	Action  Action
+	Args    []interface{}
+	Tries   int32
+	Recover bool
 }
 
 func (e Entry) String() string {
@@ -20,8 +21,10 @@ func (e Entry) String() string {
 // Execute runs the work item.
 func (e Entry) Execute() (err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			err = exception.Nest(err, fmt.Errorf("%v", r))
+		if e.Recover {
+			if r := recover(); r != nil {
+				err = exception.Nest(err, fmt.Errorf("%v", r))
+			}
 		}
 	}()
 

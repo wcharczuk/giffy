@@ -27,8 +27,9 @@ func (d draw) LineSeries(r Renderer, canvasBox Box, xrange, yrange Range, style 
 	var vx, vy float64
 	var x, y int
 
-	if style.ShouldDrawStroke() && style.ShouldDrawFill() {
-		style.GetFillOptions().WriteDrawingOptionsToRenderer(r)
+	fill := style.GetFillColor()
+	if !fill.IsZero() {
+		style.GetFillOptions().WriteToRenderer(r)
 		r.MoveTo(x0, y0)
 		for i := 1; i < vs.Len(); i++ {
 			vx, vy = vs.GetValue(i)
@@ -42,33 +43,16 @@ func (d draw) LineSeries(r Renderer, canvasBox Box, xrange, yrange Range, style 
 		r.Fill()
 	}
 
-	if style.ShouldDrawStroke() {
-		style.GetStrokeOptions().WriteDrawingOptionsToRenderer(r)
+	style.GetStrokeOptions().WriteToRenderer(r)
 
-		r.MoveTo(x0, y0)
-		for i := 1; i < vs.Len(); i++ {
-			vx, vy = vs.GetValue(i)
-			x = cl + xrange.Translate(vx)
-			y = cb - yrange.Translate(vy)
-			r.LineTo(x, y)
-		}
-		r.Stroke()
+	r.MoveTo(x0, y0)
+	for i := 1; i < vs.Len(); i++ {
+		vx, vy = vs.GetValue(i)
+		x = cl + xrange.Translate(vx)
+		y = cb - yrange.Translate(vy)
+		r.LineTo(x, y)
 	}
-
-	if style.ShouldDrawDot() {
-		dotWidth := style.GetDotWidth()
-
-		style.GetDotOptions().WriteDrawingOptionsToRenderer(r)
-
-		for i := 0; i < vs.Len(); i++ {
-			vx, vy = vs.GetValue(i)
-			x = cl + xrange.Translate(vx)
-			y = cb - yrange.Translate(vy)
-
-			r.Circle(dotWidth, x, y)
-			r.FillStroke()
-		}
-	}
+	r.Stroke()
 }
 
 // BoundedSeries draws a series that implements BoundedValueProvider.
@@ -304,7 +288,7 @@ func (d draw) TextWithin(r Renderer, text string, box Box, style Style) {
 			ty = y
 		}
 
-		r.Text(line, tx, ty)
+		d.Text(r, line, tx, ty, style)
 		y += lineBox.Height() + style.GetTextLineSpacing()
 	}
 }

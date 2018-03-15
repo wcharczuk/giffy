@@ -41,6 +41,7 @@ type Action func(args ...interface{}) error
 // New returns a new work queue.
 func New() *Queue {
 	return &Queue{
+		recover:      true,
 		numWorkers:   runtime.NumCPU(),
 		maxRetries:   DefaultMaxRetries,
 		maxWorkItems: DefaultMaxWorkItems,
@@ -50,6 +51,7 @@ func New() *Queue {
 // NewWithWorkers returns a new work queue with a given number of workers.
 func NewWithWorkers(numWorkers int) *Queue {
 	return &Queue{
+		recover:      true,
 		numWorkers:   numWorkers,
 		maxRetries:   DefaultMaxRetries,
 		maxWorkItems: DefaultMaxWorkItems,
@@ -59,6 +61,7 @@ func NewWithWorkers(numWorkers int) *Queue {
 // NewWithOptions returns a new queue with customizable options.
 func NewWithOptions(numWorkers, retryCount, maxWorkItems int) *Queue {
 	return &Queue{
+		recover:      true,
 		numWorkers:   numWorkers,
 		maxRetries:   retryCount,
 		maxWorkItems: maxWorkItems,
@@ -72,12 +75,14 @@ type Queue struct {
 	maxWorkItems int
 
 	running bool
+	recover bool
 
-	actionQueue chan *Entry
+	work chan *Entry
 
-	entryPool   sync.Pool
-	workers     []*Worker
-	abortSignal chan bool
+	entryPool sync.Pool
+	workers   []*Worker
+	abort     chan bool
+	aborted   chan bool
 }
 
 // Start starts the dispatcher workers for the process quere.
@@ -87,8 +92,9 @@ func (q *Queue) Start() {
 	}
 
 	q.workers = make([]*Worker, q.numWorkers)
-	q.actionQueue = make(chan *Entry, q.maxWorkItems)
-	q.abortSignal = make(chan bool)
+	q.work = make(chan *Entry, q.maxWorkItems)
+	q.abort = make(chan bool)
+	q.aborted = make(chan bool)
 	q.entryPool = sync.Pool{
 		New: func() interface{} {
 			return &Entry{}
@@ -97,15 +103,31 @@ func (q *Queue) Start() {
 	q.running = true
 
 	for id := 0; id < q.numWorkers; id++ {
-		q.newWorker(id)
+		q.createAndStartWorker(id)
 	}
 
-	go dispatch(q.workers, q.actionQueue, q.abortSignal)
+	go q.dispatch()
+}
+
+// Recover returns if the queue is handling / recovering from panics.
+func (q *Queue) Recover() bool {
+	return q.recover
+}
+
+// SetRecover sets if the queue workers should handle panics.
+func (q *Queue) SetRecover(shouldRecover bool) {
+	q.recover = shouldRecover
+}
+
+// WithRecover sets if the queue should recover panics.
+func (q *Queue) WithRecover(shouldRecover bool) *Queue {
+	q.recover = shouldRecover
+	return q
 }
 
 // Len returns the number of items in the work queue.
 func (q *Queue) Len() int {
-	return len(q.actionQueue)
+	return len(q.work)
 }
 
 // NumWorkers returns the number of worker routines.
@@ -122,6 +144,12 @@ func (q *Queue) SetNumWorkers(workers int) {
 	}
 }
 
+// WithNumWorkers calls `SetNumWorkers` and returns a reference to the queue.
+func (q *Queue) WithNumWorkers(workers int) *Queue {
+	q.SetNumWorkers(workers)
+	return q
+}
+
 // MaxWorkItems returns the maximum length of the work item queue.
 func (q *Queue) MaxWorkItems() int {
 	return q.maxWorkItems
@@ -136,6 +164,12 @@ func (q *Queue) SetMaxWorkItems(workItems int) {
 	}
 }
 
+// WithMaxWorkItems calls `SetMaxWorkItems` and returns a reference to the queue.
+func (q *Queue) WithMaxWorkItems(workItems int) *Queue {
+	q.SetMaxWorkItems(workItems)
+	return q
+}
+
 // MaxRetries returns the maximum number of retries.
 func (q *Queue) MaxRetries() int {
 	return q.maxRetries
@@ -144,6 +178,12 @@ func (q *Queue) MaxRetries() int {
 // SetMaxRetries sets the maximum nummer of retries for a work item on error.
 func (q *Queue) SetMaxRetries(maxRetries int) {
 	q.maxRetries = maxRetries
+}
+
+// WithMaxRetries calls `SetMaxRetries` and returns a reference to the queue.
+func (q *Queue) WithMaxRetries(maxRetries int) *Queue {
+	q.SetMaxRetries(maxRetries)
+	return q
 }
 
 // Running returns if the queue has started or not.
@@ -157,10 +197,11 @@ func (q *Queue) Enqueue(action Action, args ...interface{}) {
 		return
 	}
 	entry := q.entryPool.Get().(*Entry)
+	entry.Recover = q.recover
 	entry.Action = action
 	entry.Args = args
 	entry.Tries = 0
-	q.actionQueue <- entry
+	q.work <- entry
 }
 
 // Close drains the queue and stops the workers.
@@ -169,10 +210,12 @@ func (q *Queue) Close() error {
 		return nil
 	}
 
-	q.abortSignal <- true
+	q.abort <- true
+	<-q.aborted
 
-	close(q.abortSignal)
-	close(q.actionQueue)
+	close(q.abort)
+	close(q.aborted)
+	close(q.work)
 
 	var err error
 	for x := 0; x < len(q.workers); x++ {
@@ -183,7 +226,9 @@ func (q *Queue) Close() error {
 	}
 
 	q.workers = nil
-	q.actionQueue = nil
+	q.work = nil
+	q.abort = nil
+	q.aborted = nil
 	q.running = false
 	return nil
 }
@@ -203,38 +248,39 @@ func (q *Queue) String() string {
 
 // Each runs the consumer for each item in the queue.
 func (q *Queue) Each(visitor func(entry *Entry)) {
-	queueLength := len(q.actionQueue)
+	queueLength := len(q.work)
 	var entry *Entry
 	for x := 0; x < queueLength; x++ {
-		entry = <-q.actionQueue
+		entry = <-q.work
 		visitor(entry)
-		q.actionQueue <- entry
+		q.work <- entry
 	}
 }
 
-func (q *Queue) newWorker(id int) {
+func (q *Queue) createAndStartWorker(id int) {
 	q.workers[id] = NewWorker(id, q, q.maxWorkItems/q.numWorkers)
 	q.workers[id].Start()
 }
 
-func dispatch(workers []*Worker, work chan *Entry, abort chan bool) {
+func (q *Queue) dispatch() {
 	var workItem *Entry
 	var workerIndex int
-	numWorkers := len(workers)
+	numWorkers := len(q.workers)
 	for {
 		select {
-		case workItem = <-work:
+		case workItem = <-q.work:
 			if workItem == nil {
 				continue
 			}
-			workers[workerIndex].Work <- workItem
+			q.workers[workerIndex].Work <- workItem
 			if numWorkers > 1 {
 				workerIndex++
 				if workerIndex >= numWorkers {
 					workerIndex = 0
 				}
 			}
-		case <-abort:
+		case <-q.abort:
+			q.aborted <- true
 			return
 		}
 	}

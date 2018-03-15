@@ -1,0 +1,25 @@
+language: go
+go:
+  - 1.9
+
+sudo: false
+
+notifications:
+  slack:
+    rooms:
+      - secure: "a8PspfMx1hXYRGEKUtGZ9VvKaZ/ogI6FMhhA4jQjSLY2Pr4ALXAL+DR+DtkPcSYVs82zNTDOS2lOTrNhiFwVZOasZ7z0kXyNAOCgLkbUOOqrOMlDuFKZSRovV1Ig26tbFx6lgaTzNjWKapduMw53FwQf50s9HQmonQMOX5hDFXIfKHwNer3ucOrQcDWcPaj4MEjHpDtKalqxtARiZwoNZev02NoTjglGeFmgzrlh9QopeexPM/ABRUMPHM1vYz21cN5qL/SdOPA9sQ4cs5TnuNRNm5mAQFbVkXig5vHkB8phJityI8xZbYb/hqAEIrvnfu/iBcncc9v+dUXL3ZtXKnKlYNYUlMp08kpjWAlzQ5QZVq/yu+l/Q/6q23Ns9gyXTbSKP20+8RQoln0zjXGQH6k++LAw3fDdbm46mIWnKlKJ3qJZrEjAxJNdYeZnTxiKF4IFB7X1WLl9OnJkMyVAl1+wGvxd19OZrj5sLVP2zJuy2mouLX76N78p/1xdobF1iXdPOAzXt9Pljt8U8TRbPeWoy1poOKjSCLTmpGI0sVKApLCTNi71rqQtUsgKY8pbEwSqwhSIBk0R2HOZ4BhLmXDKogoAhnUIiXRld6hfQc7xjOFSQoO2CWx+oekryFDEvv4SrSldLR4Puj7eU2auCH4vxKW8BP8DFlf2Eus3zWc="
+    on_success: change
+    on_failure: change
+    template:
+      - "%{repository_slug} %{message} %{duration}"
+      - "%{author} : (<%{compare_url}|%{commit}>) %{commit_message}"
+      - "Build Details: %{build_url}"
+
+before_script:
+  - go get -u github.com/blendlabs/go-assert
+  - go get -u github.com/blendlabs/go-exception
+  - go get -u github.com/blendlabs/go-workqueue
+
+script:
+  - go vet
+  - go test

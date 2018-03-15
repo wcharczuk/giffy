@@ -60,8 +60,9 @@ type PredicateOfTime func(item time.Time) bool
 
 // Assertions is the main entry point for using the assertions library.
 type Assertions struct {
-	t           *testing.T
-	didComplete bool
+	t            *testing.T
+	timerAbort   chan bool
+	timerAborted chan bool
 }
 
 // Empty returns an empty assertions class; useful when you want to apply assertions w/o hooking into the testing framework.
@@ -71,7 +72,7 @@ func Empty() *Assertions {
 
 // New returns a new instance of `Assertions`.
 func New(t *testing.T) *Assertions {
-	return &Assertions{t: t}
+	return &Assertions{t: t, timerAbort: make(chan bool), timerAborted: make(chan bool)}
 }
 
 func (a *Assertions) assertion() {
@@ -307,24 +308,22 @@ func (a *Assertions) FailNow(userMessageComponents ...interface{}) {
 
 // StartTimeout starts a timed block.
 func (a *Assertions) StartTimeout(timeout time.Duration, userMessageComponents ...interface{}) {
-	sleepFor := 1 * time.Millisecond
-	waited := time.Duration(0)
-	a.didComplete = false
-
+	ticker := time.NewTimer(timeout)
 	go func() {
-		for !a.didComplete {
-			if waited > timeout {
-				panic("Timeout Reached")
-			}
-			time.Sleep(sleepFor)
-			waited += sleepFor
+		select {
+		case <-ticker.C:
+			panic("Timeout Reached")
+		case <-a.timerAbort:
+			a.timerAborted <- true
+			return
 		}
 	}()
 }
 
 // EndTimeout marks a timed block as complete.
 func (a *Assertions) EndTimeout() {
-	a.didComplete = true
+	a.timerAbort <- true
+	<-a.timerAborted
 }
 
 // Optional is an assertion type that does not stop a test if an assertion fails, simply outputs the error.
@@ -992,14 +991,14 @@ func shouldBeMultipleMessage(expected, actual interface{}, message string) strin
 	actualLabel := color("Actual", WHITE)
 
 	return fmt.Sprintf(`%s
-	%s: 	%v
-	%s: 	%v`, message, expectedLabel, expected, actualLabel, actual)
+	%s: 	%#v
+	%s: 	%#v`, message, expectedLabel, expected, actualLabel, actual)
 }
 
 func shouldBeMessage(object interface{}, message string) string {
 	actualLabel := color("Actual", WHITE)
 	return fmt.Sprintf(`%s
-	%s: 	%v`, message, actualLabel, object)
+	%s: 	%#v`, message, actualLabel, object)
 }
 
 func notEqualMessage(actual, expected interface{}) string {

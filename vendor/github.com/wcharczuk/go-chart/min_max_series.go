@@ -1,9 +1,6 @@
 package chart
 
-import (
-	"fmt"
-	"math"
-)
+import "math"
 
 // MinSeries draws a horizontal line at the minimum value of the inner series.
 type MinSeries struct {
@@ -63,14 +60,6 @@ func (ms *MinSeries) ensureMinValue() {
 	}
 }
 
-// Validate validates the series.
-func (ms *MinSeries) Validate() error {
-	if ms.InnerSeries == nil {
-		return fmt.Errorf("min series requires InnerSeries to be set")
-	}
-	return nil
-}
-
 // MaxSeries draws a horizontal line at the maximum value of the inner series.
 type MaxSeries struct {
 	Name        string
@@ -127,12 +116,4 @@ func (ms *MaxSeries) ensureMaxValue() {
 		}
 		ms.maxValue = &maxValue
 	}
-}
-
-// Validate validates the series.
-func (ms *MaxSeries) Validate() error {
-	if ms.InnerSeries == nil {
-		return fmt.Errorf("max series requires InnerSeries to be set")
-	}
-	return nil
 }

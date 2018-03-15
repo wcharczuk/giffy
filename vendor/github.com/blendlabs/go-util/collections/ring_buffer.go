@@ -26,7 +26,7 @@ func NewRingBuffer() *RingBuffer {
 	}
 }
 
-// NewRingBufferWithCapacity creates a new RingBuffer pre-allocated with the given capacity.
+// NewRingBufferWithCapacity creates a new ringbuffer with a given capacity.
 func NewRingBufferWithCapacity(capacity int) *RingBuffer {
 	return &RingBuffer{
 		array: make([]interface{}, capacity),
@@ -36,8 +36,8 @@ func NewRingBufferWithCapacity(capacity int) *RingBuffer {
 	}
 }
 
-// NewRingBufferFromSlice createsa  ring buffer out of a slice.
-func NewRingBufferFromSlice(values []interface{}) *RingBuffer {
+// NewRingBufferFromValues creates a  ring buffer out of a slice.
+func NewRingBufferFromValues(values []interface{}) *RingBuffer {
 	return &RingBuffer{
 		array: values,
 		head:  0,
@@ -62,14 +62,13 @@ func (rb *RingBuffer) Len() (len int) {
 	return rb.size
 }
 
-// TotalLen returns the total size of the ring bufffer, including empty elements.
-func (rb *RingBuffer) TotalLen() int {
+// Capacity returns the total size of the ring bufffer, including empty elements.
+func (rb *RingBuffer) Capacity() int {
 	return len(rb.array)
 }
 
 // Clear removes all objects from the RingBuffer.
 func (rb *RingBuffer) Clear() {
-
 	if rb.head < rb.tail {
 		arrayClear(rb.array, rb.head, rb.size)
 	} else {
@@ -148,16 +147,37 @@ func (rb *RingBuffer) setCapacity(capacity int) {
 	}
 }
 
-// TrimExcess resizes the buffer to better fit the contents.
-func (rb *RingBuffer) TrimExcess() {
+// trimExcess resizes the buffer to better fit the contents.
+func (rb *RingBuffer) trimExcess() {
 	threshold := float64(len(rb.array)) * 0.9
 	if rb.size < int(threshold) {
 		rb.setCapacity(rb.size)
 	}
 }
 
-// AsSlice returns the ring buffer, in order, as a slice.
-func (rb *RingBuffer) AsSlice() []interface{} {
+// Contents returns the ring buffer, in order, as a slice.
+func (rb *RingBuffer) Contents() []interface{} {
+	newArray := make([]interface{}, rb.size)
+
+	if rb.size == 0 {
+		return newArray
+	}
+
+	if rb.head < rb.tail {
+		arrayCopy(rb.array, rb.head, newArray, 0, rb.size)
+		arrayClear(rb.array, rb.head, rb.size)
+	} else {
+		arrayCopy(rb.array, rb.head, newArray, 0, len(rb.array)-rb.head)
+		arrayClear(rb.array, rb.head, len(rb.array)-rb.head)
+		arrayCopy(rb.array, 0, newArray, len(rb.array)-rb.head, rb.tail)
+		arrayClear(rb.array, 0, rb.tail)
+	}
+
+	return newArray
+}
+
+// Drain clears the buffer and removes the contents.
+func (rb *RingBuffer) Drain() []interface{} {
 	newArray := make([]interface{}, rb.size)
 
 	if rb.size == 0 {
@@ -170,6 +190,10 @@ func (rb *RingBuffer) AsSlice() []interface{} {
 		arrayCopy(rb.array, rb.head, newArray, 0, len(rb.array)-rb.head)
 		arrayCopy(rb.array, 0, newArray, len(rb.array)-rb.head, rb.tail)
 	}
+
+	rb.head = 0
+	rb.tail = 0
+	rb.size = 0
 
 	return newArray
 }
@@ -194,8 +218,8 @@ func (rb *RingBuffer) Each(consumer func(value interface{})) {
 	}
 }
 
-// Drain calls the consumer for each element in the buffer, while also dequeueing that entry.
-func (rb *RingBuffer) Drain(consumer func(value interface{})) {
+// Consume calls the consumer for each element in the buffer, while also dequeueing that entry.
+func (rb *RingBuffer) Consume(consumer func(value interface{})) {
 	if rb.size == 0 {
 		return
 	}
@@ -261,7 +285,7 @@ func (rb *RingBuffer) ReverseEachUntil(consumer func(value interface{}) bool) {
 
 func (rb *RingBuffer) String() string {
 	var values []string
-	for _, elem := range rb.AsSlice() {
+	for _, elem := range rb.Contents() {
 		values = append(values, fmt.Sprintf("%v", elem))
 	}
 	return strings.Join(values, " <= ")

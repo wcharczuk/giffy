@@ -1,0 +1,16 @@
+language: go
+sudo: false
+
+notifications:
+  slack:
+    rooms:
+      - secure: "WP3Gm4ga9Lr+p2+W3UeoQoGfPU7yTKmQkGBIcF6WaXjYewHUgp1b3soLWpgAwT/kcguSz/tvOA+wZ59rq7WqECmrcMJxo/M8rFhZaq5eykub43KSAhEPc+InXOBvVtrahz/h/wkUIiO556vmGBNXsydLE8CMk2mtiugEaTZo8k46beT7L651fRRw5KCBCcq+JFA71cm0Rj0kaz3+suzdGmtwARLtRN9l1tHC7crhJjeWL5fmEID6tiDkdFOmfyfrnTnikBXv0wItHLSiykXY8GfX9RvXJvRYRKhhMMu8PC8Zr/m7Z4/Mh+aWBRWubZfp5U81L9lvEdf1NFCs8XZtyauSmLWu+nLLr1kMDonxR0/LYRrlWZAIrjTEMfWkK+C5vFr4WffmIU61YTxAvp2+4A5b7/P0oBrjO8fgQbOJ2DXLwugvEBCxt3Zy18XU7piML9vH8dkIeOwFAUJBx/e1m1Mkdw/Qs2PSt3YVvxK8KRcekV43pa+0bbDh6LLsXMox1NS8fp//pyT4Al3zDz2hsjKZPQy4bwEw4B0giOfT+P2WP98FoYCixhtXVZTJXF2mF/pRtf70tCG+AezRelUAVWjQ1fyZvuZopiNuYQ3ALTfEmMWsAjw45n0sRNPKdupFwnMVWETwL2QIO/OOcJ2qS9fhUO+vVlT701+vWSlUrxc="
+    on_success: change 
+    on_failure: change
+    template:
+      - "%{repository_slug} %{message} %{duration}"
+      - "%{author} : (<%{compare_url}|%{commit}>) %{commit_message}"
+      - "Build Details: %{build_url}"
+
+script:
+  - go test -timeout 6s -race -v
