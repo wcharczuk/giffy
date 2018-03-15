@@ -7,6 +7,9 @@ WARN_COLOR=\033[33;01m
 CONFIG_PATH ?= _config/local.yml
 export CONFIG_PATH
 
+NAMESPACE ?= giffy
+export NAMESPACE
+
 all: test
 
 new-install: init-db db
@@ -43,5 +46,18 @@ migrate:
 build:
 	@docker build -t giffy:latest -t wcharczuk/giffy:latest -f Dockerfile .
 
-deploy: build
+push: build
 	@docker push wcharczuk/giffy:latest
+
+kube-init:
+	@kubectl create namespace $(NAMESPACE)
+
+provision: #push
+	@kubectl --namespace=$(NAMESPACE) create secret generic web-config --from-file=config.yml=$(CONFIG_PATH)
+	@kubectl --namespace=$(NAMESPACE) create -f _kube/deployment.yml
+	@kubectl --namespace=$(NAMESPACE) create -f _kube/service.yml
+
+deprecate: 
+	@kubectl --namespace=$(NAMESPACE) delete --ignore-not-found --grace-period=0 -f _kube/service.yml
+	@kubectl --namespace=$(NAMESPACE) delete --ignore-not-found --grace-period=0 -f _kube/deployment.yml
+	@kubectl --namespace=$(NAMESPACE) delete secret web-config --ignore-not-found

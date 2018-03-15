@@ -1,0 +1,59 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: web-server
+  namespace: giffy
+  labels:
+    kind: deployment
+    role: web-server
+    env: prod
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        kind: pod
+        role: web-server
+        env: prod
+    spec:
+      volumes:
+      - name: config
+        secret: 
+          secretName: web-config
+      - name: cloudsql-instance-credentials
+        secret:
+          secretName: cloudsql-instance-credentials
+      containers:
+      - name: giffy-web-server
+        image: docker.io/wcharczuk/giffy:latest
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        ports:
+          - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: "/var/run/secrets/config"
+          readOnly: true
+        env:
+        - name: CONFIG_PATH
+          value: "/var/run/secrets/config/config.yml"
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.11
+        command: ["/cloud_sql_proxy",
+                  "-instances=cluster-194121:us-central1:db-00=tcp:5432",
+                  "-credential_file=/secrets/cloudsql/credentials.json"]
+        volumeMounts:
+          - name: cloudsql-instance-credentials
+            mountPath: /secrets/cloudsql
+            readOnly: true
