@@ -39,3 +39,9 @@ migrate:
 	@echo "$(OK_COLOR)==> Migrating Database$(NO_COLOR)"
 	@genv run --plaintext=_config/config.json -- go run ./database/migrate.go
 	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"
+
+build:
+	@docker build -t giffy:latest -t wcharczuk/giffy:latest -f Dockerfile .
+
+deploy: build
+	@docker push wcharczuk/giffy:latest
