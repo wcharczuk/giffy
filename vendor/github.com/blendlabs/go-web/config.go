@@ -138,9 +138,28 @@ func (c Config) GetDefaultHeaders(inherited ...map[string]string) map[string]str
 	return output
 }
 
+// ListenTLS returns if the server will directly serve requests with tls.
+func (c Config) ListenTLS() bool {
+	return c.TLS.HasKeyPair()
+}
+
+// BaseURLIsSecureScheme returns if the base url starts with a secure scheme.
+func (c Config) BaseURLIsSecureScheme() bool {
+	baseURL := c.GetBaseURL()
+	if len(baseURL) == 0 {
+		return false
+	}
+	return util.String.HasPrefixCaseInsensitive(baseURL, SchemeHTTPS) || util.String.HasPrefixCaseInsensitive(baseURL, SchemeSPDY)
+}
+
+// IsSecure returns if the config specifies the app will eventually be handling https requests.
+func (c Config) IsSecure() bool {
+	return c.ListenTLS() || c.BaseURLIsSecureScheme()
+}
+
 // GetHSTS returns a property or a default.
 func (c Config) GetHSTS(inherited ...bool) bool {
-	return util.Coalesce.Bool(c.HSTS, DefaultHSTS && (c.ListenTLS() || c.BaseURLIsSecureScheme()), inherited...)
+	return util.Coalesce.Bool(c.HSTS, DefaultHSTS && c.IsSecure(), inherited...)
 }
 
 // GetHSTSMaxAgeSeconds returns a property or a default.
@@ -198,23 +217,9 @@ func (c Config) GetSessionTimeoutIsAbsolute(defaults ...bool) bool {
 	return util.Coalesce.Bool(c.SessionTimeoutIsAbsolute, DefaultSessionTimeoutIsAbsolute, defaults...)
 }
 
-// ListenTLS returns if we should use a tls listener.
-func (c Config) ListenTLS() bool {
-	return c.TLS.HasKeyPair()
-}
-
-// BaseURLIsSecureScheme returns if the base url starts with https.
-func (c Config) BaseURLIsSecureScheme() bool {
-	baseURL := c.GetBaseURL()
-	if len(baseURL) == 0 {
-		return false
-	}
-	return util.String.HasPrefixCaseInsensitive(baseURL, "https://") || util.String.HasPrefixCaseInsensitive(baseURL, "spdy://")
-}
-
 // GetCookieHTTPSOnly returns a property or a default.
 func (c Config) GetCookieHTTPSOnly(defaults ...bool) bool {
-	return util.Coalesce.Bool(c.CookieHTTPSOnly, c.ListenTLS() || c.BaseURLIsSecureScheme(), defaults...)
+	return util.Coalesce.Bool(c.CookieHTTPSOnly, c.IsSecure(), defaults...)
 }
 
 // GetCookieName returns a property or a default.

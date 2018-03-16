@@ -18,15 +18,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		os.Exit(1)
 	}
+
 	log := logger.NewFromConfig(&cfg.Logger)
 
-	err = env.Env().ReadInto(&cfg)
-	if err != nil {
-		log.SyncWarning(err)
-	}
-
-	if cfg.Web.TLS.HasKeyPair() || cfg.Web.BaseURLIsSecureScheme() {
-
+	if cfg.Web.IsSecure() {
+		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader)
+		go log.SyncFatal(upgrader.Start()))))
 	}
 
 	server.New(&cfg).WithLogger(log).Start()

@@ -83,5 +83,11 @@ func ReadFromPath(ref Any, path string) error {
 		return exception.Wrap(err)
 	}
 	defer f.Close()
-	return Deserialize(filepath.Ext(path), f, ref)
+	err = Deserialize(filepath.Ext(path), f, ref)
+	if err != nil {
+		return err
+	}
+
+	// also read the env into the config
+	return env.Env().ReadInto(ref)
 }
