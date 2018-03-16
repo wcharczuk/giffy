@@ -60,18 +60,18 @@ func (i Index) Register(app *web.App) {
 	app.GET("/favicon.ico", i.faviconAction)
 
 	if i.Config.IsProduction() {
-		app.Static("/static/*filepath", "_client/dist")
-		app.AddStaticRewriteRule("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
+		app.ServeStatic("/static/*filepath", "_client/dist")
+		app.WithStaticRewriteRule("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
 			if len(parts) < 4 {
 				return path
 			}
 			return fmt.Sprintf("%s.%s", parts[1], parts[3])
 		})
-		app.AddStaticHeader("/static/*filepath", "access-control-allow-origin", "*")
-		app.AddStaticHeader("/static/*filepath", "cache-control", "public,max-age=315360000")
+		app.WithStaticHeader("/static/*filepath", "access-control-allow-origin", "*")
+		app.WithStaticHeader("/static/*filepath", "cache-control", "public,max-age=315360000")
 	} else {
-		app.Static("/bower/*filepath", "_client/bower")
-		app.Static("/static/*filepath", "_client/src")
+		app.ServeStatic("/bower/*filepath", "_client/bower")
+		app.ServeStatic("/static/*filepath", "_client/src")
 	}
 
 	app.GET("/status", i.statusAction)
