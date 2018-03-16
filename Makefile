@@ -16,23 +16,23 @@ new-install: init-db db
 
 run:
 	@echo "$(OK_COLOR)==> Running$(NO_COLOR)"
-	@genv run --plaintext="./_config/config.json" -- go run main.go
+	@go run main.go
 
 test:
 	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
-	@genv run --plaintext="./_config/config.json" -- go test -timeout 5s "./server/..."
+	@go test -timeout 5s "./server/..."
 	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
 
 db-init: init-db
 
 init-db:
 	@echo "$(OK_COLOR)==> Fist Time Database Setup$(NO_COLOR)"
-	@genv run --plaintext="./_config/config.json" -- sh ./_config/init_db.sh
+	@sh ./_config/init_db.sh
 	@echo "$(OK_COLOR)==> Fist Time Database Setup Done!$(NO_COLOR)"
 
 db:
 	@echo "$(OK_COLOR)==> Initializing Database$(NO_COLOR)"
-	@genv run --plaintext=_config/config.json -- go run ./database/initialize.go
+	@go run ./database/initialize.go
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
 
 list-packages:
@@ -40,7 +40,7 @@ list-packages:
 
 migrate:
 	@echo "$(OK_COLOR)==> Migrating Database$(NO_COLOR)"
-	@genv run --plaintext=_config/config.json -- go run ./database/migrate.go
+	@go run ./database/migrate.go
 	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"
 
 build:

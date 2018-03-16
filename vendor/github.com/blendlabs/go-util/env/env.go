@@ -530,6 +530,10 @@ func (ev Vars) ReadInto(obj interface{}) error {
 				}
 			}
 
+			if !ev.Has(envVar) {
+				continue
+			}
+
 			if csv {
 				envValue = ev.CSV(envVar)
 			} else if base64 {
