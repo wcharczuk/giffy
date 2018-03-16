@@ -42,13 +42,12 @@ var (
 
 // Migrate migrates the db
 func Migrate() error {
-	migration.Default().SetLogger(migration.NewLogger(logger.NewFromEnv()))
 	return migration.Default().Apply(model.DB())
 }
 
 // New returns a new server instance.
-func New(cfg *config.Giffy) *web.App {
-	app := web.NewFromConfig(&cfg.Web)
+func New(log *logger.Logger, cfg *config.Giffy) *web.App {
+	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
 
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
@@ -60,11 +59,6 @@ func New(cfg *config.Giffy) *web.App {
 			model.DB().Create(model.NewError(ev.Err(), req))
 		}
 	}))
-
-	if app.Logger().IsEnabled(logger.Debug) {
-		app.Logger().Enable(spiffy.FlagQuery)
-		app.Logger().Enable(spiffy.FlagExecute)
-	}
 
 	app.Logger().Enable(core.FlagSearch, core.FlagModeration)
 	app.Logger().Listen(core.FlagSearch, "event-writer", func(e logger.Event) {

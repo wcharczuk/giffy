@@ -49,6 +49,10 @@ spec:
         env:
         - name: CONFIG_PATH
           value: "/var/run/secrets/config/config.yml"
+        - name: UPGRADE_PORT
+          value: 80
+        - name: PORT
+          value: 443
       - name: cloudsql-proxy
         image: gcr.io/cloudsql-docker/gce-proxy:1.11
         command: ["/cloud_sql_proxy",

@@ -6,7 +6,7 @@ import (
 
 	logger "github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-util/configutil"
-	"github.com/blendlabs/go-util/env"
+	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server"
 	"github.com/wcharczuk/giffy/server/config"
 )
@@ -22,9 +22,9 @@ func main() {
 	log := logger.NewFromConfig(&cfg.Logger)
 
 	if cfg.Web.IsSecure() {
-		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader)
-		go log.SyncFatal(upgrader.Start()))))
+		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader).WithLogger(log)
+		go log.SyncFatal(upgrader.Start())
 	}
 
-	server.New(&cfg).WithLogger(log).Start()
+	server.New(log, &cfg).WithLogger(log).Start()
 }

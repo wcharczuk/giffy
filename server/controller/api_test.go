@@ -309,7 +309,7 @@ func TestAPIGetTeams(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotEmpty(res.Response)
-	assert.Len(res.Response, 2)
+	assert.True(len(res.Response) >= 2)
 }
 
 func TestAPIGetTeamNotAuthed(t *testing.T) {
