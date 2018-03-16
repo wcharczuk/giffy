@@ -76,7 +76,7 @@
     "env",
     "uuid"
   ]
-  revision = "67dd2c8843eb91ad428df3be31d796564d54a6ce"
+  revision = "d7d69b3e9c98248ebaaa750776b0c0c7ae19c2d8"
   version = "v1.0.1"
 
 [[projects]]
