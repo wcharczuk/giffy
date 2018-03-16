@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -31,6 +30,8 @@ func New() *App {
 		redirectTrailingSlash: true,
 		recoverPanics:         true,
 
+		defaultHeaders: DefaultHeaders,
+
 		viewProvider: vrp,
 		jsonProvider: &JSONResultProvider{},
 		xmlProvider:  &XMLResultProvider{},
@@ -45,7 +46,7 @@ func NewFromEnv() *App {
 
 // NewFromConfig returns a new app from a given config.
 func NewFromConfig(cfg *Config) *App {
-	views, err := NewViewCacheFromConfig(&cfg.ViewCache)
+	views, err := NewViewCacheFromConfig(&cfg.Views)
 	if err != nil {
 		return &App{err: err}
 	}
@@ -66,7 +67,7 @@ func NewFromConfig(cfg *Config) *App {
 	}
 
 	return &App{
-		auth:                   NewAuthManagerFromConfig(&cfg.Auth),
+		auth:                   NewAuthManagerFromConfig(cfg),
 		state:                  map[string]interface{}{},
 		views:                  views,
 		statics:                map[string]Fileserver{},
@@ -78,6 +79,13 @@ func NewFromConfig(cfg *Config) *App {
 
 		bindAddr: cfg.GetBindAddr(),
 		baseURL:  base,
+
+		defaultHeaders: cfg.GetDefaultHeaders(DefaultHeaders),
+
+		hsts:                  cfg.GetHSTS(),
+		hstsMaxAgeSeconds:     cfg.GetHSTSMaxAgeSeconds(),
+		hstsIncludeSubdomains: cfg.GetHSTSIncludeSubDomains(),
+		hstsPreload:           cfg.GetHSTSPreload(),
 
 		maxHeaderBytes:    cfg.GetMaxHeaderBytes(),
 		readHeaderTimeout: cfg.GetReadHeaderTimeout(),
@@ -101,8 +109,13 @@ type App struct {
 	auth  *AuthManager
 	views *ViewCache
 
-	listenTLS bool
-	tlsConfig *tls.Config
+	hsts                  bool
+	hstsMaxAgeSeconds     int
+	hstsIncludeSubdomains bool
+	hstsPreload           bool
+	tlsConfig             *tls.Config
+
+	defaultHeaders map[string]string
 
 	startDelegate AppStartDelegate
 	server        *http.Server
@@ -137,7 +150,6 @@ type App struct {
 	recoverPanics bool
 
 	err error
-	tx  *sql.Tx
 }
 
 // Err returns an initialization error.
@@ -148,6 +160,26 @@ func (a *App) Err() error {
 // State is a bag for common app state.
 func (a *App) State() map[string]interface{} {
 	return a.state
+}
+
+// WithDefaultHeaders sets the default headers
+func (a *App) WithDefaultHeaders(headers map[string]string) *App {
+	a.defaultHeaders = headers
+	return a
+}
+
+// WithDefaultHeader adds a default header.
+func (a *App) WithDefaultHeader(key string, value string) *App {
+	if a.defaultHeaders == nil {
+		a.defaultHeaders = map[string]string{}
+	}
+	a.defaultHeaders[key] = value
+	return a
+}
+
+// DefaultHeaders returns the default headers.
+func (a *App) DefaultHeaders() map[string]string {
+	return a.defaultHeaders
 }
 
 // WithState sets app state and returns a reference to the app for building apps with a fluent api.
@@ -272,6 +304,50 @@ func (a *App) WithWriteTimeout(timeout time.Duration) *App {
 	return a
 }
 
+// WithHSTS enables or disables issuing the strict transport security header.
+func (a *App) WithHSTS(enabled bool) *App {
+	a.hsts = enabled
+	return a
+}
+
+// HSTS returns if strict transport security is enabled.
+func (a *App) HSTS() bool {
+	return a.hsts
+}
+
+// WithHSTSMaxAgeSeconds sets the hsts max age seconds.
+func (a *App) WithHSTSMaxAgeSeconds(ageSeconds int) *App {
+	a.hstsMaxAgeSeconds = ageSeconds
+	return a
+}
+
+// HSTSMaxAgeSeconds is the maximum lifetime browsers should honor the secure transport header.
+func (a *App) HSTSMaxAgeSeconds() int {
+	return a.hstsMaxAgeSeconds
+}
+
+// WithHSTSIncludeSubdomains sets if we should include subdomains in hsts.
+func (a *App) WithHSTSIncludeSubdomains(includeSubdomains bool) *App {
+	a.hstsIncludeSubdomains = includeSubdomains
+	return a
+}
+
+// HSTSIncludeSubdomains returns if we should include subdomains in hsts.
+func (a *App) HSTSIncludeSubdomains() bool {
+	return a.hstsIncludeSubdomains
+}
+
+// WithHSTSPreload sets if we preload hsts.
+func (a *App) WithHSTSPreload(preload bool) *App {
+	a.hstsPreload = preload
+	return a
+}
+
+// HSTSPreload returns if we should preload hsts.
+func (a *App) HSTSPreload() bool {
+	return a.hstsPreload
+}
+
 // WithTLSConfig sets the tls config for the app.
 func (a *App) WithTLSConfig(config *tls.Config) *App {
 	a.SetTLSConfig(config)
@@ -288,16 +364,16 @@ func (a *App) TLSConfig() *tls.Config {
 	return a.tlsConfig
 }
 
-// WithTLSCert sets the app to use TLS when listening, and returns a reference to the app for building apps with a fluent api.
-func (a *App) WithTLSCert(tlsCert, tlsKey []byte) *App {
-	if err := a.SetTLSCert(tlsCert, tlsKey); err != nil {
+// WithTLSCertPair sets the app to use TLS when listening, and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithTLSCertPair(tlsCert, tlsKey []byte) *App {
+	if err := a.SetTLSCertPair(tlsCert, tlsKey); err != nil {
 		a.err = err
 	}
 	return a
 }
 
-// SetTLSCert sets the app to use TLS with a given cert.
-func (a *App) SetTLSCert(tlsCert, tlsKey []byte) error {
+// SetTLSCertPair sets the app to use TLS with a given cert.
+func (a *App) SetTLSCertPair(tlsCert, tlsKey []byte) error {
 	cert, err := tls.X509KeyPair(tlsCert, tlsKey)
 	if err != nil {
 		return err
@@ -312,14 +388,14 @@ func (a *App) SetTLSCert(tlsCert, tlsKey []byte) error {
 	return nil
 }
 
-// WithTLSFromFiles sets the tls key pair from a given set of paths to files, and returns a reference to the app.
-func (a *App) WithTLSFromFiles(tlsCertPath, tlsKeyPath string) *App {
-	a.err = a.SetTLSFromFiles(tlsCertPath, tlsKeyPath)
+// WithTLSCertPairFromFiles sets the tls key pair from a given set of paths to files, and returns a reference to the app.
+func (a *App) WithTLSCertPairFromFiles(tlsCertPath, tlsKeyPath string) *App {
+	a.err = a.SetTLSCertPairFromFiles(tlsCertPath, tlsKeyPath)
 	return a
 }
 
-// SetTLSFromFiles reads a tls key pair from a given set of paths.
-func (a *App) SetTLSFromFiles(tlsCertPath, tlsKeyPath string) error {
+// SetTLSCertPairFromFiles reads a tls key pair from a given set of paths.
+func (a *App) SetTLSCertPairFromFiles(tlsCertPath, tlsKeyPath string) error {
 	cert, err := ioutil.ReadFile(tlsCertPath)
 	if err != nil {
 		return exception.Wrap(err)
@@ -330,7 +406,7 @@ func (a *App) SetTLSFromFiles(tlsCertPath, tlsKeyPath string) error {
 		return exception.Wrap(err)
 	}
 
-	return a.SetTLSCert(cert, key)
+	return a.SetTLSCertPair(cert, key)
 }
 
 // WithTLSFromEnv reads TLS settings from the environment, and returns a reference to the app for building apps with a fluent api.
@@ -349,9 +425,9 @@ func (a *App) SetTLSFromEnv() error {
 	tlsKeyPath := env.Env().String(EnvironmentVariableTLSKeyFile)
 
 	if len(tlsCert) > 0 && len(tlsKey) > 0 {
-		return a.SetTLSCert(tlsCert, tlsKey)
+		return a.SetTLSCertPair(tlsCert, tlsKey)
 	} else if len(tlsCertPath) > 0 && len(tlsKeyPath) > 0 {
-		return a.SetTLSFromFiles(tlsCertPath, tlsKeyPath)
+		return a.SetTLSCertPairFromFiles(tlsCertPath, tlsKeyPath)
 	}
 	return nil
 }
@@ -574,6 +650,12 @@ func (a *App) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	serverProtocol := "http"
+	if a.server.TLSConfig != nil {
+		serverProtocol = "https (tls)"
+	}
+
+	a.syncInfof("%s server shutting down", serverProtocol)
 	a.server.SetKeepAlivesEnabled(false)
 	return exception.Wrap(a.server.Shutdown(ctx))
 }
@@ -734,9 +816,9 @@ func (a *App) Views() *ViewCache {
 // Static Result Methods
 // --------------------------------------------------------------------------------
 
-// AddStaticRewriteRule adds a rewrite rule for a specific statically served path.
+// WithStaticRewriteRule adds a rewrite rule for a specific statically served path.
 // It mutates the path for the incoming static file request to the fileserver according to the action.
-func (a *App) AddStaticRewriteRule(route, match string, action RewriteAction) error {
+func (a *App) WithStaticRewriteRule(route, match string, action RewriteAction) error {
 	mountedRoute := a.createStaticMountRoute(route)
 	if static, hasRoute := a.statics[mountedRoute]; hasRoute {
 		return static.AddRewriteRule(mountedRoute, match, action)
@@ -744,9 +826,9 @@ func (a *App) AddStaticRewriteRule(route, match string, action RewriteAction) er
 	return exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", route)
 }
 
-// AddStaticHeader adds a header for the given static path.
+// WithStaticHeader adds a header for the given static path.
 // These headers are automatically added to any result that the static path fileserver sends.
-func (a *App) AddStaticHeader(route, key, value string) error {
+func (a *App) WithStaticHeader(route, key, value string) error {
 	mountedRoute := a.createStaticMountRoute(route)
 	if static, hasRoute := a.statics[mountedRoute]; hasRoute {
 		return static.AddHeader(key, value)
@@ -754,20 +836,20 @@ func (a *App) AddStaticHeader(route, key, value string) error {
 	return exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", mountedRoute)
 }
 
-// Static serves files from the given file system root.
+// ServeStatic serves files from the given file system root.
 // If the path does not end with "/*filepath" that suffix will be added for you internally.
 // For example if root is "/etc" and *filepath is "passwd", the local file
 // "/etc/passwd" would be served.
-func (a *App) Static(route, filepath string) {
+func (a *App) ServeStatic(route, filepath string) {
 	sfs := NewStaticFileServer(http.Dir(filepath))
 	mountedRoute := a.createStaticMountRoute(route)
 	a.statics[mountedRoute] = sfs
 	a.Handle("GET", mountedRoute, a.renderAction(a.middlewarePipeline(sfs.Action)))
 }
 
-// StaticCached serves files from the given file system root.
+// ServeStaticCached serves files from the given file system root.
 // If the path does not end with "/*filepath" that suffix will be added for you internally.
-func (a *App) StaticCached(route, filepath string) {
+func (a *App) ServeStaticCached(route, filepath string) {
 	sfs := NewCachedStaticFileServer(http.Dir(filepath))
 	mountedRoute := a.createStaticMountRoute(route)
 	a.statics[mountedRoute] = sfs
@@ -835,8 +917,13 @@ func (a *App) renderAction(action Action) Handler {
 	return func(w http.ResponseWriter, r *http.Request, route *Route, p RouteParameters, state State) {
 		var err error
 
-		w.Header().Set(HeaderServer, PackageName)
-		w.Header().Set(HeaderXServedBy, PackageName)
+		for key, value := range a.defaultHeaders {
+			w.Header().Set(key, value)
+		}
+
+		if a.hsts {
+			a.addHSTSHeader(w)
+		}
 
 		var response ResponseWriter
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
@@ -881,6 +968,17 @@ func (a *App) renderAction(action Action) Handler {
 	}
 }
 
+func (a *App) addHSTSHeader(w http.ResponseWriter) {
+	parts := []string{fmt.Sprintf(HSTSMaxAgeFormat, a.hstsMaxAgeSeconds)}
+	if a.hstsIncludeSubdomains {
+		parts = append(parts, HSTSIncludeSubDomains)
+	}
+	if a.hstsPreload {
+		parts = append(parts, HSTSPreload)
+	}
+	w.Header().Set(HeaderStrictTransportSecurity, strings.Join(parts, "; "))
+}
+
 func (a *App) loggerRequestStartEvent(ctx *Ctx) *logger.WebRequestEvent {
 	event := logger.NewWebRequestStartEvent(ctx.Request).
 		WithState(ctx.state)
@@ -901,6 +999,7 @@ func (a *App) loggerRequestEvent(ctx *Ctx) *logger.WebRequestEvent {
 	if ctx.Route() != nil {
 		event = event.WithRoute(ctx.Route().String())
 	}
+
 	if ctx.Response.Header() != nil {
 		event = event.WithContentType(ctx.Response.Header().Get(HeaderContentType))
 		event = event.WithContentEncoding(ctx.Response.Header().Get(HeaderContentEncoding))

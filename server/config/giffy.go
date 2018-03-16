@@ -47,10 +47,11 @@ type Giffy struct {
 	SlackClientSecret      string `json:"slackClientSecret" yaml:"slackClientSecret"`
 	SlackVerificationToken string `json:"slackVerificationToken" yaml:"slackVerificationToken"`
 
-	Logger logger.Config `json:"logger" yaml:"logger"`
-	Web    web.Config    `json:"web" yaml:"web"`
-	DB     spiffy.Config `json:"db" yaml:"db"`
-	Aws    Aws           `json:"aws" yaml:"aws"`
+	Logger   logger.Config           `json:"logger" yaml:"logger"`
+	Web      web.Config              `json:"web" yaml:"web"`
+	Upgrader web.HTTPSUpgraderConfig `json:"upgrader" yaml:"upgrader"`
+	DB       spiffy.Config           `json:"db" yaml:"db"`
+	Aws      Aws                     `json:"aws" yaml:"aws"`
 }
 
 // GetEnvironment returns a property or a default.

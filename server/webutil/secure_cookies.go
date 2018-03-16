@@ -13,10 +13,7 @@ func SecureCookies(app *web.App) {
 		return util.OptionalTime(time.Now().UTC().AddDate(0, 0, 7))
 	})
 
-	if app.BaseURL() != nil {
-		if util.String.CaseInsensitiveEquals(app.BaseURL().Scheme, "https") {
-			app.Auth().SetCookieHTTPS(true)
-			app.Logger().Infof("using secure cookies")
-		}
+	if app.Auth().CookieHTTPSOnly() {
+		app.Logger().SyncInfof("using secure cookies")
 	}
 }

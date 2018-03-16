@@ -15,6 +15,6 @@ func BaseURL(app *web.App) {
 	baseURL := env.Env().String(EnvVarBaseURL)
 	if len(baseURL) > 0 {
 		app.SetBaseURL(baseURL)
-		app.Logger().Infof("using domain root: %s", baseURL)
 	}
+	app.Logger().SyncInfof("using domain root: %s", baseURL)
 }

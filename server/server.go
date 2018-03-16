@@ -49,8 +49,6 @@ func Migrate() error {
 // New returns a new server instance.
 func New(cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web)
-	app.WithLogger(logger.NewFromConfig(&cfg.Logger))
-	logger.SetDefault(app.Logger())
 
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {

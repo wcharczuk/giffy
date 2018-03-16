@@ -72,17 +72,17 @@ func NewAuthManager() *AuthManager {
 }
 
 // NewAuthManagerFromConfig returns a new auth manager from a given config.
-func NewAuthManagerFromConfig(cfg *AuthManagerConfig) *AuthManager {
+func NewAuthManagerFromConfig(cfg *Config) *AuthManager {
 	return &AuthManager{
 		sessionCache:             NewSessionCache(),
 		useSessionCache:          cfg.GetUseSessionCache(),
 		sessionTimeout:           cfg.GetSessionTimeout(),
 		sessionTimeoutIsAbsolute: cfg.GetSessionTimeoutIsAbsolute(),
-		cookieHTTPS:              cfg.GetCookieHTTPS(),
+		cookieHTTPSOnly:          cfg.GetCookieHTTPSOnly(),
 		cookieName:               cfg.GetCookieName(),
 		cookiePath:               cfg.GetCookiePath(),
 		secureCookieKey:          cfg.GetSecureCookieKey(),
-		secureCookieHTTPS:        cfg.GetSecureCookieHTTPS(),
+		secureCookieHTTPSOnly:    cfg.GetSecureCookieHTTPSOnly(),
 		secureCookieName:         cfg.GetSecureCookieName(),
 		secureCookiePath:         cfg.GetSecureCookiePath(),
 	}
@@ -104,14 +104,14 @@ type AuthManager struct {
 	sessionTimeoutIsAbsolute bool
 	sessionTimeoutProvider   func(rc *Ctx) *time.Time
 
-	cookieName  string
-	cookiePath  string
-	cookieHTTPS bool
+	cookieName      string
+	cookiePath      string
+	cookieHTTPSOnly bool
 
-	secureCookieHTTPS bool
-	secureCookieKey   []byte
-	secureCookieName  string
-	secureCookiePath  string
+	secureCookieKey       []byte
+	secureCookieName      string
+	secureCookiePath      string
+	secureCookieHTTPSOnly bool
 }
 
 // --------------------------------------------------------------------------------
@@ -308,15 +308,15 @@ func (am *AuthManager) SetSessionTimeoutProvider(timeoutProvider func(rc *Ctx) *
 	am.sessionTimeoutProvider = timeoutProvider
 }
 
-// SetCookieHTTPS overrides defaults when determining if we should use the HTTPS only cooikie option.
+// SetCookieHTTPSOnly overrides defaults when determining if we should use the HTTPS only cooikie option.
 // The default depends on the app configuration (if tls is configured and enabled).
-func (am *AuthManager) SetCookieHTTPS(isHTTPSOnly bool) {
-	am.cookieHTTPS = isHTTPSOnly
+func (am *AuthManager) SetCookieHTTPSOnly(isHTTPSOnly bool) {
+	am.cookieHTTPSOnly = isHTTPSOnly
 }
 
-// CookieHTTPS returns if the cookie is for only https connections.
-func (am *AuthManager) CookieHTTPS() bool {
-	return am.cookieHTTPS
+// CookieHTTPSOnly returns if the cookie is for only https connections.
+func (am *AuthManager) CookieHTTPSOnly() bool {
+	return am.cookieHTTPSOnly
 }
 
 // SetCookieName sets the session cookie name.
@@ -405,12 +405,12 @@ func (am *AuthManager) SessionCache() *SessionCache {
 
 // IsCookieHTTPSOnly returns if the session cookie is configured to be secure only.
 func (am *AuthManager) IsCookieHTTPSOnly() bool {
-	return am.cookieHTTPS
+	return am.cookieHTTPSOnly
 }
 
 // IsSecureCookieHTTPSOnly returns if the secure session cookie is configured to be secure only.
 func (am *AuthManager) IsSecureCookieHTTPSOnly() bool {
-	return am.secureCookieHTTPS
+	return am.secureCookieHTTPSOnly
 }
 
 // GenerateSessionTimeout returns the absolute time the cookie would expire.
@@ -465,7 +465,7 @@ func (am AuthManager) createSecureSessionID(sessionID string) (string, error) {
 func (am *AuthManager) injectCookie(ctx *Ctx, sessionID string, expire *time.Time) {
 	paramName := am.CookieName()
 	path := am.CookiePath()
-	https := am.CookieHTTPS()
+	https := am.CookieHTTPSOnly()
 	if ctx != nil {
 		ctx.WriteNewCookie(paramName, sessionID, expire, path, https)
 	}

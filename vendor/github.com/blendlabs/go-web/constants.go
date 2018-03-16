@@ -65,6 +65,9 @@ const (
 	// HeaderXContentTypeOptions is the "X-Content-Type-Options" header.
 	HeaderXContentTypeOptions = "X-Content-Type-Options"
 
+	// HeaderStrictTransportSecurity is the hsts header.
+	HeaderStrictTransportSecurity = "Strict-Transport-Security"
+
 	// ContentTypeApplicationJSON is a content type for JSON responses.
 	// We specify chartset=utf-8 so that clients know to use the UTF-8 string encoding.
 	ContentTypeApplicationJSON = "application/json; charset=UTF-8"
@@ -92,13 +95,39 @@ const (
 	ContentEncodingGZIP = "gzip"
 )
 
+const (
+	// SchemeHTTP is a protocol scheme.
+	SchemeHTTP = "http"
+	// SchemeHTTPS is a protocol scheme.
+	SchemeHTTPS = "https"
+	// SchemeSPDY is a protocol scheme.
+	SchemeSPDY = "spdy"
+)
+
+const (
+	// HSTSMaxAgeFormat is the format string for a max age token.
+	HSTSMaxAgeFormat = "max-age=%d"
+
+	// HSTSIncludeSubDomains is a header value token.
+	HSTSIncludeSubDomains = "includeSubDomains"
+
+	// HSTSPreload is a header value token.
+	HSTSPreload = "preload"
+)
+
 // Environment Variables
 const (
 	// EnvironmentVariableBindAddr is an env var that determines (if set) what the bind address should be.
 	EnvironmentVariableBindAddr = "BIND_ADDR"
 
+	// EnvironmentVariableUpgraderBindAddr is an env var that determines (if set) what the bind address should be.
+	EnvironmentVariableUpgraderBindAddr = "UPGRADER_BIND_ADDR"
+
 	// EnvironmentVariablePort is an env var that determines what the default bind address port segment returns.
 	EnvironmentVariablePort = "PORT"
+
+	// EnvironmentVariableUpgraderPort is an env var that determines what the default bind address port segment returns.
+	EnvironmentVariableUpgraderPort = "UPGRADER_PORT"
 
 	// EnvironmentVariableTLSCert is an env var that contains the TLS cert.
 	EnvironmentVariableTLSCert = "TLS_CERT"
@@ -125,6 +154,15 @@ const (
 	DefaultHandleMethodNotAllowed = false
 	// DefaultRecoverPanics returns if we should recover panics by default.
 	DefaultRecoverPanics = true
+
+	// DefaultHSTS is the default for if hsts is enabled.
+	DefaultHSTS = true
+	// DefaultHSTSMaxAgeSeconds is the default hsts max age seconds.
+	DefaultHSTSMaxAgeSeconds = 31536000
+	// DefaultHSTSIncludeSubdomains is a default.
+	DefaultHSTSIncludeSubdomains = true
+	// DefaultHSTSPreload is a default.
+	DefaultHSTSPreload = true
 	// DefaultMaxHeaderBytes is a default that is unset.
 	DefaultMaxHeaderBytes = 0
 	// DefaultReadTimeout is a default.
@@ -135,14 +173,10 @@ const (
 	DefaultWriteTimeout time.Duration = 0
 	// DefaultIdleTimeout is a default.
 	DefaultIdleTimeout time.Duration = 0
-	// DefaultCookieHTTPS is a default.
-	DefaultCookieHTTPS = false
 	// DefaultCookieName is the default name of the field that contains the session id.
 	DefaultCookieName = "SID"
 	// DefaultSecureCookieName is the default name of the field that contains the secure session id.
 	DefaultSecureCookieName = "SSID"
-	// DefaultSecureCookieHTTPS is a default.
-	DefaultSecureCookieHTTPS = false
 	// DefaultCookiePath is the default cookie path.
 	DefaultCookiePath = "/"
 	// DefaultSessionTimeout is the default absolute timeout for a session (here implying we should use session lived sessions).
@@ -152,3 +186,9 @@ const (
 	// DefaultSessionTimeoutIsAbsolute is the default if we should set absolute session expiries.
 	DefaultSessionTimeoutIsAbsolute = true
 )
+
+// DefaultHeaders are the default headers added by go-web.
+var DefaultHeaders = map[string]string{
+	HeaderServer:    PackageName,
+	HeaderXServedBy: PackageName,
+}

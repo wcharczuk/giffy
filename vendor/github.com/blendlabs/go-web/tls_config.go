@@ -46,8 +46,7 @@ func (tc TLSConfig) GetCAPaths(defaults ...[]string) []string {
 
 // GetConfig returns a stdlib tls config for the config.
 func (tc TLSConfig) GetConfig() (*tls.Config, error) {
-	if (len(tc.GetCertPath()) == 0 && len(tc.GetKeyPath()) == 0) ||
-		(len(tc.GetCert()) == 0 && len(tc.GetKey()) == 0) {
+	if !tc.HasKeyPair() {
 		return nil, nil
 	}
 
@@ -89,4 +88,17 @@ func (tc TLSConfig) GetConfig() (*tls.Config, error) {
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      certPool,
 	}, nil
+}
+
+// HasKeyPair returns if the config names a keypair.
+func (tc TLSConfig) HasKeyPair() bool {
+	if len(tc.GetCert()) > 0 && len(tc.GetKey()) > 0 {
+		return true
+	}
+
+	if len(tc.GetCertPath()) > 0 && len(tc.GetKeyPath()) > 0 {
+		return true
+	}
+
+	return false
 }
