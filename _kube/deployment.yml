@@ -30,17 +30,18 @@ spec:
         livenessProbe:
           httpGet:
             path: /status
-            port: 8080
+            port: 80
           initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
           httpGet:
             path: /status
-            port: 8080
+            port: 80
           initialDelaySeconds: 5
           periodSeconds: 30
         ports:
-          - containerPort: 8080
+          - containerPort: 80
+          - containerPort: 443
         volumeMounts:
         - name: config
           mountPath: "/var/run/secrets/config"
