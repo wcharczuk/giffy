@@ -23,8 +23,10 @@ func main() {
 
 	if cfg.Web.IsSecure() {
 		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader).WithLogger(log)
-		go log.SyncFatal(upgrader.Start())
+		go func() {
+			log.SyncFatal(upgrader.Start())
+		}()
 	}
 
-	server.New(log, &cfg).WithLogger(log).Start()
+	log.SyncFatal(server.New(log, &cfg).WithLogger(log).Start())
 }

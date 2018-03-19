@@ -1,0 +1,18 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: gifffy-com-staging
+  namespace: giffy
+spec:
+  secretName: web-server-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: Issuer
+  dnsNames:
+  - gifffy.com
+  acme:
+    config:
+    - dns01:
+        provider: prod-dns
+      domains:
+      - gifffy.com

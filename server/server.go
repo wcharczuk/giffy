@@ -49,6 +49,10 @@ func Migrate() error {
 func New(log *logger.Logger, cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
 
+	if app.Err() != nil {
+		return app
+	}
+
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
 			model.DB().Create(model.NewError(ev.Err(), req))

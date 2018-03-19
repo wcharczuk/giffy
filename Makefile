@@ -61,3 +61,11 @@ deprecate:
 	@kubectl --namespace=$(NAMESPACE) delete --ignore-not-found --grace-period=0 -f _kube/service.yml
 	@kubectl --namespace=$(NAMESPACE) delete --ignore-not-found --grace-period=0 -f _kube/deployment.yml
 	@kubectl --namespace=$(NAMESPACE) delete secret web-config --ignore-not-found
+
+update-deployment:
+	@kubectl --namespace=$(NAMESPACE) delete --ignore-not-found --grace-period=0 -f _kube/deployment.yml
+	@kubectl --namespace=$(NAMESPACE) create -f _kube/deployment.yml
+
+update-config:
+	@kubectl --namespace=$(NAMESPACE) delete secret web-config --ignore-not-found
+	@kubectl --namespace=$(NAMESPACE) create secret generic web-config --from-file=config.yml=$(CONFIG_PATH)
