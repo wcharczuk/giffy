@@ -52,7 +52,7 @@ push: build
 kube-init:
 	@kubectl create namespace $(NAMESPACE)
 
-provision: #push
+provision:
 	@kubectl --namespace=$(NAMESPACE) create secret generic web-config --from-file=config.yml=$(CONFIG_PATH)
 	@kubectl --namespace=$(NAMESPACE) create -f _kube/deployment.yml
 	@kubectl --namespace=$(NAMESPACE) create -f _kube/service.yml
@@ -62,10 +62,13 @@ deprecate:
 	@kubectl --namespace=$(NAMESPACE) delete --ignore-not-found --grace-period=0 -f _kube/deployment.yml
 	@kubectl --namespace=$(NAMESPACE) delete secret web-config --ignore-not-found
 
-update-deployment:
+recreate-deployment:
 	@kubectl --namespace=$(NAMESPACE) delete --ignore-not-found --grace-period=0 -f _kube/deployment.yml
 	@kubectl --namespace=$(NAMESPACE) create -f _kube/deployment.yml
 
-update-config:
+recreate-config:
 	@kubectl --namespace=$(NAMESPACE) delete secret web-config --ignore-not-found
 	@kubectl --namespace=$(NAMESPACE) create secret generic web-config --from-file=config.yml=$(CONFIG_PATH)
+
+deploy:
+	@kubectl set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:latest
