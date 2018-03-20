@@ -32,12 +32,14 @@ spec:
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
+            scheme: HTTPS
             path: /status
             port: 443
           initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
           httpGet:
+            scheme: HTTPS
             path: /status
             port: 443
           initialDelaySeconds: 5
