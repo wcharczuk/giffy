@@ -27,7 +27,7 @@ spec:
         secret:
           secretName: web-server-tls
       containers:
-      - name: giffy-web-server
+      - name: web-server
         image: docker.io/wcharczuk/giffy:latest
         imagePullPolicy: Always
         livenessProbe:
