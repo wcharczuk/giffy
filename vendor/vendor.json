@@ -3,6 +3,12 @@
 	"ignore": "",
 	"package": [
 		{
+			"checksumSHA1": "w6yMAb9fA5Fyo+MQVFrEgTmbvds=",
+			"path": "github.com/blendlabs/go-google-oauth",
+			"revision": "f2882b9ca4bd56db954eab335978d0aeaee1299b",
+			"revisionTime": "2018-03-22T23:59:11Z"
+		},
+		{
 			"checksumSHA1": "9ehdeViXOQSPgXiyZAkbv1qox14=",
 			"path": "github.com/blendlabs/go-web",
 			"revision": "d0065e0ed395f2bf215da4b63a372d2006e3eb1a",
