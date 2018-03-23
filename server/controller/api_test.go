@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/blendlabs/go-assert"
+	google "github.com/blendlabs/go-google-oauth"
+	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/uuid"
 	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/config"
@@ -30,7 +32,7 @@ type testUsersResponse struct {
 
 type testImagesResponse struct {
 	Meta     *webutil.APIResponseMeta `json:"meta"`
-	Response []model.Image            `json:"response"`
+	Response []viewmodel.Image        `json:"response"`
 }
 
 type testCurrentUserResponse struct {
@@ -224,7 +226,7 @@ func TestAPISessionUser(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(API{Config: config.NewFromEnv()})
+	app.Register(API{Config: config.NewFromEnv(), Google: google.New().WithSecret(util.Crypto.MustCreateKey(32))})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
@@ -241,7 +243,7 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	defer tx.Rollback()
 
 	app := web.New()
-	app.Register(API{Config: config.NewFromEnv()})
+	app.Register(API{Config: config.NewFromEnv(), Google: google.New().WithSecret(util.Crypto.MustCreateKey(32))})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/session.user").JSON(&res)
