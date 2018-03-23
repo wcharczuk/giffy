@@ -9,7 +9,7 @@ import (
 
 // NewImage creates a new viewmodel image.
 func NewImage(img model.Image, cfg *config.Giffy) Image {
-	if cfg.IsProduction() {
+	if cfg.IsProduction() && len(cfg.GetCloudFrontDNS()) > 0 {
 		return Image{
 			Image:     img,
 			S3ReadURL: fmt.Sprintf("https://%s/%s", cfg.GetCloudFrontDNS(), img.S3Key),
