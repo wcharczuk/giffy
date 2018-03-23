@@ -72,4 +72,6 @@ recreate-config:
 
 deploy:
 	@kubectl --namespace=$(NAMESPACE) patch deployment web-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}"
-	#@kubectl --namespace=$(NAMESPACE) set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:latest
+
+set-deployment-image:
+	@kubectl --namespace=$(NAMESPACE) set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:latest
