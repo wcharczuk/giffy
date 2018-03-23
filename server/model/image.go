@@ -272,9 +272,23 @@ func DeleteImageByID(imageID int64, tx *sql.Tx) error {
 	return DB().ExecInTx(`delete from image where id = $1`, tx, imageID)
 }
 
-func searchImagesInternal(query string, contentRatingFilter int, tx *sql.Tx) ([]imageSignature, error) {
+func searchImagesInternal(query string, excludeUUIDs []string, contentRatingFilter int, tx *sql.Tx) ([]imageSignature, error) {
 	var imageIDs []imageSignature
-	searchImageQuery := `
+
+	args := []interface{}{
+		query,
+		contentRatingFilter,
+	}
+
+	var excludedClause string
+	if len(excludeUUIDs) > 0 {
+		excludedClause = fmt.Sprintf("and i.uuid not in (%s)", spiffy.ParamTokens(len(args)+1, len(excludeUUIDs)))
+		for _, excluded := range excludeUUIDs {
+			args = append(args, excluded)
+		}
+	}
+
+	searchImageQuery := fmt.Sprintf(`
 	select
 		vs.image_id as id
 		, sum(ts.score * vs.votes_total) as score
@@ -293,18 +307,20 @@ func searchImagesInternal(query string, contentRatingFilter int, tx *sql.Tx) ([]
 	where
 		vs.votes_total > 0
 		and i.content_rating <= $2
+		%s
 	group by
 		vs.image_id
 	order by
 		score desc;
-	`
-	err := DB().QueryInTx(searchImageQuery, tx, query, contentRatingFilter).OutMany(&imageIDs)
+	`, excludedClause)
+
+	err := DB().QueryInTx(searchImageQuery, tx, args...).OutMany(&imageIDs)
 	return imageIDs, err
 }
 
 // SearchImages searches for an image.
 func SearchImages(query string, contentRatingFilter int, tx *sql.Tx) ([]Image, error) {
-	imageIDs, err := searchImagesInternal(query, contentRatingFilter, tx)
+	imageIDs, err := searchImagesInternal(query, nil, contentRatingFilter, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +335,7 @@ func SearchImages(query string, contentRatingFilter int, tx *sql.Tx) ([]Image, e
 
 // SearchImagesWeightedRandom pulls a random count of images based on a search query. The most common `count` is 1.
 func SearchImagesWeightedRandom(query string, contentRatingFilter, count int, tx *sql.Tx) ([]Image, error) {
-	imageIDs, err := searchImagesInternal(query, contentRatingFilter, tx)
+	imageIDs, err := searchImagesInternal(query, nil, contentRatingFilter, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -340,8 +356,8 @@ func SearchImagesWeightedRandom(query string, contentRatingFilter, count int, tx
 
 // SearchImagesBestResult pulls the best result for a query.
 // This method is used for slack searches.
-func SearchImagesBestResult(query string, contentRating int, tx *sql.Tx) (*Image, error) {
-	imageIDs, err := searchImagesInternal(query, contentRating, tx)
+func SearchImagesBestResult(query string, excludeUUIDs []string, contentRating int, tx *sql.Tx) (*Image, error) {
+	imageIDs, err := searchImagesInternal(query, excludeUUIDs, contentRating, tx)
 	if err != nil {
 		return nil, err
 	}

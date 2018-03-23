@@ -71,6 +71,21 @@ func CSV(names []string) string {
 	return strings.Join(names, ",")
 }
 
+// ParamTokens returns a csv token string in the form "$1,$2,$3...$N" if passed (1, N).
+func ParamTokens(startAt, count int) string {
+	if count < 1 {
+		return ""
+	}
+	var str string
+	for i := startAt; i < startAt+count; i++ {
+		str = str + fmt.Sprintf("$%d", i)
+		if i < (startAt + count - 1) {
+			str = str + ","
+		}
+	}
+	return str
+}
+
 // --------------------------------------------------------------------------------
 // Internal / Reflection Utility Methods
 // --------------------------------------------------------------------------------

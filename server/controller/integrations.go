@@ -110,15 +110,15 @@ func (i Integrations) slackErrorNoResults() string {
 }
 
 func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.Result {
-	query, _ := i.extractCallbackState(payload.CallbackID)
+	query, uuid := i.extractCallbackState(payload.CallbackID)
 	contentRatingFilter, errRes := i.contentRatingFilter(payload.Team.ID, rc)
 	if errRes != nil {
 		return errRes
 	}
 
 	rc.Logger().Infof("%#v", payload)
-	rc.Logger().Infof("search query: %s", query)
-	result, err := model.SearchImagesBestResult(query, contentRatingFilter, web.Tx(rc))
+	rc.Logger().Infof("search query: %s, excludes: %s", query, uuid)
+	result, err := model.SearchImagesBestResult(query, []string{uuid}, contentRatingFilter, web.Tx(rc))
 	if err != nil {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
@@ -254,7 +254,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 		uuid := strings.TrimPrefix(args.Query, "img:")
 		result, err = model.GetImageByUUID(uuid, web.Tx(rc))
 	} else {
-		result, err = model.SearchImagesBestResult(args.Query, contentRatingFilter, web.Tx(rc))
+		result, err = model.SearchImagesBestResult(args.Query, nil, contentRatingFilter, web.Tx(rc))
 	}
 
 	if err != nil {

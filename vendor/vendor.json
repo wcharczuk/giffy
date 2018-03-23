@@ -13,6 +13,13 @@
 			"path": "github.com/blendlabs/go-web",
 			"revision": "d0065e0ed395f2bf215da4b63a372d2006e3eb1a",
 			"revisionTime": "2018-03-23T20:51:55Z"
+		},
+		{
+			"checksumSHA1": "z7w09ahmV+EC5PrW84W/ixuL9+8=",
+			"origin": "github.com/wcharczuk/giffy/vendor/github.com/blendlabs/spiffy",
+			"path": "github.com/blendlabs/spiffy",
+			"revision": "97c3f2f496fe075974b8e391d01557a969ef5632",
+			"revisionTime": "2018-03-23T22:41:54Z"
 		}
 	],
 	"rootPath": "github.com/wcharczuk/giffy"

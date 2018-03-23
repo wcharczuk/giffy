@@ -289,10 +289,15 @@ func TestSearchImagesBestResult(t *testing.T) {
 	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, tag1value, tx)
 	assert.Nil(err)
 
-	image, err := SearchImagesBestResult(tag1value, ContentRatingFilterDefault, tx)
+	image, err := SearchImagesBestResult(tag1value, nil, ContentRatingFilterDefault, tx)
 	assert.Nil(err)
 	assert.NotNil(image)
 	assert.Equal(i.ID, image.ID)
+
+	image, err = SearchImagesBestResult("__test", []string{i.UUID}, ContentRatingFilterDefault, tx)
+	assert.Nil(err)
+	assert.NotNil(image)
+	assert.Equal(i2.ID, image.ID)
 }
 
 func TestImageSignaturesWeightedRandom(t *testing.T) {
