@@ -27,66 +27,66 @@ func NewViewResultProvider(log *logger.Logger, vc *ViewCache) *ViewResultProvide
 
 // ViewResultProvider returns results based on views.
 type ViewResultProvider struct {
-	log                   *logger.Logger
-	badRequestTemplate    string
-	internalErrorTemplate string
-	notFoundTemplate      string
-	notAuthorizedTemplate string
-	views                 *ViewCache
+	log                       *logger.Logger
+	badRequestTemplateName    string
+	internalErrorTemplateName string
+	notFoundTemplateName      string
+	notAuthorizedTemplateName string
+	views                     *ViewCache
 }
 
-// WithBadRequestTemplate sets the bad request template.
-func (vr *ViewResultProvider) WithBadRequestTemplate(template string) *ViewResultProvider {
-	vr.badRequestTemplate = template
+// WithBadRequestTemplateName sets the bad request template.
+func (vr *ViewResultProvider) WithBadRequestTemplateName(templateName string) *ViewResultProvider {
+	vr.badRequestTemplateName = templateName
 	return vr
 }
 
-// BadRequestTemplate returns the bad request template.
-func (vr *ViewResultProvider) BadRequestTemplate() string {
-	if len(vr.badRequestTemplate) > 0 {
-		return vr.badRequestTemplate
+// BadRequestTemplateName returns the bad request template.
+func (vr *ViewResultProvider) BadRequestTemplateName() string {
+	if len(vr.badRequestTemplateName) > 0 {
+		return vr.badRequestTemplateName
 	}
 	return DefaultTemplateBadRequest
 }
 
-// WithInternalErrorTemplate sets the bad request template.
-func (vr *ViewResultProvider) WithInternalErrorTemplate(template string) *ViewResultProvider {
-	vr.internalErrorTemplate = template
+// WithInternalErrorTemplateName sets the bad request template.
+func (vr *ViewResultProvider) WithInternalErrorTemplateName(templateName string) *ViewResultProvider {
+	vr.internalErrorTemplateName = templateName
 	return vr
 }
 
-// InternalErrorTemplate returns the bad request template.
-func (vr *ViewResultProvider) InternalErrorTemplate() string {
-	if len(vr.internalErrorTemplate) > 0 {
-		return vr.internalErrorTemplate
+// InternalErrorTemplateName returns the bad request template.
+func (vr *ViewResultProvider) InternalErrorTemplateName() string {
+	if len(vr.internalErrorTemplateName) > 0 {
+		return vr.internalErrorTemplateName
 	}
 	return DefaultTemplateInternalError
 }
 
-// WithNotFoundTemplate sets the bad request template.
-func (vr *ViewResultProvider) WithNotFoundTemplate(template string) *ViewResultProvider {
-	vr.notFoundTemplate = template
+// WithNotFoundTemplateName sets the not found request template name.
+func (vr *ViewResultProvider) WithNotFoundTemplateName(templateName string) *ViewResultProvider {
+	vr.notFoundTemplateName = templateName
 	return vr
 }
 
-// NotFoundTemplate returns the bad request template.
-func (vr *ViewResultProvider) NotFoundTemplate() string {
-	if len(vr.notFoundTemplate) > 0 {
-		return vr.notFoundTemplate
+// NotFoundTemplateName returns the not found template name.
+func (vr *ViewResultProvider) NotFoundTemplateName() string {
+	if len(vr.notFoundTemplateName) > 0 {
+		return vr.notFoundTemplateName
 	}
 	return DefaultTemplateNotFound
 }
 
-// WithNotAuthorizedTemplate sets the bad request template.
-func (vr *ViewResultProvider) WithNotAuthorizedTemplate(template string) *ViewResultProvider {
-	vr.notAuthorizedTemplate = template
+// WithNotAuthorizedTemplateName sets the bad request template.
+func (vr *ViewResultProvider) WithNotAuthorizedTemplateName(templateName string) *ViewResultProvider {
+	vr.notAuthorizedTemplateName = templateName
 	return vr
 }
 
-// NotAuthorizedTemplate returns the bad request template.
-func (vr *ViewResultProvider) NotAuthorizedTemplate() string {
-	if len(vr.notAuthorizedTemplate) > 0 {
-		return vr.notAuthorizedTemplate
+// NotAuthorizedTemplateName returns the bad request template name.
+func (vr *ViewResultProvider) NotAuthorizedTemplateName() string {
+	if len(vr.notAuthorizedTemplateName) > 0 {
+		return vr.notAuthorizedTemplateName
 	}
 	return DefaultTemplateNotAuthorized
 }
@@ -100,7 +100,7 @@ func (vr *ViewResultProvider) BadRequest(err error) Result {
 	return &ViewResult{
 		StatusCode: http.StatusBadRequest,
 		ViewModel:  err,
-		Template:   vr.views.Templates().Lookup(vr.BadRequestTemplate()),
+		Template:   vr.views.Templates().Lookup(vr.BadRequestTemplateName()),
 	}
 }
 
@@ -113,7 +113,7 @@ func (vr *ViewResultProvider) InternalError(err error) Result {
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
-		Template:   vr.views.Templates().Lookup(vr.InternalErrorTemplate()),
+		Template:   vr.views.Templates().Lookup(vr.InternalErrorTemplateName()),
 	}
 }
 
@@ -122,7 +122,7 @@ func (vr *ViewResultProvider) NotFound() Result {
 	return &ViewResult{
 		StatusCode: http.StatusNotFound,
 		ViewModel:  nil,
-		Template:   vr.views.Templates().Lookup(vr.NotFoundTemplate()),
+		Template:   vr.views.Templates().Lookup(vr.NotFoundTemplateName()),
 	}
 }
 
@@ -131,7 +131,7 @@ func (vr *ViewResultProvider) NotAuthorized() Result {
 	return &ViewResult{
 		StatusCode: http.StatusForbidden,
 		ViewModel:  nil,
-		Template:   vr.views.Templates().Lookup(vr.NotAuthorizedTemplate()),
+		Template:   vr.views.Templates().Lookup(vr.NotAuthorizedTemplateName()),
 	}
 }
 

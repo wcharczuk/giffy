@@ -58,10 +58,9 @@ type Image struct {
 	DisplayName   string `json:"display_name" db:"display_name"`
 	ContentRating int    `json:"content_rating" db:"content_rating"`
 
-	MD5       []byte `json:"md5" db:"md5"`
-	S3ReadURL string `json:"s3_read_url" db:"s3_read_url"`
-	S3Bucket  string `json:"-" db:"s3_bucket"`
-	S3Key     string `json:"-" db:"s3_key"`
+	MD5      []byte `json:"md5" db:"md5"`
+	S3Bucket string `json:"s3_bucket" db:"s3_bucket"`
+	S3Key    string `json:"s3_key" db:"s3_key"`
 
 	Width  int `json:"width" db:"width"`
 	Height int `json:"height" db:"height"`
@@ -105,7 +104,6 @@ func (i *Image) Populate(r *sql.Rows) error {
 		&i.DisplayName,
 		&i.ContentRating,
 		&i.MD5,
-		&i.S3ReadURL,
 		&i.S3Bucket,
 		&i.S3Key,
 		&i.Width,

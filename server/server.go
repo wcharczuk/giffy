@@ -48,11 +48,6 @@ func Migrate() error {
 // New returns a new server instance.
 func New(log *logger.Logger, cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
-
-	if app.Err() != nil {
-		return app
-	}
-
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
 			model.DB().Create(model.NewError(ev.Err(), req))
@@ -112,7 +107,6 @@ func New(log *logger.Logger, cfg *config.Giffy) *web.App {
 		chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
 		chronometer.Default().LoadJob(jobs.CleanTagValues{})
 		chronometer.Default().LoadJob(jobs.FixContentRating{})
-		chronometer.Default().LoadJob(jobs.FixImageSizes{})
 		chronometer.Default().Start()
 
 		return nil

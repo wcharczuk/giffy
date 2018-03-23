@@ -10,6 +10,7 @@ import (
 	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
+	"github.com/wcharczuk/giffy/server/viewmodel"
 	"github.com/wcharczuk/giffy/server/webutil"
 )
 
@@ -126,18 +127,20 @@ func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
 	}
 
+	output := viewmodel.NewImage(*result, i.Config)
+
 	res := slackMessage{}
 	res.ReplaceOriginal = true
 	res.ResponseType = "ephemeral"
 	var title string
 	if len(result.Tags) > 0 {
-		title = result.Tags[0].TagValue
+		title = output.Tags[0].TagValue
 	} else {
-		title = result.DisplayName
+		title = output.DisplayName
 	}
 
 	res.Attachments = []interface{}{
-		slackImageAttachment{Title: title, ImageURL: result.S3ReadURL},
+		slackImageAttachment{Title: title, ImageURL: output.S3ReadURL},
 		i.buttonActions(query, result.UUID),
 	}
 
@@ -145,7 +148,6 @@ func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.
 }
 
 func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Result {
-	var result *model.Image
 	var resultID *int64
 	var tagID *int64
 
@@ -155,16 +157,23 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 
 	_, uuid := i.extractCallbackState(payload.CallbackID)
 
-	result, err := model.GetImageByUUID(uuid, web.Tx(rc))
+	img, err := model.GetImageByUUID(uuid, web.Tx(rc))
 	if err != nil {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
+
+	if img == nil || img.IsZero() {
+		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
+	}
+
+	result := viewmodel.NewImage(*img, i.Config)
 
 	res := slackMessage{}
 	res.DeleteOriginal = true
 	res.AsUser = true
 	res.ResponseType = "in_channel"
 	res.AuthorName = payload.User.Name
+
 	var title string
 	if len(result.Tags) > 0 {
 		title = result.Tags[0].TagValue
@@ -225,7 +234,7 @@ func (i Integrations) arguments(rc *web.Ctx) slackArguments {
 	}
 }
 
-func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*model.Image, web.Result) {
+func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Image, web.Result) {
 	var result *model.Image
 	var resultID *int64
 	var tagID *int64
@@ -259,7 +268,8 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*model.Image,
 
 	foundResult = true
 	resultID = util.OptionalInt64(result.ID)
-	return result, nil
+	output := viewmodel.NewImage(*result, i.Config)
+	return &output, nil
 }
 
 func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {

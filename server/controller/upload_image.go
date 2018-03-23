@@ -128,7 +128,6 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 
 	newImage.S3Bucket = remoteEntry.Bucket
 	newImage.S3Key = remoteEntry.Key
-	newImage.S3ReadURL = fmt.Sprintf("https://s3-us-west-2.amazonaws.com/%s/%s", remoteEntry.Bucket, remoteEntry.Key)
 
 	err = model.DB().CreateInTx(newImage, tx)
 	if err != nil {

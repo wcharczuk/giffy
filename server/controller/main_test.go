@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"testing"
 
@@ -27,11 +28,18 @@ func TestMain(m *testing.M) {
 }
 
 func MockAuth(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (*web.AuthManager, *web.Session, error)) (*web.AuthManager, *web.Session) {
-	auth, session, err := mockUserProvider(tx)
+	auth, r, err := mockUserProvider(tx)
 	a.Nil(err)
 	a.NotNil(auth)
-	a.NotNil(session)
-	return auth, session
+	a.NotNil(r)
+	return auth, r
+}
+
+func MockLogout(a *assert.Assertions, am *web.AuthManager, session *web.Session, tx *sql.Tx) {
+	ctx := web.NewCtx(nil, &http.Request{}, nil, web.State{})
+	web.WithTx(ctx, tx)
+	ctx.SetSession(session)
+	a.Nil(am.Logout(ctx))
 }
 
 func MockAdminLogin(tx *sql.Tx) (*web.AuthManager, *web.Session, error) {

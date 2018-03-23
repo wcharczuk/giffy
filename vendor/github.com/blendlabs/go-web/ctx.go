@@ -176,8 +176,13 @@ func (rc *Ctx) WithDefaultResultProvider(provider ResultProvider) *Ctx {
 	return rc
 }
 
-// State returns an object in the state cache.
-func (rc *Ctx) State(key string) interface{} {
+// State returns the full state collection.
+func (rc *Ctx) State() State {
+	return rc.state
+}
+
+// GetState returns an object in the state cache.
+func (rc *Ctx) GetState(key string) interface{} {
 	if item, hasItem := rc.state[key]; hasItem {
 		return item
 	}

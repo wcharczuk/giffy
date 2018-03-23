@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/blendlabs/go-util/uuid"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
@@ -78,10 +79,9 @@ func CreateTestImage(userID int64, tx *sql.Tx) (*Image, error) {
 	i.Extension = "gif"
 	i.Width = 720
 	i.Height = 480
-	i.S3Bucket = core.UUIDv4().ToShortString()
-	i.S3Key = core.UUIDv4().ToShortString()
-	i.S3ReadURL = fmt.Sprintf("https://s3.amazonaws.com/%s/%s", i.S3Bucket, i.S3Key)
-	i.MD5 = core.UUIDv4()
+	i.S3Bucket = uuid.V4().String()
+	i.S3Key = uuid.V4().String()
+	i.MD5 = uuid.V4()
 	i.DisplayName = "Test Image"
 	err := DB().CreateInTx(i, tx)
 	return i, err

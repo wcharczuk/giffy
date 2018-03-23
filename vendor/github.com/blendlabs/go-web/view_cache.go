@@ -7,6 +7,8 @@ import (
 	"html/template"
 	"strings"
 	"time"
+
+	exception "github.com/blendlabs/go-exception"
 )
 
 // NewViewCache returns a new view cache.
@@ -19,22 +21,13 @@ func NewViewCache() *ViewCache {
 }
 
 // NewViewCacheFromConfig returns a new view cache from a config.
-func NewViewCacheFromConfig(cfg *ViewCacheConfig) (*ViewCache, error) {
-	var t *template.Template
-	var err error
-	if len(cfg.GetPaths()) > 0 {
-		t, err = template.New("").ParseFiles(cfg.GetPaths()...)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		t = template.New("")
-	}
+func NewViewCacheFromConfig(cfg *ViewCacheConfig) *ViewCache {
 	return &ViewCache{
 		viewFuncMap: viewUtils(),
-		viewCache:   t,
+		viewCache:   template.New(""),
+		viewPaths:   cfg.GetPaths(),
 		cached:      cfg.GetCached(),
-	}, nil
+	}
 }
 
 // NewViewCacheWithTemplates creates a new view cache wrapping the templates.
@@ -48,25 +41,36 @@ func NewViewCacheWithTemplates(templates *template.Template) *ViewCache {
 
 // ViewCache is the cached views used in view results.
 type ViewCache struct {
-	viewFuncMap template.FuncMap
-	viewPaths   []string
-	viewCache   *template.Template
-	cached      bool
+	viewFuncMap  template.FuncMap
+	viewPaths    []string
+	viewLiterals []string
+	viewCache    *template.Template
+	cached       bool
 }
 
-// SetCached sets if we should cache views once they're compiled.
+// SetCached sets if we should cache views once they're compiled, or always read them from disk.
+// Cached == True, use in memory storage for views
+// Cached == False, read the file from disk every time we want to render the view.
 func (vc *ViewCache) SetCached(cached bool) {
+	if vc == nil {
+		return
+	}
 	vc.cached = cached
 }
 
 // Cached indicates if the cache is enabled, or if we skip parsing views each load.
+// Cached == True, use in memory storage for views
+// Cached == False, read the file from disk every time we want to render the view.
 func (vc *ViewCache) Cached() bool {
+	if vc == nil {
+		return false
+	}
 	return vc.cached
 }
 
 // Initialize caches templates by path.
 func (vc *ViewCache) Initialize() error {
-	if len(vc.viewPaths) == 0 {
+	if len(vc.viewPaths) == 0 && len(vc.viewLiterals) == 0 {
 		return nil
 	}
 
@@ -79,37 +83,89 @@ func (vc *ViewCache) Initialize() error {
 }
 
 // Parse parses the view tree.
-func (vc *ViewCache) Parse() (*template.Template, error) {
-	return template.New("").Funcs(vc.viewFuncMap).ParseFiles(vc.viewPaths...)
+func (vc *ViewCache) Parse() (views *template.Template, err error) {
+	views = template.New("").Funcs(vc.viewFuncMap)
+	if len(vc.viewPaths) > 0 {
+		views, err = views.ParseFiles(vc.viewPaths...)
+		if err != nil {
+			err = exception.Wrap(err)
+			return
+		}
+	}
+
+	if len(vc.viewLiterals) > 0 {
+		for _, viewLiteral := range vc.viewLiterals {
+			views, err = views.Parse(viewLiteral)
+			if err != nil {
+				err = exception.Wrap(err)
+				return
+			}
+		}
+	}
+	return
 }
 
 // AddPaths adds paths to the view collection.
 func (vc *ViewCache) AddPaths(paths ...string) {
+	if vc == nil {
+		return
+	}
 	vc.viewPaths = append(vc.viewPaths, paths...)
+}
+
+// AddLiterals adds view literal strings to the view collection.
+func (vc *ViewCache) AddLiterals(views ...string) {
+	if vc == nil {
+		return
+	}
+	vc.viewLiterals = append(vc.viewLiterals, views...)
 }
 
 // SetPaths sets the view paths outright.
 func (vc *ViewCache) SetPaths(paths ...string) {
+	if vc == nil {
+		return
+	}
 	vc.viewPaths = paths
+}
+
+// SetLiterals sets the raw views outright.
+func (vc *ViewCache) SetLiterals(viewLiterals ...string) {
+	if vc == nil {
+		return
+	}
+	vc.viewLiterals = viewLiterals
 }
 
 // Paths returns the view paths.
 func (vc *ViewCache) Paths() []string {
+	if vc == nil {
+		return nil
+	}
 	return vc.viewPaths
 }
 
 // FuncMap returns the global view func map.
 func (vc *ViewCache) FuncMap() template.FuncMap {
+	if vc == nil {
+		return nil
+	}
 	return vc.viewFuncMap
 }
 
 // Templates gets the view cache for the app.
 func (vc *ViewCache) Templates() *template.Template {
+	if vc == nil {
+		return nil
+	}
 	return vc.viewCache
 }
 
 // SetTemplates sets the view cache for the app.
 func (vc *ViewCache) SetTemplates(viewCache *template.Template) {
+	if vc == nil {
+		return
+	}
 	vc.viewCache = viewCache
 }
 

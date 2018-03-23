@@ -21,6 +21,7 @@ import (
 func New() *App {
 	views := NewViewCache()
 	vrp := &ViewResultProvider{views: views}
+
 	return &App{
 		auth:                  NewAuthManager(),
 		state:                 map[string]interface{}{},
@@ -46,58 +47,39 @@ func NewFromEnv() *App {
 
 // NewFromConfig returns a new app from a given config.
 func NewFromConfig(cfg *Config) *App {
-	views, err := NewViewCacheFromConfig(&cfg.Views)
-	if err != nil {
-		return &App{err: err}
-	}
-	vrp := &ViewResultProvider{views: views}
+	app := New()
+
+	app = app.WithBindAddr(cfg.GetBindAddr())
+	app = app.WithRedirectTrailingSlash(cfg.GetRedirectTrailingSlash())
+	app = app.WithHandleMethodNotAllowed(cfg.GetHandleMethodNotAllowed())
+	app = app.WithHandleOptions(cfg.GetHandleOptions())
+	app = app.WithRecoverPanics(cfg.GetRecoverPanics())
+	app = app.WithDefaultHeaders(cfg.GetDefaultHeaders())
+
+	app = app.WithHSTS(cfg.GetHSTS())
+	app = app.WithHSTSMaxAgeSeconds(cfg.GetHSTSMaxAgeSeconds())
+	app = app.WithHSTSIncludeSubdomains(cfg.GetHSTSIncludeSubDomains())
+	app = app.WithHSTSPreload(cfg.GetHSTSPreload())
+
+	app = app.WithMaxHeaderBytes(cfg.GetMaxHeaderBytes())
+	app = app.WithReadHeaderTimeout(cfg.GetReadHeaderTimeout())
+	app = app.WithReadTimeout(cfg.GetReadTimeout())
+	app = app.WithWriteTimeout(cfg.GetWriteTimeout())
+	app = app.WithIdleTimeout(cfg.GetIdleTimeout())
+
+	app = app.WithParsedBaseURL(cfg.GetBaseURL())
+	app = app.WithAuth(NewAuthManagerFromConfig(cfg))
+	app = app.WithViews(NewViewCacheFromConfig(&cfg.Views))
+	app = app.WithViewResultProvider(&ViewResultProvider{views: app.Views()})
 
 	tlsConfig, err := cfg.TLS.GetConfig()
 	if err != nil {
-		return &App{err: err}
+		app = app.WithErr(err)
+	} else {
+		app = app.WithTLSConfig(tlsConfig)
 	}
 
-	baseURL := cfg.GetBaseURL()
-	var base *url.URL
-	if len(baseURL) > 0 {
-		base, err = url.Parse(baseURL)
-		if err != nil {
-			return &App{err: err}
-		}
-	}
-
-	return &App{
-		auth:                   NewAuthManagerFromConfig(cfg),
-		state:                  map[string]interface{}{},
-		views:                  views,
-		statics:                map[string]Fileserver{},
-		tlsConfig:              tlsConfig,
-		redirectTrailingSlash:  cfg.GetRedirectTrailingSlash(),
-		handleMethodNotAllowed: cfg.GetHandleMethodNotAllowed(),
-		handleOptions:          cfg.GetHandleOptions(),
-		recoverPanics:          cfg.GetRecoverPanics(),
-
-		bindAddr: cfg.GetBindAddr(),
-		baseURL:  base,
-
-		defaultHeaders: cfg.GetDefaultHeaders(DefaultHeaders),
-
-		hsts:                  cfg.GetHSTS(),
-		hstsMaxAgeSeconds:     cfg.GetHSTSMaxAgeSeconds(),
-		hstsIncludeSubdomains: cfg.GetHSTSIncludeSubDomains(),
-		hstsPreload:           cfg.GetHSTSPreload(),
-
-		maxHeaderBytes:    cfg.GetMaxHeaderBytes(),
-		readHeaderTimeout: cfg.GetReadHeaderTimeout(),
-		readTimeout:       cfg.GetReadTimeout(),
-		writeTimeout:      cfg.GetWriteTimeout(),
-		idleTimeout:       cfg.GetIdleTimeout(),
-
-		viewProvider: vrp,
-		jsonProvider: &JSONResultProvider{},
-		xmlProvider:  &XMLResultProvider{},
-		textProvider: &TextResultProvider{},
-	}
+	return app
 }
 
 // App is the server for the app.
@@ -134,10 +116,11 @@ type App struct {
 
 	defaultMiddleware []Middleware
 
-	viewProvider *ViewResultProvider
-	jsonProvider *JSONResultProvider
-	xmlProvider  *XMLResultProvider
-	textProvider *TextResultProvider
+	defaultResultProvider ResultProvider
+	viewProvider          *ViewResultProvider
+	jsonProvider          *JSONResultProvider
+	xmlProvider           *XMLResultProvider
+	textProvider          *TextResultProvider
 
 	maxHeaderBytes    int
 	readTimeout       time.Duration
@@ -148,17 +131,22 @@ type App struct {
 	state map[string]interface{}
 
 	recoverPanics bool
-
-	err error
+	err           error
 }
 
-// Err returns an initialization error.
+// WithErr sets the err that will abort app start.
+func (a *App) WithErr(err error) *App {
+	a.err = err
+	return a
+}
+
+// Err returns any errors that are generated before app start.
 func (a *App) Err() error {
 	return a.err
 }
 
 // State is a bag for common app state.
-func (a *App) State() map[string]interface{} {
+func (a *App) State() State {
 	return a.state
 }
 
@@ -188,9 +176,31 @@ func (a *App) WithState(key string, value interface{}) *App {
 	return a
 }
 
+// GetState gets app state element by key.
+func (a *App) GetState(key string) interface{} {
+	if a.state == nil {
+		return nil
+	}
+	if value, hasValue := a.state[key]; hasValue {
+		return value
+	}
+	return nil
+}
+
 // SetState sets app state.
 func (a *App) SetState(key string, value interface{}) {
 	a.state[key] = value
+}
+
+// RedirectTrailingSlash returns if we should redirect missing trailing slashes to the correct route.
+func (a *App) RedirectTrailingSlash() bool {
+	return a.redirectTrailingSlash
+}
+
+// WithRedirectTrailingSlash sets if we should redirect missing trailing slashes.
+func (a *App) WithRedirectTrailingSlash(value bool) *App {
+	a.redirectTrailingSlash = value
+	return a
 }
 
 // HandleMethodNotAllowed returns if we should handle unhandled verbs.
@@ -232,21 +242,24 @@ func (a *App) BaseURL() *url.URL {
 }
 
 // WithBaseURL sets the `BaseURL` field and returns a reference to the app for building apps with a fluent api.
-func (a *App) WithBaseURL(baseURL string) *App {
-	if err := a.SetBaseURL(baseURL); err != nil {
-		a.err = err
-	}
+func (a *App) WithBaseURL(baseURL *url.URL) *App {
+	a.SetBaseURL(baseURL)
 	return a
 }
 
 // SetBaseURL sets the base url for the app.
-func (a *App) SetBaseURL(baseURL string) error {
+func (a *App) SetBaseURL(baseURL *url.URL) {
+	a.baseURL = baseURL
+}
+
+// WithParsedBaseURL sets the BaseURL from a string.
+func (a *App) WithParsedBaseURL(baseURL string) *App {
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return exception.Wrap(err)
+		return a.withPreStartError(err)
 	}
 	a.baseURL = u
-	return nil
+	return a
 }
 
 // MaxHeaderBytes returns the app max header bytes.
@@ -367,7 +380,7 @@ func (a *App) TLSConfig() *tls.Config {
 // WithTLSCertPair sets the app to use TLS when listening, and returns a reference to the app for building apps with a fluent api.
 func (a *App) WithTLSCertPair(tlsCert, tlsKey []byte) *App {
 	if err := a.SetTLSCertPair(tlsCert, tlsKey); err != nil {
-		a.err = err
+		return a.withPreStartError(err)
 	}
 	return a
 }
@@ -390,7 +403,9 @@ func (a *App) SetTLSCertPair(tlsCert, tlsKey []byte) error {
 
 // WithTLSCertPairFromFiles sets the tls key pair from a given set of paths to files, and returns a reference to the app.
 func (a *App) WithTLSCertPairFromFiles(tlsCertPath, tlsKeyPath string) *App {
-	a.err = a.SetTLSCertPairFromFiles(tlsCertPath, tlsKeyPath)
+	if err := a.SetTLSCertPairFromFiles(tlsCertPath, tlsKeyPath); err != nil {
+		return a.withPreStartError(err)
+	}
 	return a
 }
 
@@ -412,7 +427,7 @@ func (a *App) SetTLSCertPairFromFiles(tlsCertPath, tlsKeyPath string) error {
 // WithTLSFromEnv reads TLS settings from the environment, and returns a reference to the app for building apps with a fluent api.
 func (a *App) WithTLSFromEnv() *App {
 	if err := a.SetTLSFromEnv(); err != nil {
-		a.err = err
+		return a.withPreStartError(err)
 	}
 	return a
 }
@@ -435,7 +450,7 @@ func (a *App) SetTLSFromEnv() error {
 // WithTLSClientCertPool sets the client cert pool and returns a reference to the app.
 func (a *App) WithTLSClientCertPool(certs ...[]byte) *App {
 	if err := a.SetTLSClientCertPool(certs...); err != nil {
-		a.err = err
+		return a.withPreStartError(err)
 	}
 	return a
 }
@@ -469,44 +484,6 @@ func (a *App) WithTLSClientCertVerification(verification tls.ClientAuthType) *Ap
 	}
 	a.tlsConfig.ClientAuth = verification
 	return a
-}
-
-// Logger returns the diagnostics agent for the app.
-func (a *App) Logger() *logger.Logger {
-	return a.log
-}
-
-// WithLogger sets the app logger agent and returns a reference to the app.
-// It also sets underlying loggers in any child resources like providers and the auth manager.
-func (a *App) WithLogger(log *logger.Logger) *App {
-	a.log = log
-	if a.viewProvider != nil {
-		a.viewProvider.log = log
-	}
-	if a.jsonProvider != nil {
-		a.jsonProvider.log = log
-	}
-	if a.xmlProvider != nil {
-		a.xmlProvider.log = log
-	}
-	if a.textProvider != nil {
-		a.textProvider.log = log
-	}
-	if a.auth != nil {
-		a.auth.log = log
-	}
-	return a
-}
-
-// WithAuth sets the auth manager.
-func (a *App) WithAuth(am *AuthManager) *App {
-	a.auth = am
-	return a
-}
-
-// Auth returns the session manager.
-func (a *App) Auth() *AuthManager {
-	return a.auth
 }
 
 // WithPort sets the port for the bind address of the app, and returns a reference to the app.
@@ -551,6 +528,33 @@ func (a *App) WithBindAddr(bindAddr string) *App {
 // WithBindAddrFromEnv sets the address the app listens on, and returns a reference to the app.
 func (a *App) WithBindAddrFromEnv() *App {
 	a.bindAddr = env.Env().String(EnvironmentVariableBindAddr)
+	return a
+}
+
+// Logger returns the diagnostics agent for the app.
+func (a *App) Logger() *logger.Logger {
+	return a.log
+}
+
+// WithLogger sets the app logger agent and returns a reference to the app.
+// It also sets underlying loggers in any child resources like providers and the auth manager.
+func (a *App) WithLogger(log *logger.Logger) *App {
+	a.log = log
+	if a.viewProvider != nil {
+		a.viewProvider.log = log
+	}
+	if a.jsonProvider != nil {
+		a.jsonProvider.log = log
+	}
+	if a.xmlProvider != nil {
+		a.xmlProvider.log = log
+	}
+	if a.textProvider != nil {
+		a.textProvider.log = log
+	}
+	if a.auth != nil {
+		a.auth.log = log
+	}
 	return a
 }
 
@@ -804,8 +808,88 @@ func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // --------------------------------------------------------------------------------
+// Result Providers
+// --------------------------------------------------------------------------------
+
+// WithViewResultProvider sets the view result provider.
+func (a *App) WithViewResultProvider(vrp *ViewResultProvider) *App {
+	a.viewProvider = vrp
+	return a
+}
+
+// ViewResultProvider returns the view result provider.
+func (a *App) ViewResultProvider() *ViewResultProvider {
+	return a.viewProvider
+}
+
+// WithJSONResultProvider sets the json result provider.
+func (a *App) WithJSONResultProvider(jrp *JSONResultProvider) *App {
+	a.jsonProvider = jrp
+	return a
+}
+
+// JSONResultProvider returns the json result provider.
+func (a *App) JSONResultProvider() *JSONResultProvider {
+	return a.jsonProvider
+}
+
+// WithTextResultProvider sets the text result provider.
+func (a *App) WithTextResultProvider(trp *TextResultProvider) *App {
+	a.textProvider = trp
+	return a
+}
+
+// TextResultProvider returns the text result provider.
+func (a *App) TextResultProvider() *TextResultProvider {
+	return a.textProvider
+}
+
+// WithXMLResultProvider sets the xml result provider.
+func (a *App) WithXMLResultProvider(xrp *XMLResultProvider) *App {
+	a.xmlProvider = xrp
+	return a
+}
+
+// XMLResultProvider returns the xml result provider.
+func (a *App) XMLResultProvider() *XMLResultProvider {
+	return a.xmlProvider
+}
+
+// WithDefaultResultProvider sets the default result provider.
+func (a *App) WithDefaultResultProvider(drp ResultProvider) *App {
+	a.defaultResultProvider = drp
+	return a
+}
+
+// DefaultResultProvider returns the app wide default result provider.
+func (a *App) DefaultResultProvider() ResultProvider {
+	return a.defaultResultProvider
+}
+
+// --------------------------------------------------------------------------------
+// Auth Manager
+// --------------------------------------------------------------------------------
+
+// WithAuth sets the auth manager.
+func (a *App) WithAuth(am *AuthManager) *App {
+	a.auth = am
+	return a
+}
+
+// Auth returns the session manager.
+func (a *App) Auth() *AuthManager {
+	return a.auth
+}
+
+// --------------------------------------------------------------------------------
 // Views
 // --------------------------------------------------------------------------------
+
+// WithViews sets the view cache.
+func (a *App) WithViews(vc *ViewCache) *App {
+	a.views = vc
+	return a
+}
 
 // Views returns the view cache.
 func (a *App) Views() *ViewCache {
@@ -1042,7 +1126,11 @@ func (a *App) createCtx(w ResponseWriter, r *http.Request, route *Route, p Route
 		json:            a.jsonProvider,
 		xml:             a.xmlProvider,
 		text:            a.textProvider,
-		defaultResultProvider: a.textProvider,
+		defaultResultProvider: a.defaultResultProvider,
+	}
+
+	if ctx.defaultResultProvider == nil {
+		ctx.defaultResultProvider = a.textProvider
 	}
 	if ctx.state == nil {
 		ctx.state = State{}
@@ -1114,12 +1202,23 @@ func (a *App) allowed(path, reqMethod string) (allow string) {
 	return
 }
 
+func (a *App) withPreStartError(err error) *App {
+	if err != nil {
+		a.logError(err)
+		if a.err == nil {
+			a.err = err
+		}
+	}
+	return a
+}
+
 func (a *App) logError(err error) {
 	if a.log == nil {
 		return
 	}
-
-	a.log.Error(err)
+	if err != nil {
+		a.log.Error(err)
+	}
 }
 
 func (a *App) syncInfof(format string, args ...interface{}) {

@@ -2,7 +2,6 @@ package web
 
 import (
 	"crypto/hmac"
-	"database/sql"
 	"net/url"
 	"time"
 
@@ -92,10 +91,10 @@ func NewAuthManagerFromConfig(cfg *Config) *AuthManager {
 type AuthManager struct {
 	useSessionCache      bool
 	sessionCache         *SessionCache
-	persistHandler       func(*Ctx, *Session, *sql.Tx) error
-	fetchHandler         func(sessionID string, tx *sql.Tx) (*Session, error)
-	removeHandler        func(sessionID string, tx *sql.Tx) error
-	validateHandler      func(*Session, *sql.Tx) error
+	persistHandler       func(*Ctx, *Session, State) error
+	fetchHandler         func(sessionID string, state State) (*Session, error)
+	removeHandler        func(sessionID string, state State) error
+	validateHandler      func(*Session, State) error
 	loginRedirectHandler func(*url.URL) *url.URL
 
 	log *logger.Logger
@@ -135,7 +134,7 @@ func (am *AuthManager) Login(userID string, ctx *Ctx) (session *Session, err err
 	session.ExpiresUTC = am.GenerateSessionTimeout(ctx)
 
 	if am.persistHandler != nil {
-		err = am.persistHandler(ctx, session, Tx(ctx))
+		err = am.persistHandler(ctx, session, ctx.state)
 		if err != nil {
 			return nil, am.err(err)
 		}
@@ -153,10 +152,12 @@ func (am *AuthManager) Login(userID string, ctx *Ctx) (session *Session, err err
 }
 
 // Logout unauthenticates a session.
-func (am *AuthManager) Logout(session *Session, ctx *Ctx) error {
-	if session == nil {
+func (am *AuthManager) Logout(ctx *Ctx) error {
+	if ctx.Session() == nil {
 		return nil
 	}
+
+	session := ctx.Session()
 
 	// remove from session cache if enabled
 	if am.useSessionCache {
@@ -174,7 +175,7 @@ func (am *AuthManager) Logout(session *Session, ctx *Ctx) error {
 	// remove the session from a backing store
 	if am.removeHandler != nil {
 		if ctx != nil {
-			return am.err(am.removeHandler(session.SessionID, Tx(ctx)))
+			return am.err(am.removeHandler(session.SessionID, ctx.state))
 		}
 		return am.err(am.removeHandler(session.SessionID, nil))
 	}
@@ -205,7 +206,7 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 	}
 
 	if session == nil && am.fetchHandler != nil {
-		session, err = am.fetchHandler(sessionID, Tx(ctx))
+		session, err = am.fetchHandler(sessionID, ctx.state)
 		if err != nil {
 			return nil, err
 		}
@@ -220,7 +221,7 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 		}
 		// if we have a remove handler and the sessionID is set
 		if am.removeHandler != nil && len(sessionID) > 0 {
-			err = am.removeHandler(sessionID, Tx(ctx))
+			err = am.removeHandler(sessionID, ctx.state)
 			if err != nil {
 				return nil, err
 			}
@@ -230,7 +231,7 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 	}
 
 	if am.validateHandler != nil {
-		err = am.validateHandler(session, Tx(ctx))
+		err = am.validateHandler(session, ctx.state)
 		if err != nil {
 			return nil, err
 		}
@@ -242,7 +243,7 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 	if am.shouldUpdateSessionExpiry() {
 		session.ExpiresUTC = am.GenerateSessionTimeout(ctx)
 		if am.persistHandler != nil {
-			err = am.persistHandler(ctx, session, Tx(ctx))
+			err = am.persistHandler(ctx, session, ctx.state)
 			if err != nil {
 				return nil, err
 			}
@@ -370,25 +371,25 @@ func (am *AuthManager) SetSecureCookiePath(path string) {
 
 // SetPersistHandler sets the persist handler.
 // It must be able to both create sessions and update sessions if the expiry changes.
-func (am *AuthManager) SetPersistHandler(handler func(*Ctx, *Session, *sql.Tx) error) {
+func (am *AuthManager) SetPersistHandler(handler func(*Ctx, *Session, State) error) {
 	am.persistHandler = handler
 }
 
 // SetFetchHandler sets the fetch handler.
 // It should return a session by a string sessionID.
-func (am *AuthManager) SetFetchHandler(handler func(sessionID string, tx *sql.Tx) (*Session, error)) {
+func (am *AuthManager) SetFetchHandler(handler func(sessionID string, state State) (*Session, error)) {
 	am.fetchHandler = handler
 }
 
 // SetRemoveHandler sets the remove handler.
 // It should remove a session from the backing store by a string sessionID.
-func (am *AuthManager) SetRemoveHandler(handler func(sessionID string, tx *sql.Tx) error) {
+func (am *AuthManager) SetRemoveHandler(handler func(sessionID string, steate State) error) {
 	am.removeHandler = handler
 }
 
 // SetValidateHandler sets the validate handler.
 // This is an optional handler that will evaluate the session when verifying requests that are session aware.
-func (am *AuthManager) SetValidateHandler(handler func(*Session, *sql.Tx) error) {
+func (am *AuthManager) SetValidateHandler(handler func(*Session, State) error) {
 	am.validateHandler = handler
 }
 
@@ -551,7 +552,7 @@ func (am AuthManager) debugf(format string, args ...interface{}) {
 }
 
 func (am AuthManager) err(err error) error {
-	if am.log != nil {
+	if am.log != nil && err != nil {
 		am.log.Error(err)
 	}
 	return err

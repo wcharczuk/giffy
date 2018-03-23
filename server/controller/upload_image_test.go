@@ -27,8 +27,8 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	fm.Mock()
 	defer fm.ReleaseMock()
 
-	auth, session := MockAuth(assert, tx, MockModeratorLogin)
-	defer auth.Logout(session, nil)
+	auth, session := MockAuth(assert, tx, MockAdminLogin)
+	defer MockLogout(assert, auth, session, tx)
 
 	f, err := os.Open("server/controller/testdata/image.gif")
 

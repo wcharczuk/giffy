@@ -35,7 +35,8 @@ type Giffy struct {
 	AdminUserEmail string `json:"adminUserEmail" yaml:"adminUserEmail"`
 	EncryptionKey  string `json:"encryptionKey" yaml:"encryptionKey"`
 
-	S3Bucket string `json:"s3Bucket" yaml:"s3Bucket"`
+	CloudFrontDNS string `json:"cloudfrontDNS" yaml:"cloudfrontDNS"`
+	S3Bucket      string `json:"s3Bucket" yaml:"s3Bucket"`
 
 	FacebookClientID     string `json:"facebookClientID" yaml:"facebookClientID"`
 	FacebookClientSecret string `json:"facebookClientSecret" yaml:"facebookClientSecret"`
@@ -67,6 +68,11 @@ func (g Giffy) IsProduction() bool {
 // GetS3Bucket gets a property or a default.
 func (g Giffy) GetS3Bucket(inherited ...string) string {
 	return util.Coalesce.String(g.S3Bucket, fmt.Sprintf("giffy-%s", g.GetEnvironment()), inherited...)
+}
+
+// GetCloudFrontDNS returns the cdn.
+func (g Giffy) GetCloudFrontDNS(inherited ...string) string {
+	return util.Coalesce.String(g.CloudFrontDNS, "", inherited...)
 }
 
 // GetEncryptionKey gets the config encryption key as a byte blob.

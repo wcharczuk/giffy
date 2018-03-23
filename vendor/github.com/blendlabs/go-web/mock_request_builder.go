@@ -167,10 +167,15 @@ func (mrb *MockRequestBuilder) Tx(keys ...string) *sql.Tx {
 	if keys != nil && len(keys) > 0 {
 		key = StateKeyPrefixTx + keys[0]
 	}
-	if typed, isTyped := mrb.State(key).(*sql.Tx); isTyped {
+	if typed, isTyped := mrb.GetState(key).(*sql.Tx); isTyped {
 		return typed
 	}
 	return nil
+}
+
+// State returns the underlying state.
+func (mrb *MockRequestBuilder) State() State {
+	return mrb.state
 }
 
 // WithState sets the state for a key to an object.
@@ -179,8 +184,8 @@ func (mrb *MockRequestBuilder) WithState(key string, value interface{}) *MockReq
 	return mrb
 }
 
-// State returns an object in the state cache.
-func (mrb *MockRequestBuilder) State(key string) interface{} {
+// GetState returns an object in the state cache.
+func (mrb *MockRequestBuilder) GetState(key string) interface{} {
 	if item, hasItem := mrb.state[key]; hasItem {
 		return item
 	}

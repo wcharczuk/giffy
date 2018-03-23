@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 
+	google "github.com/blendlabs/go-google-oauth"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-web"
 
@@ -26,6 +27,7 @@ const (
 
 // Auth is the main controller for the app.
 type Auth struct {
+	Google *google.Manager
 	Config *config.Giffy
 }
 
@@ -38,7 +40,6 @@ func (ac Auth) Register(app *web.App) {
 	app.Auth().SetRemoveHandler(webutil.RemoveSession)
 
 	app.GET("/oauth/google", ac.oauthGoogleAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
-	app.GET("/oauth/facebook", ac.oauthFacebookAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
 	app.GET("/oauth/slack", ac.oauthSlackAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
 	app.GET("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
 	app.POST("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
@@ -80,48 +81,22 @@ func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 	return r.Redirectf("/slack/complete")
 }
 
-func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
-	code := r.ParamString("code")
-	if len(code) == 0 {
-		return r.View().BadRequest(fmt.Errorf("`code` parameter missing, cannot continue"))
-	}
-
-	oa, err := external.GoogleOAuth(code, ac.Config)
-	if err != nil {
-		return r.View().InternalError(err)
-	}
-
-	profile, err := external.FetchGoogleProfile(oa.AccessToken)
-	if err != nil {
-		return r.View().InternalError(err)
-	}
-
-	prototypeUser := profile.AsUser()
-	return ac.finishOAuthLogin(r, OAuthProviderGoogle, oa.AccessToken, oa.IDToken, prototypeUser)
+func (ac Auth) mapGoogleUser(profile *google.Profile) *model.User {
+	user := model.NewUser(profile.Email)
+	user.EmailAddress = profile.Email
+	user.IsEmailVerified = profile.VerifiedEmail
+	user.FirstName = profile.GivenName
+	user.LastName = profile.FamilyName
+	return user
 }
 
-func (ac Auth) oauthFacebookAction(r *web.Ctx) web.Result {
-	code := r.ParamString("code")
-	if len(code) == 0 {
-		return r.View().BadRequest(fmt.Errorf("`code` parameter missing, cannot continue"))
-	}
-
-	oa, err := external.FacebookOAuth(code, ac.Config)
+func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
+	res, err := ac.Google.Finish(r.Request)
 	if err != nil {
-		return r.View().InternalError(err)
+		return r.View().NotAuthorized()
 	}
-
-	profile, err := external.FetchFacebookProfile(oa.AccessToken)
-	if err != nil {
-		return r.View().InternalError(err)
-	}
-
-	if len(profile.Email) == 0 {
-		return r.View().BadRequest(fmt.Errorf("Facebook privacy settings restrict email; cannot continue"))
-	}
-
-	prototypeUser := profile.AsUser()
-	return ac.finishOAuthLogin(r, OAuthProviderGoogle, oa.AccessToken, util.StringEmpty, prototypeUser)
+	prototypeUser := ac.mapGoogleUser(res.Profile)
+	return ac.finishOAuthLogin(r, OAuthProviderGoogle, res.Response.AccessToken, res.Response.IDToken, prototypeUser)
 }
 
 func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret string, prototypeUser *model.User) web.Result {
@@ -131,7 +106,6 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 	}
 
 	var userID int64
-
 	//create the user if it doesn't exist ...
 	if existingUser.IsZero() {
 		err = model.DB().Create(prototypeUser)
@@ -189,7 +163,7 @@ func (ac Auth) logoutAction(r *web.Ctx) web.Result {
 		return r.Redirectf("/")
 	}
 
-	err := r.Auth().Logout(session, r)
+	err := r.Auth().Logout(r)
 	if err != nil {
 		return r.View().InternalError(err)
 	}

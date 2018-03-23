@@ -60,7 +60,7 @@ func TestAPIUsers(t *testing.T) {
 	defer tx.Rollback()
 
 	auth, session := MockAuth(assert, tx, MockAdminLogin)
-	defer auth.Logout(session, nil)
+	defer MockLogout(assert, auth, session, tx)
 
 	app := web.New()
 	app.WithAuth(auth)
@@ -79,11 +79,11 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 	defer tx.Rollback()
 
 	auth, session := MockAuth(assert, tx, MockModeratorLogin)
-	defer auth.Logout(session, nil)
+	defer MockLogout(assert, auth, session, tx)
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(API{})
+	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
@@ -98,7 +98,7 @@ func TestAPIUserSearch(t *testing.T) {
 	defer tx.Rollback()
 
 	auth, session := MockAuth(assert, tx, MockAdminLogin)
-	defer auth.Logout(session, nil)
+	defer MockLogout(assert, auth, session, tx)
 
 	app := web.New()
 	app.WithAuth(auth)
@@ -121,7 +121,7 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 	defer tx.Rollback()
 
 	auth, session := MockAuth(assert, tx, MockModeratorLogin)
-	defer auth.Logout(session, nil)
+	defer MockLogout(assert, auth, session, tx)
 
 	app := web.New()
 	app.WithAuth(auth)
@@ -220,7 +220,7 @@ func TestAPISessionUser(t *testing.T) {
 	defer tx.Rollback()
 
 	auth, session := MockAuth(assert, tx, MockAdminLogin)
-	defer auth.Logout(session, nil)
+	defer MockLogout(assert, auth, session, tx)
 
 	app := web.New()
 	app.WithAuth(auth)

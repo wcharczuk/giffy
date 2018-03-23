@@ -6,6 +6,7 @@ import (
 	"github.com/blendlabs/go-assert"
 	"github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-web"
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 )
@@ -30,7 +31,8 @@ func TestSlack(t *testing.T) {
 	var res slackMessage
 
 	app.WithLogger(logger.None())
-	app.Register(Integrations{})
+	app.Register(Integrations{Config: config.NewFromEnv()})
+
 	err = app.Mock().WithTx(tx).WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", core.UUIDv4().ToShortString()).
 		WithQueryString("channel_id", core.UUIDv4().ToShortString()).
@@ -50,7 +52,7 @@ func TestSlackErrorsWithShortQuery(t *testing.T) {
 	assert := assert.New(t)
 	app := web.New()
 
-	app.Register(Integrations{})
+	app.Register(Integrations{Config: config.NewFromEnv()})
 	res, err := app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", core.UUIDv4().ToShortString()).
 		WithQueryString("channel_id", core.UUIDv4().ToShortString()).

@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "9ehdeViXOQSPgXiyZAkbv1qox14=",
+			"path": "github.com/blendlabs/go-web",
+			"revision": "d0065e0ed395f2bf215da4b63a372d2006e3eb1a",
+			"revisionTime": "2018-03-23T20:51:55Z"
+		}
+	],
+	"rootPath": "github.com/wcharczuk/giffy"
+}

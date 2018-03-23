@@ -456,7 +456,7 @@ func (api API) getRandomImagesAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
-	return webutil.API(r).Result(images)
+	return webutil.API(r).Result(viewmodel.WrapImages(images, api.Config))
 }
 
 // GET "/api/images.search?query=<query>"
@@ -1330,7 +1330,7 @@ func (api API) logoutAction(r *web.Ctx) web.Result {
 		return webutil.API(r).OK()
 	}
 
-	err := r.Auth().Logout(session, r)
+	err := r.Auth().Logout(r)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}

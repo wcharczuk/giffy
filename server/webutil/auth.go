@@ -1,7 +1,6 @@
 package webutil
 
 import (
-	"database/sql"
 	"fmt"
 	"net/url"
 
@@ -54,7 +53,8 @@ func LoginRedirect(from *url.URL) *url.URL {
 // FetchSession fetches a session from the db.
 // Returning `nil` for the session represents a logged out state, and will trigger
 // an auth redirect (if one is provided) or a 403 (not authorized) result.
-func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
+func FetchSession(sessionID string, state web.State) (*web.Session, error) {
+	tx := web.TxFromState(state)
 	var session model.UserSession
 	err := model.DB().GetInTx(&session, tx, sessionID)
 	if err != nil {
@@ -88,7 +88,8 @@ func FetchSession(sessionID string, tx *sql.Tx) (*web.Session, error) {
 // PersistSession saves a session to the db.
 // It is called when the user logs into the session manager, and allows sessions to persist
 // across server restarts.
-func PersistSession(context *web.Ctx, session *web.Session, tx *sql.Tx) error {
+func PersistSession(context *web.Ctx, session *web.Session, state web.State) error {
+	tx := web.TxFromState(state)
 	dbSession := &model.UserSession{
 		SessionID:    session.SessionID,
 		TimestampUTC: session.CreatedUTC,
@@ -101,7 +102,8 @@ func PersistSession(context *web.Ctx, session *web.Session, tx *sql.Tx) error {
 // RemoveSession removes a session from the db.
 // It is called when the user logs out, and removes their session from the db so it isn't
 // returned by `FetchSession`
-func RemoveSession(sessionID string, tx *sql.Tx) error {
+func RemoveSession(sessionID string, state web.State) error {
+	tx := web.TxFromState(state)
 	var session model.UserSession
 	err := model.DB().GetInTx(&session, tx, sessionID)
 	if err != nil {

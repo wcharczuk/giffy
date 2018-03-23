@@ -71,4 +71,5 @@ recreate-config:
 	@kubectl --namespace=$(NAMESPACE) create secret generic web-config --from-file=config.yml=$(CONFIG_PATH)
 
 deploy:
-	@kubectl --namespace=$(NAMESPACE) set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:latest
+	@kubectl --namespace=$(NAMESPACE) patch deployment web-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}"
+	#@kubectl --namespace=$(NAMESPACE) set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:latest
