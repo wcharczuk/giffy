@@ -7,10 +7,12 @@ import (
 
 	"github.com/blendlabs/go-chronometer"
 	exception "github.com/blendlabs/go-exception"
+	google "github.com/blendlabs/go-google-oauth"
 	"github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-web"
 
 	"github.com/wcharczuk/giffy/server/config"
+	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
@@ -20,6 +22,7 @@ import (
 // API is the controller for api endpoints.
 type API struct {
 	Config *config.Giffy
+	Google *google.Manager
 	Files  *filemanager.FileManager
 }
 
@@ -259,7 +262,7 @@ func (api API) getUserImagesAction(r *web.Ctx) web.Result {
 		return webutil.API(r).InternalError(err)
 	}
 
-	return webutil.API(r).Result(images)
+	return webutil.API(r).Result(viewmodel.WrapImages(images, api.Config))
 }
 
 // GET "/api/user.moderation/:user_id"
@@ -473,7 +476,7 @@ func (api API) searchImagesAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
-	return webutil.API(r).Result(results)
+	return webutil.API(r).Result(viewmodel.WrapImages(results, api.Config))
 }
 
 // GET "/api/images.search/random/:count?query=<query>"
@@ -495,7 +498,7 @@ func (api API) searchImagesRandomAction(r *web.Ctx) web.Result {
 		return webutil.API(r).InternalError(err)
 	}
 
-	return webutil.API(r).Result(results)
+	return webutil.API(r).Result(viewmodel.WrapImages(results, api.Config))
 }
 
 // GET "/api/image/:image_id"
@@ -508,10 +511,10 @@ func (api API) getImageAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
-	if image.IsZero() {
+	if image == nil || image.IsZero() {
 		return webutil.API(r).NotFound()
 	}
-	return webutil.API(r).Result(image)
+	return webutil.API(r).Result(viewmodel.NewImage(*image, api.Config))
 }
 
 // PUT "/api/image/:image_id"
@@ -816,7 +819,7 @@ func (api API) getImagesForTagAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
-	return webutil.API(r).Result(results)
+	return webutil.API(r).Result(viewmodel.WrapImages(results, api.Config))
 }
 
 // GET "/api/tag.votes/:tag_id"
@@ -1215,12 +1218,20 @@ func (api API) getImageStatsAction(r *web.Ctx) web.Result {
 func (api API) getCurrentUserAction(r *web.Ctx) web.Result {
 	session := r.Session()
 
-	cu := &viewmodel.CurrentUser{}
+	url, err := api.Google.OAuthURL()
+	if err != nil {
+		return webutil.API(r).InternalError(err)
+	}
+	cu := &viewmodel.CurrentUser{
+		GoogleLoginURL: url,
+		SlackLoginURL:  external.SlackAuthURL(api.Config),
+	}
 	if session == nil {
-		cu.SetLoggedOut(api.Config)
 		return webutil.API(r).Result(cu)
 	}
-	cu.SetFromUser(webutil.GetUser(session), api.Config)
+
+	cu.IsLoggedIn = true
+	cu.SetFromUser(webutil.GetUser(session))
 	return webutil.API(r).Result(cu)
 }
 

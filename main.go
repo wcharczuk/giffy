@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	google "github.com/blendlabs/go-google-oauth"
 	logger "github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-util/configutil"
 	web "github.com/blendlabs/go-web"
@@ -20,6 +21,7 @@ func main() {
 	}
 
 	log := logger.NewFromConfig(&cfg.Logger)
+	oauth := google.NewFromConfig(&cfg.GoogleAuth)
 
 	if cfg.Web.IsSecure() {
 		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader).WithLogger(log)
@@ -28,5 +30,5 @@ func main() {
 		}()
 	}
 
-	log.SyncFatal(server.New(log, &cfg).WithLogger(log).Start())
+	log.SyncFatal(server.New(log, oauth, &cfg).WithLogger(log).Start())
 }

@@ -148,8 +148,12 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 
 	webutil.SetUser(session, currentUser)
 
-	cu := &viewmodel.CurrentUser{}
-	cu.SetFromUser(currentUser, ac.Config)
+	cu := &viewmodel.CurrentUser{
+		IsLoggedIn:    true,
+		SlackLoginURL: external.SlackAuthURL(ac.Config),
+	}
+
+	cu.SetFromUser(currentUser)
 	return r.View().View("login_complete", loginCompleteArguments{CurrentUser: util.JSON.Serialize(cu)})
 }
 

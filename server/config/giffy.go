@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 
+	google "github.com/blendlabs/go-google-oauth"
 	logger "github.com/blendlabs/go-logger"
 	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/env"
@@ -38,21 +39,16 @@ type Giffy struct {
 	CloudFrontDNS string `json:"cloudfrontDNS" yaml:"cloudfrontDNS"`
 	S3Bucket      string `json:"s3Bucket" yaml:"s3Bucket"`
 
-	FacebookClientID     string `json:"facebookClientID" yaml:"facebookClientID"`
-	FacebookClientSecret string `json:"facebookClientSecret" yaml:"facebookClientSecret"`
-
-	GoogleClientID     string `json:"googleClientID" yaml:"googleClientID"`
-	GoogleClientSecret string `json:"googleClientSecret" yaml:"googleClientSecret"`
-
 	SlackClientID          string `json:"slackClientID" yaml:"slackClientID"`
 	SlackClientSecret      string `json:"slackClientSecret" yaml:"slackClientSecret"`
 	SlackVerificationToken string `json:"slackVerificationToken" yaml:"slackVerificationToken"`
 
-	Logger   logger.Config           `json:"logger" yaml:"logger"`
-	Web      web.Config              `json:"web" yaml:"web"`
-	Upgrader web.HTTPSUpgraderConfig `json:"upgrader" yaml:"upgrader"`
-	DB       spiffy.Config           `json:"db" yaml:"db"`
-	Aws      Aws                     `json:"aws" yaml:"aws"`
+	Logger     logger.Config           `json:"logger" yaml:"logger"`
+	GoogleAuth google.Config           `json:"googleAuth" yaml:"googleAuth"`
+	Web        web.Config              `json:"web" yaml:"web"`
+	Upgrader   web.HTTPSUpgraderConfig `json:"upgrader" yaml:"upgrader"`
+	DB         spiffy.Config           `json:"db" yaml:"db"`
+	Aws        Aws                     `json:"aws" yaml:"aws"`
 }
 
 // GetEnvironment returns a property or a default.

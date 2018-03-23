@@ -60,7 +60,7 @@ func (i Index) Register(app *web.App) {
 	app.GET("/favicon.ico", i.faviconAction)
 
 	if i.Config.IsProduction() {
-		app.ServeStatic("/static/*filepath", "_client/dist")
+		app.ServeStaticCached("/static/*filepath", "_client/dist")
 		app.WithStaticRewriteRule("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
 			if len(parts) < 4 {
 				return path

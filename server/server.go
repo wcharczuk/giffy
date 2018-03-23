@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/blendlabs/go-chronometer"
+	google "github.com/blendlabs/go-google-oauth"
 	"github.com/blendlabs/go-logger"
 	"github.com/blendlabs/go-web"
 	"github.com/blendlabs/go-workqueue"
@@ -46,8 +47,9 @@ func Migrate() error {
 }
 
 // New returns a new server instance.
-func New(log *logger.Logger, cfg *config.Giffy) *web.App {
+func New(log *logger.Logger, oauth *google.Manager, cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
+
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
 			model.DB().Create(model.NewError(ev.Err(), req))
@@ -83,9 +85,9 @@ func New(log *logger.Logger, cfg *config.Giffy) *web.App {
 	fm := filemanager.New(cfg.GetS3Bucket(), &cfg.Aws)
 
 	app.Register(controller.Index{Config: cfg})
-	app.Register(controller.API{Config: cfg, Files: fm})
+	app.Register(controller.API{Config: cfg, Files: fm, Google: oauth})
 	app.Register(controller.Integrations{Config: cfg})
-	app.Register(controller.Auth{Config: cfg})
+	app.Register(controller.Auth{Config: cfg, Google: oauth})
 	app.Register(controller.UploadImage{Config: cfg, Files: fm})
 	app.Register(controller.Chart{Config: cfg})
 
