@@ -80,17 +80,17 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	var payload slackActionPayload
 	body, err := rc.PostBodyAsString()
 	if err != nil {
-		rc.Logger().ErrorWithReq(err, rc.Request)
+		rc.Logger().ErrorWithReq(err, rc.Request())
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 	bodyUnescaped, err := url.QueryUnescape(strings.TrimPrefix(body, "payload="))
 	if err != nil {
-		rc.Logger().ErrorWithReq(err, rc.Request)
+		rc.Logger().ErrorWithReq(err, rc.Request())
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 	err = util.JSON.Deserialize(&payload, bodyUnescaped)
 	if err != nil {
-		rc.Logger().ErrorWithReq(err, rc.Request)
+		rc.Logger().ErrorWithReq(err, rc.Request())
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 
@@ -210,7 +210,7 @@ func (i Integrations) contentRatingFilter(teamID string, rc *web.Ctx) (int, web.
 	contentRatingFilter := model.ContentRatingNR
 	teamSettings, err := model.GetSlackTeamByTeamID(teamID, web.Tx(rc))
 	if err != nil {
-		rc.Logger().FatalWithReq(err, rc.Request)
+		rc.Logger().FatalWithReq(err, rc.Request())
 		return contentRatingFilter, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	} else if !teamSettings.IsZero() {
 		if !teamSettings.IsEnabled {
@@ -258,7 +258,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 	}
 
 	if err != nil {
-		rc.Logger().FatalWithReq(err, rc.Request)
+		rc.Logger().FatalWithReq(err, rc.Request())
 		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
@@ -275,7 +275,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
-		rc.Logger().FatalWithReq(err, rc.Request)
+		rc.Logger().FatalWithReq(err, rc.Request())
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 

@@ -91,7 +91,7 @@ func (ac Auth) mapGoogleUser(profile *google.Profile) *model.User {
 }
 
 func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
-	res, err := ac.Google.Finish(r.Request)
+	res, err := ac.Google.Finish(r.Request())
 	if err != nil {
 		return r.View().NotAuthorized()
 	}

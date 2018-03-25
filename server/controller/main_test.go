@@ -38,7 +38,7 @@ func MockAuth(a *assert.Assertions, tx *sql.Tx, mockUserProvider func(*sql.Tx) (
 func MockLogout(a *assert.Assertions, am *web.AuthManager, session *web.Session, tx *sql.Tx) {
 	ctx := web.NewCtx(nil, &http.Request{}, nil, web.State{})
 	web.WithTx(ctx, tx)
-	ctx.SetSession(session)
+	ctx.WithSession(session)
 	a.Nil(am.Logout(ctx))
 }
 
