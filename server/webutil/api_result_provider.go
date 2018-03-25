@@ -78,7 +78,7 @@ func (ar *APIResultProvider) NotAuthorized() web.Result {
 func (ar *APIResultProvider) InternalError(err error) web.Result {
 	if ar.log != nil {
 		if ar.requestContext != nil {
-			ar.log.FatalWithReq(err, ar.requestContext.Request)
+			ar.log.FatalWithReq(err, ar.requestContext.Request())
 		} else {
 			ar.log.FatalWithReq(err, nil)
 		}
