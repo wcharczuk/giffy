@@ -25,7 +25,7 @@ func (vr *ViewResult) Render(ctx *Ctx) (err error) {
 		err = exception.New(ErrUnsetViewTemplate)
 		return
 	}
-	ctx.Response.Header().Set(HeaderContentType, ContentTypeHTML)
+	ctx.Response().Header().Set(HeaderContentType, ContentTypeHTML)
 	buffer := bytes.NewBuffer([]byte{})
 	err = vr.Template.Execute(buffer, &ViewModel{
 		Ctx:       ctx,
@@ -36,8 +36,8 @@ func (vr *ViewResult) Render(ctx *Ctx) (err error) {
 		return
 	}
 
-	ctx.Response.WriteHeader(vr.StatusCode)
-	_, err = ctx.Response.Write(buffer.Bytes())
+	ctx.Response().WriteHeader(vr.StatusCode)
+	_, err = ctx.Response().Write(buffer.Bytes())
 	if err != nil && ctx != nil && ctx.Logger() != nil {
 		ctx.Logger().Error(err)
 	}

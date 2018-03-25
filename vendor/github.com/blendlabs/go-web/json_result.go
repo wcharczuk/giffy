@@ -8,5 +8,5 @@ type JSONResult struct {
 
 // Render renders the result
 func (ar *JSONResult) Render(ctx *Ctx) error {
-	return WriteJSON(ctx.Response, ctx.Request, ar.StatusCode, ar.Response)
+	return WriteJSON(ctx.Response(), ctx.Request(), ar.StatusCode, ar.Response)
 }

@@ -833,17 +833,6 @@ func (a *App) JSONResultProvider() *JSONResultProvider {
 	return a.jsonProvider
 }
 
-// WithTextResultProvider sets the text result provider.
-func (a *App) WithTextResultProvider(trp *TextResultProvider) *App {
-	a.textProvider = trp
-	return a
-}
-
-// TextResultProvider returns the text result provider.
-func (a *App) TextResultProvider() *TextResultProvider {
-	return a.textProvider
-}
-
 // WithXMLResultProvider sets the xml result provider.
 func (a *App) WithXMLResultProvider(xrp *XMLResultProvider) *App {
 	a.xmlProvider = xrp
@@ -853,6 +842,17 @@ func (a *App) WithXMLResultProvider(xrp *XMLResultProvider) *App {
 // XMLResultProvider returns the xml result provider.
 func (a *App) XMLResultProvider() *XMLResultProvider {
 	return a.xmlProvider
+}
+
+// WithTextResultProvider sets the text result provider.
+func (a *App) WithTextResultProvider(trp *TextResultProvider) *App {
+	a.textProvider = trp
+	return a
+}
+
+// TextResultProvider returns the text result provider.
+func (a *App) TextResultProvider() *TextResultProvider {
+	return a.textProvider
 }
 
 // WithDefaultResultProvider sets the default result provider.
@@ -902,22 +902,33 @@ func (a *App) Views() *ViewCache {
 
 // WithStaticRewriteRule adds a rewrite rule for a specific statically served path.
 // It mutates the path for the incoming static file request to the fileserver according to the action.
-func (a *App) WithStaticRewriteRule(route, match string, action RewriteAction) error {
+func (a *App) WithStaticRewriteRule(route, match string, action RewriteAction) *App {
 	mountedRoute := a.createStaticMountRoute(route)
 	if static, hasRoute := a.statics[mountedRoute]; hasRoute {
-		return static.AddRewriteRule(mountedRoute, match, action)
+		return a.withPreStartError(static.AddRewriteRule(match, action))
 	}
-	return exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", route)
+	return a.withPreStartError(exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", route))
 }
 
 // WithStaticHeader adds a header for the given static path.
 // These headers are automatically added to any result that the static path fileserver sends.
-func (a *App) WithStaticHeader(route, key, value string) error {
+func (a *App) WithStaticHeader(route, key, value string) *App {
 	mountedRoute := a.createStaticMountRoute(route)
 	if static, hasRoute := a.statics[mountedRoute]; hasRoute {
-		return static.AddHeader(key, value)
+		static.AddHeader(key, value)
+		return a
 	}
-	return exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", mountedRoute)
+	return a.withPreStartError(exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", mountedRoute))
+}
+
+// WithStaticMiddleware adds static middleware for a given route.
+func (a *App) WithStaticMiddleware(route string, middlewares ...Middleware) *App {
+	mountedRoute := a.createStaticMountRoute(route)
+	if static, hasRoute := a.statics[mountedRoute]; hasRoute {
+		static.SetMiddleware(middlewares...)
+		return a
+	}
+	return a.withPreStartError(exception.Newf("no static fileserver mounted at route").WithMessagef("route: %s", mountedRoute))
 }
 
 // ServeStatic serves files from the given file system root.
@@ -942,11 +953,11 @@ func (a *App) ServeStaticCached(route, filepath string) {
 
 func (a *App) createStaticMountRoute(route string) string {
 	mountedRoute := route
-	if !strings.HasSuffix(mountedRoute, "*filepath") {
+	if !strings.HasSuffix(mountedRoute, "*"+RouteTokenFilepath) {
 		if strings.HasSuffix(mountedRoute, "/") {
-			mountedRoute = mountedRoute + "*filepath"
+			mountedRoute = mountedRoute + "*" + RouteTokenFilepath
 		} else {
-			mountedRoute = mountedRoute + "/*filepath"
+			mountedRoute = mountedRoute + "/*" + RouteTokenFilepath
 		}
 	}
 	return mountedRoute
@@ -1064,7 +1075,7 @@ func (a *App) addHSTSHeader(w http.ResponseWriter) {
 }
 
 func (a *App) loggerRequestStartEvent(ctx *Ctx) *logger.WebRequestEvent {
-	event := logger.NewWebRequestStartEvent(ctx.Request).
+	event := logger.NewWebRequestStartEvent(ctx.Request()).
 		WithState(ctx.state)
 
 	if ctx.Route() != nil {
@@ -1074,7 +1085,7 @@ func (a *App) loggerRequestStartEvent(ctx *Ctx) *logger.WebRequestEvent {
 }
 
 func (a *App) loggerRequestEvent(ctx *Ctx) *logger.WebRequestEvent {
-	event := logger.NewWebRequestEvent(ctx.Request).
+	event := logger.NewWebRequestEvent(ctx.Request()).
 		WithStatusCode(ctx.statusCode).
 		WithElapsed(ctx.Elapsed()).
 		WithContentLength(int64(ctx.contentLength)).
@@ -1084,9 +1095,9 @@ func (a *App) loggerRequestEvent(ctx *Ctx) *logger.WebRequestEvent {
 		event = event.WithRoute(ctx.Route().String())
 	}
 
-	if ctx.Response.Header() != nil {
-		event = event.WithContentType(ctx.Response.Header().Get(HeaderContentType))
-		event = event.WithContentEncoding(ctx.Response.Header().Get(HeaderContentEncoding))
+	if ctx.Response().Header() != nil {
+		event = event.WithContentType(ctx.Response().Header().Get(HeaderContentType))
+		event = event.WithContentEncoding(ctx.Response().Header().Get(HeaderContentEncoding))
 	}
 	return event
 }
@@ -1114,8 +1125,8 @@ func (a *App) handlePanic(w http.ResponseWriter, r *http.Request, err interface{
 
 func (a *App) createCtx(w ResponseWriter, r *http.Request, route *Route, p RouteParameters, s State) *Ctx {
 	ctx := &Ctx{
-		Response:        w,
-		Request:         r,
+		response:        w,
+		request:         r,
 		app:             a,
 		route:           route,
 		routeParameters: p,

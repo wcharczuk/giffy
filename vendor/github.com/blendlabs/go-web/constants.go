@@ -6,6 +6,12 @@ const (
 	// PackageName is the full name of this package.
 	PackageName = "github.com/blendlabs/go-web"
 
+	// RouteTokenFilepath is a special route token.
+	RouteTokenFilepath = "filepath"
+
+	// RegexpAssetCacheFiles is a common regex for parsing css, js, and html file routes.
+	RegexpAssetCacheFiles = `^(.*)\.([0-9]+)\.(css|js|html|htm)$`
+
 	// HeaderAcceptEncoding is the "Accept-Encoding" header.
 	// It indicates what types of encodings the request will accept responses as.
 	// It typically enables or disables compressed (gzipped) responses.
@@ -191,4 +197,53 @@ const (
 var DefaultHeaders = map[string]string{
 	HeaderServer:    PackageName,
 	HeaderXServedBy: PackageName,
+}
+
+// SessionLockPolicy is a lock policy.
+type SessionLockPolicy int
+
+const (
+	// SessionUnsafe is a lock-free session policy.
+	SessionUnsafe SessionLockPolicy = 0
+
+	// SessionReadLock is a lock policy that acquires a read lock on session.
+	SessionReadLock SessionLockPolicy = 1
+
+	// SessionReadWriteLock is a lock policy that acquires both a read and a write lock on session.
+	SessionReadWriteLock SessionLockPolicy = 2
+)
+
+const (
+	// LenSessionID is the byte length of a session id.
+	LenSessionID = 64
+	// LenSessionIDBase64 is the length of a session id base64 encoded.
+	LenSessionIDBase64 = 88
+	// ErrSessionIDEmpty is thrown if a session id is empty.
+	ErrSessionIDEmpty = Error("auth session id is empty")
+	// ErrSessionIDTooLong is thrown if a session id is too long.
+	ErrSessionIDTooLong = Error("auth session id is too long")
+
+	// ErrSecureSessionIDEmpty is an error that is thrown if a given secure session id is invalid.
+	ErrSecureSessionIDEmpty = Error("auth secure session id is empty")
+	// ErrSecureSessionIDTooLong is an error that is thrown if a given secure session id is invalid.
+	ErrSecureSessionIDTooLong = Error("auth secure session id is too long")
+	// ErrSecureSessionIDInvalid is an error that is thrown if a given secure session id is invalid.
+	ErrSecureSessionIDInvalid = Error("auth secure session id is invalid")
+)
+
+// IsErrSessionInvalid returns if an error is a session invalid error.
+func IsErrSessionInvalid(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch err {
+	case ErrSessionIDEmpty,
+		ErrSessionIDTooLong,
+		ErrSecureSessionIDEmpty,
+		ErrSecureSessionIDTooLong,
+		ErrSecureSessionIDInvalid:
+		return true
+	default:
+		return false
+	}
 }

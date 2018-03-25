@@ -194,11 +194,11 @@ func TestAppStaticRewrite(t *testing.T) {
 	app.ServeStatic("/testPath", "_static")
 	assert.NotEmpty(app.statics)
 	assert.NotNil(app.statics["/testPath/*filepath"])
-	err := app.WithStaticRewriteRule("/testPath", "(.*)", func(path string, pieces ...string) string {
+	app.WithStaticRewriteRule("/testPath", "(.*)", func(path string, pieces ...string) string {
 		return path
 	})
 
-	assert.Nil(err)
+	assert.Nil(app.Err())
 	assert.NotEmpty(app.statics["/testPath/*filepath"].RewriteRules())
 }
 

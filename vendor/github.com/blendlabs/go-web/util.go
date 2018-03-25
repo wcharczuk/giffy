@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -145,4 +146,21 @@ func PortFromBindAddr(bindAddr string) int32 {
 func ParseInt32(v string) int32 {
 	parsed, _ := strconv.Atoi(v)
 	return int32(parsed)
+}
+
+// NewMockRequest creates a mock request.
+func NewMockRequest(method, path string) *http.Request {
+	return &http.Request{
+		Method:     method,
+		Proto:      "http",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Host:       "localhost",
+		URL: &url.URL{
+			Scheme:  "http",
+			Host:    "localhost",
+			Path:    path,
+			RawPath: path,
+		},
+	}
 }

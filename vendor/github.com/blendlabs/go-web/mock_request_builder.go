@@ -307,7 +307,7 @@ func (mrb *MockRequestBuilder) Response() (res *http.Response, err error) {
 				panicRecoveryBuffer := bytes.NewBuffer([]byte{})
 
 				panicRecoveryWriter := NewMockResponseWriter(panicRecoveryBuffer)
-				ctx := NewCtx(panicRecoveryWriter, rc.Request, rc.routeParameters, rc.state)
+				ctx := NewCtx(panicRecoveryWriter, rc.Request(), rc.routeParameters, rc.state)
 				err = controllerResult.Render(ctx)
 				panicResponseBytes := panicRecoveryBuffer.Bytes()
 

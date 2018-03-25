@@ -8,5 +8,5 @@ type XMLResult struct {
 
 // Render renders the result
 func (ar *XMLResult) Render(ctx *Ctx) error {
-	return WriteXML(ctx.Response, ctx.Request, ar.StatusCode, ar.Response)
+	return WriteXML(ctx.Response(), ctx.Request(), ar.StatusCode, ar.Response)
 }

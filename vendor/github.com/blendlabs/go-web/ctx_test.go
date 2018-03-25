@@ -188,5 +188,5 @@ func TestCtxWriteNewCookie(t *testing.T) {
 	assert.Nil(err)
 
 	context.WriteNewCookie("foo", "bar", nil, "/foo/bar", true)
-	assert.Equal("foo=bar; Path=/foo/bar; HttpOnly; Secure", context.Response.Header().Get("Set-Cookie"))
+	assert.Equal("foo=bar; Path=/foo/bar; HttpOnly; Secure", context.Response().Header().Get("Set-Cookie"))
 }

@@ -31,13 +31,18 @@ const (
 // It is part of a longer term transition.
 type Request = Ctx
 
+// defaultResultProvider is used by bare ctx results, it generally
+// won't stay the default for long, as it's overwritten by `App`.
+var defaultResultProvider = &TextResultProvider{}
+
 // NewCtx returns a new hc context.
 func NewCtx(w ResponseWriter, r *http.Request, p RouteParameters, s State) *Ctx {
 	ctx := &Ctx{
-		Response:        w,
-		Request:         r,
+		response:        w,
+		request:         r,
 		routeParameters: p,
 		state:           s,
+		defaultResultProvider: defaultResultProvider,
 	}
 
 	if ctx.state == nil {
@@ -49,9 +54,8 @@ func NewCtx(w ResponseWriter, r *http.Request, p RouteParameters, s State) *Ctx 
 
 // Ctx is the struct that represents the context for an hc request.
 type Ctx struct {
-	//Public fields
-	Response ResponseWriter
-	Request  *http.Request
+	response ResponseWriter
+	request  *http.Request
 
 	app  *App
 	log  *logger.Logger
@@ -77,7 +81,28 @@ type Ctx struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	tx     *sql.Tx
+}
+
+// WithResponse sets the underlying response.
+func (rc *Ctx) WithResponse(res ResponseWriter) *Ctx {
+	rc.response = res
+	return rc
+}
+
+// Response returns the underyling response.
+func (rc *Ctx) Response() ResponseWriter {
+	return rc.response
+}
+
+// WithRequest sets the underlying request.
+func (rc *Ctx) WithRequest(req *http.Request) *Ctx {
+	rc.request = req
+	return rc
+}
+
+// Request returns the underlying request.
+func (rc *Ctx) Request() *http.Request {
+	return rc.request
 }
 
 // WithTx sets a transaction on the context.
@@ -119,28 +144,26 @@ func (rc *Ctx) App() *App {
 	return rc.app
 }
 
+// WithAuth sets the request context auth.
+func (rc *Ctx) WithAuth(authManager *AuthManager) *Ctx {
+	rc.auth = authManager
+	return rc
+}
+
 // Auth returns the AuthManager for the request.
 func (rc *Ctx) Auth() *AuthManager {
 	return rc.auth
 }
 
-// SetAuth sets the request context auth.
-func (rc *Ctx) SetAuth(authManager *AuthManager) {
-	rc.auth = authManager
+// WithSession sets the session for the request.
+func (rc *Ctx) WithSession(session *Session) *Ctx {
+	rc.session = session
+	return rc
 }
 
 // Session returns the session (if any) on the request.
 func (rc *Ctx) Session() *Session {
-	if rc.session != nil {
-		return rc.session
-	}
-
-	return nil
-}
-
-// SetSession sets the session for the request.
-func (rc *Ctx) SetSession(session *Session) {
-	rc.session = session
+	return rc.session
 }
 
 // View returns the view result provider.
@@ -211,26 +234,26 @@ func (rc *Ctx) Param(name string) (string, error) {
 			return routeValue, nil
 		}
 	}
-	if rc.Request != nil {
-		if rc.Request.URL != nil {
-			queryValue := rc.Request.URL.Query().Get(name)
+	if rc.request != nil {
+		if rc.request.URL != nil {
+			queryValue := rc.request.URL.Query().Get(name)
 			if len(queryValue) > 0 {
 				return queryValue, nil
 			}
 		}
-		if rc.Request.Header != nil {
-			headerValue := rc.Request.Header.Get(name)
+		if rc.request.Header != nil {
+			headerValue := rc.request.Header.Get(name)
 			if len(headerValue) > 0 {
 				return headerValue, nil
 			}
 		}
 
-		formValue := rc.Request.FormValue(name)
+		formValue := rc.request.FormValue(name)
 		if len(formValue) > 0 {
 			return formValue, nil
 		}
 
-		cookie, cookieErr := rc.Request.Cookie(name)
+		cookie, cookieErr := rc.request.Cookie(name)
 		if cookieErr == nil && len(cookie.Value) != 0 {
 			return cookie.Value, nil
 		}
@@ -289,9 +312,9 @@ func (rc *Ctx) ParamBool(name string) (bool, error) {
 func (rc *Ctx) PostBody() ([]byte, error) {
 	var err error
 	if len(rc.postBody) == 0 {
-		if rc.Request != nil && rc.Request.Body != nil {
-			defer rc.Request.Body.Close()
-			rc.postBody, err = ioutil.ReadAll(rc.Request.Body)
+		if rc.request != nil && rc.request.Body != nil {
+			defer rc.request.Body.Close()
+			rc.postBody, err = ioutil.ReadAll(rc.request.Body)
 		}
 		if err != nil {
 			return nil, err
@@ -331,10 +354,10 @@ func (rc *Ctx) PostBodyAsXML(response interface{}) error {
 func (rc *Ctx) PostedFiles() ([]PostedFile, error) {
 	var files []PostedFile
 
-	err := rc.Request.ParseMultipartForm(PostBodySize)
+	err := rc.request.ParseMultipartForm(PostBodySize)
 	if err == nil {
-		for key := range rc.Request.MultipartForm.File {
-			fileReader, fileHeader, err := rc.Request.FormFile(key)
+		for key := range rc.request.MultipartForm.File {
+			fileReader, fileHeader, err := rc.request.FormFile(key)
 			if err != nil {
 				return nil, err
 			}
@@ -345,10 +368,10 @@ func (rc *Ctx) PostedFiles() ([]PostedFile, error) {
 			files = append(files, PostedFile{Key: key, FileName: fileHeader.Filename, Contents: bytes})
 		}
 	} else {
-		err = rc.Request.ParseForm()
+		err = rc.request.ParseForm()
 		if err == nil {
-			for key := range rc.Request.PostForm {
-				if fileReader, fileHeader, err := rc.Request.FormFile(key); err == nil && fileReader != nil {
+			for key := range rc.request.PostForm {
+				if fileReader, fileHeader, err := rc.request.FormFile(key); err == nil && fileReader != nil {
 					bytes, err := ioutil.ReadAll(fileReader)
 					if err != nil {
 						return nil, err
@@ -399,7 +422,7 @@ func (rc *Ctx) RouteParam(key string) (string, error) {
 
 // QueryParam returns a query parameter.
 func (rc *Ctx) QueryParam(key string) (string, error) {
-	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+	if value := rc.request.URL.Query().Get(key); len(value) > 0 {
 		return value, nil
 	}
 	return StringEmpty, newParameterMissingError(key)
@@ -407,7 +430,7 @@ func (rc *Ctx) QueryParam(key string) (string, error) {
 
 // QueryParamInt returns a query parameter as an integer.
 func (rc *Ctx) QueryParamInt(key string) (int, error) {
-	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+	if value := rc.request.URL.Query().Get(key); len(value) > 0 {
 		return strconv.Atoi(value)
 	}
 	return 0, newParameterMissingError(key)
@@ -415,7 +438,7 @@ func (rc *Ctx) QueryParamInt(key string) (int, error) {
 
 // QueryParamInt64 returns a query parameter as an int64.
 func (rc *Ctx) QueryParamInt64(key string) (int64, error) {
-	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+	if value := rc.request.URL.Query().Get(key); len(value) > 0 {
 		return strconv.ParseInt(value, 10, 64)
 	}
 	return 0, newParameterMissingError(key)
@@ -423,7 +446,7 @@ func (rc *Ctx) QueryParamInt64(key string) (int64, error) {
 
 // QueryParamFloat64 returns a query parameter as a float64.
 func (rc *Ctx) QueryParamFloat64(key string) (float64, error) {
-	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+	if value := rc.request.URL.Query().Get(key); len(value) > 0 {
 		return strconv.ParseFloat(value, 64)
 	}
 	return 0, newParameterMissingError(key)
@@ -431,7 +454,7 @@ func (rc *Ctx) QueryParamFloat64(key string) (float64, error) {
 
 // QueryParamTime returns a query parameter as a time.Time.
 func (rc *Ctx) QueryParamTime(key, format string) (time.Time, error) {
-	if value := rc.Request.URL.Query().Get(key); len(value) > 0 {
+	if value := rc.request.URL.Query().Get(key); len(value) > 0 {
 		return time.Parse(format, value)
 	}
 	return time.Time{}, newParameterMissingError(key)
@@ -439,7 +462,7 @@ func (rc *Ctx) QueryParamTime(key, format string) (time.Time, error) {
 
 // HeaderParam returns a header parameter value.
 func (rc *Ctx) HeaderParam(key string) (string, error) {
-	if value := rc.Request.Header.Get(key); len(value) > 0 {
+	if value := rc.request.Header.Get(key); len(value) > 0 {
 		return value, nil
 	}
 	return StringEmpty, newParameterMissingError(key)
@@ -447,7 +470,7 @@ func (rc *Ctx) HeaderParam(key string) (string, error) {
 
 // HeaderParamInt returns a header parameter value as an integer.
 func (rc *Ctx) HeaderParamInt(key string) (int, error) {
-	if value := rc.Request.Header.Get(key); len(value) > 0 {
+	if value := rc.request.Header.Get(key); len(value) > 0 {
 		return strconv.Atoi(value)
 	}
 	return 0, newParameterMissingError(key)
@@ -455,7 +478,7 @@ func (rc *Ctx) HeaderParamInt(key string) (int, error) {
 
 // HeaderParamInt64 returns a header parameter value as an integer.
 func (rc *Ctx) HeaderParamInt64(key string) (int64, error) {
-	if value := rc.Request.Header.Get(key); len(value) > 0 {
+	if value := rc.request.Header.Get(key); len(value) > 0 {
 		return strconv.ParseInt(value, 10, 64)
 	}
 	return 0, newParameterMissingError(key)
@@ -463,7 +486,7 @@ func (rc *Ctx) HeaderParamInt64(key string) (int64, error) {
 
 // HeaderParamFloat64 returns a header parameter value as an float64.
 func (rc *Ctx) HeaderParamFloat64(key string) (float64, error) {
-	if value := rc.Request.Header.Get(key); len(value) > 0 {
+	if value := rc.request.Header.Get(key); len(value) > 0 {
 		return strconv.ParseFloat(value, 64)
 	}
 	return 0, newParameterMissingError(key)
@@ -471,7 +494,7 @@ func (rc *Ctx) HeaderParamFloat64(key string) (float64, error) {
 
 // HeaderParamTime returns a header parameter value as an float64.
 func (rc *Ctx) HeaderParamTime(key, format string) (time.Time, error) {
-	if value := rc.Request.Header.Get(key); len(value) > 0 {
+	if value := rc.request.Header.Get(key); len(value) > 0 {
 		return time.Parse(format, key)
 	}
 	return time.Time{}, newParameterMissingError(key)
@@ -479,7 +502,7 @@ func (rc *Ctx) HeaderParamTime(key, format string) (time.Time, error) {
 
 // GetCookie returns a named cookie from the request.
 func (rc *Ctx) GetCookie(name string) *http.Cookie {
-	cookie, err := rc.Request.Cookie(name)
+	cookie, err := rc.request.Cookie(name)
 	if err != nil {
 		return nil
 	}
@@ -488,14 +511,14 @@ func (rc *Ctx) GetCookie(name string) *http.Cookie {
 
 // WriteCookie writes the cookie to the response.
 func (rc *Ctx) WriteCookie(cookie *http.Cookie) {
-	http.SetCookie(rc.Response, cookie)
+	http.SetCookie(rc.response, cookie)
 }
 
 func (rc *Ctx) getCookieDomain() string {
 	if rc.app != nil && rc.app.baseURL != nil {
 		return rc.app.baseURL.Host
 	}
-	return rc.Request.Host
+	return rc.request.Host
 }
 
 // WriteNewCookie is a helper method for WriteCookie.

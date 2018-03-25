@@ -20,6 +20,7 @@ type StaticFileServer struct {
 	log          *logger.Logger
 	fileSystem   http.FileSystem
 	rewriteRules []RewriteRule
+	middleware   Action
 	headers      http.Header
 }
 
@@ -35,12 +36,11 @@ func (sc *StaticFileServer) WithLogger(log *logger.Logger) *StaticFileServer {
 }
 
 // AddHeader adds a header to the static cache results.
-func (sc *StaticFileServer) AddHeader(key, value string) error {
+func (sc *StaticFileServer) AddHeader(key, value string) {
 	if sc.headers == nil {
 		sc.headers = http.Header{}
 	}
 	sc.headers[key] = append(sc.headers[key], value)
-	return nil
 }
 
 // Headers returns the headers for the static server.
@@ -49,7 +49,7 @@ func (sc *StaticFileServer) Headers() http.Header {
 }
 
 // AddRewriteRule adds a static re-write rule.
-func (sc *StaticFileServer) AddRewriteRule(route, match string, action RewriteAction) error {
+func (sc *StaticFileServer) AddRewriteRule(match string, action RewriteAction) error {
 	expr, err := regexp.Compile(match)
 	if err != nil {
 		return err
@@ -62,16 +62,30 @@ func (sc *StaticFileServer) AddRewriteRule(route, match string, action RewriteAc
 	return nil
 }
 
+// SetMiddleware sets the middlewares.
+func (sc *StaticFileServer) SetMiddleware(middlewares ...Middleware) {
+	sc.middleware = NestMiddleware(sc.ServeFile, middlewares...)
+}
+
 // RewriteRules returns the rewrite rules
 func (sc *StaticFileServer) RewriteRules() []RewriteRule {
 	return sc.rewriteRules
 }
 
-// Action implements Action.
+// Action is the entrypoint for the static server.
+// It will run middleware if specified before serving the file.
 func (sc *StaticFileServer) Action(r *Ctx) Result {
+	if sc.middleware != nil {
+		return sc.middleware(r)
+	}
+	return sc.ServeFile(r)
+}
+
+// ServeFile writes the file to the response without running middleware.
+func (sc *StaticFileServer) ServeFile(r *Ctx) Result {
 	for key, values := range sc.headers {
 		for _, value := range values {
-			r.Response.Header().Set(key, value)
+			r.Response().Header().Set(key, value)
 		}
 	}
 
@@ -100,7 +114,7 @@ func (sc *StaticFileServer) Action(r *Ctx) Result {
 		return r.DefaultResultProvider().InternalError(err)
 	}
 
-	http.ServeContent(r.Response, r.Request, filePath, d.ModTime(), f)
+	http.ServeContent(r.Response(), r.Request(), filePath, d.ModTime(), f)
 	return nil
 
 }

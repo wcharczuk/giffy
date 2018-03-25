@@ -9,53 +9,6 @@ import (
 	util "github.com/blendlabs/go-util"
 )
 
-const (
-
-	// SessionLockFree is a lock-free policy.
-	SessionLockFree = 0
-
-	// SessionReadLock is a lock policy that acquires a read lock on session.
-	SessionReadLock = 1
-
-	// SessionReadWriteLock is a lock policy that acquires both a read and a write lock on session.
-	SessionReadWriteLock = 2
-)
-
-const (
-	// LenSessionID is the byte length of a session id.
-	LenSessionID = 64
-	// LenSessionIDBase64 is the length of a session id base64 encoded.
-	LenSessionIDBase64 = 88
-	// ErrSessionIDEmpty is thrown if a session id is empty.
-	ErrSessionIDEmpty = Error("auth session id is empty")
-	// ErrSessionIDTooLong is thrown if a session id is too long.
-	ErrSessionIDTooLong = Error("auth session id is too long")
-
-	// ErrSecureSessionIDEmpty is an error that is thrown if a given secure session id is invalid.
-	ErrSecureSessionIDEmpty = Error("auth secure session id is empty")
-	// ErrSecureSessionIDTooLong is an error that is thrown if a given secure session id is invalid.
-	ErrSecureSessionIDTooLong = Error("auth secure session id is too long")
-	// ErrSecureSessionIDInvalid is an error that is thrown if a given secure session id is invalid.
-	ErrSecureSessionIDInvalid = Error("auth secure session id is invalid")
-)
-
-// IsErrSessionInvalid returns if an error is a session invalid error.
-func IsErrSessionInvalid(err error) bool {
-	if err == nil {
-		return false
-	}
-	switch err {
-	case ErrSessionIDEmpty,
-		ErrSessionIDTooLong,
-		ErrSecureSessionIDEmpty,
-		ErrSecureSessionIDTooLong,
-		ErrSecureSessionIDInvalid:
-		return true
-	default:
-		return false
-	}
-}
-
 // NewAuthManager returns a new session manager.
 func NewAuthManager() *AuthManager {
 	return &AuthManager{
@@ -266,7 +219,7 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 // send the user to a login page.
 func (am *AuthManager) Redirect(context *Ctx) Result {
 	if am.loginRedirectHandler != nil {
-		redirectTo := context.auth.loginRedirectHandler(context.Request.URL)
+		redirectTo := context.auth.loginRedirectHandler(context.Request().URL)
 		if redirectTo != nil {
 			return context.Redirectf(redirectTo.String())
 		}

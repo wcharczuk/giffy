@@ -12,13 +12,13 @@ type RawResult struct {
 // Render renders the result.
 func (rr *RawResult) Render(ctx *Ctx) error {
 	if len(rr.ContentType) != 0 {
-		ctx.Response.Header().Set("Content-Type", rr.ContentType)
+		ctx.Response().Header().Set("Content-Type", rr.ContentType)
 	}
 	if rr.StatusCode == 0 {
-		ctx.Response.WriteHeader(http.StatusOK)
+		ctx.Response().WriteHeader(http.StatusOK)
 	} else {
-		ctx.Response.WriteHeader(rr.StatusCode)
+		ctx.Response().WriteHeader(rr.StatusCode)
 	}
-	_, err := ctx.Response.Write(rr.Body)
+	_, err := ctx.Response().Write(rr.Body)
 	return err
 }

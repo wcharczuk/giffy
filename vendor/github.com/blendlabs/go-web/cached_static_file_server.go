@@ -26,6 +26,7 @@ type CachedStaticFileServer struct {
 	syncRoot     sync.Mutex
 	rewriteRules []RewriteRule
 	headers      http.Header
+	middleware   Action
 	files        map[string]*CachedStaticFile
 }
 
@@ -40,13 +41,18 @@ func (csfs *CachedStaticFileServer) WithLogger(log *logger.Logger) *CachedStatic
 	return csfs
 }
 
+// Files returns the underlying file cache.
+// Pragma; this should only be used in debugging, as during runtime locks are required to interact with this cache.
+func (csfs *CachedStaticFileServer) Files() map[string]*CachedStaticFile {
+	return csfs.files
+}
+
 // AddHeader adds a header to the static cache results.
-func (csfs *CachedStaticFileServer) AddHeader(key, value string) error {
+func (csfs *CachedStaticFileServer) AddHeader(key, value string) {
 	if csfs.headers == nil {
 		csfs.headers = http.Header{}
 	}
 	csfs.headers[key] = append(csfs.headers[key], value)
-	return nil
 }
 
 // Headers returns the headers for the static server.
@@ -55,7 +61,7 @@ func (csfs *CachedStaticFileServer) Headers() http.Header {
 }
 
 // AddRewriteRule adds a static re-write rule.
-func (csfs *CachedStaticFileServer) AddRewriteRule(route, match string, action RewriteAction) error {
+func (csfs *CachedStaticFileServer) AddRewriteRule(match string, action RewriteAction) error {
 	expr, err := regexp.Compile(match)
 	if err != nil {
 		return err
@@ -71,6 +77,11 @@ func (csfs *CachedStaticFileServer) AddRewriteRule(route, match string, action R
 // RewriteRules returns the rewrite rules
 func (csfs *CachedStaticFileServer) RewriteRules() []RewriteRule {
 	return csfs.rewriteRules
+}
+
+// SetMiddleware sets the middlewares.
+func (csfs *CachedStaticFileServer) SetMiddleware(middlewares ...Middleware) {
+	csfs.middleware = NestMiddleware(csfs.ServeFile, middlewares...)
 }
 
 // GetCachedFile returns a file from the filesystem at a given path.
@@ -109,16 +120,24 @@ func (csfs *CachedStaticFileServer) GetCachedFile(filepath string) (*CachedStati
 	return newFile, nil
 }
 
-// Action implements Action.
+// Action is the entrypoint for the static server.
 func (csfs *CachedStaticFileServer) Action(r *Ctx) Result {
-	filePath, err := r.RouteParam("filepath")
+	if csfs.middleware != nil {
+		return csfs.middleware(r)
+	}
+	return csfs.ServeFile(r)
+}
+
+// ServeFile writes the file to the response.
+func (csfs *CachedStaticFileServer) ServeFile(r *Ctx) Result {
+	filePath, err := r.RouteParam(RouteTokenFilepath)
 	if err != nil {
 		return r.DefaultResultProvider().InternalError(err)
 	}
 
 	for key, values := range csfs.headers {
 		for _, value := range values {
-			r.Response.Header().Set(key, value)
+			r.Response().Header().Set(key, value)
 		}
 	}
 
@@ -136,6 +155,6 @@ func (csfs *CachedStaticFileServer) Action(r *Ctx) Result {
 		return r.DefaultResultProvider().InternalError(err)
 	}
 
-	http.ServeContent(r.Response, r.Request, filePath, f.ModTime, f.Contents)
+	http.ServeContent(r.Response(), r.Request(), filePath, f.ModTime, f.Contents)
 	return nil
 }

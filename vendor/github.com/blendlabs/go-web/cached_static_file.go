@@ -16,6 +16,6 @@ type CachedStaticFile struct {
 
 // Render implements Result.
 func (csf CachedStaticFile) Render(ctx *Ctx) error {
-	http.ServeContent(ctx.Response, ctx.Request, csf.Path, csf.ModTime, csf.Contents)
+	http.ServeContent(ctx.Response(), ctx.Request(), csf.Path, csf.ModTime, csf.Contents)
 	return nil
 }
