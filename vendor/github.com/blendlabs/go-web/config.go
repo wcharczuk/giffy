@@ -54,8 +54,6 @@ type Config struct {
 	SecureCookieHTTPSOnly *bool `json:"secureCookieHTTPSOnly" yaml:"secureCookieHTTPSOnly" env:"SECURE_COOKIE_HTTPS_ONLY"`
 	// SecureCookieName is the name of the secure cookie to issue with sessions.
 	SecureCookieName string `json:"secureCookieName" yaml:"secureCookieName" env:"SECURE_COOKIE_NAME"`
-	// SecureCookiePath is the path on the secure cookie to issue with sessions.
-	SecureCookiePath string `json:"secureCookiePath,omitempty" yaml:"secureCookiePath,omitempty" env:"SECURE_COOKIE_PATH"`
 
 	// DefaultHeaders are included on any responses. The app ships with a set of default headers, which you can augment with this property.
 	DefaultHeaders map[string]string `json:"defaultHeaders" yaml:"defaultHeaders"`
@@ -246,9 +244,4 @@ func (c Config) GetSecureCookieHTTPSOnly(defaults ...bool) bool {
 // GetSecureCookieName returns a property or a default.
 func (c Config) GetSecureCookieName(defaults ...string) string {
 	return util.Coalesce.String(c.SecureCookieName, DefaultSecureCookieName, defaults...)
-}
-
-// GetSecureCookiePath returns a property or a default.
-func (c Config) GetSecureCookiePath(defaults ...string) string {
-	return util.Coalesce.String(c.SecureCookiePath, DefaultCookiePath, defaults...)
 }

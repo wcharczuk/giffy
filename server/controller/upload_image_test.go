@@ -51,7 +51,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 		Key:      "image",
 		FileName: "image.gif",
 		Contents: contents,
-	}).WithHeader(auth.CookieName(), session.SessionID).Response()
+	}).WithCookieValue(auth.CookieName(), session.SessionID).Response()
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.StatusCode)
 	assert.NotNil(res.Body)

@@ -28,7 +28,7 @@ func TestSessionAware(t *testing.T) {
 		SessionID: sessionID,
 	})
 
-	meta, err := app.Mock().WithPathf("/").WithHeader(app.Auth().CookieName(), sessionID).ExecuteWithMeta()
+	meta, err := app.Mock().WithPathf("/").WithCookieValue(app.Auth().CookieName(), sessionID).ExecuteWithMeta()
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, meta.StatusCode)
 	assert.Equal(ContentTypeText, meta.Headers.Get(HeaderContentType))
@@ -64,7 +64,7 @@ func TestSessionRequired(t *testing.T) {
 	assert.Equal(http.StatusForbidden, unsetMeta.StatusCode)
 	assert.False(sessionWasSet)
 
-	meta, err := app.Mock().WithPathf("/").WithHeader(app.Auth().CookieName(), sessionID).ExecuteWithMeta()
+	meta, err := app.Mock().WithPathf("/").WithCookieValue(app.Auth().CookieName(), sessionID).ExecuteWithMeta()
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, meta.StatusCode)
 	assert.True(sessionWasSet)
@@ -94,12 +94,12 @@ func TestSessionRequiredCustomParamName(t *testing.T) {
 	assert.Equal(http.StatusForbidden, unsetMeta.StatusCode)
 	assert.False(sessionWasSet)
 
-	meta, err := app.Mock().WithPathf("/").WithHeader(app.Auth().CookieName(), sessionID).ExecuteWithMeta()
+	meta, err := app.Mock().WithPathf("/").WithCookieValue(app.Auth().CookieName(), sessionID).ExecuteWithMeta()
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, meta.StatusCode)
 	assert.True(sessionWasSet)
 
-	meta, err = app.Mock().WithPathf("/").WithHeader(DefaultCookieName, sessionID).ExecuteWithMeta()
+	meta, err = app.Mock().WithPathf("/").WithCookieValue(DefaultCookieName, sessionID).ExecuteWithMeta()
 	assert.Nil(err)
 	assert.Equal(http.StatusForbidden, meta.StatusCode)
 	assert.True(sessionWasSet)

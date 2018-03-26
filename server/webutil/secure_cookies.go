@@ -13,7 +13,7 @@ func SecureCookies(app *web.App) {
 		return util.OptionalTime(time.Now().UTC().AddDate(0, 0, 7))
 	})
 
-	if app.Auth().CookieHTTPSOnly() {
+	if app.Auth().CookiesHTTPSOnly() {
 		app.Logger().SyncInfof("using secure cookies")
 	}
 }

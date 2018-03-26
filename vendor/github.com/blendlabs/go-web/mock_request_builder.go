@@ -123,6 +123,12 @@ func (mrb *MockRequestBuilder) WithCookie(cookie *http.Cookie) *MockRequestBuild
 	return mrb
 }
 
+// WithCookieValue adds a basic name+value cookie for the request.
+func (mrb *MockRequestBuilder) WithCookieValue(name, value string) *MockRequestBuilder {
+	mrb.cookies = append(mrb.cookies, NewBasicCookie(name, value))
+	return mrb
+}
+
 // WithPostBody sets the post body for the request.
 func (mrb *MockRequestBuilder) WithPostBody(postBody []byte) *MockRequestBuilder {
 	mrb.postBody = postBody

@@ -69,7 +69,7 @@ func TestAPIUsers(t *testing.T) {
 	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testUsersResponse
-	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
+	err = app.Mock().WithTx(tx).WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
@@ -88,7 +88,7 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testUsersResponse
-	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
+	err = app.Mock().WithTx(tx).WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
@@ -108,7 +108,7 @@ func TestAPIUserSearch(t *testing.T) {
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).
-		WithHeader(auth.CookieName(), session.SessionID).
+		WithCookieValue(auth.CookieName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
 		JSON(&res)
@@ -131,7 +131,7 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 
 	var res testUsersResponse
 	err = app.Mock().WithTx(tx).
-		WithHeader(auth.CookieName(), session.SessionID).
+		WithCookieValue(auth.CookieName(), session.SessionID).
 		WithPathf("/api/users.search").
 		WithQueryString("query", "will").
 		JSON(&res)
@@ -229,7 +229,7 @@ func TestAPISessionUser(t *testing.T) {
 	app.Register(API{Config: config.NewFromEnv(), Google: google.New().WithSecret(util.Crypto.MustCreateKey(32))})
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithTx(tx).WithHeader(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
+	err = app.Mock().WithTx(tx).WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.True(res.Response.IsLoggedIn)
@@ -307,7 +307,7 @@ func TestAPIGetTeams(t *testing.T) {
 	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testTeamsResponse
-	err = app.Mock().WithTx(tx).WithPathf("/api/teams").WithHeader(auth.CookieName(), session.SessionID).JSON(&res)
+	err = app.Mock().WithTx(tx).WithPathf("/api/teams").WithCookieValue(auth.CookieName(), session.SessionID).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotEmpty(res.Response)
@@ -368,7 +368,7 @@ func TestAPIGetTeam(t *testing.T) {
 	app.Register(API{Config: config.NewFromEnv()})
 
 	var res testTeamResponse
-	err = app.Mock().WithTx(tx).WithPathf("/api/team/%s", team1.TeamID).WithHeader(auth.CookieName(), session.SessionID).JSON(&res)
+	err = app.Mock().WithTx(tx).WithPathf("/api/team/%s", team1.TeamID).WithCookieValue(auth.CookieName(), session.SessionID).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotNil(res.Response)

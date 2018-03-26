@@ -3,6 +3,7 @@ package controller
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -99,7 +100,7 @@ func CreateTestBannedUser(tx *sql.Tx) (*model.User, error) {
 
 func AuthTestUser(user *model.User, tx *sql.Tx) (*web.AuthManager, *web.Session, error) {
 	auth := web.NewAuthManager()
-	session, err := auth.Login(util.String.FromInt64(user.ID), nil)
+	session, err := auth.Login(util.String.FromInt64(user.ID), web.NewCtx(web.NewMockResponseWriter(ioutil.Discard), &http.Request{Host: "localhost"}, nil, nil))
 	if err != nil {
 		return nil, nil, err
 	}

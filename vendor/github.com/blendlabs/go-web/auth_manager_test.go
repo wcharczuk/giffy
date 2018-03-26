@@ -1,12 +1,28 @@
 package web
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	assert "github.com/blendlabs/go-assert"
 	util "github.com/blendlabs/go-util"
 )
+
+func TestAuthManagerReadParam(t *testing.T) {
+	assert := assert.New(t)
+
+	am := NewAuthManager()
+
+	rc, _ := New().Mock().WithFormValue(am.CookieName(), "form").Ctx(nil)
+	assert.Empty(am.readParam(am.CookieName(), rc))
+
+	rc, _ = New().Mock().WithHeader(am.CookieName(), "header").Ctx(nil)
+	assert.Empty(am.readParam(am.CookieName(), rc))
+
+	rc, _ = New().Mock().WithCookieValue(am.CookieName(), "cookie").Ctx(nil)
+	assert.Equal("cookie", am.readParam(am.CookieName(), rc))
+}
 
 func TestAuthManagerLogin(t *testing.T) {
 	assert := assert.New(t)
@@ -18,7 +34,7 @@ func TestAuthManagerLogin(t *testing.T) {
 	session, err := am.Login("1", rc)
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).Ctx(nil)
+	rc2, err := app.Mock().WithCookieValue(am.CookieName(), session.SessionID).Ctx(nil)
 	assert.Nil(err)
 
 	session, err = am.VerifySession(rc2)
@@ -41,7 +57,11 @@ func TestAuthManagerLoginSecure(t *testing.T) {
 	secureSessionID, err := EncodeSignSessionID(session.SessionID, am.Secret())
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), secureSessionID).Ctx(nil)
+	rc2, err := app.Mock().
+		WithCookieValue(am.CookieName(), session.SessionID).
+		WithCookieValue(am.SecureCookieName(), secureSessionID).
+		Ctx(nil)
+
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -61,7 +81,10 @@ func TestAuthManagerLoginSecureEmptySecure(t *testing.T) {
 	session, err := am.Login("1", rc)
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), "").Ctx(nil)
+	rc2, err := app.Mock().
+		WithCookieValue(am.CookieName(), session.SessionID).
+		WithCookieValue(am.SecureCookieName(), "").
+		Ctx(nil)
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -81,7 +104,11 @@ func TestAuthManagerLoginSecureLongSecure(t *testing.T) {
 	session, err := am.Login("1", rc)
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), util.String.MustSecureRandom(LenSessionID<<1)).Ctx(nil)
+	rc2, err := app.Mock().
+		WithCookieValue(am.CookieName(), session.SessionID).
+		WithCookieValue(am.SecureCookieName(), util.String.MustSecureRandom(LenSessionID<<1)).
+		Ctx(nil)
+
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -101,7 +128,10 @@ func TestAuthManagerLoginSecureSecureNotBase64(t *testing.T) {
 	session, err := am.Login("1", rc)
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), util.String.Random(LenSessionID)).Ctx(nil)
+	rc2, err := app.Mock().
+		WithCookieValue(am.CookieName(), session.SessionID).
+		WithCookieValue(am.SecureCookieName(), util.String.Random(LenSessionID)).
+		Ctx(nil)
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -124,7 +154,11 @@ func TestAuthManagerLoginSecureWrongKey(t *testing.T) {
 	secureSessionID, err := EncodeSignSessionID(session.SessionID, GenerateSHA512Key())
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), secureSessionID).Ctx(nil)
+	rc2, err := app.Mock().
+		WithCookieValue(am.CookieName(), session.SessionID).
+		WithCookieValue(am.SecureCookieName(), secureSessionID).
+		Ctx(nil)
+
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -158,13 +192,172 @@ func TestAuthManagerLoginWithPersist(t *testing.T) {
 		return sessions[sid], nil
 	})
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).Ctx(nil)
+	rc2, err := app.Mock().
+		WithCookieValue(am.CookieName(), session.SessionID).
+		Ctx(nil)
+
 	assert.Nil(err)
 
 	valid, err := am2.VerifySession(rc2)
 	assert.Nil(err)
 	assert.NotNil(valid)
 	assert.Equal("1", valid.UserID)
+}
+
+func TestAuthManagerLogout(t *testing.T) {
+	assert := assert.New(t)
+
+	session := &Session{
+		UserID:    "test_user",
+		SessionID: NewSessionID(),
+	}
+	auth := NewAuthManager().WithSecret(util.Crypto.MustCreateKey(32))
+	assert.True(auth.UseSessionCache())
+	assert.NotEmpty(auth.Secret())
+	auth.SessionCache().Upsert(session)
+
+	// first we need to ensure the upsert worked
+	req, err := New().Mock().
+		WithCookieValue(auth.CookieName(), session.SessionID).
+		WithCookieValue(auth.SecureCookieName(), MustEncodeSignSessionID(session.SessionID, auth.Secret())).
+		Ctx(nil)
+
+	assert.Nil(err)
+
+	verified, err := auth.VerifySession(req)
+	assert.Nil(err)
+	assert.NotNil(verified)
+	assert.NotNil(auth.SessionCache().Get(session.SessionID))
+
+	req, err = New().Mock().
+		WithCookieValue(auth.CookieName(), session.SessionID).
+		WithCookieValue(auth.SecureCookieName(), MustEncodeSignSessionID(session.SessionID, auth.Secret())).
+		Ctx(nil)
+
+	assert.Nil(err)
+	assert.Nil(err)
+	assert.Nil(auth.Logout(req))
+	assert.Nil(auth.SessionCache().Get(session.SessionID), "after logout, the session should not be cached anymore")
+
+	sessionCookie := ReadSetCookieByName(req.Response().Header(), auth.CookieName())
+	assert.NotNil(sessionCookie)
+	assert.False(sessionCookie.Expires.IsZero(), fmt.Sprintf("%#v", sessionCookie)) //"we should have expired the session cookie on logout")
+	assert.Equal(auth.CookiePath(), sessionCookie.Path)
+	assert.True(sessionCookie.Expires.Before(time.Now().UTC()))
+
+	secureSessionCookie := ReadSetCookieByName(req.Response().Header(), auth.SecureCookieName())
+	assert.NotNil(secureSessionCookie)
+	assert.False(secureSessionCookie.Expires.IsZero(), "we should have expired the secure session cookie on logout")
+	assert.Equal(auth.CookiePath(), secureSessionCookie.Path)
+	assert.True(secureSessionCookie.Expires.Before(time.Now().UTC()))
+
+	// first we need to ensure the upsert worked
+	req, err = New().Mock().
+		WithCookieValue(auth.CookieName(), session.SessionID).
+		WithCookieValue(auth.SecureCookieName(), MustEncodeSignSessionID(session.SessionID, auth.Secret())).
+		Ctx(nil)
+	assert.Nil(err)
+
+	verified, err = auth.VerifySession(req)
+	assert.Nil(err)
+	assert.Nil(verified)
+}
+
+func TestAuthManagerLogoutRemoveHandler(t *testing.T) {
+	assert := assert.New(t)
+
+	session := &Session{
+		UserID:    "test_user",
+		SessionID: NewSessionID(),
+	}
+	var didCallRemoveHandler bool
+	var removedSessionID string
+	var stateValue interface{}
+	auth := NewAuthManager().WithRemoveHandler(func(sessionID string, state State) error {
+		didCallRemoveHandler = true
+		removedSessionID = sessionID
+		stateValue = state["foo"]
+		return nil
+	})
+
+	assert.True(auth.UseSessionCache())
+	auth.SessionCache().Upsert(session)
+
+	req, err := New().Mock().
+		WithCookieValue(auth.CookieName(), session.SessionID).
+		WithState("foo", "bar").
+		Ctx(nil)
+
+	assert.Nil(err)
+	assert.Nil(auth.Logout(req))
+	assert.Nil(auth.SessionCache().Get(session.SessionID), "after logout, the session should not be cached anymore")
+	assert.True(didCallRemoveHandler)
+	assert.Equal(session.SessionID, removedSessionID)
+	assert.Equal("bar", stateValue)
+}
+
+func TestAuthManagerVerifySessionInvalidSessionID(t *testing.T) {
+	assert := assert.New(t)
+
+	auth := NewAuthManager()
+	rc, _ := New().Mock().WithCookie(NewBasicCookie(auth.CookieName(), "")).Ctx(nil)
+	session, err := auth.VerifySession(rc)
+	assert.Nil(session)
+	assert.Equal(ErrSessionIDEmpty, err)
+
+	rc, _ = New().Mock().
+		WithCookieValue(auth.CookieName(), util.String.Random(LenSessionIDBase64+1)).
+		Ctx(nil)
+	session, err = auth.VerifySession(rc)
+	assert.Nil(session)
+	assert.Equal(ErrSessionIDTooLong, err)
+}
+
+func TestAuthManagerVerifySessionInvalidSecureSessionID(t *testing.T) {
+	assert := assert.New(t)
+
+	rightKey := util.Crypto.MustCreateKey(32)
+	secureAuth := NewAuthManager().WithSecret(rightKey)
+	rc, _ := New().Mock().
+		WithCookieValue(secureAuth.CookieName(), NewSessionID()).
+		WithCookieValue(secureAuth.SecureCookieName(), "").Ctx(nil)
+
+	session, err := secureAuth.VerifySession(rc)
+	assert.Nil(session)
+	assert.Equal(ErrSecureSessionIDEmpty, err)
+
+	rc, _ = New().Mock().
+		WithCookie(NewBasicCookie(secureAuth.CookieName(), NewSessionID())).
+		WithCookie(NewBasicCookie(secureAuth.SecureCookieName(), util.String.Random(LenSessionIDBase64+1))).
+		Ctx(nil)
+
+	session, err = secureAuth.VerifySession(rc)
+	assert.Nil(session)
+	assert.Equal(ErrSecureSessionIDTooLong, err)
+
+	rc, _ = New().Mock().
+		WithCookieValue(secureAuth.CookieName(), NewSessionID()).
+		WithCookieValue(secureAuth.SecureCookieName(), util.String.Random(64)).
+		Ctx(nil)
+	session, err = secureAuth.VerifySession(rc)
+	assert.Nil(session)
+	assert.Equal(ErrSecureSessionIDInvalid, err)
+
+	sessionID := NewSessionID()
+	wrongKey := util.Crypto.MustCreateKey(32)
+
+	signed, err := SignSessionID(sessionID, wrongKey)
+	assert.Nil(err)
+	invalidSecureSessionID := Base64Encode(signed)
+
+	rc, _ = New().Mock().
+		WithCookieValue(secureAuth.CookieName(), sessionID).
+		WithCookieValue(secureAuth.SecureCookieName(), invalidSecureSessionID).
+		Ctx(nil)
+
+	session, err = secureAuth.VerifySession(rc)
+	assert.Nil(session)
+	assert.Equal(ErrSecureSessionIDInvalid, err)
 }
 
 func TestAuthManagerVerifySessionWithFetch(t *testing.T) {
@@ -184,7 +377,7 @@ func TestAuthManagerVerifySessionWithFetch(t *testing.T) {
 	sessionID := NewSessionID()
 	sessions[sessionID] = NewSession("1", sessionID)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), sessionID).Ctx(nil)
+	rc2, err := app.Mock().WithCookieValue(am.CookieName(), sessionID).Ctx(nil)
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -193,7 +386,7 @@ func TestAuthManagerVerifySessionWithFetch(t *testing.T) {
 	assert.Equal("1", valid.UserID)
 	assert.True(didCallHandler)
 
-	rc3, err := app.Mock().WithHeader(am.CookieName(), NewSessionID()).Ctx(nil)
+	rc3, err := app.Mock().WithCookieValue(am.CookieName(), NewSessionID()).Ctx(nil)
 	assert.Nil(err)
 
 	invalid, err := am.VerifySession(rc3)
@@ -201,14 +394,172 @@ func TestAuthManagerVerifySessionWithFetch(t *testing.T) {
 	assert.Nil(invalid)
 }
 
-func TestAuthManagerIsCookieSecure(t *testing.T) {
+func TestAuthManagerVerifySessionCached(t *testing.T) {
 	assert := assert.New(t)
-	sm := NewAuthManager()
-	assert.False(sm.IsCookieHTTPSOnly())
-	sm.SetCookieHTTPSOnly(true)
-	assert.True(sm.IsCookieHTTPSOnly())
-	sm.SetCookieHTTPSOnly(false)
-	assert.False(sm.IsCookieHTTPSOnly())
+
+	auth := NewAuthManager().WithUseSessionCache(true)
+	rc, err := New().Mock().Ctx(nil)
+	assert.Nil(err)
+	session, err := auth.Login("test_user", rc)
+	assert.Nil(err)
+	assert.NotNil(session)
+
+	rc, err = New().Mock().WithCookieValue(auth.CookieName(), session.SessionID).Ctx(nil)
+	assert.Nil(err)
+	cachedSession, err := auth.VerifySession(rc)
+	assert.Nil(err)
+	assert.NotNil(cachedSession, "session should have been logged in")
+	assert.Equal(session.SessionID, cachedSession.SessionID)
+}
+
+func TestAuthManagerVerifyUpdatesSessionExpiry(t *testing.T) {
+	assert := assert.New(t)
+
+	var count int
+	var didCallPersistHandler bool
+	var persistedSessionID string
+	var stateValue interface{}
+	auth := NewAuthManager().WithUseSessionCache(true).WithRollingSessionTimeout().WithSessionTimeoutProvider(func(ctx *Ctx) *time.Time {
+		count++
+		return util.OptionalTime(time.Now().UTC().Add(time.Duration(count) * time.Second))
+	}).WithPersistHandler(func(ctx *Ctx, session *Session, state State) error {
+		didCallPersistHandler = true
+		persistedSessionID = session.SessionID
+		stateValue = state["foo"]
+		return nil
+	})
+
+	assert.True(auth.shouldUpdateSessionExpiry())
+
+	rc, err := New().Mock().Ctx(nil)
+	assert.Nil(err)
+	session, err := auth.Login("test_user", rc)
+	assert.Nil(err)
+	assert.NotNil(session)
+
+	originalSetCookie := ReadSetCookieByName(rc.Response().Header(), auth.CookieName())
+	assert.False(originalSetCookie.Expires.IsZero())
+
+	rc, err = New().Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithState("foo", "bar").Ctx(nil)
+	assert.Nil(err)
+	cachedSession, err := auth.VerifySession(rc)
+	assert.Nil(err)
+	assert.NotNil(cachedSession, "session should have been logged in")
+	assert.Equal(session.SessionID, cachedSession.SessionID)
+	assert.True(didCallPersistHandler)
+	assert.Equal(session.SessionID, persistedSessionID)
+	assert.Equal("bar", stateValue)
+
+	updatedSetCookie := ReadSetCookieByName(rc.Response().Header(), auth.CookieName())
+	assert.False(updatedSetCookie.Expires.IsZero())
+	assert.True(updatedSetCookie.Expires.After(originalSetCookie.Expires),
+		fmt.Sprintf("when we verify with rolling expiry, we should move the expires time forward: %v vs. %v",
+			originalSetCookie.Expires.Format(time.RFC3339Nano),
+			updatedSetCookie.Expires.Format(time.RFC3339Nano),
+		))
+}
+
+func TestAuthManagerVerifySessionFetched(t *testing.T) {
+	assert := assert.New(t)
+
+	sessionID := NewSessionID()
+	var didCallHandler bool
+	auth := NewAuthManager().WithUseSessionCache(false).WithFetchHandler(func(sessionID string, state State) (*Session, error) {
+		didCallHandler = true
+		return &Session{
+			SessionID: sessionID,
+			UserID:    "test_user",
+		}, nil
+	})
+
+	rc, _ := New().Mock().WithCookie(NewBasicCookie(auth.CookieName(), sessionID)).Ctx(nil)
+	fetchedSession, err := auth.VerifySession(rc)
+	assert.Nil(err)
+	assert.True(didCallHandler)
+	assert.NotNil(fetchedSession, "session should have been logged in")
+	assert.Equal(sessionID, fetchedSession.SessionID)
+	assert.Equal("test_user", fetchedSession.UserID)
+}
+
+func TestAuthManagerVerifySessionFetchedError(t *testing.T) {
+	assert := assert.New(t)
+
+	sessionID := NewSessionID()
+	var didCallFetchHandler bool
+	var didCallValidateHandler bool
+	auth := NewAuthManager().WithUseSessionCache(false).WithFetchHandler(func(sessionID string, state State) (*Session, error) {
+		didCallFetchHandler = true
+		return nil, fmt.Errorf("this is only a test")
+	}).WithValidateHandler(func(session *Session, state State) error {
+		didCallValidateHandler = true
+		return nil
+	})
+
+	rc, _ := New().Mock().
+		WithCookieValue(auth.CookieName(), sessionID).
+		Ctx(nil)
+
+	fetchedSession, err := auth.VerifySession(rc)
+	assert.NotNil(err)
+	assert.Equal("this is only a test", err.Error())
+	assert.True(didCallFetchHandler)
+	assert.False(didCallValidateHandler)
+	assert.Nil(fetchedSession)
+	assert.False(IsErrSessionInvalid(err))
+}
+
+func TestAuthManagerVerifySessionValidated(t *testing.T) {
+	assert := assert.New(t)
+
+	sessionID := NewSessionID()
+	var didCallFetchHandler bool
+	var didCallValidateHandler bool
+	auth := NewAuthManager().WithUseSessionCache(false).WithFetchHandler(func(sessionID string, state State) (*Session, error) {
+		didCallFetchHandler = true
+		return &Session{
+			SessionID: sessionID,
+			UserID:    "test_user",
+		}, nil
+	}).WithValidateHandler(func(session *Session, state State) error {
+		didCallValidateHandler = true
+		return nil
+	})
+
+	rc, _ := New().Mock().
+		WithCookieValue(auth.CookieName(), sessionID).
+		Ctx(nil)
+
+	fetchedSession, err := auth.VerifySession(rc)
+	assert.Nil(err)
+	assert.True(didCallFetchHandler)
+	assert.True(didCallValidateHandler, "if we provide a handler, it should be called if we have a session in the system")
+	assert.NotNil(fetchedSession, "session should have been logged in")
+	assert.Equal(sessionID, fetchedSession.SessionID)
+	assert.Equal("test_user", fetchedSession.UserID)
+}
+
+func TestAuthManagerVerifySessionCachedRemoved(t *testing.T) {
+	assert := assert.New(t)
+
+	var removedSessionID string
+	var didCallRemoveHandler bool
+	var stateValue interface{}
+	auth := NewAuthManager().WithUseSessionCache(true).WithRemoveHandler(func(sessionID string, state State) error {
+		didCallRemoveHandler = true
+		removedSessionID = sessionID
+		stateValue = state["foo"]
+		return nil
+	})
+
+	sessionID := NewSessionID()
+	rc, err := New().Mock().WithCookieValue(auth.CookieName(), sessionID).WithState("foo", "bar").Ctx(nil)
+	assert.Nil(err)
+	cachedSession, err := auth.VerifySession(rc)
+	assert.Nil(err)
+	assert.Nil(cachedSession, "session should not have been logged in")
+	assert.True(didCallRemoveHandler)
+	assert.Equal(sessionID, removedSessionID)
+	assert.Equal("bar", stateValue, "state should be passed to the remove handler")
 }
 
 func TestAuthManagerGenerateSessionTimeout(t *testing.T) {
@@ -232,20 +583,12 @@ func TestAuthManagerGenerateSessionTimeout(t *testing.T) {
 	assert.InTimeDelta(*expiresAt, time.Now().UTC().Add(6*time.Hour), time.Minute)
 }
 
-func TestAuthManagerNilSessionRegression(t *testing.T) {
+func TestAuthManagerIsCookieSecure(t *testing.T) {
 	assert := assert.New(t)
-
-	app := New()
-
-	auth := NewAuthManager()
-
-	var didCall bool
-	auth.SetRemoveHandler(func(ssid string, state State) error {
-		didCall = true
-		return nil
-	})
-
-	rc, _ := app.Mock().WithHeader(auth.CookieName(), NewSessionID()).Ctx(nil)
-	auth.VerifySession(rc)
-	assert.True(didCall)
+	sm := NewAuthManager()
+	assert.False(sm.CookiesHTTPSOnly())
+	sm.WithCookiesHTTPSOnly(true)
+	assert.True(sm.CookiesHTTPSOnly())
+	sm.WithCookiesHTTPSOnly(false)
+	assert.False(sm.CookiesHTTPSOnly())
 }

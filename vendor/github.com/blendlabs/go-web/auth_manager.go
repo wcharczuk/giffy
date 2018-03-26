@@ -2,7 +2,6 @@ package web
 
 import (
 	"crypto/hmac"
-	"encoding/base64"
 	"net/url"
 	"time"
 
@@ -20,7 +19,6 @@ func NewAuthManager() *AuthManager {
 		cookieName:               DefaultCookieName,
 		cookiePath:               DefaultCookiePath,
 		secureCookieName:         DefaultSecureCookieName,
-		secureCookiePath:         DefaultCookiePath,
 	}
 }
 
@@ -37,7 +35,6 @@ func NewAuthManagerFromConfig(cfg *Config) *AuthManager {
 		secureCookieKey:          cfg.GetSecureCookieKey(),
 		secureCookieHTTPSOnly:    cfg.GetSecureCookieHTTPSOnly(),
 		secureCookieName:         cfg.GetSecureCookieName(),
-		secureCookiePath:         cfg.GetSecureCookiePath(),
 	}
 }
 
@@ -49,7 +46,7 @@ type AuthManager struct {
 	fetchHandler         func(sessionID string, state State) (*Session, error)
 	removeHandler        func(sessionID string, state State) error
 	validateHandler      func(*Session, State) error
-	loginRedirectHandler func(*url.URL) *url.URL
+	loginRedirectHandler func(*Ctx) *url.URL
 
 	log *logger.Logger
 
@@ -63,7 +60,6 @@ type AuthManager struct {
 
 	secureCookieKey       []byte
 	secureCookieName      string
-	secureCookiePath      string
 	secureCookieHTTPSOnly bool
 }
 
@@ -98,40 +94,31 @@ func (am *AuthManager) Login(userID string, ctx *Ctx) (session *Session, err err
 		am.sessionCache.Upsert(session)
 	}
 
-	am.injectCookie(ctx, sessionID, session.ExpiresUTC)
+	am.injectCookie(ctx, am.CookieName(), sessionID, session.ExpiresUTC)
 	if am.shouldIssueSecureSesssionID() {
-		am.injectSecureCookie(ctx, secureSessionID, session.ExpiresUTC)
+		am.injectCookie(ctx, am.SecureCookieName(), secureSessionID, session.ExpiresUTC)
 	}
 	return session, nil
 }
 
 // Logout unauthenticates a session.
 func (am *AuthManager) Logout(ctx *Ctx) error {
-	if ctx.Session() == nil {
-		return nil
-	}
-
-	session := ctx.Session()
+	sessionID := am.readSessionID(ctx)
 
 	// remove from session cache if enabled
 	if am.useSessionCache {
-		am.sessionCache.Remove(session.SessionID)
+		am.sessionCache.Remove(sessionID)
 	}
 
-	// expire cookies on the request
-	if ctx != nil {
-		ctx.ExpireCookie(am.cookieName, am.cookiePath)
-		if am.shouldIssueSecureSesssionID() {
-			ctx.ExpireCookie(am.secureCookieName, am.secureCookiePath)
-		}
+	ctx.ExpireCookie(am.CookieName(), am.CookiePath())
+	if am.shouldIssueSecureSesssionID() {
+		ctx.ExpireCookie(am.SecureCookieName(), am.CookiePath())
 	}
+	ctx.WithSession(nil)
 
 	// remove the session from a backing store
 	if am.removeHandler != nil {
-		if ctx != nil {
-			return am.err(am.removeHandler(session.SessionID, ctx.state))
-		}
-		return am.err(am.removeHandler(session.SessionID, nil))
+		return am.err(am.removeHandler(sessionID, ctx.state))
 	}
 	return nil
 }
@@ -167,19 +154,19 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 	}
 
 	if session == nil || session.IsZero() || session.IsExpired() {
-		if ctx != nil {
-			ctx.ExpireCookie(am.cookieName, DefaultCookiePath)
-			if am.shouldIssueSecureSesssionID() {
-				ctx.ExpireCookie(am.cookieName, DefaultCookiePath)
-			}
+		ctx.ExpireCookie(am.CookieName(), DefaultCookiePath)
+		if am.shouldIssueSecureSesssionID() {
+			ctx.ExpireCookie(am.SecureCookieName(), am.CookiePath())
 		}
+
 		// if we have a remove handler and the sessionID is set
-		if am.removeHandler != nil && len(sessionID) > 0 {
+		if am.removeHandler != nil {
 			err = am.removeHandler(sessionID, ctx.state)
 			if err != nil {
 				return nil, err
 			}
 		}
+
 		// exit out, the session is bad
 		return nil, nil
 	}
@@ -202,11 +189,10 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 				return nil, err
 			}
 		}
-		if ctx != nil {
-			am.injectCookie(ctx, sessionID, session.ExpiresUTC)
-			if am.shouldIssueSecureSesssionID() {
-				am.injectSecureCookie(ctx, secureSessionID, session.ExpiresUTC)
-			}
+
+		am.injectCookie(ctx, am.CookieName(), sessionID, session.ExpiresUTC)
+		if am.shouldIssueSecureSesssionID() {
+			am.injectCookie(ctx, am.SecureCookieName(), secureSessionID, session.ExpiresUTC)
 		}
 	}
 
@@ -218,19 +204,41 @@ func (am *AuthManager) VerifySession(ctx *Ctx) (*Session, error) {
 
 // Redirect returns a redirect result for when auth fails and you need to
 // send the user to a login page.
-func (am *AuthManager) Redirect(context *Ctx) Result {
+func (am *AuthManager) Redirect(ctx *Ctx) Result {
 	if am.loginRedirectHandler != nil {
-		redirectTo := context.auth.loginRedirectHandler(context.Request().URL)
+		redirectTo := am.loginRedirectHandler(ctx)
 		if redirectTo != nil {
-			return context.Redirectf(redirectTo.String())
+			return ctx.Redirectf(redirectTo.String())
 		}
 	}
-	return context.DefaultResultProvider().NotAuthorized()
+	return ctx.DefaultResultProvider().NotAuthorized()
 }
 
 // --------------------------------------------------------------------------------
 // Properties
 // --------------------------------------------------------------------------------
+
+// WithUseSessionCache sets if we should use the session cache.
+func (am *AuthManager) WithUseSessionCache(value bool) *AuthManager {
+	am.SetUseSessionCache(value)
+	return am
+}
+
+// SetUseSessionCache sets the `UseSessionCache` property to the value.
+func (am *AuthManager) SetUseSessionCache(value bool) {
+	am.useSessionCache = value
+}
+
+// UseSessionCache returns if we should use the session cache.
+func (am *AuthManager) UseSessionCache() bool {
+	return am.useSessionCache
+}
+
+// WithSecret sets the secret for the auth manager.
+func (am *AuthManager) WithSecret(secret []byte) *AuthManager {
+	am.SetSecret(secret)
+	return am
+}
 
 // SetSecret sets the secret for the auth manager.
 func (am *AuthManager) SetSecret(secret []byte) {
@@ -242,10 +250,27 @@ func (am *AuthManager) Secret() []byte {
 	return am.secureCookieKey
 }
 
+// WithCookiesAsSessionBound sets cookies to be issued with `session` liveness.
+func (am *AuthManager) WithCookiesAsSessionBound() *AuthManager {
+	am.SetCookiesAsSessionBound()
+	return am
+}
+
 // SetCookiesAsSessionBound sets the session issued cookies to be deleted after the browser closes.
 func (am *AuthManager) SetCookiesAsSessionBound() {
 	am.sessionTimeout = 0
 	am.sessionTimeoutProvider = nil
+}
+
+// CookiesAsSessionBound returns if cookies are issued with `session` liveness.
+func (am *AuthManager) CookiesAsSessionBound() bool {
+	return am.sessionTimeout == 0 && am.sessionTimeoutProvider == nil
+}
+
+// WithSessionTimeout sets the either rolling or absolute session timeout.
+func (am *AuthManager) WithSessionTimeout(timeout time.Duration) *AuthManager {
+	am.SetSessionTimeout(timeout)
+	return am
 }
 
 // SetSessionTimeout sets the static value for session timeout.
@@ -253,14 +278,58 @@ func (am *AuthManager) SetSessionTimeout(timeout time.Duration) {
 	am.sessionTimeout = timeout
 }
 
-// SetSessionTimeoutIsAbsolute sets if the timeout for session should be an absolute (vs. relative) time.
+// SessionTimeout returns the session timeout.
+func (am *AuthManager) SessionTimeout() time.Duration {
+	return am.sessionTimeout
+}
+
+// WithAbsoluteSessionTimeout sets if the session timeout is absolute (vs. rolling).
+func (am *AuthManager) WithAbsoluteSessionTimeout() *AuthManager {
+	am.SetSessionTimeoutIsAbsolute(true)
+	return am
+}
+
+// WithRollingSessionTimeout sets if the session timeout to be rolling (i.e. rolling).
+func (am *AuthManager) WithRollingSessionTimeout() *AuthManager {
+	am.SetSessionTimeoutIsAbsolute(false)
+	return am
+}
+
+// SetSessionTimeoutIsAbsolute sets if the timeout for session should be an absolute (vs. rolling) time.
 func (am *AuthManager) SetSessionTimeoutIsAbsolute(isAbsolute bool) {
 	am.sessionTimeoutIsAbsolute = isAbsolute
+}
+
+// SesssionTimeoutIsAbsolute returns if the session timeout is absolute (vs. rolling).
+func (am *AuthManager) SesssionTimeoutIsAbsolute() bool {
+	return am.sessionTimeoutIsAbsolute
+}
+
+// SesssionTimeoutIsRolling returns if the session timeout is absolute (vs. rolling).
+func (am *AuthManager) SesssionTimeoutIsRolling() bool {
+	return !am.sessionTimeoutIsAbsolute
+}
+
+// WithSessionTimeoutProvider sets the session timeout provider.
+func (am *AuthManager) WithSessionTimeoutProvider(timeoutProvider func(rc *Ctx) *time.Time) *AuthManager {
+	am.SetSessionTimeoutProvider(timeoutProvider)
+	return am
 }
 
 // SetSessionTimeoutProvider sets the session to expire with a given the given timeout provider.
 func (am *AuthManager) SetSessionTimeoutProvider(timeoutProvider func(rc *Ctx) *time.Time) {
 	am.sessionTimeoutProvider = timeoutProvider
+}
+
+// SessionTimeoutProvider returns the session timeout provider.
+func (am *AuthManager) SessionTimeoutProvider() func(rc *Ctx) *time.Time {
+	return am.sessionTimeoutProvider
+}
+
+// WithCookiesHTTPSOnly sets if we should issue cookies with the HTTPS flag on.
+func (am *AuthManager) WithCookiesHTTPSOnly(isHTTPSOnly bool) *AuthManager {
+	am.cookieHTTPSOnly = isHTTPSOnly
+	return am
 }
 
 // SetCookieHTTPSOnly overrides defaults when determining if we should use the HTTPS only cooikie option.
@@ -269,9 +338,15 @@ func (am *AuthManager) SetCookieHTTPSOnly(isHTTPSOnly bool) {
 	am.cookieHTTPSOnly = isHTTPSOnly
 }
 
-// CookieHTTPSOnly returns if the cookie is for only https connections.
-func (am *AuthManager) CookieHTTPSOnly() bool {
+// CookiesHTTPSOnly returns if the cookie is for only https connections.
+func (am *AuthManager) CookiesHTTPSOnly() bool {
 	return am.cookieHTTPSOnly
+}
+
+// WithCookieName sets the cookie name.
+func (am *AuthManager) WithCookieName(paramName string) *AuthManager {
+	am.SetCookieName(paramName)
+	return am
 }
 
 // SetCookieName sets the session cookie name.
@@ -282,6 +357,12 @@ func (am *AuthManager) SetCookieName(paramName string) {
 // CookieName returns the session param name.
 func (am *AuthManager) CookieName() string {
 	return am.cookieName
+}
+
+// WithCookiePath sets the cookie path.
+func (am *AuthManager) WithCookiePath(path string) *AuthManager {
+	am.SetCookiePath(path)
+	return am
 }
 
 // SetCookiePath sets the session cookie path.
@@ -297,6 +378,12 @@ func (am *AuthManager) CookiePath() string {
 	return am.cookiePath
 }
 
+// WithSecureCookieName sets the secure cookie name.
+func (am *AuthManager) WithSecureCookieName(paramName string) *AuthManager {
+	am.SetSecureCookieName(paramName)
+	return am
+}
+
 // SetSecureCookieName sets the session param name.
 func (am *AuthManager) SetSecureCookieName(paramName string) {
 	am.secureCookieName = paramName
@@ -307,20 +394,10 @@ func (am *AuthManager) SecureCookieName() string {
 	return am.secureCookieName
 }
 
-// SecureCookiePath returns the secure session path.
-func (am *AuthManager) SecureCookiePath() string {
-	if len(am.secureCookiePath) > 0 {
-		return am.secureCookiePath
-	}
-	if len(am.cookiePath) > 0 {
-		return am.cookiePath
-	}
-	return DefaultCookiePath
-}
-
-// SetSecureCookiePath sets the secure session param path.
-func (am *AuthManager) SetSecureCookiePath(path string) {
-	am.secureCookiePath = path
+// WithPersistHandler sets the persist handler.
+func (am *AuthManager) WithPersistHandler(handler func(*Ctx, *Session, State) error) *AuthManager {
+	am.SetPersistHandler(handler)
+	return am
 }
 
 // SetPersistHandler sets the persist handler.
@@ -329,16 +406,50 @@ func (am *AuthManager) SetPersistHandler(handler func(*Ctx, *Session, State) err
 	am.persistHandler = handler
 }
 
+// PersistHandler returns the persist handler.
+func (am *AuthManager) PersistHandler() func(*Ctx, *Session, State) error {
+	return am.persistHandler
+}
+
+// WithFetchHandler sets the fetch handler.
+func (am *AuthManager) WithFetchHandler(handler func(sessionID string, state State) (*Session, error)) *AuthManager {
+	am.fetchHandler = handler
+	return am
+}
+
 // SetFetchHandler sets the fetch handler.
-// It should return a session by a string sessionID.
 func (am *AuthManager) SetFetchHandler(handler func(sessionID string, state State) (*Session, error)) {
 	am.fetchHandler = handler
 }
 
+// FetchHandler returns the fetch handler.
+// It is used in `VerifySession` to satisfy session cache misses.
+func (am *AuthManager) FetchHandler() func(sessionID string, state State) (*Session, error) {
+	return am.fetchHandler
+}
+
+// WithRemoveHandler sets the remove handler.
+func (am *AuthManager) WithRemoveHandler(handler func(sessionID string, state State) error) *AuthManager {
+	am.SetRemoveHandler(handler)
+	return am
+}
+
 // SetRemoveHandler sets the remove handler.
 // It should remove a session from the backing store by a string sessionID.
-func (am *AuthManager) SetRemoveHandler(handler func(sessionID string, steate State) error) {
+func (am *AuthManager) SetRemoveHandler(handler func(sessionID string, state State) error) {
 	am.removeHandler = handler
+}
+
+// RemoveHandler returns the remove handler.
+// It is used in validate session if the session is found to be invalid.
+func (am *AuthManager) RemoveHandler() func(sessionID string, state State) error {
+	return am.removeHandler
+}
+
+// WithValidateHandler sets the validate handler.
+func (am *AuthManager) WithValidateHandler(handler func(*Session, State) error) *AuthManager {
+	am.SetValidateHandler(handler)
+	return am
 }
 
 // SetValidateHandler sets the validate handler.
@@ -347,10 +458,26 @@ func (am *AuthManager) SetValidateHandler(handler func(*Session, State) error) {
 	am.validateHandler = handler
 }
 
+// ValidateHandler returns the validate handler.
+func (am *AuthManager) ValidateHandler() func(*Session, State) error {
+	return am.validateHandler
+}
+
+// WithLoginRedirectHandler sets the login redirect handler.
+func (am *AuthManager) WithLoginRedirectHandler(handler func(*Ctx) *url.URL) *AuthManager {
+	am.SetLoginRedirectHandler(handler)
+	return am
+}
+
 // SetLoginRedirectHandler sets the handler to determin where to redirect on not authorized attempts.
 // It should return (nil) if you want to just show the `not_authorized` template, provided one is configured.
-func (am *AuthManager) SetLoginRedirectHandler(handler func(*url.URL) *url.URL) {
+func (am *AuthManager) SetLoginRedirectHandler(handler func(*Ctx) *url.URL) {
 	am.loginRedirectHandler = handler
+}
+
+// LoginRedirectHandler returns the login redirect handler.
+func (am *AuthManager) LoginRedirectHandler() func(*Ctx) *url.URL {
+	return am.loginRedirectHandler
 }
 
 // SessionCache returns the session cache.
@@ -358,35 +485,15 @@ func (am *AuthManager) SessionCache() *SessionCache {
 	return am.sessionCache
 }
 
-// IsCookieHTTPSOnly returns if the session cookie is configured to be secure only.
-func (am *AuthManager) IsCookieHTTPSOnly() bool {
-	return am.cookieHTTPSOnly
-}
-
-// IsSecureCookieHTTPSOnly returns if the secure session cookie is configured to be secure only.
-func (am *AuthManager) IsSecureCookieHTTPSOnly() bool {
-	return am.secureCookieHTTPSOnly
-}
-
-// GenerateSessionTimeout returns the absolute time the cookie would expire.
-func (am *AuthManager) GenerateSessionTimeout(context *Ctx) *time.Time {
-	if am.sessionTimeout > 0 {
-		return util.OptionalTime(time.Now().UTC().Add(am.sessionTimeout))
-	} else if am.sessionTimeoutProvider != nil {
-		return am.sessionTimeoutProvider(context)
-	}
-	return nil
+// WithLogger sets the intance logger and returns a reference.
+func (am *AuthManager) WithLogger(log *logger.Logger) *AuthManager {
+	am.log = log
+	return am
 }
 
 // SetLogger sets the intance logger.
 func (am *AuthManager) SetLogger(log *logger.Logger) {
 	am.log = log
-}
-
-// WithLogger sets the intance logger and returns a reference.
-func (am *AuthManager) WithLogger(log *logger.Logger) *AuthManager {
-	am.log = log
-	return am
 }
 
 // Logger returns the instance logger.
@@ -398,12 +505,22 @@ func (am *AuthManager) Logger() *logger.Logger {
 // Utility Methods
 // --------------------------------------------------------------------------------
 
+// GenerateSessionTimeout returns the absolute time the cookie would expire.
+func (am *AuthManager) GenerateSessionTimeout(context *Ctx) *time.Time {
+	if am.sessionTimeout > 0 {
+		return util.OptionalTime(time.Now().UTC().Add(am.sessionTimeout))
+	} else if am.sessionTimeoutProvider != nil {
+		return am.sessionTimeoutProvider(context)
+	}
+	return nil
+}
+
 func (am *AuthManager) shouldIssueSecureSesssionID() bool {
 	return len(am.secureCookieKey) > 0
 }
 
 func (am AuthManager) shouldUpdateSessionExpiry() bool {
-	return !am.sessionTimeoutIsAbsolute && (am.sessionTimeout > 0 || am.sessionTimeoutProvider != nil)
+	return am.SesssionTimeoutIsRolling() && (am.sessionTimeout > 0 || am.sessionTimeoutProvider != nil)
 }
 
 // CreateSessionID creates a new session id.
@@ -417,49 +534,28 @@ func (am AuthManager) createSecureSessionID(sessionID string) (string, error) {
 }
 
 // InjectCookie injects a session cookie into the context.
-func (am *AuthManager) injectCookie(ctx *Ctx, sessionID string, expire *time.Time) {
-	paramName := am.CookieName()
+func (am *AuthManager) injectCookie(ctx *Ctx, name, value string, expire *time.Time) {
 	path := am.CookiePath()
-	https := am.CookieHTTPSOnly()
-	if ctx != nil {
-		ctx.WriteNewCookie(paramName, sessionID, expire, path, https)
-	}
+	https := am.CookiesHTTPSOnly()
+	ctx.WriteNewCookie(name, value, expire, path, https)
 }
 
-// InjectCookie injects a session cookie into the context.
-func (am *AuthManager) injectSecureCookie(ctx *Ctx, sessionID string, expire *time.Time) {
-	paramName := am.SecureCookieName()
-	path := am.SecureCookiePath()
-	https := am.IsSecureCookieHTTPSOnly()
-	if ctx != nil {
-		ctx.WriteNewCookie(paramName, sessionID, expire, path, https)
+// readParam reads a param from a given request context from either the cookies or headers.
+func (am *AuthManager) readParam(name string, ctx *Ctx) string {
+	if cookie := ctx.GetCookie(name); cookie != nil {
+		return cookie.Value
 	}
+	return ""
 }
 
 // ReadSessionID reads a session id from a given request context.
-func (am *AuthManager) readSessionID(context *Ctx) string {
-	if cookie := context.GetCookie(am.CookieName()); cookie != nil {
-		return cookie.Value
-	}
-
-	if headerValue, err := context.HeaderParam(am.CookieName()); err == nil {
-		return headerValue
-	}
-
-	return ""
+func (am *AuthManager) readSessionID(ctx *Ctx) string {
+	return am.readParam(am.CookieName(), ctx)
 }
 
 // ReadSecureSessionID reads a secure session id from a given request context.
-func (am *AuthManager) readSecureSessionID(context *Ctx) string {
-	if cookie := context.GetCookie(am.SecureCookieName()); cookie != nil {
-		return cookie.Value
-	}
-
-	if headerValue, err := context.HeaderParam(am.SecureCookieName()); err == nil {
-		return headerValue
-	}
-
-	return ""
+func (am *AuthManager) readSecureSessionID(ctx *Ctx) string {
+	return am.readParam(am.SecureCookieName(), ctx)
 }
 
 // ValidateSessionID verifies a session id.
@@ -483,7 +579,7 @@ func (am *AuthManager) validateSecureSessionID(sessionID, secureSessionID string
 		return ErrSecureSessionIDTooLong
 	}
 
-	secureSessionIDDecoded, err := base64.StdEncoding.DecodeString(secureSessionID)
+	secureSessionIDDecoded, err := Base64Decode(secureSessionID)
 	if err != nil {
 		return ErrSecureSessionIDInvalid
 	}
@@ -492,6 +588,7 @@ func (am *AuthManager) validateSecureSessionID(sessionID, secureSessionID string
 	if err != nil {
 		return ErrSecureSessionIDInvalid
 	}
+
 	if !hmac.Equal(signedSessionID, secureSessionIDDecoded) {
 		return ErrSecureSessionIDInvalid
 	}

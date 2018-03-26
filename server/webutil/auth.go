@@ -38,7 +38,8 @@ func SetUser(session *web.Session, user *model.User) {
 // LoginRedirect returns the login redirect.
 // This is used when a client tries to access a session required route and isn't authed.
 // It should generally point to the login page.
-func LoginRedirect(from *url.URL) *url.URL {
+func LoginRedirect(ctx *web.Ctx) *url.URL {
+	from := ctx.Request().URL
 	if from.Path != "/" {
 		return &url.URL{
 			Path:     "/",

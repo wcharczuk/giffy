@@ -20,6 +20,12 @@ const (
 	// It typically enables or disables compressed (gzipped) responses.
 	HeaderAcceptEncoding = "Accept-Encoding"
 
+	// HeaderSetCookie is the header that sets cookies in a response.
+	HeaderSetCookie = "Set-Cookie"
+
+	// HeaderCookie is the request cookie header.
+	HeaderCookie = "Cookie"
+
 	// HeaderDate is the "Date" header.
 	// It provides a timestamp the response was generated at.
 	// It is typically used by client cache control to invalidate expired items.

@@ -25,18 +25,16 @@ func New() *App {
 	return &App{
 		auth:                  NewAuthManager(),
 		state:                 map[string]interface{}{},
-		views:                 views,
 		statics:               map[string]Fileserver{},
 		readTimeout:           DefaultReadTimeout,
 		redirectTrailingSlash: true,
 		recoverPanics:         true,
-
-		defaultHeaders: DefaultHeaders,
-
-		viewProvider: vrp,
-		jsonProvider: &JSONResultProvider{},
-		xmlProvider:  &XMLResultProvider{},
-		textProvider: &TextResultProvider{},
+		defaultHeaders:        DefaultHeaders,
+		views:                 views,
+		viewProvider:          vrp,
+		jsonProvider:          &JSONResultProvider{},
+		xmlProvider:           &XMLResultProvider{},
+		textProvider:          &TextResultProvider{},
 	}
 }
 
@@ -74,7 +72,7 @@ func NewFromConfig(cfg *Config) *App {
 
 	tlsConfig, err := cfg.TLS.GetConfig()
 	if err != nil {
-		app = app.WithErr(err)
+		app = app.withPreStartError(err)
 	} else {
 		app = app.WithTLSConfig(tlsConfig)
 	}
@@ -158,9 +156,6 @@ func (a *App) WithDefaultHeaders(headers map[string]string) *App {
 
 // WithDefaultHeader adds a default header.
 func (a *App) WithDefaultHeader(key string, value string) *App {
-	if a.defaultHeaders == nil {
-		a.defaultHeaders = map[string]string{}
-	}
 	a.defaultHeaders[key] = value
 	return a
 }
