@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -48,8 +49,8 @@ type Config struct {
 	// CookiePath is the path on the cookie to issue with sessions.
 	CookiePath string `json:"cookiePath" yaml:"cookiePath" env:"COOKIE_PATH"`
 
-	// SecureCookieKey is a key to use to encrypt the sessionID as a second factor cookie.
-	SecureCookieKey []byte `json:"secureCookieKey" yaml:"secureCookieKey" env:"SECURE_COOKIE_KEY,base64"`
+	// AuthSecret is a key to use to encrypt the sessionID as a second factor cookie.
+	AuthSecret string `json:"authSecret" yaml:"authSecret" env:"AUTH_SECRET"`
 	// SecureCookieHTTPS determines if we should flip the `https only` flag on issued secure cookies.
 	SecureCookieHTTPSOnly *bool `json:"secureCookieHTTPSOnly" yaml:"secureCookieHTTPSOnly" env:"SECURE_COOKIE_HTTPS_ONLY"`
 	// SecureCookieName is the name of the secure cookie to issue with sessions.
@@ -231,9 +232,10 @@ func (c Config) GetCookiePath(defaults ...string) string {
 	return util.Coalesce.String(c.CookiePath, DefaultCookiePath, defaults...)
 }
 
-// GetSecureCookieKey returns a property or a default.
-func (c Config) GetSecureCookieKey(defaults ...[]byte) []byte {
-	return util.Coalesce.Bytes(c.SecureCookieKey, nil, defaults...)
+// GetAuthSecret returns a property or a default.
+func (c Config) GetAuthSecret(defaults ...[]byte) []byte {
+	decoded, _ := base64.StdEncoding.DecodeString(c.AuthSecret)
+	return decoded
 }
 
 // GetSecureCookieHTTPSOnly returns a property or a default.

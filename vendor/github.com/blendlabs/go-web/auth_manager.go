@@ -32,7 +32,7 @@ func NewAuthManagerFromConfig(cfg *Config) *AuthManager {
 		cookieHTTPSOnly:          cfg.GetCookieHTTPSOnly(),
 		cookieName:               cfg.GetCookieName(),
 		cookiePath:               cfg.GetCookiePath(),
-		secureCookieKey:          cfg.GetSecureCookieKey(),
+		secret:                   cfg.GetAuthSecret(),
 		secureCookieHTTPSOnly:    cfg.GetSecureCookieHTTPSOnly(),
 		secureCookieName:         cfg.GetSecureCookieName(),
 	}
@@ -58,7 +58,7 @@ type AuthManager struct {
 	cookiePath      string
 	cookieHTTPSOnly bool
 
-	secureCookieKey       []byte
+	secret                []byte
 	secureCookieName      string
 	secureCookieHTTPSOnly bool
 }
@@ -242,12 +242,12 @@ func (am *AuthManager) WithSecret(secret []byte) *AuthManager {
 
 // SetSecret sets the secret for the auth manager.
 func (am *AuthManager) SetSecret(secret []byte) {
-	am.secureCookieKey = secret
+	am.secret = secret
 }
 
 // Secret returns the auth manager secret.
 func (am *AuthManager) Secret() []byte {
-	return am.secureCookieKey
+	return am.secret
 }
 
 // WithCookiesAsSessionBound sets cookies to be issued with `session` liveness.
@@ -516,7 +516,7 @@ func (am *AuthManager) GenerateSessionTimeout(context *Ctx) *time.Time {
 }
 
 func (am *AuthManager) shouldIssueSecureSesssionID() bool {
-	return len(am.secureCookieKey) > 0
+	return len(am.secret) > 0
 }
 
 func (am AuthManager) shouldUpdateSessionExpiry() bool {
@@ -530,7 +530,7 @@ func (am AuthManager) createSessionID() string {
 
 // CreateSecureSessionID creates a secure session id.
 func (am AuthManager) createSecureSessionID(sessionID string) (string, error) {
-	return EncodeSignSessionID(sessionID, am.secureCookieKey)
+	return EncodeSignSessionID(sessionID, am.secret)
 }
 
 // InjectCookie injects a session cookie into the context.
@@ -584,7 +584,7 @@ func (am *AuthManager) validateSecureSessionID(sessionID, secureSessionID string
 		return ErrSecureSessionIDInvalid
 	}
 
-	signedSessionID, err := SignSessionID(sessionID, am.secureCookieKey)
+	signedSessionID, err := SignSessionID(sessionID, am.secret)
 	if err != nil {
 		return ErrSecureSessionIDInvalid
 	}
