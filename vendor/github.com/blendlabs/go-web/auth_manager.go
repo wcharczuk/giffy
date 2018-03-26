@@ -2,6 +2,7 @@ package web
 
 import (
 	"crypto/hmac"
+	"encoding/base64"
 	"net/url"
 	"time"
 
@@ -482,7 +483,7 @@ func (am *AuthManager) validateSecureSessionID(sessionID, secureSessionID string
 		return ErrSecureSessionIDTooLong
 	}
 
-	secureSessionIDDecoded, err := Base64.Decode(secureSessionID)
+	secureSessionIDDecoded, err := base64.StdEncoding.DecodeString(secureSessionID)
 	if err != nil {
 		return ErrSecureSessionIDInvalid
 	}

@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	assert "github.com/blendlabs/go-assert"
+	util "github.com/blendlabs/go-util"
 )
 
 func TestSessionAware(t *testing.T) {
 	assert := assert.New(t)
 
-	sessionID := String.SecureRandom(64)
+	sessionID := util.String.MustSecureRandom(64)
 
 	var didExecuteHandler bool
 	var sessionWasSet bool
@@ -23,7 +24,7 @@ func TestSessionAware(t *testing.T) {
 	}, SessionAware)
 
 	app.Auth().SessionCache().Upsert(&Session{
-		UserID:    String.Random(10),
+		UserID:    util.String.Random(10),
 		SessionID: sessionID,
 	})
 
@@ -43,7 +44,7 @@ func TestSessionAware(t *testing.T) {
 func TestSessionRequired(t *testing.T) {
 	assert := assert.New(t)
 
-	sessionID := String.SecureRandom(64)
+	sessionID := util.String.MustSecureRandom(64)
 
 	var sessionWasSet bool
 	app := New()
@@ -54,7 +55,7 @@ func TestSessionRequired(t *testing.T) {
 	}, SessionRequired)
 
 	app.Auth().SessionCache().Upsert(&Session{
-		UserID:    String.Random(10),
+		UserID:    util.String.Random(10),
 		SessionID: sessionID,
 	})
 
@@ -72,7 +73,7 @@ func TestSessionRequired(t *testing.T) {
 func TestSessionRequiredCustomParamName(t *testing.T) {
 	assert := assert.New(t)
 
-	sessionID := String.SecureRandom(64)
+	sessionID := util.String.MustSecureRandom(64)
 
 	var sessionWasSet bool
 	app := New()
@@ -84,7 +85,7 @@ func TestSessionRequiredCustomParamName(t *testing.T) {
 	}, SessionRequired)
 
 	app.Auth().SessionCache().Upsert(&Session{
-		UserID:    String.Random(10),
+		UserID:    util.String.Random(10),
 		SessionID: sessionID,
 	})
 

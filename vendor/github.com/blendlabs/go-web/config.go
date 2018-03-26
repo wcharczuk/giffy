@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	util "github.com/blendlabs/go-util"
@@ -69,7 +70,7 @@ type Config struct {
 	Views ViewCacheConfig `json:"views" yaml:"views"`
 }
 
-// GetBindAddr coalesces the bind addr, the port, or the default.
+// GetBindAddr util.Coalesces the bind addr, the port, or the default.
 func (c Config) GetBindAddr(defaults ...string) string {
 	if len(c.BindAddr) > 0 {
 		return c.BindAddr
@@ -149,7 +150,7 @@ func (c Config) BaseURLIsSecureScheme() bool {
 	if len(baseURL) == 0 {
 		return false
 	}
-	return util.String.HasPrefixCaseInsensitive(baseURL, SchemeHTTPS) || util.String.HasPrefixCaseInsensitive(baseURL, SchemeSPDY)
+	return strings.HasPrefix(strings.ToLower(baseURL), SchemeHTTPS) || strings.HasPrefix(strings.ToLower(baseURL), SchemeSPDY)
 }
 
 // IsSecure returns if the config specifies the app will eventually be handling https requests.

@@ -29,7 +29,7 @@ func NewUserSession(userID int64) *UserSession {
 	return &UserSession{
 		UserID:       userID,
 		TimestampUTC: time.Now().UTC(),
-		SessionID:    util.String.RandomString(32),
+		SessionID:    util.String.Random(32),
 	}
 }
 

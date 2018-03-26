@@ -15,13 +15,13 @@ func TestSlackTeam(t *testing.T) {
 	defer tx.Rollback()
 
 	newTeam := &SlackTeam{
-		TeamID:              util.String.RandomString(32),
-		TeamName:            util.String.RandomString(128),
+		TeamID:              util.String.Random(32),
+		TeamName:            util.String.Random(128),
 		CreatedUTC:          time.Now().UTC(),
 		IsEnabled:           true,
 		ContentRatingFilter: ContentRatingPG13,
-		CreatedByID:         util.String.RandomString(32),
-		CreatedByName:       util.String.RandomString(128),
+		CreatedByID:         util.String.Random(32),
+		CreatedByName:       util.String.Random(128),
 	}
 	err = DB().CreateInTx(newTeam, tx)
 	assert.Nil(err)

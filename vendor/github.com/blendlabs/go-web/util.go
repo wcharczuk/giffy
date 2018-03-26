@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	cryptoRand "crypto/rand"
 	"crypto/sha512"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/blendlabs/go-exception"
+	util "github.com/blendlabs/go-util"
 )
 
 // NestMiddleware reads the middleware variadic args and organizes the calls recursively in the order they appear.
@@ -93,7 +95,7 @@ func LocalIP() string {
 // It is not a uuid; session ids are generated using a secure random source.
 // SessionIDs are generally 64 bytes.
 func NewSessionID() string {
-	return String.SecureRandom(LenSessionID)
+	return util.String.MustSecureRandom(32)
 }
 
 // SignSessionID returns a new secure session id.
@@ -112,7 +114,7 @@ func EncodeSignSessionID(sessionID string, key []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Base64.Encode(signed), nil
+	return base64.StdEncoding.EncodeToString(signed), nil
 }
 
 // GenerateCryptoKey generates a cryptographic key.

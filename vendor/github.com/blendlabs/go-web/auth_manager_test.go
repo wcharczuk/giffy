@@ -81,7 +81,7 @@ func TestAuthManagerLoginSecureLongSecure(t *testing.T) {
 	session, err := am.Login("1", rc)
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), String.SecureRandom(LenSessionID<<1)).Ctx(nil)
+	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), util.String.MustSecureRandom(LenSessionID<<1)).Ctx(nil)
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -101,7 +101,7 @@ func TestAuthManagerLoginSecureSecureNotBase64(t *testing.T) {
 	session, err := am.Login("1", rc)
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), String.Random(LenSessionID)).Ctx(nil)
+	rc2, err := app.Mock().WithHeader(am.CookieName(), session.SessionID).WithHeader(am.SecureCookieName(), util.String.Random(LenSessionID)).Ctx(nil)
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)

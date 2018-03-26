@@ -23,15 +23,6 @@ type GCMEncryptionResult struct {
 	Nonce      []byte
 }
 
-// MustCreateKey creates a key, if an error is returned, it panics.
-func (cu cryptoUtil) MustCreateKey(keySize int) []byte {
-	key, err := cu.CreateKey(keySize)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
-
 // CreateKey creates a key of a given size by reading that much data off the crypto/rand reader.
 func (cu cryptoUtil) CreateKey(keySize int) ([]byte, error) {
 	key := make([]byte, keySize)
@@ -40,6 +31,15 @@ func (cu cryptoUtil) CreateKey(keySize int) ([]byte, error) {
 		return nil, err
 	}
 	return key, nil
+}
+
+// MustCreateKey creates a key, if an error is returned, it panics.
+func (cu cryptoUtil) MustCreateKey(keySize int) []byte {
+	key, err := cu.CreateKey(keySize)
+	if err != nil {
+		panic(err)
+	}
+	return key
 }
 
 // Encrypt encrypts data with the given key.
@@ -125,4 +125,24 @@ func (cu cryptoUtil) Hash(key, plainText []byte) []byte {
 	mac := hmac.New(sha512.New, key)
 	mac.Write([]byte(plainText))
 	return mac.Sum(nil)
+}
+
+// SecureRandomBytes generates a fixed length of random bytes.
+func (cu cryptoUtil) SecureRandomBytes(length int) ([]byte, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, exception.Wrap(err)
+	}
+
+	return b, nil
+}
+
+// MustSecureRandomBytes generates a random byte sequence and panics if it fails.
+func (cu cryptoUtil) MustSecureRandomBytes(length int) []byte {
+	b, err := cu.SecureRandomBytes(length)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

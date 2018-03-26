@@ -9,10 +9,17 @@
 			"revisionTime": "2018-03-22T23:59:11Z"
 		},
 		{
-			"checksumSHA1": "Zs6zc7DKrDE5HHMEEMMKA4l05/A=",
+			"checksumSHA1": "BQ4+hfSyNqzYaAN1AgLkEOkxnQQ=",
+			"origin": "github.com/wcharczuk/giffy/vendor/github.com/blendlabs/go-util",
+			"path": "github.com/blendlabs/go-util",
+			"revision": "eefdbecb93bc5ccee718735a0f8aae7b9e8c428a",
+			"revisionTime": "2018-03-26T01:31:25Z"
+		},
+		{
+			"checksumSHA1": "B/wdtcQPq49WIsIIPgThcRWa1Wo=",
 			"path": "github.com/blendlabs/go-web",
-			"revision": "595b9c345817d6e31bd83f7adbba68ac8a37d644",
-			"revisionTime": "2018-03-25T18:39:45Z"
+			"revision": "4f207c55f100dfa31500628cffafb05745b2ba90",
+			"revisionTime": "2018-03-26T01:32:28Z"
 		},
 		{
 			"checksumSHA1": "z7w09ahmV+EC5PrW84W/ixuL9+8=",

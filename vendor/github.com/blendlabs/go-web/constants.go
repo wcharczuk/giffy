@@ -6,6 +6,9 @@ const (
 	// PackageName is the full name of this package.
 	PackageName = "github.com/blendlabs/go-web"
 
+	// HeaderAllow is a common header.
+	HeaderAllow = "Allow"
+
 	// RouteTokenFilepath is a special route token.
 	RouteTokenFilepath = "filepath"
 
@@ -104,10 +107,32 @@ const (
 const (
 	// SchemeHTTP is a protocol scheme.
 	SchemeHTTP = "http"
+
 	// SchemeHTTPS is a protocol scheme.
 	SchemeHTTPS = "https"
+
 	// SchemeSPDY is a protocol scheme.
 	SchemeSPDY = "spdy"
+)
+
+const (
+	// MethodGet is an http verb.
+	MethodGet = "GET"
+
+	// MethodPost is an http verb.
+	MethodPost = "POST"
+
+	// MethodPut is an http verb.
+	MethodPut = "PUT"
+
+	// MethodDelete is an http verb.
+	MethodDelete = "DELETE"
+
+	// MethodConnect is an http verb.
+	MethodConnect = "CONNECT"
+
+	// MethodOptions is an http verb.
+	MethodOptions = "OPTIONS"
 )
 
 const (

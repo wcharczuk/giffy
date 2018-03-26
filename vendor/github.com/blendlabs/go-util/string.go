@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -250,15 +251,14 @@ func (su stringUtil) CombinePathComponents(components ...string) string {
 	return fullPath
 }
 
+// Random returns a new random string composed of letters from the `letters` collection.
+func (su stringUtil) Random(length int) string {
+	return su.RandomLetters(length)
+}
+
 // RandomLetters returns a new random string composed of letters from the `letters` collection.
 func (su stringUtil) RandomLetters(length int) string {
 	return su.RandomRunes(Letters, length)
-}
-
-// RandomString returns a new random string composed of letters from the `letters` collection.
-// Deprecation Notice: this is going away soonish, use `RandomLetters(length)` instead.
-func (su stringUtil) RandomString(length int) string {
-	return su.RandomLetters(length)
 }
 
 // RandomNumbers returns a random string of chars from the `numbers` collection.
@@ -585,4 +585,18 @@ func (su stringUtil) Tokenize(corpus string, tokens map[string]string) string {
 	}
 
 	return output.String()
+}
+
+// SecureRandom generates a secure random string of bytes base64 encoded.
+func (su stringUtil) SecureRandom(length int) (string, error) {
+	b, err := Crypto.SecureRandomBytes(length)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// MustSecureRandom generates a secure random string of bytes base64 encoded.
+func (su stringUtil) MustSecureRandom(length int) string {
+	return base64.URLEncoding.EncodeToString(Crypto.MustSecureRandomBytes(length))
 }

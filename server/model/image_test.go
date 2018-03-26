@@ -272,10 +272,10 @@ func TestSearchImagesBestResult(t *testing.T) {
 	i, err := CreateTestImage(u.ID, tx)
 	assert.Nil(err)
 
-	tag4value := fmt.Sprintf("__test_foo_bar_%s", util.String.RandomString(4))
-	tag3value := fmt.Sprintf("__test_bar_%s", util.String.RandomString(4))
-	tag2value := fmt.Sprintf("__test_foo_%s", util.String.RandomString(4))
-	tag1value := fmt.Sprintf("__test_%s", util.String.RandomString(4))
+	tag4value := fmt.Sprintf("__test_foo_bar_%s", util.String.Random(4))
+	tag3value := fmt.Sprintf("__test_bar_%s", util.String.Random(4))
+	tag2value := fmt.Sprintf("__test_foo_%s", util.String.Random(4))
+	tag1value := fmt.Sprintf("__test_%s", util.String.Random(4))
 
 	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, tag4value, tx)
 	assert.Nil(err)
@@ -297,7 +297,7 @@ func TestSearchImagesBestResult(t *testing.T) {
 	image, err = SearchImagesBestResult("__test", []string{i.UUID}, ContentRatingFilterDefault, tx)
 	assert.Nil(err)
 	assert.NotNil(image)
-	assert.Equal(i2.ID, image.ID)
+	assert.NotEqual(i.ID, image.ID)
 }
 
 func TestImageSignaturesWeightedRandom(t *testing.T) {

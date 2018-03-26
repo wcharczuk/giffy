@@ -678,136 +678,6 @@ func (a *App) Register(c Controller) {
 }
 
 // --------------------------------------------------------------------------------
-// Route Registration / HTTP Methods
-// --------------------------------------------------------------------------------
-
-// GET registers a GET request handler.
-func (a *App) GET(path string, action Action, middleware ...Middleware) {
-	a.Handle("GET", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
-}
-
-// OPTIONS registers a OPTIONS request handler.
-func (a *App) OPTIONS(path string, action Action, middleware ...Middleware) {
-	a.Handle("OPTIONS", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
-}
-
-// HEAD registers a HEAD request handler.
-func (a *App) HEAD(path string, action Action, middleware ...Middleware) {
-	a.Handle("HEAD", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
-}
-
-// PUT registers a PUT request handler.
-func (a *App) PUT(path string, action Action, middleware ...Middleware) {
-	a.Handle("PUT", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
-}
-
-// PATCH registers a PATCH request handler.
-func (a *App) PATCH(path string, action Action, middleware ...Middleware) {
-	a.Handle("PATCH", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
-}
-
-// POST registers a POST request actions.
-func (a *App) POST(path string, action Action, middleware ...Middleware) {
-	a.Handle("POST", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
-}
-
-// DELETE registers a DELETE request handler.
-func (a *App) DELETE(path string, action Action, middleware ...Middleware) {
-	a.Handle("DELETE", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
-}
-
-// Handle adds a raw handler at a given method and path.
-func (a *App) Handle(method, path string, handler Handler) {
-	if len(path) == 0 {
-		panic("path must not be empty")
-	}
-	if path[0] != '/' {
-		panic("path must begin with '/' in path '" + path + "'")
-	}
-	if a.routes == nil {
-		a.routes = make(map[string]*node)
-	}
-
-	root := a.routes[method]
-	if root == nil {
-		root = new(node)
-		a.routes[method] = root
-	}
-
-	root.addRoute(method, path, handler)
-}
-
-// Lookup finds the route data for a given method and path.
-func (a *App) Lookup(method, path string) (route *Route, params RouteParameters, slashRedirect bool) {
-	if root := a.routes[method]; root != nil {
-		return root.getValue(path)
-	}
-	return nil, nil, false
-}
-
-// ServeHTTP makes the router implement the http.Handler interface.
-func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	defer a.recover(w, req)
-
-	path := req.URL.Path
-
-	if root := a.routes[req.Method]; root != nil {
-		if route, params, tsr := root.getValue(path); route != nil {
-			route.Handler(w, req, route, params, nil)
-			return
-		} else if req.Method != "CONNECT" && path != "/" {
-			code := 301 // Permanent redirect, request with GET method
-			if req.Method != "GET" {
-				code = 307
-			}
-
-			if tsr && a.redirectTrailingSlash {
-				if len(path) > 1 && path[len(path)-1] == '/' {
-					req.URL.Path = path[:len(path)-1]
-				} else {
-					req.URL.Path = path + "/"
-				}
-				http.Redirect(w, req, req.URL.String(), code)
-				return
-			}
-		}
-	}
-
-	if req.Method == "OPTIONS" {
-		// Handle OPTIONS requests
-		if a.handleOptions {
-			if allow := a.allowed(path, req.Method); len(allow) > 0 {
-				w.Header().Set("Allow", allow)
-				return
-			}
-		}
-	} else {
-		// Handle 405
-		if a.handleMethodNotAllowed {
-			if allow := a.allowed(path, req.Method); len(allow) > 0 {
-				w.Header().Set("Allow", allow)
-				if a.methodNotAllowedHandler != nil {
-					a.methodNotAllowedHandler(w, req, nil, nil, nil)
-				} else {
-					http.Error(w,
-						http.StatusText(http.StatusMethodNotAllowed),
-						http.StatusMethodNotAllowed,
-					)
-				}
-				return
-			}
-		}
-	}
-
-	// Handle 404
-	if a.notFoundHandler != nil {
-		a.notFoundHandler(w, req, nil, nil, nil)
-	} else {
-		http.NotFound(w, req)
-	}
-}
-
-// --------------------------------------------------------------------------------
 // Result Providers
 // --------------------------------------------------------------------------------
 
@@ -995,11 +865,134 @@ func (a *App) Mock() *MockRequestBuilder {
 }
 
 // --------------------------------------------------------------------------------
-// App Lifecycle
+// Route Registration / HTTP Methods
 // --------------------------------------------------------------------------------
 
-func (a *App) commonStartupTasks() error {
-	return a.views.Initialize()
+// GET registers a GET request handler.
+func (a *App) GET(path string, action Action, middleware ...Middleware) {
+	a.Handle("GET", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// OPTIONS registers a OPTIONS request handler.
+func (a *App) OPTIONS(path string, action Action, middleware ...Middleware) {
+	a.Handle("OPTIONS", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// HEAD registers a HEAD request handler.
+func (a *App) HEAD(path string, action Action, middleware ...Middleware) {
+	a.Handle("HEAD", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// PUT registers a PUT request handler.
+func (a *App) PUT(path string, action Action, middleware ...Middleware) {
+	a.Handle("PUT", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// PATCH registers a PATCH request handler.
+func (a *App) PATCH(path string, action Action, middleware ...Middleware) {
+	a.Handle("PATCH", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// POST registers a POST request actions.
+func (a *App) POST(path string, action Action, middleware ...Middleware) {
+	a.Handle("POST", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// DELETE registers a DELETE request handler.
+func (a *App) DELETE(path string, action Action, middleware ...Middleware) {
+	a.Handle("DELETE", path, a.renderAction(a.middlewarePipeline(action, middleware...)))
+}
+
+// Handle adds a raw handler at a given method and path.
+func (a *App) Handle(method, path string, handler Handler) {
+	if len(path) == 0 {
+		panic("path must not be empty")
+	}
+	if path[0] != '/' {
+		panic("path must begin with '/' in path '" + path + "'")
+	}
+	if a.routes == nil {
+		a.routes = make(map[string]*node)
+	}
+
+	root := a.routes[method]
+	if root == nil {
+		root = new(node)
+		a.routes[method] = root
+	}
+
+	root.addRoute(method, path, handler)
+}
+
+// Lookup finds the route data for a given method and path.
+func (a *App) Lookup(method, path string) (route *Route, params RouteParameters, slashRedirect bool) {
+	if root := a.routes[method]; root != nil {
+		return root.getValue(path)
+	}
+	return nil, nil, false
+}
+
+// ServeHTTP makes the router implement the http.Handler interface.
+func (a *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if a.recoverPanics {
+		defer a.recover(w, req)
+	}
+
+	path := req.URL.Path
+	if root := a.routes[req.Method]; root != nil {
+		if route, params, tsr := root.getValue(path); route != nil {
+			route.Handler(w, req, route, params, nil)
+			return
+		} else if req.Method != MethodConnect && path != "/" {
+			code := http.StatusMovedPermanently // 301 // Permanent redirect, request with GET method
+			if req.Method != MethodGet {
+				code = http.StatusTemporaryRedirect // 307
+			}
+
+			if tsr && a.redirectTrailingSlash {
+				if len(path) > 1 && path[len(path)-1] == '/' {
+					req.URL.Path = path[:len(path)-1]
+				} else {
+					req.URL.Path = path + "/"
+				}
+				http.Redirect(w, req, req.URL.String(), code)
+				return
+			}
+		}
+	}
+
+	if req.Method == MethodOptions {
+		// Handle OPTIONS requests
+		if a.handleOptions {
+			if allow := a.allowed(path, req.Method); len(allow) > 0 {
+				w.Header().Set(HeaderAllow, allow)
+				return
+			}
+		}
+	} else {
+		// Handle 405
+		if a.handleMethodNotAllowed {
+			if allow := a.allowed(path, req.Method); len(allow) > 0 {
+				w.Header().Set(HeaderAllow, allow)
+				if a.methodNotAllowedHandler != nil {
+					a.methodNotAllowedHandler(w, req, nil, nil, nil)
+				} else {
+					http.Error(w,
+						http.StatusText(http.StatusMethodNotAllowed),
+						http.StatusMethodNotAllowed,
+					)
+				}
+				return
+			}
+		}
+	}
+
+	// Handle 404
+	if a.notFoundHandler != nil {
+		a.notFoundHandler(w, req, nil, nil, nil)
+	} else {
+		http.NotFound(w, req)
+	}
 }
 
 // --------------------------------------------------------------------------------
@@ -1012,8 +1005,10 @@ func (a *App) renderAction(action Action) Handler {
 	return func(w http.ResponseWriter, r *http.Request, route *Route, p RouteParameters, state State) {
 		var err error
 
-		for key, value := range a.defaultHeaders {
-			w.Header().Set(key, value)
+		if len(a.defaultHeaders) > 0 {
+			for key, value := range a.defaultHeaders {
+				w.Header().Set(key, value)
+			}
 		}
 
 		if a.hsts {
@@ -1021,30 +1016,31 @@ func (a *App) renderAction(action Action) Handler {
 		}
 
 		var response ResponseWriter
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		if strings.Contains(r.Header.Get(HeaderAcceptEncoding), ContentEncodingGZIP) {
 			w.Header().Set(HeaderContentEncoding, ContentEncodingGZIP)
 			response = NewCompressedResponseWriter(w)
 		} else {
 			w.Header().Set(HeaderContentEncoding, ContentEncodingIdentity)
 			response = NewRawResponseWriter(w)
 		}
-		context := a.createCtx(response, r, route, p, state)
-		context.onRequestStart()
+
+		ctx := a.createCtx(response, r, route, p, state)
+		ctx.onRequestStart()
 		if a.log != nil {
-			a.log.Trigger(a.loggerRequestStartEvent(context))
+			a.log.Trigger(a.loggerRequestStartEvent(ctx))
 		}
 
-		result := action(context)
+		result := action(ctx)
 		if result != nil {
-			err = result.Render(context)
+			err = result.Render(ctx)
 			if err != nil {
 				a.logError(err)
 			}
 		}
 
-		context.onRequestEnd()
-		context.setLoggedStatusCode(response.StatusCode())
-		context.setLoggedContentLength(response.ContentLength())
+		ctx.onRequestEnd()
+		ctx.setLoggedStatusCode(response.StatusCode())
+		ctx.setLoggedContentLength(response.ContentLength())
 
 		err = response.Close()
 		if err != nil && err != http.ErrBodyNotAllowed {
@@ -1052,15 +1048,19 @@ func (a *App) renderAction(action Action) Handler {
 		}
 
 		// call the cancel func if it's set.
-		if context.cancel != nil {
-			context.cancel()
+		if ctx.cancel != nil {
+			ctx.cancel()
 		}
 
 		// effectively "request complete"
 		if a.log != nil {
-			a.log.Trigger(a.loggerRequestEvent(context))
+			a.log.Trigger(a.loggerRequestEvent(ctx))
 		}
 	}
+}
+
+func (a *App) commonStartupTasks() error {
+	return a.views.Initialize()
 }
 
 func (a *App) addHSTSHeader(w http.ResponseWriter) {
@@ -1103,13 +1103,11 @@ func (a *App) loggerRequestEvent(ctx *Ctx) *logger.WebRequestEvent {
 }
 
 func (a *App) recover(w http.ResponseWriter, req *http.Request) {
-	if a.recoverPanics {
-		if rcv := recover(); rcv != nil {
-			if a.panicAction != nil {
-				a.handlePanic(w, req, rcv)
-			} else if a.log != nil {
-				a.log.Fatalf("%v", rcv)
-			}
+	if rcv := recover(); rcv != nil {
+		if a.panicAction != nil {
+			a.handlePanic(w, req, rcv)
+		} else if a.log != nil {
+			a.log.Fatalf("%v", rcv)
 		}
 	}
 }
