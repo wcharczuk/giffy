@@ -9,7 +9,7 @@ jobs:
     docker:
       - image: circleci/golang:1.10
         environment:
-          DATABASE_URL: "postgres://giffy@localhost:5432/giffy"
+          DATABASE_URL: "postgres://giffy@localhost:5432/giffy?sslmode=disable"
       
       - image: circleci/postgres:9.6.2-alpine
         environment:
@@ -23,12 +23,8 @@ jobs:
           name: Database Setup 
           command: |
             go run ./database/initialize.go
-          environment:
-            DATABASE_URL: "postgres://giffy@localhost:5432/giffy"
-
+          
       - run: 
           name: Tests
           command: | 
             go test -v ./...
-          environment:
-            DATABASE_URL: "postgres://giffy@localhost:5432/giffy"
