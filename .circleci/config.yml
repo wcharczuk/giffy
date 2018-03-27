@@ -7,7 +7,7 @@ jobs:
     working_directory: /go/src/github.com/wcharczuk/giffy
 
     docker:
-      - image: circleci/golang:1.10-alpine
+      - image: circleci/golang:1.10
         environment:
           DATABASE_URL: "postgres://giffy@localhost:5432/giffy"
       
