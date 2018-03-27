@@ -5,7 +5,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.1-alpine
+      - image: circleci/golang:1.10-alpine
         environment:
           DB_HOST: 127.0.0.1
           DB_USER: giffy
