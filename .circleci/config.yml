@@ -5,35 +5,30 @@ version: 2
 jobs:
   build:
     docker:
-      # specify the version
-      - image: circleci/golang:1.10
+      - image: circleci/golang:1.1-alpine
         environment:
           DB_HOST: 127.0.0.1
           DB_USER: root
       
-      # Specify service dependencies here if necessary
-      # CircleCI maintains a library of pre-built images
-      # documented at https://circleci.com/docs/2.0/circleci-images/
-      - image: circleci/postgres:9.4
+      - image: circleci/postgres:9.6.2-alpine
         environment:
           POSTGRES_USER: root
           POSTGRES_DB: circle-test_test
 
-    #### TEMPLATE_NOTE: go expects specific checkout path representing url
-    #### expecting it in the form of
-    ####   /go/src/github.com/circleci/go-tool
-    ####   /go/src/bitbucket.org/circleci/go-tool
     working_directory: /go/src/github.com/wcharczuk/giffy
     steps:
       - checkout
 
-      # specify any bash command here prefixed with `run: `
       - run:
           name: Database Setup 
           command: |
             go run ./database/initialize.go
+          environment:
+            DATABASE_URL: "postgres://root@localhost:5432/giffy"
 
       - run: 
-          name: tests
+          name: Tests
           command: | 
             go test -v ./...
+          environment:
+            DATABASE_URL: "postgres://root@localhost:5432/giffy"
