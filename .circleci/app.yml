@@ -1,7 +1,7 @@
 environment: ci
 
 db:
-  dsn: "postgres://localhost/giffy?sslmode=disable"
+  dsn: "postgres://giffy@localhost/giffy?sslmode=disable"
 
 logger:
   flags: [ all ]
