@@ -1,9 +1,15 @@
 package core
 
 import (
+	"log"
 	"net"
 	"os"
 	"path/filepath"
+
+	exception "github.com/blendlabs/go-exception"
+	"github.com/blendlabs/go-util/configutil"
+	"github.com/blendlabs/spiffy"
+	"github.com/wcharczuk/giffy/server/config"
 )
 
 // ConfigLocalIP is the server local IP.
@@ -24,10 +30,25 @@ func ConfigLocalIP() string {
 }
 
 // Setwd sets the working directory to the relative path.
-func Setwd(relativePath string) {
+func Setwd(relativePath string) error {
 	fullPath, err := filepath.Abs(relativePath)
 	if err != nil {
-		return
+		return exception.Wrap(err)
 	}
-	os.Chdir(fullPath)
+	return exception.Wrap(os.Chdir(fullPath))
+}
+
+// InitTest initializes the test prereqs.
+func InitTest() error {
+	var cfg config.Giffy
+	err := configutil.Read(&cfg)
+	if err != nil {
+		return err
+	}
+
+	err = spiffy.OpenDefault(spiffy.NewFromConfig(&cfg.DB))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return nil
 }

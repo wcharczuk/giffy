@@ -9,8 +9,8 @@ import (
 
 func TestModerationCreate(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	tx, err := DB().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
 
 	u, err := CreateTestUser(tx)

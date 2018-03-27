@@ -1,17 +1,19 @@
 package model
 
 import (
-	"log"
 	"os"
 	"testing"
 
-	"github.com/blendlabs/spiffy"
+	logger "github.com/blendlabs/go-logger"
+	"github.com/wcharczuk/giffy/server/core"
 )
 
 func TestMain(m *testing.M) {
-	err := spiffy.OpenDefault(spiffy.NewFromConfig(spiffy.NewConfigFromEnv()))
-	if err != nil {
-		log.Fatal(err)
+	if err := core.Setwd("../../"); err != nil {
+		logger.All().SyncFatalExit(err)
+	}
+	if err := core.InitTest(); err != nil {
+		logger.All().SyncFatalExit(err)
 	}
 	os.Exit(m.Run())
 }

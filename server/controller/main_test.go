@@ -4,15 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"testing"
 
 	"github.com/blendlabs/go-assert"
+	logger "github.com/blendlabs/go-logger"
 	util "github.com/blendlabs/go-util"
 	web "github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/webutil"
@@ -20,10 +19,11 @@ import (
 
 func TestMain(m *testing.M) {
 	// we do this because a lot of static results depend on relative paths.
-	core.Setwd("../../")
-	err := spiffy.OpenDefault(spiffy.NewFromConfig(spiffy.NewConfigFromEnv()))
-	if err != nil {
-		log.Fatal(err)
+	if err := core.Setwd("../../"); err != nil {
+		logger.All().SyncFatalExit(err)
+	}
+	if err := core.InitTest(); err != nil {
+		logger.All().SyncFatalExit(err)
 	}
 	os.Exit(m.Run())
 }
