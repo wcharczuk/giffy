@@ -18,7 +18,17 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 					"DROP SCHEMA public CASCADE;",
 					"CREATE SCHEMA public;",
 				),
-			),
+			).WithLabel("recreate schema"),
+		),
+
+		migration.New(
+			migration.NewStep(
+				migration.AlwaysRun(),
+				migration.Statements(
+					"create extension if not exists pgcrypto;",
+					"create extension if not exists pg_trgm;",
+				),
+			).WithLabel("add pg_trgm and pgcrypto"),
 		),
 
 		migration.New(
@@ -286,7 +296,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 						`,
 						cfg.GetAdminUserEmail(), cfg.GetAdminUserEmail()),
 				),
-			),
+			).WithLabel("create admin user"),
 		),
 
 		migration.New(
@@ -299,7 +309,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 					"INSERT INTO content_rating (id, name, description) select 4, 'R', 'Restricted; very violent or sexual in content.' where not exists ( select 1 from content_rating where id = 4 );",
 					"INSERT INTO content_rating (id, name, description) select 5, 'NR', 'Not Rated; reserved for the dankest of may-mays, may be disturbing. Usually NSFW, will generally get you fired if you look at these at work.' where not exists ( select 1 from content_rating where id = 5 );",
 				),
-			),
+			).WithLabel("create content ratings"),
 		),
 	)
 }

@@ -33,17 +33,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var migration migration.Migration
-
+	var m migration.Migration
 	switch strings.ToLower(command) {
 	case "migrate":
-		migration = migrations.Migrations()
+		m = migrations.Migrations()
 	case "init":
-		migration = initialize.Initialize(&cfg)
+		m = initialize.Initialize(&cfg)
 	}
 
-	err = migration.Apply(db)
+	m.WithLogger(migration.NewLogger(log))
+	err = m.Apply(db)
 	if err != nil {
-		log.Fatal(err)
+		log.SyncFatalExit(err)
 	}
 }
