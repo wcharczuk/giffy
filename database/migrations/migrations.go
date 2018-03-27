@@ -2,6 +2,16 @@ package migrations
 
 import "github.com/blendlabs/spiffy/migration"
 
+// Migrations returns the migrations.
+func Migrations() migration.Migration {
+	return migration.New(
+		contentRating(),
+		slackTeam(),
+		errors(),
+		sessionIDs(),
+	)
+}
+
 func contentRating() migration.Migration {
 	createContentRating := migration.NewStep(
 		migration.TableNotExists("content_rating"),
@@ -118,11 +128,4 @@ func sessionIDs() migration.Migration {
 			migration.Statements(`AlTER TABLE user_session ALTER session_id TYPE varchar(128)`),
 		),
 	)
-}
-
-func init() {
-	migration.RegisterDefault(contentRating())
-	migration.RegisterDefault(slackTeam())
-	migration.RegisterDefault(errors())
-	migration.RegisterDefault(sessionIDs())
 }

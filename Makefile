@@ -27,12 +27,12 @@ db-init: init-db
 
 init-db:
 	@echo "$(OK_COLOR)==> Fist Time Database Setup$(NO_COLOR)"
-	@sh ./_config/init_db.sh
+	@createdb giffy
 	@echo "$(OK_COLOR)==> Fist Time Database Setup Done!$(NO_COLOR)"
 
 db:
 	@echo "$(OK_COLOR)==> Initializing Database$(NO_COLOR)"
-	@go run ./database/initialize.go
+	@go run ./database/main.go init
 	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
 
 list-packages:
@@ -40,7 +40,7 @@ list-packages:
 
 migrate:
 	@echo "$(OK_COLOR)==> Migrating Database$(NO_COLOR)"
-	@go run ./database/migrate.go
+	@go run ./database/main.go migrate
 	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"
 
 build:

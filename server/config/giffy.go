@@ -33,7 +33,7 @@ type Giffy struct {
 	Environment string `json:"envionment" yaml:"environment" env:"SERVICE_ENV"`
 
 	// If this user authenticates it is automatically made a super-admin.
-	AdminUserEmail string `json:"adminUserEmail" yaml:"adminUserEmail"`
+	AdminUserEmail string `json:"adminUserEmail" yaml:"adminUserEmail" env:"ADMIN_USER"`
 	EncryptionKey  string `json:"encryptionKey" yaml:"encryptionKey"`
 
 	CloudFrontDNS string `json:"cloudfrontDNS" yaml:"cloudfrontDNS"`
@@ -78,4 +78,9 @@ func (g Giffy) GetEncryptionKey() []byte {
 		return key
 	}
 	return nil
+}
+
+// GetAdminUserEmail returns the admin user email.
+func (g Giffy) GetAdminUserEmail(inherited ...string) string {
+	return util.Coalesce.String(g.AdminUserEmail, "will.charczuk@gmail.com", inherited...)
 }
