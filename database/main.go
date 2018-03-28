@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -21,16 +20,14 @@ func main() {
 	}
 
 	var cfg config.Giffy
-	err := configutil.Read(&cfg)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		os.Exit(1)
+	if err := configutil.Read(&cfg); err != nil {
+		logger.All().SyncFatalExit(err)
 	}
 
 	log := logger.NewFromConfig(&cfg.Logger)
 	db, err := spiffy.NewFromConfig(&cfg.DB).Open()
 	if err != nil {
-		log.Fatal(err)
+		log.SyncFatalExit(err)
 	}
 
 	var m migration.Migration
