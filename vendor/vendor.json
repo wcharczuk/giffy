@@ -21,10 +21,10 @@
 			"revisionTime": "2018-03-26T22:24:58Z"
 		},
 		{
-			"checksumSHA1": "z7w09ahmV+EC5PrW84W/ixuL9+8=",
+			"checksumSHA1": "5uhZ2th0PvMAIPSmuXSN3cEWWiU=",
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "97c3f2f496fe075974b8e391d01557a969ef5632",
-			"revisionTime": "2018-03-23T22:41:54Z"
+			"revision": "b73d6265e4dffdfac894bf936a49c73311794969",
+			"revisionTime": "2018-03-29T18:33:02Z"
 		}
 	],
 	"rootPath": "github.com/wcharczuk/giffy"

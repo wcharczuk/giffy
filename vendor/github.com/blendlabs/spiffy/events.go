@@ -3,6 +3,7 @@ package spiffy
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 
 	logger "github.com/blendlabs/go-logger"
@@ -17,11 +18,13 @@ const (
 )
 
 // NewEvent creates a new logger event.
-func NewEvent(flag logger.Flag, label string, elapsed time.Duration, err error) Event {
+func NewEvent(flag logger.Flag, label, database, queryBody string, elapsed time.Duration, err error) Event {
 	return Event{
 		flag:       flag,
 		ts:         time.Now().UTC(),
 		queryLabel: label,
+		database:   database,
+		queryBody:  queryBody,
 		elapsed:    elapsed,
 		err:        err,
 	}
@@ -42,6 +45,7 @@ type Event struct {
 	ts         time.Time
 	queryLabel string
 	queryBody  string
+	database   string
 	elapsed    time.Duration
 	err        error
 }
@@ -73,62 +77,21 @@ func (e Event) Err() error {
 
 // WriteText writes the event text to the output.
 func (e Event) WriteText(tf logger.TextFormatter, buf *bytes.Buffer) {
-	buf.WriteString(fmt.Sprintf("(%v) ", e.elapsed))
+	buf.WriteString(fmt.Sprintf("[%s] (%v)", tf.Colorize(e.database, logger.ColorBlue), e.elapsed))
 	if len(e.queryLabel) > 0 {
+		buf.WriteRune(logger.RuneSpace)
 		buf.WriteString(e.queryLabel)
 	}
-	buf.WriteRune(logger.RuneNewline)
+	if len(e.queryBody) > 0 {
+		buf.WriteRune(logger.RuneSpace)
+		buf.WriteString(strings.TrimSpace(e.queryBody))
+	}
 }
 
 // WriteJSON implements logger.JSONWritable.
 func (e Event) WriteJSON() logger.JSONObj {
 	return logger.JSONObj{
-		"queryLabel":            e.queryLabel,
-		logger.JSONFieldElapsed: logger.Milliseconds(e.elapsed),
-	}
-}
-
-// NewStatementEvent creates a new logger event.
-func NewStatementEvent(flag logger.Flag, label, query string, elapsed time.Duration, err error) StatementEvent {
-	return StatementEvent{
-		Event:     NewEvent(flag, label, elapsed, err),
-		queryBody: query,
-	}
-}
-
-// NewStatementEventListener returns a new listener for spiffy statement events.
-func NewStatementEventListener(listener func(e StatementEvent)) logger.Listener {
-	return func(e logger.Event) {
-		if typed, isTyped := e.(StatementEvent); isTyped {
-			listener(typed)
-		}
-	}
-}
-
-// StatementEvent is the event we trigger the logger with.
-type StatementEvent struct {
-	Event
-	queryBody string
-}
-
-// QueryBody returns the query body.
-func (e StatementEvent) QueryBody() string {
-	return e.queryBody
-}
-
-// WriteText writes the event text to the output.
-func (e StatementEvent) WriteText(tf logger.TextFormatter, buf *bytes.Buffer) {
-	buf.WriteString(fmt.Sprintf("(%v) ", e.elapsed))
-	if len(e.queryLabel) > 0 {
-		buf.WriteString(e.queryLabel)
-	}
-	buf.WriteRune(logger.RuneNewline)
-	buf.WriteString(e.queryBody)
-}
-
-// WriteJSON implements logger.JSONWritable.
-func (e StatementEvent) WriteJSON() logger.JSONObj {
-	return logger.JSONObj{
+		"database":              e.database,
 		"queryLabel":            e.queryLabel,
 		"queryBody":             e.queryBody,
 		logger.JSONFieldElapsed: logger.Milliseconds(e.elapsed),

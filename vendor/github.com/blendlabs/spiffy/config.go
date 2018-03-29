@@ -3,8 +3,12 @@ package spiffy
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
+	"github.com/lib/pq"
+
+	exception "github.com/blendlabs/go-exception"
 	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/env"
 )
@@ -59,6 +63,33 @@ const (
 // NewConfig creates a new config.
 func NewConfig() *Config {
 	return &Config{}
+}
+
+// NewConfigFromDSN creates a new config from a dsn.
+func NewConfigFromDSN(dsn string) (*Config, error) {
+	parsed, err := pq.ParseURL(dsn)
+	if err != nil {
+		return nil, exception.Wrap(err)
+	}
+
+	var config Config
+	pieces := util.String.SplitOnSpace(parsed)
+	for _, piece := range pieces {
+		if strings.HasPrefix(piece, "host=") {
+			config.Host = strings.TrimPrefix(piece, "host=")
+		} else if strings.HasPrefix(piece, "port=") {
+			config.Port = strings.TrimPrefix(piece, "port=")
+		} else if strings.HasPrefix(piece, "dbname=") {
+			config.Database = strings.TrimPrefix(piece, "dbname=")
+		} else if strings.HasPrefix(piece, "user=") {
+			config.Username = strings.TrimPrefix(piece, "user=")
+		} else if strings.HasPrefix(piece, "password=") {
+			config.Password = strings.TrimPrefix(piece, "password=")
+		} else if strings.HasPrefix(piece, "sslmode=") {
+			config.SSLMode = strings.TrimPrefix(piece, "sslmode=")
+		}
+	}
+	return &config, nil
 }
 
 // NewConfigFromEnv returns a new config from the environment.

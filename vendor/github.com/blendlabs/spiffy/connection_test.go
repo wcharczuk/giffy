@@ -493,3 +493,11 @@ func TestConnectionInvalidatesBadCachedStatements(t *testing.T) {
 	_, err = conn.Query(queryStatement).Any()
 	assert.Nil(err)
 }
+
+// TestConnectionConfigSetsDatabase tests if we set the .database property on open.
+func TestConnectionConfigSetsDatabase(t *testing.T) {
+	assert := assert.New(t)
+	conn, err := NewFromEnv().Open()
+	assert.Nil(err)
+	assert.NotEmpty(conn.Database())
+}

@@ -73,6 +73,14 @@ type Connection struct {
 
 	useStatementCache bool
 	statementCache    *StatementCache
+
+	// database is used for logging.
+	database string
+}
+
+// Database returns the connected database name.
+func (dbc *Connection) Database() string {
+	return dbc.database
 }
 
 // Close implements a closer.
@@ -104,8 +112,7 @@ func (dbc *Connection) fireEvent(flag logger.Flag, query string, elapsed time.Du
 			queryLabel = optionalQueryLabel[0]
 		}
 
-		dbc.log.Trigger(NewEvent(flag, queryLabel, elapsed, err))
-		dbc.log.Trigger(NewStatementEvent(flag, queryLabel, query, elapsed, err))
+		dbc.log.Trigger(NewEvent(flag, queryLabel, dbc.database, query, elapsed, err))
 	}
 }
 
@@ -132,24 +139,43 @@ func (dbc *Connection) StatementCache() *StatementCache {
 
 // openNewSQLConnection returns a new connection object.
 func (dbc *Connection) openNewSQLConnection() (*sql.DB, error) {
-	dbConn, err := sql.Open("postgres", dbc.Config.CreateDSN())
+	if dbc.Config == nil {
+		return nil, exception.New("connection configuration is unset")
+	}
+
+	// the config resolution step is a little weird
+	// first, fully synthesize the dsn
+	// as it can be set directly or composed from individual fields
+	dsn := dbc.Config.CreateDSN()
+	// then re-parse it to get relevant fields we might want to save
+	// like the database name etc.
+	parsed, err := NewConfigFromDSN(dsn)
+	if err != nil {
+		exception.Wrap(err)
+	}
+
+	// open the connection
+	dbConn, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, exception.Wrap(err)
 	}
 
-	if dbc.Config != nil {
-		dbConn.SetConnMaxLifetime(dbc.Config.GetMaxLifetime())
-		dbConn.SetMaxIdleConns(dbc.Config.GetIdleConnections())
-		dbConn.SetMaxOpenConns(dbc.Config.GetMaxConnections())
-	}
+	// memoize the db name for logging calls
+	dbc.database = parsed.GetDatabase()
+	// action config points.
+	dbConn.SetConnMaxLifetime(dbc.Config.GetMaxLifetime())
+	dbConn.SetMaxIdleConns(dbc.Config.GetIdleConnections())
+	dbConn.SetMaxOpenConns(dbc.Config.GetMaxConnections())
 
-	if len(dbc.Config.GetSchema()) > 0 {
-		_, err = dbConn.Exec(fmt.Sprintf("SET search_path TO %s,public;", dbc.Config.GetSchema()))
+	schema := dbc.Config.GetSchema()
+	if len(schema) > 0 {
+		_, err = dbConn.Exec(fmt.Sprintf("SET search_path TO %s,public;", schema))
 		if err != nil {
 			return nil, exception.Wrap(err)
 		}
 	}
 
+	// sanity check on the connection.
 	_, err = dbConn.Exec("select 'ok!'")
 	if err != nil {
 		return nil, exception.Wrap(err)
