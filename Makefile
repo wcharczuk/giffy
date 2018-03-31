@@ -1,53 +1,58 @@
-NO_COLOR=\033[0m
-OK_COLOR=\033[32;01m
-BLUE_COLOR=\033[94;01m
-ERROR_COLOR=\033[31;01m
-WARN_COLOR=\033[33;01m
-
 CONFIG_PATH ?= _config/local.yml
 export CONFIG_PATH
 
 NAMESPACE ?= giffy
 export NAMESPACE
 
-all: test
+CURRENT_REF := $(shell git log --pretty=format:'%h' -n 1)
+export CURRENT_REF
+
+all: migrate test
 
 new-install: init-db db
 
 run:
-	@echo "$(OK_COLOR)==> Running$(NO_COLOR)"
+	@echo "==> Running"
 	@go run main.go
 
 test:
-	@echo "$(OK_COLOR)==> Tests$(NO_COLOR)"
+	@echo "==> Tests"
 	@go test -timeout 5s "./server/..."
-	@echo "$(OK_COLOR)==> Tests Done!$(NO_COLOR)"
+	@echo "==> Tests Done!"
 
 db-init: init-db
 
 init-db:
-	@echo "$(OK_COLOR)==> Fist Time Database Setup$(NO_COLOR)"
+	@echo "==> Fist Time Database Setup"
 	@createdb giffy
-	@echo "$(OK_COLOR)==> Fist Time Database Setup Done!$(NO_COLOR)"
+	@echo "==> Fist Time Database Setup Done!"
 
 db:
-	@echo "$(OK_COLOR)==> Initializing Database$(NO_COLOR)"
+	@echo "==> Initializing Database"
 	@go run ./database/main.go init
-	@echo "$(OK_COLOR)==> Initializing Database Done!$(NO_COLOR)"
+	@echo "==> Initializing Database Done!"
+
+migrate:
+	@echo "==> Migrating Database"
+	@go run ./database/main.go migrate
+	@echo "==> Migrating Database Done!"
 
 list-packages:
 	@go list ./... | grep -v /vendor/
 
 migrate:
-	@echo "$(OK_COLOR)==> Migrating Database$(NO_COLOR)"
+	@echo "==> Migrating Database"
 	@go run ./database/main.go migrate
-	@echo "$(OK_COLOR)==> Migrating Database Done!$(NO_COLOR)"
+	@echo "==> Migrating Database Done!"
 
 build:
-	@docker build -t giffy:latest -t wcharczuk/giffy:latest -f Dockerfile .
+	@docker build -t giffy:latest -t wcharczuk/giffy:latest -t wcharczuk/giffy:$(CURRENT_REF) -f Dockerfile .
+
+push-image: push
 
 push: build
 	@docker push wcharczuk/giffy:latest
+	@docker push wcharczuk/giffy:$(CURRENT_REF)
 
 kube-init:
 	@kubectl create namespace $(NAMESPACE)
@@ -71,7 +76,4 @@ recreate-config:
 	@kubectl --namespace=$(NAMESPACE) create secret generic web-config --from-file=config.yml=$(CONFIG_PATH)
 
 deploy:
-	@kubectl --namespace=$(NAMESPACE) patch deployment web-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}"
-
-set-deployment-image:
-	@kubectl --namespace=$(NAMESPACE) set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:latest
+	@kubectl --namespace=$(NAMESPACE) set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:$(CURRENT_REF)
