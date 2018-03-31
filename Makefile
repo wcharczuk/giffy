@@ -40,11 +40,6 @@ migrate:
 list-packages:
 	@go list ./... | grep -v /vendor/
 
-migrate:
-	@echo "==> Migrating Database"
-	@go run ./database/main.go migrate
-	@echo "==> Migrating Database Done!"
-
 build:
 	@docker build -t giffy:latest -t wcharczuk/giffy:latest -t wcharczuk/giffy:$(CURRENT_REF) -f Dockerfile .
 
@@ -76,4 +71,4 @@ recreate-config:
 	@kubectl --namespace=$(NAMESPACE) create secret generic web-config --from-file=config.yml=$(CONFIG_PATH)
 
 deploy:
-	@kubectl --namespace=$(NAMESPACE) set image deployment/web-server giffy-web-server=docker.io/wcharczuk/giffy:$(CURRENT_REF)
+	@kubectl --namespace=$(NAMESPACE) set image deployment/web-server web-server=docker.io/wcharczuk/giffy:$(CURRENT_REF)
