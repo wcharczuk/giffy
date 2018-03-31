@@ -3,10 +3,16 @@
 	"ignore": "",
 	"package": [
 		{
-			"checksumSHA1": "w6yMAb9fA5Fyo+MQVFrEgTmbvds=",
+			"checksumSHA1": "kchfF50KDoVw+WyPKRqnxUkR4pg=",
+			"path": "github.com/blendlabs/go-exception",
+			"revision": "9dae8754a473cc68abd8362fbca5c523e98426d2",
+			"revisionTime": "2018-03-31T18:22:19Z"
+		},
+		{
+			"checksumSHA1": "MJCUeh30vNJQ1HXoVI9QLYO9XT8=",
 			"path": "github.com/blendlabs/go-google-oauth",
-			"revision": "f2882b9ca4bd56db954eab335978d0aeaee1299b",
-			"revisionTime": "2018-03-22T23:59:11Z"
+			"revision": "b1448b1c3242155f5a206794f06578b8a7c89483",
+			"revisionTime": "2018-03-30T04:32:34Z"
 		},
 		{
 			"checksumSHA1": "BQ4+hfSyNqzYaAN1AgLkEOkxnQQ=",
@@ -15,16 +21,16 @@
 			"revisionTime": "2018-03-26T01:31:25Z"
 		},
 		{
-			"checksumSHA1": "U3ghimTFrU+RAAewON4c3YKOTOo=",
+			"checksumSHA1": "Hertnj4RhCC/5Xv0t4p/gluaTx8=",
 			"path": "github.com/blendlabs/go-web",
-			"revision": "d61eb40abc12eac6c0d4af294ecf8ee822566bbb",
-			"revisionTime": "2018-03-26T22:24:58Z"
+			"revision": "590c479fb70f527d8c84d4b5921ee7a244b58b30",
+			"revisionTime": "2018-03-27T02:46:46Z"
 		},
 		{
-			"checksumSHA1": "5uhZ2th0PvMAIPSmuXSN3cEWWiU=",
+			"checksumSHA1": "433p9hfInqFZ6Z1h2wIJbuhrlJw=",
 			"path": "github.com/blendlabs/spiffy",
-			"revision": "b73d6265e4dffdfac894bf936a49c73311794969",
-			"revisionTime": "2018-03-29T18:33:02Z"
+			"revision": "aa889bfe6e229bf86ad97639dfa1aaabf27d833e",
+			"revisionTime": "2018-03-29T19:38:27Z"
 		}
 	],
 	"rootPath": "github.com/wcharczuk/giffy"

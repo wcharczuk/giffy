@@ -9,9 +9,101 @@ import (
 	"strings"
 )
 
+func callers() *StackPointers {
+	const depth = 32
+	var pcs [depth]uintptr
+	n := runtime.Callers(4, pcs[:])
+	var st StackPointers = pcs[0:n]
+	return &st
+}
+
+// StackTrace is a stack trace provider.
+type StackTrace interface {
+	fmt.Formatter
+	Strings() []string
+}
+
 // GetStackTrace is a utility method to get the current stack trace at call time.
 func GetStackTrace() string {
 	return fmt.Sprintf("%+v", callers())
+}
+
+// StackPointers is stack of uintptr stack frames from innermost (newest) to outermost (oldest).
+type StackPointers []uintptr
+
+// Format formats the stack trace.
+func (st StackPointers) Format(s fmt.State, verb rune) {
+	switch verb {
+	case 'v':
+		switch {
+		case s.Flag('+'):
+			for _, f := range st {
+				fmt.Fprintf(s, "\n%+v", Frame(f))
+			}
+		case s.Flag('#'):
+			for _, f := range st {
+				fmt.Fprintf(s, "\n%#v", Frame(f))
+			}
+		default:
+			for _, f := range st {
+				fmt.Fprintf(s, "\n%v", Frame(f))
+			}
+		}
+	case 's':
+		for _, f := range st {
+			fmt.Fprintf(s, "\n%s", Frame(f))
+		}
+	}
+}
+
+// Strings dereferences the StackTrace as a string slice
+func (st StackPointers) Strings() []string {
+	res := make([]string, len(st))
+	for i, frame := range st {
+		res[i] = fmt.Sprintf("%+v", frame)
+	}
+	return res
+}
+
+//MarshalJSON is a custom json marshaler.
+func (st StackPointers) MarshalJSON() ([]byte, error) {
+	return json.Marshal(st.Strings())
+}
+
+// StackStrings represents a stack trace as string literals.
+type StackStrings []string
+
+// Format formats the stack trace.
+func (ss StackStrings) Format(s fmt.State, verb rune) {
+	switch verb {
+	case 'v':
+		switch {
+		case s.Flag('+'):
+			for _, f := range ss {
+				fmt.Fprintf(s, "\n%+v", f)
+			}
+		case s.Flag('#'):
+			fmt.Fprintf(s, "%#v", []string(ss))
+		default:
+			for _, f := range ss {
+				fmt.Fprintf(s, "\n%v", f)
+			}
+		}
+	case 's':
+		for _, f := range ss {
+			fmt.Fprintf(s, "\n%v", f)
+		}
+	}
+}
+
+// Strings returns the stack strings as a string slice.
+func (ss StackStrings) Strings() []string {
+	return []string(ss)
+}
+
+//MarshalJSON is a custom json marshaler.
+func (ss StackStrings) MarshalJSON() ([]byte, error) {
+	return json.Marshal(ss)
 }
 
 // Frame represents a program counter inside a stack frame.
@@ -81,75 +173,6 @@ func (f Frame) Format(s fmt.State, verb rune) {
 		io.WriteString(s, ":")
 		f.Format(s, 'd')
 	}
-}
-
-// StackTrace is stack of Frames from innermost (newest) to outermost (oldest).
-type StackTrace []Frame
-
-// Format formats the stack trace.
-func (st StackTrace) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		switch {
-		case s.Flag('+'):
-			for _, f := range st {
-				fmt.Fprintf(s, "\n%+v", f)
-			}
-		case s.Flag('#'):
-			fmt.Fprintf(s, "%#v", []Frame(st))
-		default:
-			fmt.Fprintf(s, "%v", []Frame(st))
-		}
-	case 's':
-		fmt.Fprintf(s, "%s", []Frame(st))
-	}
-}
-
-// AsStringSlice dereferences the StackTrace as a string slice
-func (st StackTrace) AsStringSlice() []string {
-	res := make([]string, len(st))
-	for i, frame := range st {
-		res[i] = fmt.Sprintf("%+v", frame)
-	}
-	return res
-}
-
-//MarshalJSON is a custom json marshaler.
-func (st StackTrace) MarshalJSON() ([]byte, error) {
-	return json.Marshal(st.AsStringSlice())
-}
-
-// stack represents a stack of program counters.
-type stack []uintptr
-
-// Format returns the format for a given stack of program counters.
-func (s *stack) Format(st fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		switch {
-		case st.Flag('-'), st.Flag('+'):
-			for _, pc := range *s {
-				f := Frame(pc)
-				fmt.Fprintf(st, "\n%+v", f)
-			}
-		}
-	}
-}
-
-func (s *stack) StackTrace() StackTrace {
-	f := make([]Frame, len(*s))
-	for i := 0; i < len(f); i++ {
-		f[i] = Frame((*s)[i])
-	}
-	return f
-}
-
-func callers() *stack {
-	const depth = 32
-	var pcs [depth]uintptr
-	n := runtime.Callers(4, pcs[:])
-	var st stack = pcs[0:n]
-	return &st
 }
 
 // funcname removes the path prefix component of a function's name reported by func.Name().

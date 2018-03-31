@@ -215,7 +215,8 @@ func TestManagerState(t *testing.T) {
 func TestManagerValidateNonce(t *testing.T) {
 	assert := assert.New(t)
 
-	m := New().WithSecret(util.Crypto.MustCreateKey(32))
+	m := New().WithSecret(util.Crypto.MustCreateKey(32)).WithNonceTimeout(time.Second)
+
 	nonce, err := m.CreateNonce(time.Now().UTC())
 	assert.Nil(err)
 	assert.Nil(m.ValidateNonce(nonce))

@@ -88,7 +88,7 @@ func (i *Invocation) Exec(statement string, args ...interface{}) (err error) {
 	}
 
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, statement, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, statement, start) }()
 
 	stmt, stmtErr := i.Prepare(statement)
 	if stmtErr != nil {
@@ -136,7 +136,7 @@ func (i *Invocation) Get(object DatabaseMapped, ids ...interface{}) (err error) 
 		i.statementLabel = fmt.Sprintf("%s_get", tableName)
 	}
 
-	defer func() { err = i.finalizer(recover(), err, FlagQuery, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	columnNames := standardCols.ColumnNames()
 	pks := standardCols.PrimaryKeys()
@@ -225,7 +225,7 @@ func (i *Invocation) GetAll(collection interface{}) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagQuery, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	collectionValue := reflectValue(collection)
 	t := reflectSliceType(collection)
@@ -315,7 +315,7 @@ func (i *Invocation) Create(object DatabaseMapped) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -412,7 +412,7 @@ func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()
@@ -521,7 +521,7 @@ func (i *Invocation) CreateMany(objects interface{}) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	sliceValue := reflectValue(objects)
 	if sliceValue.Len() == 0 {
@@ -601,7 +601,7 @@ func (i *Invocation) Update(object DatabaseMapped) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	tableName := TableName(object)
 	if len(i.statementLabel) == 0 {
@@ -677,7 +677,7 @@ func (i *Invocation) Exists(object DatabaseMapped) (exists bool, err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagQuery, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	tableName := TableName(object)
 	if len(i.statementLabel) == 0 {
@@ -754,7 +754,7 @@ func (i *Invocation) Delete(object DatabaseMapped) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	tableName := TableName(object)
 
@@ -819,7 +819,7 @@ func (i *Invocation) Truncate(object DatabaseMapped) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	tableName := TableName(object)
 
@@ -864,7 +864,7 @@ func (i *Invocation) Upsert(object DatabaseMapped) (err error) {
 
 	var queryBody string
 	start := time.Now()
-	defer func() { err = i.finalizer(recover(), err, FlagExecute, queryBody, start) }()
+	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
 	writeCols := cols.NotReadOnly().NotSerials()

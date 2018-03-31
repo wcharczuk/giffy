@@ -143,6 +143,25 @@ func (a *App) Err() error {
 	return a.err
 }
 
+// WithState sets app state and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithState(key string, value interface{}) *App {
+	a.state[key] = value
+	return a
+}
+
+// SetState sets app state.
+func (a *App) SetState(key string, value interface{}) {
+	a.state[key] = value
+}
+
+// GetState gets app state element by key.
+func (a *App) GetState(key string) interface{} {
+	if value, hasValue := a.state[key]; hasValue {
+		return value
+	}
+	return nil
+}
+
 // State is a bag for common app state.
 func (a *App) State() State {
 	return a.state
@@ -163,28 +182,6 @@ func (a *App) WithDefaultHeader(key string, value string) *App {
 // DefaultHeaders returns the default headers.
 func (a *App) DefaultHeaders() map[string]string {
 	return a.defaultHeaders
-}
-
-// WithState sets app state and returns a reference to the app for building apps with a fluent api.
-func (a *App) WithState(key string, value interface{}) *App {
-	a.state[key] = value
-	return a
-}
-
-// GetState gets app state element by key.
-func (a *App) GetState(key string) interface{} {
-	if a.state == nil {
-		return nil
-	}
-	if value, hasValue := a.state[key]; hasValue {
-		return value
-	}
-	return nil
-}
-
-// SetState sets app state.
-func (a *App) SetState(key string, value interface{}) {
-	a.state[key] = value
 }
 
 // RedirectTrailingSlash returns if we should redirect missing trailing slashes to the correct route.
@@ -429,10 +426,10 @@ func (a *App) WithTLSFromEnv() *App {
 
 // SetTLSFromEnv reads TLS settings from the environment.
 func (a *App) SetTLSFromEnv() error {
-	tlsCert := env.Env().Bytes(EnvironmentVariableTLSCert)
-	tlsKey := env.Env().Bytes(EnvironmentVariableTLSKey)
-	tlsCertPath := env.Env().String(EnvironmentVariableTLSCertFile)
-	tlsKeyPath := env.Env().String(EnvironmentVariableTLSKeyFile)
+	tlsCert := env.Env().Bytes(EnvVarTLSCert)
+	tlsKey := env.Env().Bytes(EnvVarTLSKey)
+	tlsCertPath := env.Env().String(EnvVarTLSCertPath)
+	tlsKeyPath := env.Env().String(EnvVarTLSKeyPath)
 
 	if len(tlsCert) > 0 && len(tlsKey) > 0 {
 		return a.SetTLSCertPair(tlsCert, tlsKey)
@@ -500,8 +497,8 @@ func (a *App) WithPortFromEnv() *App {
 
 // SetPortFromEnv sets the port from an environment variable, and returns a reference to the app.
 func (a *App) SetPortFromEnv() {
-	if env.Env().Has(EnvironmentVariablePort) {
-		port, err := env.Env().Int32(EnvironmentVariablePort)
+	if env.Env().Has(EnvVarPort) {
+		port, err := env.Env().Int32(EnvVarPort)
 		if err != nil {
 			a.err = err
 		}
@@ -522,7 +519,7 @@ func (a *App) WithBindAddr(bindAddr string) *App {
 
 // WithBindAddrFromEnv sets the address the app listens on, and returns a reference to the app.
 func (a *App) WithBindAddrFromEnv() *App {
-	a.bindAddr = env.Env().String(EnvironmentVariableBindAddr)
+	a.bindAddr = env.Env().String(EnvVarBindAddr)
 	return a
 }
 
@@ -562,6 +559,12 @@ func (a *App) WithDefaultMiddleware(middleware ...Middleware) *App {
 // DefaultMiddleware returns the default middleware.
 func (a *App) DefaultMiddleware() []Middleware {
 	return a.defaultMiddleware
+}
+
+// WithOnStart sets the on start delegate and returns a reference to the app.
+func (a *App) WithOnStart(action AppStartDelegate) *App {
+	a.startDelegate = action
+	return a
 }
 
 // OnStart lets you register a task that is run before the server starts.

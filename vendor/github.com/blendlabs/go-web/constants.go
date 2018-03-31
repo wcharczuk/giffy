@@ -154,29 +154,29 @@ const (
 
 // Environment Variables
 const (
-	// EnvironmentVariableBindAddr is an env var that determines (if set) what the bind address should be.
-	EnvironmentVariableBindAddr = "BIND_ADDR"
+	// EnvVarBindAddr is an env var that determines (if set) what the bind address should be.
+	EnvVarBindAddr = "BIND_ADDR"
 
-	// EnvironmentVariableUpgraderBindAddr is an env var that determines (if set) what the bind address should be.
-	EnvironmentVariableUpgraderBindAddr = "UPGRADER_BIND_ADDR"
+	// EnvVarUpgraderBindAddr is an env var that determines (if set) what the bind address should be.
+	EnvVarUpgraderBindAddr = "UPGRADER_BIND_ADDR"
 
-	// EnvironmentVariablePort is an env var that determines what the default bind address port segment returns.
-	EnvironmentVariablePort = "PORT"
+	// EnvVarPort is an env var that determines what the default bind address port segment returns.
+	EnvVarPort = "PORT"
 
-	// EnvironmentVariableUpgraderPort is an env var that determines what the default bind address port segment returns.
-	EnvironmentVariableUpgraderPort = "UPGRADER_PORT"
+	// EnvVarUpgraderPort is an env var that determines what the default bind address port segment returns.
+	EnvVarUpgraderPort = "UPGRADER_PORT"
 
-	// EnvironmentVariableTLSCert is an env var that contains the TLS cert.
-	EnvironmentVariableTLSCert = "TLS_CERT"
+	// EnvVarTLSCert is an env var that contains the TLS cert.
+	EnvVarTLSCert = "TLS_CERT"
 
-	// EnvironmentVariableTLSKey is an env var that contains the TLS key.
-	EnvironmentVariableTLSKey = "TLS_KEY"
+	// EnvVarTLSKey is an env var that contains the TLS key.
+	EnvVarTLSKey = "TLS_KEY"
 
-	// EnvironmentVariableTLSCertFile is an env var that contains the file path to the TLS cert.
-	EnvironmentVariableTLSCertFile = "TLS_CERT_FILE"
+	// EnvVarTLSCertPath is an env var that contains the file path to the TLS cert.
+	EnvVarTLSCertPath = "TLS_CERT_PATH"
 
-	// EnvironmentVariableTLSKeyFile is an env var that contains the file path to the TLS key.
-	EnvironmentVariableTLSKeyFile = "TLS_KEY_FILE"
+	// EnvVarTLSKeyPath is an env var that contains the file path to the TLS key.
+	EnvVarTLSKeyPath = "TLS_KEY_PATH"
 )
 
 // Defaults

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -234,7 +233,7 @@ func (c Config) GetCookiePath(defaults ...string) string {
 
 // GetAuthSecret returns a property or a default.
 func (c Config) GetAuthSecret(defaults ...[]byte) []byte {
-	decoded, _ := base64.StdEncoding.DecodeString(c.AuthSecret)
+	decoded, _ := Base64Decode(c.AuthSecret)
 	return decoded
 }
 

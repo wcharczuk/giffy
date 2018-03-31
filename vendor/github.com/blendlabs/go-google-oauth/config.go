@@ -2,9 +2,15 @@ package google
 
 import (
 	"encoding/base64"
+	"time"
 
 	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/env"
+)
+
+const (
+	// DefaultNonceTimeout is the default timeout before nonces are no longer honored.
+	DefaultNonceTimeout = 3 * time.Hour
 )
 
 // NewConfigFromEnv creates a new config from the environment.
@@ -28,6 +34,8 @@ type Config struct {
 
 	ClientID     string `json:"clientID" yaml:"clientID" env:"GOOGLE_CLIENT_ID"`
 	ClientSecret string `json:"clientSecret" yaml:"clientSecret" env:"GOOGLE_CLIENT_SECRET"`
+
+	NonceTimeout time.Duration `json:"nonceTimeout" yaml:"nonceTimeout" env:"GOOGLE_NONCE_TIMEOUT"`
 }
 
 // IsZero returns if the config is set or not.
@@ -69,4 +77,9 @@ func (c Config) GetClientID(inherited ...string) string {
 // GetClientSecret returns a property or a default.
 func (c Config) GetClientSecret(inherited ...string) string {
 	return util.Coalesce.String(c.ClientSecret, "", inherited...)
+}
+
+// GetNonceTimeout returns the nonce timeout or a default.
+func (c Config) GetNonceTimeout(inherited ...time.Duration) time.Duration {
+	return util.Coalesce.Duration(c.NonceTimeout, DefaultNonceTimeout, inherited...)
 }

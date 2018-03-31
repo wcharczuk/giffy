@@ -15,16 +15,13 @@ import (
 	"github.com/blendlabs/go-util/uuid"
 )
 
-const (
-	// DefaultNonceTimeout is the default timeout before nonces are no longer honored.
-	DefaultNonceTimeout = 3 * time.Hour
-)
-
 // New returns a new manager.
 // By default it will error if you try and validate a profile.
 // You must either enable `SkipDomainvalidation` or provide valid domains.
 func New() *Manager {
-	return &Manager{}
+	return &Manager{
+		nonceTimeout: DefaultNonceTimeout,
+	}
 }
 
 // NewFromEnv returns a new manager from the environment.
@@ -42,6 +39,7 @@ func NewFromConfig(cfg *Config) *Manager {
 		clientID:             cfg.GetClientID(),
 		clientSecret:         cfg.GetClientSecret(),
 		hostedDomain:         cfg.GetHostedDomain(),
+		nonceTimeout:         cfg.GetNonceTimeout(),
 	}
 }
 
@@ -54,6 +52,7 @@ type Manager struct {
 	validDomains         []string
 	clientID             string
 	clientSecret         string
+	nonceTimeout         time.Duration
 }
 
 // WithSecret sets the secret used to create state tokens.
@@ -144,6 +143,17 @@ func (m *Manager) WithClientSecret(clientSecret string) *Manager {
 // ClientSecret returns a client secret.
 func (m *Manager) ClientSecret() string {
 	return m.clientSecret
+}
+
+// WithNonceTimeout sets the nonce timeout.
+func (m *Manager) WithNonceTimeout(timeout time.Duration) *Manager {
+	m.nonceTimeout = timeout
+	return m
+}
+
+// NonceTimeout returns the nonce timeout.
+func (m *Manager) NonceTimeout() time.Duration {
+	return m.nonceTimeout
 }
 
 // OAuthURL is the auth url for google with a given clientID.
@@ -452,7 +462,7 @@ func (m *Manager) ValidateNonce(nonce string) error {
 		return exception.Wrap(err)
 	}
 
-	if time.Now().UTC().Sub(nonceTimestamp) > DefaultNonceTimeout {
+	if time.Now().UTC().Sub(nonceTimestamp) > m.NonceTimeout() {
 		return ErrInvalidNonce
 	}
 	return nil
