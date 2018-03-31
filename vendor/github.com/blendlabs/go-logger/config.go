@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"strings"
+
 	"github.com/blendlabs/go-util/env"
 )
 
@@ -44,7 +46,7 @@ func (c Config) GetLabel() string {
 // GetOutputFormat returns the output format.
 func (c Config) GetOutputFormat() OutputFormat {
 	if len(c.OutputFormat) > 0 {
-		return OutputFormat(c.OutputFormat)
+		return OutputFormat(strings.ToLower(c.OutputFormat))
 	}
 	return OutputFormatText
 }

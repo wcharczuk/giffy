@@ -22,6 +22,14 @@ var (
 	DefaultListenerWorkers = runtime.NumCPU()
 )
 
+// FatalExit creates a logger and calls `SyncFatalExit` on it.
+func FatalExit(err error) {
+	if err == nil {
+		return
+	}
+	All().SyncFatalExit(err)
+}
+
 // New returns a new logger with a given set of enabled flags, without a writer provisioned.
 func New(flags ...Flag) *Logger {
 	return &Logger{

@@ -15,6 +15,13 @@
 			"revisionTime": "2018-03-30T04:32:34Z"
 		},
 		{
+			"checksumSHA1": "LMKJSZBZ/PLhumUgYhWo4oZmnB8=",
+			"origin": "github.com/wcharczuk/giffy/vendor/github.com/blendlabs/go-logger",
+			"path": "github.com/blendlabs/go-logger",
+			"revision": "b99720c365e2d920b05e3a94ee331a4a20d1be76",
+			"revisionTime": "2018-03-29T20:16:56Z"
+		},
+		{
 			"checksumSHA1": "BQ4+hfSyNqzYaAN1AgLkEOkxnQQ=",
 			"path": "github.com/blendlabs/go-util",
 			"revision": "eefdbecb93bc5ccee718735a0f8aae7b9e8c428a",

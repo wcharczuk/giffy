@@ -94,7 +94,7 @@ type TextWriter struct {
 
 // OutputFormat returns the output format.
 func (wr *TextWriter) OutputFormat() OutputFormat {
-	return OutputFormatJSON
+	return OutputFormatText
 }
 
 // UseColor is a formatting option.

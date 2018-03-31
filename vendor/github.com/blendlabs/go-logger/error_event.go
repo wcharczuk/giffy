@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -141,7 +142,13 @@ func (ee ErrorEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
 
 // WriteJSON implements JSONWritable.
 func (ee ErrorEvent) WriteJSON() JSONObj {
+	var errorJSON Any
+	if _, ok := ee.err.(json.Marshaler); ok {
+		errorJSON = ee.err
+	} else {
+		errorJSON = ee.err.Error()
+	}
 	return JSONObj{
-		JSONFieldErr: ee.err,
+		JSONFieldErr: errorJSON,
 	}
 }

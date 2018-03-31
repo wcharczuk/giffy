@@ -171,18 +171,18 @@ func (wre WebRequestEvent) State() time.Duration {
 }
 
 // WriteText implements TextWritable.
-func (wre *WebRequestEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
+func (wre WebRequestEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
 	if wre.flag == WebRequestStart {
-		TextWriteRequestStart(formatter, buf, wre.Request())
+		TextWriteRequestStart(formatter, buf, wre.req)
 	} else {
-		TextWriteRequest(formatter, buf, wre)
+		TextWriteRequest(formatter, buf, wre.req, wre.statusCode, wre.contentLength, wre.contentType, wre.elapsed)
 	}
 }
 
 // WriteJSON implements JSONWritable.
-func (wre *WebRequestEvent) WriteJSON() JSONObj {
+func (wre WebRequestEvent) WriteJSON() JSONObj {
 	if wre.flag == WebRequestStart {
 		return JSONWriteRequestStart(wre.req)
 	}
-	return JSONWriteRequest(wre)
+	return JSONWriteRequest(wre.req, wre.statusCode, wre.contentLength, wre.contentType, wre.contentEncoding, wre.elapsed)
 }
