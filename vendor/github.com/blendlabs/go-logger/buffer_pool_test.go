@@ -1,0 +1,16 @@
+package logger
+
+import (
+	"testing"
+
+	assert "github.com/blendlabs/go-assert"
+)
+
+func TestBufferPool(t *testing.T) {
+	assert := assert.New(t)
+
+	pool := NewBufferPool(1024)
+	buf := pool.Get()
+	assert.NotNil(buf)
+	pool.Put(buf)
+}
