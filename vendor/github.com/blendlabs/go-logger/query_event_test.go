@@ -8,7 +8,7 @@ import (
 	assert "github.com/blendlabs/go-assert"
 )
 
-func TestTimedEventListener(t *testing.T) {
+func TestQueryEventListener(t *testing.T) {
 	assert := assert.New(t)
 
 	wg := sync.WaitGroup{}
@@ -16,26 +16,30 @@ func TestTimedEventListener(t *testing.T) {
 
 	all := New().WithFlags(AllFlags())
 	defer all.Close()
-	all.Listen(Flag("test-flag"), "default", NewTimedEventListener(func(te *TimedEvent) {
+
+	all.Listen(Query, "default", NewQueryEventListener(func(e *QueryEvent) {
 		defer wg.Done()
-		assert.Equal("test-flag", te.Flag())
-		assert.NotZero(te.Elapsed())
-		assert.Equal("foo bar", te.Message())
+
+		assert.Equal(Query, e.Flag())
+		assert.Equal("moo", e.QueryLabel())
+		assert.Equal("foo bar", e.Body())
 	}))
 
-	go func() { all.Trigger(Timedf(Flag("test-flag"), time.Millisecond, "foo %s", "bar")) }()
-	go func() { all.Trigger(Timedf(Flag("test-flag"), time.Millisecond, "foo %s", "bar")) }()
+	go func() { all.Trigger(NewQueryEvent("foo bar", time.Second).WithQueryLabel("moo")) }()
+	go func() { all.Trigger(NewQueryEvent("foo bar", time.Second).WithQueryLabel("moo")) }()
 	wg.Wait()
 }
 
-func TestTimedEventInterfaces(t *testing.T) {
+func TestQueryEventInterfaces(t *testing.T) {
 	assert := assert.New(t)
 
-	ee := Timedf(Fatal, time.Millisecond, "foo %s", "bar").WithHeading("heading").WithLabel("foo", "bar")
+	ee := NewQueryEvent("this is a test", time.Second).
+		WithHeading("heading").
+		WithLabel("foo", "bar")
 
 	eventProvider, isEvent := marshalEvent(ee)
 	assert.True(isEvent)
-	assert.Equal(Fatal, eventProvider.Flag())
+	assert.Equal(Query, eventProvider.Flag())
 	assert.False(eventProvider.Timestamp().IsZero())
 
 	headingProvider, isHeadingProvider := marshalEventHeading(ee)

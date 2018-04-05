@@ -69,3 +69,14 @@ func TestWriterErrorOutput(t *testing.T) {
 	assert.Equal(0, stdout.Len())
 	assert.Equal("[error] test string\n", string(stderr.Bytes()))
 }
+
+func TestWriterLabels(t *testing.T) {
+	assert := assert.New(t)
+
+	buffer := bytes.NewBuffer(nil)
+	writer := NewTextWriter(buffer)
+	writer.showTime = false
+	writer.useColor = false
+	writer.WriteError(Messagef(Error, "test %s", "string").WithLabel("foo", "bar").WithLabel("moo", "boo"))
+	assert.Equal("[error] test string\nfoo=bar moo=boo \n", string(buffer.Bytes()))
+}

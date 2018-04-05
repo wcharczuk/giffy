@@ -16,18 +16,8 @@ func Errorf(flag Flag, format string, args ...Any) *ErrorEvent {
 	}
 }
 
-// ErrorfWithFlagTextColor returns a new error event based on format and arguments with a given flag text color.
-func ErrorfWithFlagTextColor(flag Flag, flagColor AnsiColor, format string, args ...Any) *ErrorEvent {
-	return &ErrorEvent{
-		flag:      flag,
-		flagColor: flagColor,
-		ts:        time.Now().UTC(),
-		err:       fmt.Errorf(format, args...),
-	}
-}
-
-// NewError returns a new error event.
-func NewError(flag Flag, err error) *ErrorEvent {
+// NewErrorEvent returns a new error event.
+func NewErrorEvent(flag Flag, err error) *ErrorEvent {
 	return &ErrorEvent{
 		flag: flag,
 		ts:   time.Now().UTC(),
@@ -35,8 +25,8 @@ func NewError(flag Flag, err error) *ErrorEvent {
 	}
 }
 
-// NewErrorWithState returns a new error event with state.
-func NewErrorWithState(flag Flag, err error, state Any) *ErrorEvent {
+// NewErrorEventWithState returns a new error event with state.
+func NewErrorEventWithState(flag Flag, err error, state Any) *ErrorEvent {
 	return &ErrorEvent{
 		flag:  flag,
 		ts:    time.Now().UTC(),
@@ -46,7 +36,7 @@ func NewErrorWithState(flag Flag, err error, state Any) *ErrorEvent {
 }
 
 // NewErrorEventListener returns a new error event listener.
-func NewErrorEventListener(listener func(me *ErrorEvent)) Listener {
+func NewErrorEventListener(listener func(*ErrorEvent)) Listener {
 	return func(e Event) {
 		if typed, isTyped := e.(*ErrorEvent); isTyped {
 			listener(typed)
@@ -56,97 +46,128 @@ func NewErrorEventListener(listener func(me *ErrorEvent)) Listener {
 
 // ErrorEvent is an event that wraps an error.
 type ErrorEvent struct {
+	heading   string
 	flag      Flag
 	flagColor AnsiColor
 	ts        time.Time
-	label     string
 	err       error
 	state     Any
+
+	labels      map[string]string
+	annotations map[string]string
 }
 
 // IsError indicates if we should write to the error writer or not.
-func (ee ErrorEvent) IsError() bool {
+func (e *ErrorEvent) IsError() bool {
 	return true
 }
 
+// WithLabel sets a label on the event for later filtering.
+func (e *ErrorEvent) WithLabel(key, value string) *ErrorEvent {
+	if e.labels == nil {
+		e.labels = map[string]string{}
+	}
+	e.labels[key] = value
+	return e
+}
+
+// Labels returns a labels collection.
+func (e *ErrorEvent) Labels() map[string]string {
+	return e.labels
+}
+
+// WithAnnotation adds an annotation to the event.
+func (e *ErrorEvent) WithAnnotation(key, value string) *ErrorEvent {
+	if e.annotations == nil {
+		e.annotations = map[string]string{}
+	}
+	e.annotations[key] = value
+	return e
+}
+
+// Annotations returns the annotations set.
+func (e *ErrorEvent) Annotations() map[string]string {
+	return e.annotations
+}
+
 // WithTimestamp sets the event timestamp.
-func (ee *ErrorEvent) WithTimestamp(ts time.Time) *ErrorEvent {
-	ee.ts = ts
-	return ee
+func (e *ErrorEvent) WithTimestamp(ts time.Time) *ErrorEvent {
+	e.ts = ts
+	return e
 }
 
 // Timestamp returns the event timestamp.
-func (ee ErrorEvent) Timestamp() time.Time {
-	return ee.ts
+func (e *ErrorEvent) Timestamp() time.Time {
+	return e.ts
 }
 
 // WithFlag sets the event flag.
-func (ee *ErrorEvent) WithFlag(flag Flag) *ErrorEvent {
-	ee.flag = flag
-	return ee
+func (e *ErrorEvent) WithFlag(flag Flag) *ErrorEvent {
+	e.flag = flag
+	return e
 }
 
 // Flag returns the event flag.
-func (ee ErrorEvent) Flag() Flag {
-	return ee.flag
+func (e *ErrorEvent) Flag() Flag {
+	return e.flag
 }
 
-// WithLabel sets the label.
-func (ee *ErrorEvent) WithLabel(label string) *ErrorEvent {
-	ee.label = label
-	return ee
+// WithHeading sets the heading.
+func (e *ErrorEvent) WithHeading(heading string) *ErrorEvent {
+	e.heading = heading
+	return e
 }
 
-// Label returns the label.
-func (ee ErrorEvent) Label() string {
-	return ee.label
+// Heading returns the heading.
+func (e *ErrorEvent) Heading() string {
+	return e.heading
 }
 
 // WithErr sets the error.
-func (ee *ErrorEvent) WithErr(err error) *ErrorEvent {
-	ee.err = err
-	return ee
+func (e *ErrorEvent) WithErr(err error) *ErrorEvent {
+	e.err = err
+	return e
 }
 
 // Err returns the underlying error.
-func (ee ErrorEvent) Err() error {
-	return ee.err
+func (e *ErrorEvent) Err() error {
+	return e.err
 }
 
 // WithState sets the state.
-func (ee *ErrorEvent) WithState(state Any) *ErrorEvent {
-	ee.state = state
-	return ee
+func (e *ErrorEvent) WithState(state Any) *ErrorEvent {
+	e.state = state
+	return e
 }
 
 // State returns underlying state, typically an http.Request.
-func (ee ErrorEvent) State() Any {
-	return ee.state
+func (e *ErrorEvent) State() Any {
+	return e.state
 }
 
 // WithFlagTextColor sets the flag text color.
-func (ee *ErrorEvent) WithFlagTextColor(color AnsiColor) *ErrorEvent {
-	ee.flagColor = color
-	return ee
+func (e *ErrorEvent) WithFlagTextColor(color AnsiColor) *ErrorEvent {
+	e.flagColor = color
+	return e
 }
 
 // FlagTextColor returns a custom color for the flag.
-func (ee ErrorEvent) FlagTextColor() AnsiColor {
-	return ee.flagColor
+func (e *ErrorEvent) FlagTextColor() AnsiColor {
+	return e.flagColor
 }
 
 // WriteText implements TextWritable.
-func (ee ErrorEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
-	buf.WriteString(fmt.Sprintf("%+v", ee.err))
+func (e *ErrorEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
+	buf.WriteString(fmt.Sprintf("%+v", e.err))
 }
 
 // WriteJSON implements JSONWritable.
-func (ee ErrorEvent) WriteJSON() JSONObj {
+func (e *ErrorEvent) WriteJSON() JSONObj {
 	var errorJSON Any
-	if _, ok := ee.err.(json.Marshaler); ok {
-		errorJSON = ee.err
+	if _, ok := e.err.(json.Marshaler); ok {
+		errorJSON = e.err
 	} else {
-		errorJSON = ee.err.Error()
+		errorJSON = e.err.Error()
 	}
 	return JSONObj{
 		JSONFieldErr: errorJSON,

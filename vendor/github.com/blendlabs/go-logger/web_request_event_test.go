@@ -29,3 +29,22 @@ func TestWebRequestEventListener(t *testing.T) {
 	go func() { all.Trigger(NewWebRequestEvent(&http.Request{Host: "test.com"}).WithElapsed(time.Millisecond)) }()
 	wg.Wait()
 }
+
+func TestWebRequestEventInterfaces(t *testing.T) {
+	assert := assert.New(t)
+
+	ee := NewWebRequestEvent(&http.Request{Host: "test.com"}).WithElapsed(time.Millisecond).WithHeading("heading").WithLabel("foo", "bar")
+
+	eventProvider, isEvent := marshalEvent(ee)
+	assert.True(isEvent)
+	assert.Equal(WebRequest, eventProvider.Flag())
+	assert.False(eventProvider.Timestamp().IsZero())
+
+	headingProvider, isHeadingProvider := marshalEventHeading(ee)
+	assert.True(isHeadingProvider)
+	assert.Equal("heading", headingProvider.Heading())
+
+	metaProvider, isMetaProvider := marshalEventMeta(ee)
+	assert.True(isMetaProvider)
+	assert.Equal("bar", metaProvider.Labels()["foo"])
+}

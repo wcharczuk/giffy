@@ -33,13 +33,57 @@ func NewQueryEventListener(listener func(e *QueryEvent)) Listener {
 
 // QueryEvent represents a database query.
 type QueryEvent struct {
-	flag     Flag
-	ts       time.Time
-	engine   string
-	label    string
-	body     string
-	database string
-	elapsed  time.Duration
+	heading string
+
+	flag       Flag
+	ts         time.Time
+	engine     string
+	queryLabel string
+	body       string
+	database   string
+	elapsed    time.Duration
+
+	labels      map[string]string
+	annotations map[string]string
+}
+
+// WithHeading sets the event heading.
+func (e *QueryEvent) WithHeading(heading string) *QueryEvent {
+	e.heading = heading
+	return e
+}
+
+// Heading returns the event heading.
+func (e *QueryEvent) Heading() string {
+	return e.heading
+}
+
+// WithLabel sets a label on the event for later filtering.
+func (e *QueryEvent) WithLabel(key, value string) *QueryEvent {
+	if e.labels == nil {
+		e.labels = map[string]string{}
+	}
+	e.labels[key] = value
+	return e
+}
+
+// Labels returns a labels collection.
+func (e *QueryEvent) Labels() map[string]string {
+	return e.labels
+}
+
+// WithAnnotation adds an annotation to the event.
+func (e *QueryEvent) WithAnnotation(key, value string) *QueryEvent {
+	if e.annotations == nil {
+		e.annotations = map[string]string{}
+	}
+	e.annotations[key] = value
+	return e
+}
+
+// Annotations returns the annotations set.
+func (e *QueryEvent) Annotations() map[string]string {
+	return e.annotations
 }
 
 // WithFlag sets the flag.
@@ -86,15 +130,15 @@ func (e QueryEvent) Database() string {
 	return e.database
 }
 
-// WithLabel sets the label.
-func (e *QueryEvent) WithLabel(label string) *QueryEvent {
-	e.label = label
+// WithQueryLabel sets the query label.
+func (e *QueryEvent) WithQueryLabel(queryLabel string) *QueryEvent {
+	e.queryLabel = queryLabel
 	return e
 }
 
-// Label returns the query label.
-func (e QueryEvent) Label() string {
-	return e.label
+// QueryLabel returns the query label.
+func (e QueryEvent) QueryLabel() string {
+	return e.queryLabel
 }
 
 // WithBody sets the body.
@@ -122,9 +166,9 @@ func (e QueryEvent) Elapsed() time.Duration {
 // WriteText writes the event text to the output.
 func (e QueryEvent) WriteText(tf TextFormatter, buf *bytes.Buffer) {
 	buf.WriteString(fmt.Sprintf("[%s] (%v)", tf.Colorize(e.database, ColorBlue), e.elapsed))
-	if len(e.label) > 0 {
+	if len(e.queryLabel) > 0 {
 		buf.WriteRune(RuneSpace)
-		buf.WriteString(e.label)
+		buf.WriteString(e.queryLabel)
 	}
 	if len(e.body) > 0 {
 		buf.WriteRune(RuneSpace)
@@ -137,7 +181,7 @@ func (e QueryEvent) WriteJSON() JSONObj {
 	return JSONObj{
 		"engine":         e.engine,
 		"database":       e.database,
-		"label":          e.label,
+		"queryLabel":     e.queryLabel,
 		"body":           e.body,
 		JSONFieldElapsed: Milliseconds(e.elapsed),
 	}

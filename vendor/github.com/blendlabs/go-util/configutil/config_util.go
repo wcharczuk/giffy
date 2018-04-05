@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	exception "github.com/blendlabs/go-exception"
-	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/env"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -17,15 +16,6 @@ import (
 const (
 	// EnvVarConfigPath is the env var for configs.
 	EnvVarConfigPath = "CONFIG_PATH"
-	// EnvVarServiceName is the env var for the service name.
-	EnvVarServiceName = "SERVICE_NAME"
-	// EnvVarServiceEnv is the env var for the service environment.
-	EnvVarServiceEnv = "SERVICE_ENV"
-	// DefaultConfigPathTemplate is the default path for configs parameterized by the `serviceName`.
-	DefaultConfigPathTemplate = "/var/run/secrets/${serviceName}/config"
-
-	// DefaultConfigPath is the default path for configs.
-	DefaultConfigPath = "/var/run/secrets/config/config.yml"
 
 	// ExtensionJSON is a file extension.
 	ExtensionJSON = ".json"
@@ -33,7 +23,16 @@ const (
 	ExtensionYAML = ".yaml"
 	// ExtensionYML is a file extension.
 	ExtensionYML = ".yml"
+
+	// ErrPathUnset is a common error.
+	ErrPathUnset Error = "config path unset"
 )
+
+// Error is an error string.
+type Error string
+
+// Error implements error.
+func (e Error) Error() string { return string(e) }
 
 // Vars is a loose type alias to map[string]string
 type Vars = map[string]string
@@ -49,10 +48,7 @@ func Path(defaults ...string) string {
 	if len(defaults) > 0 {
 		return defaults[0]
 	}
-	if env.Env().Has(EnvVarServiceName) {
-		return util.String.Tokenize(DefaultConfigPathTemplate, Vars{"serviceName": env.Env().String(EnvVarServiceName)})
-	}
-	return DefaultConfigPath
+	return ""
 }
 
 // Deserialize deserializes a config.
@@ -78,16 +74,47 @@ func Read(ref Any, defaultPath ...string) error {
 
 // ReadFromPath reads a config from a given path.
 func ReadFromPath(ref Any, path string) error {
+	defer env.Env().ReadInto(ref)
+
+	if len(path) == 0 {
+		return exception.Wrap(ErrPathUnset)
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return exception.Wrap(err)
 	}
 	defer f.Close()
-	err = Deserialize(filepath.Ext(path), f, ref)
-	if err != nil {
-		return err
-	}
 
-	// also read the env into the config
-	return env.Env().ReadInto(ref)
+	return Deserialize(filepath.Ext(path), f, ref)
+}
+
+// ReadFromReader reads a config from a given reader.
+func ReadFromReader(ref Any, r io.Reader, ext string) error {
+	defer env.Env().ReadInto(ref)
+	return Deserialize(ext, r, ref)
+}
+
+// IsNotExist returns if an error is an os.ErrNotExist.
+func IsNotExist(err error) bool {
+	if typed, isTyped := err.(exception.Exception); isTyped {
+		err = typed.Inner()
+	}
+	return os.IsNotExist(err)
+}
+
+// IsPathUnset returns if an error is ErrPathUnset.
+func IsPathUnset(err error) bool {
+	if typed, isTyped := err.(exception.Exception); isTyped {
+		err = typed.Inner()
+	}
+	return err == ErrPathUnset
+}
+
+// IsIgnored returns if we should ignore the config read error.
+func IsIgnored(err error) bool {
+	if err == nil {
+		return true
+	}
+	return !IsNotExist(err) && !IsPathUnset(err)
 }

@@ -10,9 +10,15 @@ type Event interface {
 	Timestamp() time.Time
 }
 
-// EventLabel determines if we should add another label field, `event-label` to output.
-type EventLabel interface {
-	Label() string
+// EventHeading determines if we should add another output field, `event-heading` to output.
+type EventHeading interface {
+	Heading() string
+}
+
+// EventMeta determines if we should pull extra meta fields off the event.
+type EventMeta interface {
+	Labels() map[string]string
+	Annotations() map[string]string
 }
 
 // EventEnabled determines if we should allow an event to be triggered or not.
@@ -28,4 +34,33 @@ type EventWritable interface {
 // EventError determines if we should write the event to the error stream.
 type EventError interface {
 	IsError() bool
+}
+
+// --------------------------------------------------------------------------------
+// testing helpers
+// --------------------------------------------------------------------------------
+
+func marshalEvent(obj interface{}) (Event, bool) {
+	typed, isTyped := obj.(Event)
+	return typed, isTyped
+}
+
+func marshalEventHeading(obj interface{}) (EventHeading, bool) {
+	typed, isTyped := obj.(EventHeading)
+	return typed, isTyped
+}
+
+func marshalEventEnabled(obj interface{}) (EventEnabled, bool) {
+	typed, isTyped := obj.(EventEnabled)
+	return typed, isTyped
+}
+
+func marshalEventWritable(obj interface{}) (EventWritable, bool) {
+	typed, isTyped := obj.(EventWritable)
+	return typed, isTyped
+}
+
+func marshalEventMeta(obj interface{}) (EventMeta, bool) {
+	typed, isTyped := obj.(EventMeta)
+	return typed, isTyped
 }

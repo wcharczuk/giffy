@@ -26,7 +26,7 @@ func MessagefWithFlagTextColor(flag Flag, flagColor AnsiColor, format string, ar
 }
 
 // NewMessageEventListener returns a new message event listener.
-func NewMessageEventListener(listener func(me *MessageEvent)) Listener {
+func NewMessageEventListener(listener func(*MessageEvent)) Listener {
 	return func(e Event) {
 		if typed, isTyped := e.(*MessageEvent); isTyped {
 			listener(typed)
@@ -36,81 +36,112 @@ func NewMessageEventListener(listener func(me *MessageEvent)) Listener {
 
 // MessageEvent is a common type of message.
 type MessageEvent struct {
+	heading   string
 	flag      Flag
 	flagColor AnsiColor
 	ts        time.Time
-	label     string
 	message   string
+
+	labels      map[string]string
+	annotations map[string]string
+}
+
+// WithLabel sets a label on the event for later filtering.
+func (e *MessageEvent) WithLabel(key, value string) *MessageEvent {
+	if e.labels == nil {
+		e.labels = map[string]string{}
+	}
+	e.labels[key] = value
+	return e
+}
+
+// Labels returns a labels collection.
+func (e *MessageEvent) Labels() map[string]string {
+	return e.labels
+}
+
+// WithAnnotation adds an annotation to the event.
+func (e *MessageEvent) WithAnnotation(key, value string) *MessageEvent {
+	if e.annotations == nil {
+		e.annotations = map[string]string{}
+	}
+	e.annotations[key] = value
+	return e
+}
+
+// Annotations returns the annotations set.
+func (e *MessageEvent) Annotations() map[string]string {
+	return e.annotations
 }
 
 // WithFlag sets the message flag.
-func (me *MessageEvent) WithFlag(flag Flag) *MessageEvent {
-	me.flag = flag
-	return me
+func (e *MessageEvent) WithFlag(flag Flag) *MessageEvent {
+	e.flag = flag
+	return e
 }
 
 // Flag returns the message flag.
-func (me MessageEvent) Flag() Flag {
-	return me.flag
+func (e *MessageEvent) Flag() Flag {
+	return e.flag
 }
 
 // WithTimestamp sets the message timestamp.
-func (me *MessageEvent) WithTimestamp(ts time.Time) *MessageEvent {
-	me.ts = ts
-	return me
+func (e *MessageEvent) WithTimestamp(ts time.Time) *MessageEvent {
+	e.ts = ts
+	return e
 }
 
 // Timestamp returns the message timestamp.
-func (me MessageEvent) Timestamp() time.Time {
-	return me.ts
+func (e *MessageEvent) Timestamp() time.Time {
+	return e.ts
 }
 
 // WithMessage sets the message.
-func (me *MessageEvent) WithMessage(message string) *MessageEvent {
-	me.message = message
-	return me
+func (e *MessageEvent) WithMessage(message string) *MessageEvent {
+	e.message = message
+	return e
 }
 
 // Message returns the message.
-func (me MessageEvent) Message() string {
-	return me.message
+func (e *MessageEvent) Message() string {
+	return e.message
 }
 
-// WithLabel sets the label.
-func (me *MessageEvent) WithLabel(label string) *MessageEvent {
-	me.label = label
-	return me
+// WithHeading sets the heading.
+func (e *MessageEvent) WithHeading(heading string) *MessageEvent {
+	e.heading = heading
+	return e
 }
 
-// Label returns the label.
-func (me MessageEvent) Label() string {
-	return me.label
+// Heading returns the heading.
+func (e *MessageEvent) Heading() string {
+	return e.heading
 }
 
 // WithFlagTextColor sets the message flag text color.
-func (me *MessageEvent) WithFlagTextColor(color AnsiColor) *MessageEvent {
-	me.flagColor = color
-	return me
+func (e *MessageEvent) WithFlagTextColor(color AnsiColor) *MessageEvent {
+	e.flagColor = color
+	return e
 }
 
 // FlagTextColor returns a custom color for the flag.
-func (me MessageEvent) FlagTextColor() AnsiColor {
-	return me.flagColor
+func (e *MessageEvent) FlagTextColor() AnsiColor {
+	return e.flagColor
 }
 
 // WriteText implements TextWritable.
-func (me MessageEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
-	buf.WriteString(me.message)
+func (e *MessageEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
+	buf.WriteString(e.message)
 }
 
 // WriteJSON implements JSONWriteable.
-func (me MessageEvent) WriteJSON() JSONObj {
+func (e *MessageEvent) WriteJSON() JSONObj {
 	return JSONObj{
-		JSONFieldMessage: me.message,
+		JSONFieldMessage: e.message,
 	}
 }
 
 // String returns the message event body.
-func (me MessageEvent) String() string {
-	return me.message
+func (e *MessageEvent) String() string {
+	return e.message
 }

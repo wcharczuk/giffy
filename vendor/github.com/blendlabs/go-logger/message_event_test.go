@@ -3,12 +3,11 @@ package logger
 import (
 	"sync"
 	"testing"
-	"time"
 
 	assert "github.com/blendlabs/go-assert"
 )
 
-func TestTimedEventListener(t *testing.T) {
+func TestMessageEventListener(t *testing.T) {
 	assert := assert.New(t)
 
 	wg := sync.WaitGroup{}
@@ -16,26 +15,27 @@ func TestTimedEventListener(t *testing.T) {
 
 	all := New().WithFlags(AllFlags())
 	defer all.Close()
-	all.Listen(Flag("test-flag"), "default", NewTimedEventListener(func(te *TimedEvent) {
+	all.Listen(Flag("test-flag"), "default", NewMessageEventListener(func(e *MessageEvent) {
 		defer wg.Done()
-		assert.Equal("test-flag", te.Flag())
-		assert.NotZero(te.Elapsed())
-		assert.Equal("foo bar", te.Message())
+		assert.Equal("test-flag", e.Flag())
+		assert.Equal("foo bar", e.Message())
 	}))
 
-	go func() { all.Trigger(Timedf(Flag("test-flag"), time.Millisecond, "foo %s", "bar")) }()
-	go func() { all.Trigger(Timedf(Flag("test-flag"), time.Millisecond, "foo %s", "bar")) }()
+	go func() { all.Trigger(Messagef(Flag("test-flag"), "foo %s", "bar")) }()
+	go func() { all.Trigger(Messagef(Flag("test-flag"), "foo %s", "bar")) }()
 	wg.Wait()
 }
 
-func TestTimedEventInterfaces(t *testing.T) {
+func TestMessageEventInterfaces(t *testing.T) {
 	assert := assert.New(t)
 
-	ee := Timedf(Fatal, time.Millisecond, "foo %s", "bar").WithHeading("heading").WithLabel("foo", "bar")
+	ee := Messagef(Info, "this is a test").
+		WithHeading("heading").
+		WithLabel("foo", "bar")
 
 	eventProvider, isEvent := marshalEvent(ee)
 	assert.True(isEvent)
-	assert.Equal(Fatal, eventProvider.Flag())
+	assert.Equal(Info, eventProvider.Flag())
 	assert.False(eventProvider.Timestamp().IsZero())
 
 	headingProvider, isHeadingProvider := marshalEventHeading(ee)

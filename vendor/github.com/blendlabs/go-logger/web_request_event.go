@@ -35,11 +35,11 @@ func NewWebRequestEventListener(listener func(*WebRequestEvent)) Listener {
 
 // WebRequestEvent is an event type for http responses.
 type WebRequestEvent struct {
-	flag Flag
-	ts   time.Time
-	req  *http.Request
+	heading string
+	flag    Flag
+	ts      time.Time
+	req     *http.Request
 
-	label           string
 	route           string
 	statusCode      int
 	contentLength   int64
@@ -47,142 +47,173 @@ type WebRequestEvent struct {
 	contentEncoding string
 	elapsed         time.Duration
 	state           map[string]interface{}
+
+	labels      map[string]string
+	annotations map[string]string
+}
+
+// WithLabel sets a label on the event for later filtering.
+func (e *WebRequestEvent) WithLabel(key, value string) *WebRequestEvent {
+	if e.labels == nil {
+		e.labels = map[string]string{}
+	}
+	e.labels[key] = value
+	return e
+}
+
+// Labels returns a labels collection.
+func (e *WebRequestEvent) Labels() map[string]string {
+	return e.labels
+}
+
+// WithAnnotation adds an annotation to the event.
+func (e *WebRequestEvent) WithAnnotation(key, value string) *WebRequestEvent {
+	if e.annotations == nil {
+		e.annotations = map[string]string{}
+	}
+	e.annotations[key] = value
+	return e
+}
+
+// Annotations returns the annotations set.
+func (e *WebRequestEvent) Annotations() map[string]string {
+	return e.annotations
 }
 
 // WithFlag sets the event flag.
-func (wre *WebRequestEvent) WithFlag(flag Flag) *WebRequestEvent {
-	wre.flag = flag
-	return wre
+func (e *WebRequestEvent) WithFlag(flag Flag) *WebRequestEvent {
+	e.flag = flag
+	return e
 }
 
 // Flag returns the event flag.
-func (wre WebRequestEvent) Flag() Flag {
-	return wre.flag
+func (e *WebRequestEvent) Flag() Flag {
+	return e.flag
 }
 
 // WithTimestamp sets the timestamp.
-func (wre *WebRequestEvent) WithTimestamp(ts time.Time) *WebRequestEvent {
-	wre.ts = ts
-	return wre
+func (e *WebRequestEvent) WithTimestamp(ts time.Time) *WebRequestEvent {
+	e.ts = ts
+	return e
 }
 
 // Timestamp returns the event timestamp.
-func (wre WebRequestEvent) Timestamp() time.Time {
-	return wre.ts
+func (e *WebRequestEvent) Timestamp() time.Time {
+	return e.ts
 }
 
-// WithLabel sets the label.
-func (wre *WebRequestEvent) WithLabel(label string) *WebRequestEvent {
-	wre.label = label
-	return wre
+// WithHeading sets the event heading.
+func (e *WebRequestEvent) WithHeading(heading string) *WebRequestEvent {
+	e.heading = heading
+	return e
 }
 
-// Label returns the label.
-func (wre WebRequestEvent) Label() string {
-	return wre.label
+// Heading returns the event heading.
+func (e *WebRequestEvent) Heading() string {
+	return e.heading
 }
 
 // WithRequest sets the request metadata.
-func (wre *WebRequestEvent) WithRequest(req *http.Request) *WebRequestEvent {
-	wre.req = req
-	return wre
+func (e *WebRequestEvent) WithRequest(req *http.Request) *WebRequestEvent {
+	e.req = req
+	return e
 }
 
 // Request returns the request metadata.
-func (wre WebRequestEvent) Request() *http.Request {
-	return wre.req
+func (e *WebRequestEvent) Request() *http.Request {
+	return e.req
 }
 
 // WithStatusCode sets the status code.
-func (wre *WebRequestEvent) WithStatusCode(statusCode int) *WebRequestEvent {
-	wre.statusCode = statusCode
-	return wre
+func (e *WebRequestEvent) WithStatusCode(statusCode int) *WebRequestEvent {
+	e.statusCode = statusCode
+	return e
 }
 
 // StatusCode is the HTTP status code of the response.
-func (wre WebRequestEvent) StatusCode() int {
-	return wre.statusCode
+func (e *WebRequestEvent) StatusCode() int {
+	return e.statusCode
 }
 
 // WithContentLength sets the content length.
-func (wre *WebRequestEvent) WithContentLength(contentLength int64) *WebRequestEvent {
-	wre.contentLength = contentLength
-	return wre
+func (e *WebRequestEvent) WithContentLength(contentLength int64) *WebRequestEvent {
+	e.contentLength = contentLength
+	return e
 }
 
 // ContentLength is the size of the response.
-func (wre WebRequestEvent) ContentLength() int64 {
-	return wre.contentLength
+func (e *WebRequestEvent) ContentLength() int64 {
+	return e.contentLength
 }
 
 // WithContentType sets the content type.
-func (wre *WebRequestEvent) WithContentType(contentType string) *WebRequestEvent {
-	wre.contentType = contentType
-	return wre
+func (e *WebRequestEvent) WithContentType(contentType string) *WebRequestEvent {
+	e.contentType = contentType
+	return e
 }
 
 // ContentType is the type of the response.
-func (wre WebRequestEvent) ContentType() string {
-	return wre.contentType
+func (e *WebRequestEvent) ContentType() string {
+	return e.contentType
 }
 
 // WithContentEncoding sets the content encoding.
-func (wre *WebRequestEvent) WithContentEncoding(contentEncoding string) *WebRequestEvent {
-	wre.contentEncoding = contentEncoding
-	return wre
+func (e *WebRequestEvent) WithContentEncoding(contentEncoding string) *WebRequestEvent {
+	e.contentEncoding = contentEncoding
+	return e
 }
 
 // ContentEncoding is the encoding of the response.
-func (wre WebRequestEvent) ContentEncoding() string {
-	return wre.contentEncoding
+func (e *WebRequestEvent) ContentEncoding() string {
+	return e.contentEncoding
 }
 
 // WithRoute sets the mux route.
-func (wre *WebRequestEvent) WithRoute(route string) *WebRequestEvent {
-	wre.route = route
-	return wre
+func (e *WebRequestEvent) WithRoute(route string) *WebRequestEvent {
+	e.route = route
+	return e
 }
 
 // Route is the mux route of the request.
-func (wre WebRequestEvent) Route() string {
-	return wre.route
+func (e *WebRequestEvent) Route() string {
+	return e.route
 }
 
 // WithElapsed sets the elapsed time.
-func (wre *WebRequestEvent) WithElapsed(elapsed time.Duration) *WebRequestEvent {
-	wre.elapsed = elapsed
-	return wre
+func (e *WebRequestEvent) WithElapsed(elapsed time.Duration) *WebRequestEvent {
+	e.elapsed = elapsed
+	return e
 }
 
 // Elapsed is the duration of the request.
-func (wre WebRequestEvent) Elapsed() time.Duration {
-	return wre.elapsed
+func (e *WebRequestEvent) Elapsed() time.Duration {
+	return e.elapsed
 }
 
 // WithState sets the request state.
-func (wre *WebRequestEvent) WithState(state map[string]interface{}) *WebRequestEvent {
-	wre.state = state
-	return wre
+func (e *WebRequestEvent) WithState(state map[string]interface{}) *WebRequestEvent {
+	e.state = state
+	return e
 }
 
 // State returns the state of the request.
-func (wre WebRequestEvent) State() time.Duration {
-	return wre.elapsed
+func (e *WebRequestEvent) State() time.Duration {
+	return e.elapsed
 }
 
 // WriteText implements TextWritable.
-func (wre WebRequestEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
-	if wre.flag == WebRequestStart {
-		TextWriteRequestStart(formatter, buf, wre.req)
+func (e *WebRequestEvent) WriteText(formatter TextFormatter, buf *bytes.Buffer) {
+	if e.flag == WebRequestStart {
+		TextWriteRequestStart(formatter, buf, e.req)
 	} else {
-		TextWriteRequest(formatter, buf, wre.req, wre.statusCode, wre.contentLength, wre.contentType, wre.elapsed)
+		TextWriteRequest(formatter, buf, e.req, e.statusCode, e.contentLength, e.contentType, e.elapsed)
 	}
 }
 
 // WriteJSON implements JSONWritable.
-func (wre WebRequestEvent) WriteJSON() JSONObj {
-	if wre.flag == WebRequestStart {
-		return JSONWriteRequestStart(wre.req)
+func (e *WebRequestEvent) WriteJSON() JSONObj {
+	if e.flag == WebRequestStart {
+		return JSONWriteRequestStart(e.req)
 	}
-	return JSONWriteRequest(wre.req, wre.statusCode, wre.contentLength, wre.contentType, wre.contentEncoding, wre.elapsed)
+	return JSONWriteRequest(e.req, e.statusCode, e.contentLength, e.contentType, e.contentEncoding, e.elapsed)
 }

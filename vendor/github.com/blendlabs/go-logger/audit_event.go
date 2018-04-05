@@ -29,15 +29,46 @@ func NewAuditEventListener(listener func(me *AuditEvent)) Listener {
 
 // AuditEvent is a common type of event detailing a business action by a subject.
 type AuditEvent struct {
+	heading   string
 	ts        time.Time
 	flag      Flag
-	label     string
 	principal string
 	verb      string
 	noun      string
 	subject   string
 	property  string
 	extra     map[string]string
+
+	labels      map[string]string
+	annotations map[string]string
+}
+
+// WithLabel sets a label on the event for later filtering.
+func (ae *AuditEvent) WithLabel(key, value string) *AuditEvent {
+	if ae.labels == nil {
+		ae.labels = map[string]string{}
+	}
+	ae.labels[key] = value
+	return ae
+}
+
+// Labels returns a labels collection.
+func (ae *AuditEvent) Labels() map[string]string {
+	return ae.labels
+}
+
+// WithAnnotation adds an annotation to the event.
+func (ae *AuditEvent) WithAnnotation(key, value string) *AuditEvent {
+	if ae.annotations == nil {
+		ae.annotations = map[string]string{}
+	}
+	ae.annotations[key] = value
+	return ae
+}
+
+// Annotations returns the annotations set.
+func (ae *AuditEvent) Annotations() map[string]string {
+	return ae.annotations
 }
 
 // WithFlag sets the audit event flag
@@ -62,15 +93,15 @@ func (ae AuditEvent) Timestamp() time.Time {
 	return ae.ts
 }
 
-// WithLabel sets the label.
-func (ae *AuditEvent) WithLabel(label string) *AuditEvent {
-	ae.label = label
+// WithHeading sets the heading.
+func (ae *AuditEvent) WithHeading(heading string) *AuditEvent {
+	ae.heading = heading
 	return ae
 }
 
-// Label returns the label.
-func (ae AuditEvent) Label() string {
-	return ae.label
+// Heading returns the heading.
+func (ae AuditEvent) Heading() string {
+	return ae.heading
 }
 
 // WithPrincipal sets the principal.

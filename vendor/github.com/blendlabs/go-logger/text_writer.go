@@ -258,8 +258,8 @@ func (wr *TextWriter) write(output io.Writer, e Event) error {
 		buf.WriteRune(RuneSpace)
 	}
 
-	if typed, isTyped := e.(EventLabel); isTyped && len(typed.Label()) > 0 {
-		buf.WriteString(wr.FormatLabel(typed.Label()))
+	if typed, isTyped := e.(EventHeading); isTyped && len(typed.Heading()) > 0 {
+		buf.WriteString(wr.FormatLabel(typed.Heading()))
 		buf.WriteRune(RuneSpace)
 	}
 
@@ -278,6 +278,16 @@ func (wr *TextWriter) write(output io.Writer, e Event) error {
 		typed.WriteText(wr, buf)
 	} else if typed, isTyped := e.(fmt.Stringer); isTyped {
 		buf.WriteString(typed.String())
+	}
+
+	if typed, isTyped := e.(EventMeta); isTyped {
+		if len(typed.Labels()) > 0 {
+			buf.WriteRune(RuneNewline)
+			for key, value := range typed.Labels() {
+				buf.WriteString(fmt.Sprintf("%s=%s", key, value))
+				buf.WriteRune(RuneSpace)
+			}
+		}
 	}
 
 	buf.WriteRune(RuneNewline)

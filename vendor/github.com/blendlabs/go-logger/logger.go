@@ -512,7 +512,7 @@ func (l *Logger) SyncWarningf(format string, args ...interface{}) {
 // Warning logs a warning error to std err.
 func (l *Logger) Warning(err error) error {
 	if l != nil {
-		l.Trigger(NewError(Warning, err))
+		l.Trigger(NewErrorEvent(Warning, err))
 	}
 	return err
 }
@@ -520,7 +520,7 @@ func (l *Logger) Warning(err error) error {
 // SyncWarning synchronously logs a warning to std err.
 func (l *Logger) SyncWarning(err error) error {
 	if l != nil {
-		l.SyncTrigger(NewError(Warning, err))
+		l.SyncTrigger(NewErrorEvent(Warning, err))
 	}
 	return err
 }
@@ -528,7 +528,7 @@ func (l *Logger) SyncWarning(err error) error {
 // WarningWithReq logs a warning error to std err with a request.
 func (l *Logger) WarningWithReq(err error, req *http.Request) error {
 	if l != nil {
-		l.Trigger(NewErrorWithState(Warning, err, req))
+		l.Trigger(NewErrorEventWithState(Warning, err, req))
 	}
 	return err
 }
@@ -552,7 +552,7 @@ func (l *Logger) SyncErrorf(format string, args ...interface{}) {
 // Error logs an error to std err.
 func (l *Logger) Error(err error) error {
 	if l != nil {
-		l.Trigger(NewError(Error, err))
+		l.Trigger(NewErrorEvent(Error, err))
 	}
 	return err
 }
@@ -560,7 +560,7 @@ func (l *Logger) Error(err error) error {
 // SyncError synchronously logs an error to std err.
 func (l *Logger) SyncError(err error) error {
 	if l != nil {
-		l.SyncTrigger(NewError(Error, err))
+		l.SyncTrigger(NewErrorEvent(Error, err))
 	}
 	return err
 }
@@ -568,7 +568,7 @@ func (l *Logger) SyncError(err error) error {
 // ErrorWithReq logs an error to std err with a request.
 func (l *Logger) ErrorWithReq(err error, req *http.Request) error {
 	if l != nil {
-		l.Trigger(NewErrorWithState(Error, err, req))
+		l.Trigger(NewErrorEventWithState(Error, err, req))
 	}
 	return err
 }
@@ -592,7 +592,7 @@ func (l *Logger) SyncFatalf(format string, args ...interface{}) {
 // Fatal logs the result of a panic to std err.
 func (l *Logger) Fatal(err error) error {
 	if l != nil {
-		l.Trigger(NewError(Fatal, err))
+		l.Trigger(NewErrorEvent(Fatal, err))
 	}
 	return err
 }
@@ -600,7 +600,7 @@ func (l *Logger) Fatal(err error) error {
 // SyncFatal synchronously logs a fatal to std err.
 func (l *Logger) SyncFatal(err error) error {
 	if l != nil {
-		l.SyncTrigger(NewError(Fatal, err))
+		l.SyncTrigger(NewErrorEvent(Fatal, err))
 	}
 	return err
 }
@@ -608,7 +608,7 @@ func (l *Logger) SyncFatal(err error) error {
 // FatalWithReq logs the result of a fatal error to std err with a request.
 func (l *Logger) FatalWithReq(err error, req *http.Request) error {
 	if l != nil {
-		l.Trigger(NewErrorWithState(Fatal, err, req))
+		l.Trigger(NewErrorEventWithState(Fatal, err, req))
 	}
 	return err
 }

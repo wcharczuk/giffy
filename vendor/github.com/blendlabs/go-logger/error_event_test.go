@@ -1,14 +1,15 @@
 package logger
 
 import (
+	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	assert "github.com/blendlabs/go-assert"
+	exception "github.com/blendlabs/go-exception"
 )
 
-func TestTimedEventListener(t *testing.T) {
+func TestErrorEventListener(t *testing.T) {
 	assert := assert.New(t)
 
 	wg := sync.WaitGroup{}
@@ -16,22 +17,28 @@ func TestTimedEventListener(t *testing.T) {
 
 	all := New().WithFlags(AllFlags())
 	defer all.Close()
-	all.Listen(Flag("test-flag"), "default", NewTimedEventListener(func(te *TimedEvent) {
+
+	all.Listen(Fatal, "default", NewErrorEventListener(func(e *ErrorEvent) {
 		defer wg.Done()
-		assert.Equal("test-flag", te.Flag())
-		assert.NotZero(te.Elapsed())
-		assert.Equal("foo bar", te.Message())
+
+		assert.Equal(Fatal, e.Flag())
+		assert.Equal("foo bar", e.Err().Error())
 	}))
 
-	go func() { all.Trigger(Timedf(Flag("test-flag"), time.Millisecond, "foo %s", "bar")) }()
-	go func() { all.Trigger(Timedf(Flag("test-flag"), time.Millisecond, "foo %s", "bar")) }()
+	go func() { all.Trigger(NewErrorEvent(Fatal, fmt.Errorf("foo bar"))) }()
+	go func() { all.Trigger(NewErrorEvent(Fatal, fmt.Errorf("foo bar"))) }()
 	wg.Wait()
 }
 
-func TestTimedEventInterfaces(t *testing.T) {
+func TestErrorEventInterfaces(t *testing.T) {
 	assert := assert.New(t)
 
-	ee := Timedf(Fatal, time.Millisecond, "foo %s", "bar").WithHeading("heading").WithLabel("foo", "bar")
+	ee := NewErrorEvent(Fatal,
+		exception.New("this is a test").
+			WithMessagef("this is a message").
+			WithStack(exception.StackStrings([]string{"foo", "bar"}))).
+		WithHeading("heading").
+		WithLabel("foo", "bar")
 
 	eventProvider, isEvent := marshalEvent(ee)
 	assert.True(isEvent)
