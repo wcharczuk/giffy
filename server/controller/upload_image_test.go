@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/web"
 	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/go-logger"
 	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/uuid"
-	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/model"

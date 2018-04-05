@@ -3,9 +3,9 @@ package controller
 import (
 	"fmt"
 
-	google "github.com/blendlabs/go-google-oauth"
-	"github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-web"
+	"github.com/blend/go-sdk/oauth"
+	"github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/web"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/external"
@@ -27,7 +27,7 @@ const (
 
 // Auth is the main controller for the app.
 type Auth struct {
-	Google *google.Manager
+	OAuth  *oauth.Manager
 	Config *config.Giffy
 }
 
@@ -81,7 +81,7 @@ func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 	return r.Redirectf("/slack/complete")
 }
 
-func (ac Auth) mapGoogleUser(profile *google.Profile) *model.User {
+func (ac Auth) mapGoogleUser(profile *oauth.Profile) *model.User {
 	user := model.NewUser(profile.Email)
 	user.EmailAddress = profile.Email
 	user.IsEmailVerified = profile.VerifiedEmail
@@ -91,7 +91,7 @@ func (ac Auth) mapGoogleUser(profile *google.Profile) *model.User {
 }
 
 func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
-	res, err := ac.Google.Finish(r.Request())
+	res, err := ac.OAuth.Finish(r.Request())
 	if err != nil {
 		return r.View().NotAuthorized()
 	}

@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"testing"
 
+	exception "github.com/blend/go-sdk/exception"
 	assert "github.com/blendlabs/go-assert"
-	exception "github.com/blendlabs/go-exception"
 )
 
 func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 	// for image processing
 	_ "image/png"
 
-	"github.com/blendlabs/go-exception"
+	"github.com/blend/go-sdk/exception"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )

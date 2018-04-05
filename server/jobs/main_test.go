@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	logger "github.com/blendlabs/go-logger"
+	logger "github.com/blend/go-sdk/logger"
 	"github.com/wcharczuk/giffy/server/core"
 )
 

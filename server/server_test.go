@@ -3,9 +3,9 @@ package server
 import (
 	"testing"
 
+	logger "github.com/blend/go-sdk/logger"
 	"github.com/blendlabs/go-assert"
 	google "github.com/blendlabs/go-google-oauth"
-	logger "github.com/blendlabs/go-logger"
 	"github.com/wcharczuk/giffy/server/config"
 )
 

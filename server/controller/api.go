@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	exception "github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/web"
 	"github.com/blendlabs/go-chronometer"
-	exception "github.com/blendlabs/go-exception"
 	google "github.com/blendlabs/go-google-oauth"
 	"github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-web"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/external"

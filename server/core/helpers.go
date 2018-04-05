@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	exception "github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-util/configutil"
-	"github.com/blendlabs/spiffy"
+	"github.com/blend/go-sdk/configutil"
+	"github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/spiffy"
 	"github.com/wcharczuk/giffy/server/config"
 )
 

@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blend/go-sdk/web"
 	"github.com/blendlabs/go-assert"
 	google "github.com/blendlabs/go-google-oauth"
 	util "github.com/blendlabs/go-util"
 	"github.com/blendlabs/go-util/uuid"
-	"github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"

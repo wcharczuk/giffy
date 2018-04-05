@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	exception "github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-util/uuid"
+	"github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/uuid"
 	"github.com/wcharczuk/giffy/server/config"
 )
 

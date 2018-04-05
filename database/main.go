@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	logger "github.com/blendlabs/go-logger"
+	logger "github.com/blend/go-sdk/logger"
 	"github.com/blendlabs/go-util/configutil"
 	"github.com/blendlabs/spiffy"
 	"github.com/blendlabs/spiffy/migration"

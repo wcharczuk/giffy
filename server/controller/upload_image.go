@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/blendlabs/go-exception"
-	"github.com/blendlabs/go-web"
+	"github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/web"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/external"

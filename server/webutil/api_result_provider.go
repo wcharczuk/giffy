@@ -3,9 +3,9 @@ package webutil
 import (
 	"net/http"
 
-	"github.com/blendlabs/go-exception"
-	logger "github.com/blendlabs/go-logger"
-	web "github.com/blendlabs/go-web"
+	"github.com/blend/go-sdk/exception"
+	logger "github.com/blend/go-sdk/logger"
+	web "github.com/blend/go-sdk/web"
 )
 
 // API returns the api result provider.

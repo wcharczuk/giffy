@@ -8,10 +8,10 @@ import (
 	"os"
 	"testing"
 
+	logger "github.com/blend/go-sdk/logger"
+	web "github.com/blend/go-sdk/web"
 	"github.com/blendlabs/go-assert"
-	logger "github.com/blendlabs/go-logger"
 	util "github.com/blendlabs/go-util"
-	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/webutil"

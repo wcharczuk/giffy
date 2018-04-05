@@ -1,7 +1,7 @@
 package webutil
 
 import (
-	web "github.com/blendlabs/go-web"
+	web "github.com/blend/go-sdk/web"
 )
 
 const (

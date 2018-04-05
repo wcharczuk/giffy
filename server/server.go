@@ -3,13 +3,13 @@ package server
 import (
 	"net/http"
 
-	"github.com/blendlabs/go-chronometer"
-	google "github.com/blendlabs/go-google-oauth"
-	"github.com/blendlabs/go-logger"
-	"github.com/blendlabs/go-web"
-	"github.com/blendlabs/go-workqueue"
-	"github.com/blendlabs/spiffy"
-	"github.com/blendlabs/spiffy/migration"
+	"github.com/blend/go-sdk/cron"
+	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/oauth"
+	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/spiffy/migration"
+	"github.com/blend/go-sdk/web"
+	"github.com/blend/go-sdk/workqueue"
 
 	// includes migrations
 	_ "github.com/wcharczuk/giffy/database/migrations"
@@ -47,7 +47,7 @@ func Migrate() error {
 }
 
 // New returns a new server instance.
-func New(log *logger.Logger, oauth *google.Manager, cfg *config.Giffy) *web.App {
+func New(log *logger.Logger, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
 
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
@@ -106,10 +106,10 @@ func New(log *logger.Logger, oauth *google.Manager, cfg *config.Giffy) *web.App 
 
 		workqueue.Default().Start()
 
-		chronometer.Default().LoadJob(jobs.DeleteOrphanedTags{})
-		chronometer.Default().LoadJob(jobs.CleanTagValues{})
-		chronometer.Default().LoadJob(jobs.FixContentRating{})
-		chronometer.Default().Start()
+		cron.Default().LoadJob(jobs.DeleteOrphanedTags{})
+		cron.Default().LoadJob(jobs.CleanTagValues{})
+		cron.Default().LoadJob(jobs.FixContentRating{})
+		cron.Default().Start()
 
 		return nil
 	})

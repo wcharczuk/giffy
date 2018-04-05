@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blendlabs/go-exception"
+	"github.com/blend/go-sdk/exception"
 	util "github.com/blendlabs/go-util"
 )
 

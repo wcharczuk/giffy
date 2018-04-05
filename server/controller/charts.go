@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
-	web "github.com/blendlabs/go-web"
+	web "github.com/blend/go-sdk/web"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 	"github.com/wcharczuk/giffy/server/webutil"
-	chart "github.com/wcharczuk/go-chart"
+	"github.com/wcharczuk/go-chart"
 )
 
 // Chart is a controller for common chart endpoints.

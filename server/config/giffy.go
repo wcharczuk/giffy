@@ -3,12 +3,12 @@ package config
 import (
 	"fmt"
 
-	google "github.com/blendlabs/go-google-oauth"
-	logger "github.com/blendlabs/go-logger"
-	util "github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-util/env"
-	web "github.com/blendlabs/go-web"
-	"github.com/blendlabs/spiffy"
+	"github.com/blend/go-sdk/env"
+	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/oauth"
+	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/web"
 )
 
 const (
@@ -23,7 +23,9 @@ const (
 // NewFromEnv creates a new config from the environment.
 func NewFromEnv() *Giffy {
 	var cfg Giffy
-	env.Env().ReadInto(&cfg)
+	if err := env.Env().ReadInto(&cfg); err != nil {
+		panic(err)
+	}
 	return &cfg
 }
 
@@ -44,7 +46,7 @@ type Giffy struct {
 	SlackVerificationToken string `json:"slackVerificationToken" yaml:"slackVerificationToken"`
 
 	Logger     logger.Config           `json:"logger" yaml:"logger"`
-	GoogleAuth google.Config           `json:"googleAuth" yaml:"googleAuth"`
+	GoogleAuth oauth.Config            `json:"googleAuth" yaml:"googleAuth"`
 	Web        web.Config              `json:"web" yaml:"web"`
 	Upgrader   web.HTTPSUpgraderConfig `json:"upgrader" yaml:"upgrader"`
 	DB         spiffy.Config           `json:"db" yaml:"db"`

@@ -1,8 +1,8 @@
 package external
 
 import (
-	logger "github.com/blendlabs/go-logger"
-	"github.com/blendlabs/go-request"
+	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/request"
 )
 
 // NewRequest creates a new external request.

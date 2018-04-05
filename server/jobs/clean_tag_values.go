@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/blend/go-sdk/exception"
 	"github.com/blendlabs/go-chronometer"
-	"github.com/blendlabs/go-exception"
 	"github.com/wcharczuk/giffy/server/model"
 )
 

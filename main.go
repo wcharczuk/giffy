@@ -1,27 +1,23 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"github.com/blend/go-sdk/configutil"
+	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/oauth"
+	"github.com/blend/go-sdk/web"
 
-	google "github.com/blendlabs/go-google-oauth"
-	logger "github.com/blendlabs/go-logger"
-	"github.com/blendlabs/go-util/configutil"
-	web "github.com/blendlabs/go-web"
 	"github.com/wcharczuk/giffy/server"
 	"github.com/wcharczuk/giffy/server/config"
 )
 
 func main() {
 	var cfg config.Giffy
-	err := configutil.Read(&cfg)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		os.Exit(1)
+	if err := configutil.Read(&cfg); err != nil {
+		logger.All().SyncFatalExit(err)
 	}
 
 	log := logger.NewFromConfig(&cfg.Logger)
-	oauth := google.NewFromConfig(&cfg.GoogleAuth)
+	oauth := oauth.NewFromConfig(&cfg.GoogleAuth)
 
 	if cfg.Web.IsSecure() {
 		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader).WithLogger(log)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	logger "github.com/blendlabs/go-logger"
+	logger "github.com/blend/go-sdk/logger"
 	"github.com/blendlabs/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )

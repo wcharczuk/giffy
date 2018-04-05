@@ -1,6 +1,6 @@
 package core
 
-import logger "github.com/blendlabs/go-logger"
+import logger "github.com/blend/go-sdk/logger"
 
 var (
 	// FlagSearch denotes an event.
