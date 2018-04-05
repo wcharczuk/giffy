@@ -38,7 +38,7 @@ func main() {
 		os.Setenv("PGSSLMODE", "disable")
 	}
 
-	conn, err :=  sql.Open("postgres", "")
+	db, err := sql.Open("postgres", "")
 	if err != nil {
 		log.Fatal(err)
 	}
