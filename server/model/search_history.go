@@ -6,7 +6,7 @@ import (
 	"time"
 
 	logger "github.com/blend/go-sdk/logger"
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
@@ -80,9 +80,9 @@ func (sh SearchHistory) Timestamp() time.Time {
 }
 
 func createSearchHistoryQuery(whereClause ...string) string {
-	searchColumns := spiffy.Columns(SearchHistory{}).NotReadOnly().ColumnNamesCSVFromAlias("sh")
-	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesCSVFromAlias("i")
-	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesCSVFromAlias("t")
+	searchColumns := db.Columns(SearchHistory{}).NotReadOnly().ColumnNamesCSVFromAlias("sh")
+	imageColumns := db.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesCSVFromAlias("i")
+	tagColumns := db.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesCSVFromAlias("t")
 
 	query := `
 	select
@@ -102,27 +102,27 @@ func createSearchHistoryQuery(whereClause ...string) string {
 	return fmt.Sprintf(query, searchColumns, imageColumns, tagColumns, "")
 }
 
-func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
-	searchColumns := spiffy.Columns(SearchHistory{}).NotReadOnly()
-	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
-	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
+func searchHistoryConsumer(searchHistory *[]SearchHistory) db.RowsConsumer {
+	searchColumns := db.Columns(SearchHistory{}).NotReadOnly()
+	imageColumns := db.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
+	tagColumns := db.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
 
 	return func(r *sql.Rows) error {
 		var sh SearchHistory
 		var i Image
 		var t Tag
 
-		err := spiffy.PopulateByName(&sh, r, searchColumns)
+		err := db.PopulateByName(&sh, r, searchColumns)
 		if err != nil {
 			return err
 		}
 
-		err = spiffy.PopulateByName(&i, r, imageColumns)
+		err = db.PopulateByName(&i, r, imageColumns)
 		if err == nil && !i.IsZero() {
 			sh.Image = &i
 		}
 
-		err = spiffy.PopulateByName(&t, r, tagColumns)
+		err = db.PopulateByName(&t, r, tagColumns)
 		if err == nil && !t.IsZero() {
 			sh.Tag = &t
 		}
@@ -136,7 +136,7 @@ func searchHistoryConsumer(searchHistory *[]SearchHistory) spiffy.RowsConsumer {
 func GetSearchHistory(txs ...*sql.Tx) ([]SearchHistory, error) {
 	var searchHistory []SearchHistory
 	query := createSearchHistoryQuery()
-	err := DB().QueryInTx(query, spiffy.OptionalTx(txs...)).Each(searchHistoryConsumer(&searchHistory))
+	err := DB().QueryInTx(query, db.OptionalTx(txs...)).Each(searchHistoryConsumer(&searchHistory))
 	return searchHistory, err
 }
 

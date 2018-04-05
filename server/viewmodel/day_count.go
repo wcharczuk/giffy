@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -61,7 +61,7 @@ func GetSearchesPerDay(since time.Time, txs ...*sql.Tx) ([]DayCount, error) {
 		date_part('year', timestamp_utc) asc
 		, date_part('month', timestamp_utc) asc
 		, date_part('day', timestamp_utc) asc
-	`, spiffy.OptionalTx(txs...), since).OutMany(&data)
+	`, db.OptionalTx(txs...), since).OutMany(&data)
 
 	return data, err
 }

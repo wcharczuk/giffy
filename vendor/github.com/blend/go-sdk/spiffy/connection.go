@@ -247,7 +247,7 @@ func (dbc *Connection) ensureStatementCache() error {
 		dbc.statementCacheLock.Lock()
 		defer dbc.statementCacheLock.Unlock()
 		if dbc.statementCache == nil {
-			db, err := dbc.Open()
+			conn, err :=  dbc.Open()
 			if err != nil {
 				return exception.Wrap(err)
 			}

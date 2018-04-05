@@ -6,7 +6,7 @@ import (
 	"github.com/blend/go-sdk/env"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/oauth"
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/web"
 )
@@ -49,7 +49,7 @@ type Giffy struct {
 	GoogleAuth oauth.Config            `json:"googleAuth" yaml:"googleAuth"`
 	Web        web.Config              `json:"web" yaml:"web"`
 	Upgrader   web.HTTPSUpgraderConfig `json:"upgrader" yaml:"upgrader"`
-	DB         spiffy.Config           `json:"db" yaml:"db"`
+	DB         db.Config           `json:"db" yaml:"db"`
 	Aws        Aws                     `json:"aws" yaml:"aws"`
 }
 

@@ -1,7 +1,7 @@
 package webutil
 
 import (
-	web "github.com/blend/go-sdk/web"
+	"github.com/blend/go-sdk/web"
 )
 
 // LiveReloads determine if the app should refresh the view cache on file changes.

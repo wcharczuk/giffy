@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/uuid"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
 // DB is a helper for returning the default database connection.
-func DB() *spiffy.Connection {
-	return spiffy.Default()
+func DB() *db.Connection {
+	return db.Default()
 }
 
 // CreateObject creates an object (for use with the work queue)
 func CreateObject(state ...interface{}) error {
-	return DB().Create(state[0].(spiffy.DatabaseMapped))
+	return DB().Create(state[0].(db.DatabaseMapped))
 }
 
 // CreateTestUser creates a test user.

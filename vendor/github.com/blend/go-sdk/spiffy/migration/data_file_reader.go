@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/blend/go-sdk/exception"
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/util"
 	"github.com/lib/pq"
 )

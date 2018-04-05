@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 )
 
 // NewSlackTeam returns a new SlackTeam.
@@ -44,7 +44,7 @@ func (st SlackTeam) IsZero() bool {
 // GetAllSlackTeams gets all slack teams.
 func GetAllSlackTeams(txs ...*sql.Tx) ([]SlackTeam, error) {
 	var teams []SlackTeam
-	err := DB().QueryInTx(`select * from slack_team order by team_name asc`, spiffy.OptionalTx(txs...)).OutMany(&teams)
+	err := DB().QueryInTx(`select * from slack_team order by team_name asc`, db.OptionalTx(txs...)).OutMany(&teams)
 	return teams, err
 }
 

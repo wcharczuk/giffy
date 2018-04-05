@@ -3,7 +3,7 @@ package migration
 import (
 	"database/sql"
 
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 )
 
 // Migration is either a group of steps or the entire suite.

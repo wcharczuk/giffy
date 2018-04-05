@@ -3,7 +3,7 @@ package viewmodel
 import (
 	"database/sql"
 
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -28,7 +28,7 @@ func GetTopSearchedImages(limit int, txs ...*sql.Tx) ([]ImageStats, error) {
 
 // GetImageStats gets image stats.
 func GetImageStats(imageID int64, txs ...*sql.Tx) (*ImageStats, error) {
-	tx := spiffy.OptionalTx(txs...)
+	tx := db.OptionalTx(txs...)
 
 	var results ImageStats
 	query := `

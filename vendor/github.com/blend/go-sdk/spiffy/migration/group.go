@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/blend/go-sdk/exception"
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 )
 
 // New creates a new migration group.

@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/blend/go-sdk/configutil"
-	logger "github.com/blend/go-sdk/logger"
-	"github.com/blend/go-sdk/spiffy"
-	"github.com/blend/go-sdk/spiffy/migration"
+	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/db/migration"
+	"github.com/blend/go-sdk/logger"
 	"github.com/wcharczuk/giffy/database/initialize"
 	"github.com/wcharczuk/giffy/database/migrations"
 	"github.com/wcharczuk/giffy/server/config"
@@ -25,7 +25,7 @@ func main() {
 	}
 
 	log := logger.NewFromConfig(&cfg.Logger)
-	db, err := spiffy.NewFromConfig(&cfg.DB).Open()
+	conn, err := db.NewFromConfig(&cfg.DB).Open()
 	if err != nil {
 		log.SyncFatalExit(err)
 	}
@@ -39,7 +39,7 @@ func main() {
 	}
 
 	m.WithLogger(migration.NewLogger(log))
-	err = m.Apply(db)
+	err = m.Apply(conn)
 	if err != nil {
 		log.SyncFatalExit(err)
 	}

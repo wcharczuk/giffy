@@ -1,14 +1,13 @@
 package core
 
 import (
-	"log"
 	"net"
 	"os"
 	"path/filepath"
 
 	"github.com/blend/go-sdk/configutil"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/exception"
-	"github.com/blend/go-sdk/spiffy"
 	"github.com/wcharczuk/giffy/server/config"
 )
 
@@ -41,14 +40,9 @@ func Setwd(relativePath string) error {
 // InitTest initializes the test prereqs.
 func InitTest() error {
 	var cfg config.Giffy
-	err := configutil.Read(&cfg)
-	if err != nil {
+	if err := configutil.Read(&cfg); err != nil {
 		return err
 	}
 
-	err = spiffy.OpenDefault(spiffy.NewFromConfig(&cfg.DB))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return nil
+	return db.OpenDefault(db.NewFromConfig(&cfg.DB))
 }

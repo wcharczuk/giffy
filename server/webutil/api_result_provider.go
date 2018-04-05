@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/blend/go-sdk/exception"
-	logger "github.com/blend/go-sdk/logger"
-	web "github.com/blend/go-sdk/web"
+	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/web"
 )
 
 // API returns the api result provider.

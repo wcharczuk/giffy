@@ -7,7 +7,7 @@ import (
 	"time"
 
 	exception "github.com/blend/go-sdk/exception"
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/uuid"
 )
 
@@ -62,13 +62,13 @@ func (e Error) TableName() string {
 // GetAllErrorsWithLimitAndOffset gets all the errors up to a limit.
 func GetAllErrorsWithLimitAndOffset(limit, offset int, txs ...*sql.Tx) ([]Error, error) {
 	var errors []Error
-	err := DB().QueryInTx(`SELECT * FROM error ORDER BY created_utc desc LIMIT $1 OFFSET $2`, spiffy.OptionalTx(txs...), limit, offset).OutMany(&errors)
+	err := DB().QueryInTx(`SELECT * FROM error ORDER BY created_utc desc LIMIT $1 OFFSET $2`, db.OptionalTx(txs...), limit, offset).OutMany(&errors)
 	return errors, err
 }
 
 // GetAllErrorsSince gets all the errors since a cutoff.
 func GetAllErrorsSince(since time.Time, txs ...*sql.Tx) ([]Error, error) {
 	var errors []Error
-	err := DB().QueryInTx(`SELECT * FROM error WHERE created_utc > $1 ORDER BY created_utc desc`, spiffy.OptionalTx(txs...), since).OutMany(&errors)
+	err := DB().QueryInTx(`SELECT * FROM error WHERE created_utc > $1 ORDER BY created_utc desc`, db.OptionalTx(txs...), since).OutMany(&errors)
 	return errors, err
 }

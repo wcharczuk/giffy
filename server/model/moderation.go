@@ -6,7 +6,7 @@ import (
 	"time"
 
 	logger "github.com/blend/go-sdk/logger"
-	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/db"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
@@ -104,10 +104,10 @@ func (m Moderation) Timestamp() time.Time {
 }
 
 func getModerationQuery(whereClause string) string {
-	moderatorColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_").ColumnNamesCSVFromAlias("mu")
-	userColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_").ColumnNamesCSVFromAlias("u")
-	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesCSVFromAlias("i")
-	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesCSVFromAlias("t")
+	moderatorColumns := db.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_").ColumnNamesCSVFromAlias("mu")
+	userColumns := db.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_").ColumnNamesCSVFromAlias("u")
+	imageColumns := db.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesCSVFromAlias("i")
+	tagColumns := db.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesCSVFromAlias("t")
 
 	return fmt.Sprintf(`
 	select
@@ -157,12 +157,12 @@ func GetModerationLogByCountAndOffset(count, offset int, tx *sql.Tx) ([]Moderati
 	return moderationLog, err
 }
 
-func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
-	moderationColumns := spiffy.Columns(Moderation{})
-	moderatorColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_")
-	userColumns := spiffy.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_")
-	imageColumns := spiffy.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
-	tagColumns := spiffy.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
+func moderationConsumer(moderationLog *[]Moderation) db.RowsConsumer {
+	moderationColumns := db.Columns(Moderation{})
+	moderatorColumns := db.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("moderator_")
+	userColumns := db.Columns(User{}).NotReadOnly().CopyWithColumnPrefix("target_user_")
+	imageColumns := db.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
+	tagColumns := db.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
 
 	return func(r *sql.Rows) error {
 		var m Moderation
@@ -172,28 +172,28 @@ func moderationConsumer(moderationLog *[]Moderation) spiffy.RowsConsumer {
 		var i Image
 		var t Tag
 
-		err := spiffy.PopulateByName(&m, r, moderationColumns)
+		err := db.PopulateByName(&m, r, moderationColumns)
 		if err != nil {
 			return err
 		}
 
-		err = spiffy.PopulateByName(&mu, r, moderatorColumns)
+		err = db.PopulateByName(&mu, r, moderatorColumns)
 		if err != nil {
 			return err
 		}
 		m.Moderator = &mu
 
-		err = spiffy.PopulateByName(&u, r, userColumns)
+		err = db.PopulateByName(&u, r, userColumns)
 		if err == nil && !u.IsZero() {
 			m.User = &u
 		}
 
-		err = spiffy.PopulateByName(&i, r, imageColumns)
+		err = db.PopulateByName(&i, r, imageColumns)
 		if err == nil && !i.IsZero() {
 			m.Image = &i
 		}
 
-		err = spiffy.PopulateByName(&t, r, tagColumns)
+		err = db.PopulateByName(&t, r, tagColumns)
 		if err == nil && !t.IsZero() {
 			m.Tag = &t
 		}

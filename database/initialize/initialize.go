@@ -3,7 +3,7 @@ package initialize
 import (
 	"fmt"
 
-	"github.com/blend/go-sdk/spiffy/migration"
+	"github.com/blend/go-sdk/db/migration"
 	"github.com/wcharczuk/giffy/server/config"
 )
 
