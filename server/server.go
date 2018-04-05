@@ -85,9 +85,9 @@ func New(log *logger.Logger, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
 	fm := filemanager.New(cfg.GetS3Bucket(), &cfg.Aws)
 
 	app.Register(controller.Index{Config: cfg})
-	app.Register(controller.API{Config: cfg, Files: fm, Google: oauth})
+	app.Register(controller.API{Config: cfg, Files: fm, OAuth: oauth})
 	app.Register(controller.Integrations{Config: cfg})
-	app.Register(controller.Auth{Config: cfg, Google: oauth})
+	app.Register(controller.Auth{Config: cfg, OAuth: oauth})
 	app.Register(controller.UploadImage{Config: cfg, Files: fm})
 	app.Register(controller.Chart{Config: cfg})
 

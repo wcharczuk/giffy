@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	assert "github.com/blend/go-sdk/assert"
+	util "github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/uuid"
 	web "github.com/blend/go-sdk/web"
-	assert "github.com/blendlabs/go-assert"
-	util "github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-util/uuid"
 	"github.com/wcharczuk/giffy/server/model"
 )
 

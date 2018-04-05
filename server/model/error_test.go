@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"testing"
 
+	assert "github.com/blend/go-sdk/assert"
 	exception "github.com/blend/go-sdk/exception"
-	assert "github.com/blendlabs/go-assert"
 )
 
 func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
@@ -45,5 +45,5 @@ func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
 
 	errors, err := GetAllErrorsWithLimitAndOffset(1, 0, tx)
 	assert.Nil(err)
-	assert.Len(errors, 1)
+	assert.Len(1, errors)
 }

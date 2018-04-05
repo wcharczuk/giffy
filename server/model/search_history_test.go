@@ -3,8 +3,8 @@ package model
 import (
 	"testing"
 
-	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/go-util"
+	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/util"
 )
 
 func TestGetSearchHistory(t *testing.T) {

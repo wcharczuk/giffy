@@ -20,7 +20,7 @@ import (
 	_ "image/png"
 
 	"github.com/blend/go-sdk/exception"
-	"github.com/blendlabs/spiffy"
+	"github.com/blend/go-sdk/spiffy"
 	"github.com/wcharczuk/giffy/server/core"
 )
 

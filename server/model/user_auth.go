@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/blend/go-sdk/exception"
-	util "github.com/blendlabs/go-util"
+	util "github.com/blend/go-sdk/util"
 )
 
 // NewUserAuth returns a new user auth entry, encrypting the authToken and authSecret.

@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/web"
-	"github.com/blendlabs/go-util"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"

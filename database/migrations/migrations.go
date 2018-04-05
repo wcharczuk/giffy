@@ -1,6 +1,6 @@
 package migrations
 
-import "github.com/blendlabs/spiffy/migration"
+import "github.com/blend/go-sdk/spiffy/migration"
 
 // Migrations returns the migrations.
 func Migrations() migration.Migration {

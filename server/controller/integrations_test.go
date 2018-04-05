@@ -3,9 +3,9 @@ package controller
 import (
 	"testing"
 
+	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/web"
-	"github.com/blendlabs/go-assert"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"

@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/oauth"
+	"github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
-	"github.com/blendlabs/go-assert"
-	google "github.com/blendlabs/go-google-oauth"
-	util "github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-util/uuid"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
@@ -226,7 +226,7 @@ func TestAPISessionUser(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(API{Config: config.NewFromEnv(), Google: google.New().WithSecret(util.Crypto.MustCreateKey(32))})
+	app.Register(API{Config: config.NewFromEnv(), OAuth: oauth.New().WithSecret(util.Crypto.MustCreateKey(32))})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithTx(tx).WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
@@ -243,7 +243,7 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	defer tx.Rollback()
 
 	app := web.New()
-	app.Register(API{Config: config.NewFromEnv(), Google: google.New().WithSecret(util.Crypto.MustCreateKey(32))})
+	app.Register(API{Config: config.NewFromEnv(), OAuth: oauth.New().WithSecret(util.Crypto.MustCreateKey(32))})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithTx(tx).WithPathf("/api/session.user").JSON(&res)

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blendlabs/go-util"
+	"github.com/blend/go-sdk/util"
 )
 
 // UserSession is a session for a user

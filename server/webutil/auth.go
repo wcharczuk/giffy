@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/url"
 
+	util "github.com/blend/go-sdk/util"
 	web "github.com/blend/go-sdk/web"
-	util "github.com/blendlabs/go-util"
 	"github.com/wcharczuk/giffy/server/model"
 )
 

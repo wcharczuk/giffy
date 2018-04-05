@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blendlabs/go-chronometer"
+	"github.com/blend/go-sdk/cron"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -18,8 +18,8 @@ func (fis FixContentRating) Name() string {
 }
 
 // Schedule returns the schedule.
-func (fis FixContentRating) Schedule() chronometer.Schedule {
-	return chronometer.Every(5 * time.Minute)
+func (fis FixContentRating) Schedule() cron.Schedule {
+	return cron.Every(5 * time.Minute)
 }
 
 // Execute runs the job

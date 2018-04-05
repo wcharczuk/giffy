@@ -3,8 +3,8 @@ package model
 import (
 	"testing"
 
-	"github.com/blendlabs/go-assert"
-	"github.com/blendlabs/go-util"
+	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/util"
 )
 
 func TestModerationCreate(t *testing.T) {
@@ -77,7 +77,7 @@ func TestGetModerationLogByCountAndOffset(t *testing.T) {
 
 	moderationLog, err := GetModerationLogByCountAndOffset(5, 0, tx)
 	assert.Nil(err)
-	assert.Len(moderationLog, 5)
+	assert.Len(5, moderationLog)
 
 	firstEntry := moderationLog[0]
 	assert.NotNil(firstEntry.Moderator)

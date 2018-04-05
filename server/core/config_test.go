@@ -3,7 +3,7 @@ package core
 import (
 	"testing"
 
-	"github.com/blendlabs/go-assert"
+	"github.com/blend/go-sdk/assert"
 )
 
 func TestConfigLocalIP(t *testing.T) {

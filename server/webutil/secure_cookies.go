@@ -3,8 +3,8 @@ package webutil
 import (
 	"time"
 
+	util "github.com/blend/go-sdk/util"
 	web "github.com/blend/go-sdk/web"
-	util "github.com/blendlabs/go-util"
 )
 
 // SecureCookies sets if we should issue secure cookies or not.

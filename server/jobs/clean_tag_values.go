@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/blend/go-sdk/cron"
 	"github.com/blend/go-sdk/exception"
-	"github.com/blendlabs/go-chronometer"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -18,8 +18,8 @@ func (ot CleanTagValues) Name() string {
 }
 
 // Schedule returns the job schedule.
-func (ot CleanTagValues) Schedule() chronometer.Schedule {
-	return chronometer.EveryHour()
+func (ot CleanTagValues) Schedule() cron.Schedule {
+	return cron.EveryHour()
 }
 
 // Execute runs the job

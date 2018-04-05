@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/web"
-	"github.com/blendlabs/go-assert"
 	"github.com/wcharczuk/giffy/server/config"
 )
 

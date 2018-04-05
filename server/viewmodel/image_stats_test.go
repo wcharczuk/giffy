@@ -3,7 +3,7 @@ package viewmodel
 import (
 	"testing"
 
-	assert "github.com/blendlabs/go-assert"
+	assert "github.com/blend/go-sdk/assert"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 )

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	assert "github.com/blendlabs/go-assert"
-	util "github.com/blendlabs/go-util"
+	assert "github.com/blend/go-sdk/assert"
+	util "github.com/blend/go-sdk/util"
 )
 
 func TestSlackTeam(t *testing.T) {

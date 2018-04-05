@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/blendlabs/spiffy"
+	"github.com/blend/go-sdk/spiffy"
 )
 
 // NewSlackTeam returns a new SlackTeam.

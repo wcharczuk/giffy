@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/blendlabs/go-chronometer"
+	"github.com/blend/go-sdk/cron"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
@@ -17,8 +17,8 @@ func (ot DeleteOrphanedTags) Name() string {
 }
 
 // Schedule returns the job schedule.
-func (ot DeleteOrphanedTags) Schedule() chronometer.Schedule {
-	return chronometer.Every(1 * time.Minute)
+func (ot DeleteOrphanedTags) Schedule() cron.Schedule {
+	return cron.Every(1 * time.Minute)
 }
 
 // Execute runs the job

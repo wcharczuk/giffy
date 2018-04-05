@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/blendlabs/go-assert"
+	"github.com/blend/go-sdk/assert"
 )
 
 func TestSetVoteSummaryVoteCounts(t *testing.T) {

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	exception "github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/cron"
+	"github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/oauth"
+	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/web"
-	"github.com/blendlabs/go-chronometer"
-	google "github.com/blendlabs/go-google-oauth"
-	"github.com/blendlabs/go-util"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/external"
@@ -22,7 +22,7 @@ import (
 // API is the controller for api endpoints.
 type API struct {
 	Config *config.Giffy
-	Google *google.Manager
+	OAuth  *oauth.Manager
 	Files  *filemanager.FileManager
 }
 
@@ -1218,7 +1218,7 @@ func (api API) getImageStatsAction(r *web.Ctx) web.Result {
 func (api API) getCurrentUserAction(r *web.Ctx) web.Result {
 	session := r.Session()
 
-	url, err := api.Google.OAuthURL()
+	url, err := api.OAuth.OAuthURL()
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -1287,7 +1287,7 @@ func (api API) getJobsStatusAction(r *web.Ctx) web.Result {
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return webutil.API(r).NotAuthorized()
 	}
-	status := chronometer.Default().Status()
+	status := cron.Default().Status()
 	return webutil.API(r).Result(status)
 }
 
@@ -1302,7 +1302,7 @@ func (api API) runJobAction(r *web.Ctx) web.Result {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	err = chronometer.Default().RunJob(jobID)
+	err = cron.Default().RunJob(jobID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}

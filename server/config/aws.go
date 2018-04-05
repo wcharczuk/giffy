@@ -1,8 +1,8 @@
 package config
 
 import (
-	util "github.com/blendlabs/go-util"
-	"github.com/blendlabs/go-util/env"
+	"github.com/blend/go-sdk/env"
+	util "github.com/blend/go-sdk/util"
 )
 
 const (

@@ -4,10 +4,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/blend/go-sdk/configutil"
 	logger "github.com/blend/go-sdk/logger"
-	"github.com/blendlabs/go-util/configutil"
-	"github.com/blendlabs/spiffy"
-	"github.com/blendlabs/spiffy/migration"
+	"github.com/blend/go-sdk/spiffy"
+	"github.com/blend/go-sdk/spiffy/migration"
 	"github.com/wcharczuk/giffy/database/initialize"
 	"github.com/wcharczuk/giffy/database/migrations"
 	"github.com/wcharczuk/giffy/server/config"
