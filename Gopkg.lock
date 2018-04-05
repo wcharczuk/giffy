@@ -99,7 +99,7 @@
     "seq",
     "util"
   ]
-  revision = "df14434b6e7cbc6aaf89a9c0be5600abfa67d74d"
+  revision = "7c3982fe3d8ab0c9eea9ab5d2aced51e45d447bc"
   version = "v2.0.1"
 
 [[projects]]
