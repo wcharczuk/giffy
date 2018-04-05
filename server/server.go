@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/blend/go-sdk/cron"
+	"github.com/blend/go-sdk/env"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/oauth"
 	"github.com/blend/go-sdk/spiffy"
@@ -49,6 +50,9 @@ func Migrate() error {
 // New returns a new server instance.
 func New(log *logger.Logger, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
+	if env.Env().Has("CURRENT_REF") {
+		app.WithDefaultHeader("server-version", env.Env().String("CURRENT_REF"))
+	}
 
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
