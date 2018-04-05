@@ -41,7 +41,7 @@ list-packages:
 	@go list ./... | grep -v /vendor/
 
 build:
-	@docker build -t giffy:latest -t wcharczuk/giffy:latest -t wcharczuk/giffy:$(CURRENT_REF) -f Dockerfile .
+	@docker build --build-arg CURRENT_REF=$(CURRENT_REF) -t giffy:latest -t wcharczuk/giffy:latest -t wcharczuk/giffy:$(CURRENT_REF) -f Dockerfile .
 
 push-image: push
 

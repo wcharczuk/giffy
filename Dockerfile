@@ -9,6 +9,9 @@ ADD server ${APP_ROOT}/server
 ADD _client/dist ${APP_ROOT}/_client/dist
 ADD main.go ${APP_ROOT}/main.go
 
+ARG CURRENT_REF
+ENV CURRENT_REF ${CURRENT_REF}
+
 RUN go install ${APP_PATH}
 WORKDIR ${APP_ROOT}
 ENTRYPOINT ["/go/bin/giffy"]

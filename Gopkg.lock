@@ -58,7 +58,7 @@
     "workqueue",
     "yaml"
   ]
-  revision = "4c5d80f7612dfdfcba7dd2f2ec81ceba8d3b96cf"
+  revision = "5bdfd5f1ac3f857559c56d2a8e37279ad6008fdd"
 
 [[projects]]
   name = "github.com/blendlabs/go-exception"

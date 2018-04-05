@@ -37,6 +37,7 @@ func New() *App {
 		jsonProvider:          &JSONResultProvider{},
 		xmlProvider:           &XMLResultProvider{},
 		textProvider:          &TextResultProvider{},
+		started:               make(chan struct{}),
 	}
 }
 
@@ -54,7 +55,7 @@ func NewFromConfig(cfg *Config) *App {
 	app = app.WithHandleMethodNotAllowed(cfg.GetHandleMethodNotAllowed())
 	app = app.WithHandleOptions(cfg.GetHandleOptions())
 	app = app.WithRecoverPanics(cfg.GetRecoverPanics())
-	app = app.WithDefaultHeaders(cfg.GetDefaultHeaders())
+	app = app.WithDefaultHeaders(cfg.GetDefaultHeaders(DefaultHeaders))
 
 	app = app.WithHSTS(cfg.GetHSTS())
 	app = app.WithHSTSMaxAgeSeconds(cfg.GetHSTSMaxAgeSeconds())
@@ -102,6 +103,7 @@ type App struct {
 
 	startDelegate AppStartDelegate
 
+	started chan struct{}
 	running int32
 
 	server   *http.Server
@@ -655,7 +657,6 @@ func (a *App) Start() (err error) {
 		a.syncInfof("%s using client cert pool with (%d) client certs", serverProtocol, len(a.server.TLSConfig.ClientCAs.Subjects()))
 	}
 
-	a.setRunning()
 	var listener net.Listener
 	listener, err = net.Listen("tcp", a.bindAddr)
 	if err != nil {
@@ -668,6 +669,7 @@ func (a *App) Start() (err error) {
 		a.log.SyncTrigger(NewAppEvent(AppStartComplete).WithApp(a).WithElapsed(time.Since(start)))
 	}
 
+	a.setRunning()
 	keepAlive := TCPKeepAliveListener{a.listener}
 	if a.server.TLSConfig != nil {
 		err = exception.Wrap(a.server.ServeTLS(keepAlive, "", ""))
@@ -676,6 +678,11 @@ func (a *App) Start() (err error) {
 	}
 	a.setStopped()
 	return
+}
+
+// Started returns a channel signalling the app has started.
+func (a *App) Started() <-chan struct{} {
+	return a.started
 }
 
 // Shutdown stops the server.
@@ -1280,6 +1287,7 @@ func (a *App) syncFatalf(format string, args ...interface{}) {
 }
 
 func (a *App) setRunning() {
+	close(a.started)
 	atomic.StoreInt32(&a.running, 1)
 }
 
