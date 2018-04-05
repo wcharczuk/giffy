@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -211,11 +210,9 @@ func TestAppSetLogger(t *testing.T) {
 func TestAppCtx(t *testing.T) {
 	assert := assert.New(t)
 
-	response := bytes.NewBuffer([]byte{})
-
 	app := New()
 
-	rc, err := app.Mock().WithResponseBuffer(response).Ctx(nil)
+	rc, err := app.Mock().CreateCtx(nil)
 	assert.Nil(err)
 	assert.NotNil(rc)
 	assert.Nil(rc.log)
@@ -225,8 +222,7 @@ func TestAppCtx(t *testing.T) {
 
 	err = result.Render(rc)
 	assert.Nil(err)
-	assert.NotZero(response.Len())
-	assert.True(strings.Contains(response.String(), "foo"))
+	assert.NotZero(rc.Response().ContentLength())
 }
 
 func TestAppCreateStaticMountedRoute(t *testing.T) {
@@ -248,21 +244,9 @@ func TestAppStaticRewrite(t *testing.T) {
 	app.WithStaticRewriteRule("/testPath", "(.*)", func(path string, pieces ...string) string {
 		return path
 	})
+
 	assert.Nil(app.Err())
-
 	assert.NotEmpty(app.statics["/testPath/*filepath"].RewriteRules())
-
-	app.WithErr(nil)
-	app.WithStaticRewriteRule("/nonsense", "(.*)", func(path string, pieces ...string) string {
-		return path
-	})
-	assert.NotNil(app.Err())
-
-	app.WithErr(nil)
-	app.WithStaticRewriteRule("/testPath", "((((((((", func(path string, pieces ...string) string {
-		return path
-	})
-	assert.NotNil(app.Err())
 }
 
 func TestAppStaticRewriteBadExp(t *testing.T) {
@@ -286,35 +270,8 @@ func TestAppStaticHeader(t *testing.T) {
 	app.ServeStatic("/testPath", "_static")
 	assert.NotEmpty(app.statics)
 	assert.NotNil(app.statics["/testPath/*filepath"])
-	app.WithStaticHeader("/testPath", "cache-control", "haha what is caching.")
-	assert.Nil(app.Err())
+	app.WithStaticHeader("/testPath/*filepath", "cache-control", "haha what is caching.")
 	assert.NotEmpty(app.statics["/testPath/*filepath"].Headers())
-
-	app.WithErr(nil)
-	app.WithStaticHeader("/nonsense", "cache-control", "nonsense")
-	assert.NotNil(app.Err())
-}
-
-func TestAppStaticMiddleware(t *testing.T) {
-	assert := assert.New(t)
-	app := New()
-	app.ServeStatic("/testPath", "_static")
-	assert.NotEmpty(app.statics)
-	assert.NotNil(app.statics["/testPath/*filepath"])
-	app.WithStaticMiddleware("/testPath", func(action Action) Action {
-		return func(ctx *Ctx) Result {
-			return action(ctx)
-		}
-	})
-	assert.Nil(app.Err())
-
-	app.WithErr(nil)
-	app.WithStaticMiddleware("/nonsense", func(action Action) Action {
-		return func(ctx *Ctx) Result {
-			return action(ctx)
-		}
-	})
-	assert.NotNil(app.Err())
 }
 
 func TestAppMiddleWarePipeline(t *testing.T) {
@@ -441,7 +398,7 @@ func TestAppDefaultResultProviderWithDefaultFromRoute(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New().WithDefaultMiddleware(JSONProviderAsDefault)
-	app.Views().Templates().New(DefaultTemplateNotAuthorized).Parse("<html><body><h4>Not Authorized</h4></body></html>")
+	app.Views().Templates().New(DefaultTemplateNameNotAuthorized).Parse(DefaultTemplateNotAuthorized)
 	app.GET("/", controllerNoOp, SessionRequired, ViewProviderAsDefault)
 
 	//somehow assert that the content type is html
@@ -455,13 +412,14 @@ func TestAppViewResult(t *testing.T) {
 
 	app := New()
 	app.Views().AddPaths("testdata/test_file.html")
+	assert.Nil(app.StartupTasks())
 	app.GET("/", func(r *Ctx) Result {
 		return r.View().View("test", "foobarbaz")
 	})
 
 	res, meta, err := app.Mock().WithPathf("/").BytesWithMeta()
 	assert.Nil(err)
-	assert.Equal(http.StatusOK, meta.StatusCode)
+	assert.Equal(http.StatusOK, meta.StatusCode, string(res))
 	assert.Equal(ContentTypeHTML, meta.Headers.Get(HeaderContentType))
 	assert.Contains("foobarbaz", string(res))
 }
@@ -487,8 +445,8 @@ func TestAppWritesLogs(t *testing.T) {
 func TestAppBindAddr(t *testing.T) {
 	assert := assert.New(t)
 
-	env.Env().Set(EnvVarBindAddr, ":9999")
-	env.Env().Set(EnvVarPort, "1111")
+	env.Env().Set(EnvironmentVariableBindAddr, ":9999")
+	env.Env().Set(EnvironmentVariablePort, "1111")
 	defer env.Restore()
 
 	assert.Equal(":3333", New().WithBindAddr(":3333").BindAddr())
@@ -588,109 +546,17 @@ func TestAppTLSOptions(t *testing.T) {
 	assert.Equal(tls.RequireAndVerifyClientCert, app.TLSConfig().ClientAuth)
 }
 
-func TestAppTLSCertPair(t *testing.T) {
-	assert := assert.New(t)
-	app := New().WithTLSCertPair([]byte(testCert), []byte(testKey))
-	assert.Nil(app.Err())
-	assert.NotNil(app.TLSConfig())
-	assert.NotEmpty(app.TLSConfig().Certificates)
-}
-
-func TestAppTLSCertsFromFiles(t *testing.T) {
-	assert := assert.New(t)
-	app := New().WithTLSCertPairFromFiles("testdata/testcert.pem", "testdata/testkey.pem")
-	assert.Nil(app.Err())
-	assert.NotNil(app.TLSConfig())
-	assert.NotEmpty(app.TLSConfig().Certificates)
-}
-
-func TestAppTLSCertsFromFilesInvalid(t *testing.T) {
-	assert := assert.New(t)
-	app := New().WithTLSCertPairFromFiles(util.String.Random(32), util.String.Random(32))
-	assert.NotNil(app.Err())
-}
-
-func TestAppTLSCertsFromEnv(t *testing.T) {
-	assert := assert.New(t)
-	defer env.Restore()
-	env.Env().Delete(EnvVarTLSCert)
-	env.Env().Delete(EnvVarTLSKey)
-	env.Env().Set(EnvVarTLSCertPath, "testdata/testcert.pem")
-	env.Env().Set(EnvVarTLSKeyPath, "testdata/testkey.pem")
-	app := New().WithTLSFromEnv()
-	assert.Nil(app.Err())
-	assert.NotNil(app.TLSConfig())
-	assert.NotEmpty(app.TLSConfig().Certificates)
-}
-
-func TestAppProperties(t *testing.T) {
+func TestAppViewErrorsRenderErrorView(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New()
-
-	assert.Nil(app.Err())
-	app.WithErr(Error("this is only a test"))
-	assert.Equal("this is only a test", app.Err())
-
-	assert.Empty(app.State())
-	app.WithState("foo", "bar-state")
-	assert.Equal("bar-state", app.State()["foo"])
-
-	assert.NotNil(app.DefaultHeaders())
-	app.WithDefaultHeader("foo", "bar-header")
-	assert.Equal("bar-header", app.DefaultHeaders()["foo"])
-
-	assert.Equal(DefaultRedirectTrailingSlash, app.RedirectTrailingSlash())
-	app.WithRedirectTrailingSlash(!DefaultRedirectTrailingSlash)
-	assert.Equal(!DefaultRedirectTrailingSlash, app.RedirectTrailingSlash())
-
-	assert.Nil(app.BaseURL())
-	app.WithBaseURL(&url.URL{Host: "localhost"})
-	assert.Equal("localhost", app.BaseURL().Host)
-
-	app.WithErr(nil)
-	app.WithParsedBaseURL(":foo-parsed")
-	assert.NotNil(app.Err())
-	app.WithErr(nil)
-	app.WithParsedBaseURL("https://localhost-parsed")
-	assert.Equal("https", app.BaseURL().Scheme)
-	assert.Equal("localhost-parsed", app.BaseURL().Host)
-
-	assert.NotNil(app.Server())
-
-	assert.NotNil(app.ViewResultProvider())
-	app.WithViewResultProvider(nil)
-	assert.Nil(app.ViewResultProvider())
-
-	assert.NotNil(app.JSONResultProvider())
-	app.WithJSONResultProvider(nil)
-	assert.Nil(app.JSONResultProvider())
-
-	assert.NotNil(app.XMLResultProvider())
-	app.WithXMLResultProvider(nil)
-	assert.Nil(app.XMLResultProvider())
-
-	assert.NotNil(app.TextResultProvider())
-	app.WithTextResultProvider(nil)
-	assert.Nil(app.TextResultProvider())
-
-	assert.Nil(app.DefaultResultProvider())
-	app.WithDefaultResultProvider(&TextResultProvider{})
-	assert.NotNil(app.DefaultResultProvider())
-}
-
-func TestAppStartWithError(t *testing.T) {
-	assert := assert.New(t)
-
-	app := New().WithErr(Error("this is only a test"))
-	assert.Equal("this is only a test", app.Start(), "we should exit early if there is a prestart error")
-}
-
-func TestAppStartDelegateWithError(t *testing.T) {
-	assert := assert.New(t)
-
-	app := New().WithOnStart(func(_ *App) error {
-		return Error("this is only a test")
+	app.Views().AddLiterals(`{{ define "malformed" }} {{ .Ctx ALSKADJALSKDJA }} {{ end }}`)
+	app.GET("/", func(r *Ctx) Result {
+		return r.View().View("malformed", nil)
 	})
-	assert.Equal("this is only a test", app.Start(), "we should exit early if there is a prestart error")
+
+	contents, meta, err := app.Mock().Get("/").BytesWithMeta()
+	assert.Nil(err)
+	assert.Equal(http.StatusInternalServerError, meta.StatusCode)
+	assert.NotEmpty(contents)
 }

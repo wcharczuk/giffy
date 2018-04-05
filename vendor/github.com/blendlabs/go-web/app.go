@@ -6,8 +6,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"net/url"
@@ -93,12 +95,17 @@ type App struct {
 	hstsMaxAgeSeconds     int
 	hstsIncludeSubdomains bool
 	hstsPreload           bool
-	tlsConfig             *tls.Config
+
+	tlsConfig *tls.Config
 
 	defaultHeaders map[string]string
 
 	startDelegate AppStartDelegate
-	server        *http.Server
+
+	running int32
+
+	server   *http.Server
+	listener *net.TCPListener
 
 	// statics serve files at various routes
 	statics map[string]Fileserver
@@ -106,7 +113,6 @@ type App struct {
 	routes                  map[string]*node
 	notFoundHandler         Handler
 	methodNotAllowedHandler Handler
-	panicHandler            PanicHandler
 	panicAction             PanicAction
 	redirectTrailingSlash   bool
 	handleOptions           bool
@@ -132,6 +138,11 @@ type App struct {
 	err           error
 }
 
+// Running returns if the app is running.
+func (a *App) Running() (running bool) {
+	return atomic.LoadInt32(&a.running) == 1
+}
+
 // WithErr sets the err that will abort app start.
 func (a *App) WithErr(err error) *App {
 	a.err = err
@@ -141,30 +152,6 @@ func (a *App) WithErr(err error) *App {
 // Err returns any errors that are generated before app start.
 func (a *App) Err() error {
 	return a.err
-}
-
-// WithState sets app state and returns a reference to the app for building apps with a fluent api.
-func (a *App) WithState(key string, value interface{}) *App {
-	a.state[key] = value
-	return a
-}
-
-// SetState sets app state.
-func (a *App) SetState(key string, value interface{}) {
-	a.state[key] = value
-}
-
-// GetState gets app state element by key.
-func (a *App) GetState(key string) interface{} {
-	if value, hasValue := a.state[key]; hasValue {
-		return value
-	}
-	return nil
-}
-
-// State is a bag for common app state.
-func (a *App) State() State {
-	return a.state
 }
 
 // WithDefaultHeaders sets the default headers
@@ -182,6 +169,30 @@ func (a *App) WithDefaultHeader(key string, value string) *App {
 // DefaultHeaders returns the default headers.
 func (a *App) DefaultHeaders() map[string]string {
 	return a.defaultHeaders
+}
+
+// WithState sets app state and returns a reference to the app for building apps with a fluent api.
+func (a *App) WithState(key string, value interface{}) *App {
+	a.state[key] = value
+	return a
+}
+
+// GetState gets app state element by key.
+func (a *App) GetState(key string) interface{} {
+	if value, hasValue := a.state[key]; hasValue {
+		return value
+	}
+	return nil
+}
+
+// SetState sets app state.
+func (a *App) SetState(key string, value interface{}) {
+	a.state[key] = value
+}
+
+// State is a bag for common app state.
+func (a *App) State() State {
+	return a.state
 }
 
 // RedirectTrailingSlash returns if we should redirect missing trailing slashes to the correct route.
@@ -426,10 +437,10 @@ func (a *App) WithTLSFromEnv() *App {
 
 // SetTLSFromEnv reads TLS settings from the environment.
 func (a *App) SetTLSFromEnv() error {
-	tlsCert := env.Env().Bytes(EnvVarTLSCert)
-	tlsKey := env.Env().Bytes(EnvVarTLSKey)
-	tlsCertPath := env.Env().String(EnvVarTLSCertPath)
-	tlsKeyPath := env.Env().String(EnvVarTLSKeyPath)
+	tlsCert := env.Env().Bytes(EnvironmentVariableTLSCert)
+	tlsKey := env.Env().Bytes(EnvironmentVariableTLSKey)
+	tlsCertPath := env.Env().String(EnvironmentVariableTLSCertFile)
+	tlsKeyPath := env.Env().String(EnvironmentVariableTLSKeyFile)
 
 	if len(tlsCert) > 0 && len(tlsKey) > 0 {
 		return a.SetTLSCertPair(tlsCert, tlsKey)
@@ -497,8 +508,8 @@ func (a *App) WithPortFromEnv() *App {
 
 // SetPortFromEnv sets the port from an environment variable, and returns a reference to the app.
 func (a *App) SetPortFromEnv() {
-	if env.Env().Has(EnvVarPort) {
-		port, err := env.Env().Int32(EnvVarPort)
+	if env.Env().Has(EnvironmentVariablePort) {
+		port, err := env.Env().Int32(EnvironmentVariablePort)
 		if err != nil {
 			a.err = err
 		}
@@ -519,7 +530,7 @@ func (a *App) WithBindAddr(bindAddr string) *App {
 
 // WithBindAddrFromEnv sets the address the app listens on, and returns a reference to the app.
 func (a *App) WithBindAddrFromEnv() *App {
-	a.bindAddr = env.Env().String(EnvVarBindAddr)
+	a.bindAddr = env.Env().String(EnvironmentVariableBindAddr)
 	return a
 }
 
@@ -561,20 +572,14 @@ func (a *App) DefaultMiddleware() []Middleware {
 	return a.defaultMiddleware
 }
 
-// WithOnStart sets the on start delegate and returns a reference to the app.
-func (a *App) WithOnStart(action AppStartDelegate) *App {
-	a.startDelegate = action
-	return a
-}
-
 // OnStart lets you register a task that is run before the server starts.
 // Typically this delegate sets up the database connection and other init items.
 func (a *App) OnStart(action AppStartDelegate) {
 	a.startDelegate = action
 }
 
-// Server returns the basic http.Server for the app.
-func (a *App) Server() *http.Server {
+// CreateServer returns the basic http.Server for the app.
+func (a *App) CreateServer() *http.Server {
 	return &http.Server{
 		Addr:              a.BindAddr(),
 		Handler:           a,
@@ -587,25 +592,38 @@ func (a *App) Server() *http.Server {
 	}
 }
 
-// Start starts the server and binds to the given address.
-func (a *App) Start() error {
-	return a.StartWithServer(a.Server())
+// WithServer sets the server.
+func (a *App) WithServer(server *http.Server) *App {
+	a.server = server
+	return a
 }
 
-// StartWithServer starts the app on a custom server.
-// This lets you configure things like TLS keys and
-// other options.
-func (a *App) StartWithServer(server *http.Server) (err error) {
+// Server returns the underyling http server.
+func (a *App) Server() *http.Server {
+	return a.server
+}
+
+// Listener returns the underlying listener.
+func (a *App) Listener() *net.TCPListener {
+	return a.listener
+}
+
+// Start starts the server and binds to the given address.
+func (a *App) Start() (err error) {
 	start := time.Now()
 	if a.log != nil {
-		a.log.Trigger(NewAppStartEvent(a))
-		defer a.log.Trigger(NewAppExitEvent(a, err))
+		a.log.SyncTrigger(NewAppEvent(AppStart).WithApp(a))
+		defer a.log.SyncTrigger(NewAppEvent(AppExit).WithApp(a).WithErr(err))
 	}
 
 	// early exit if we already had an issue.
 	if a.err != nil {
 		err = a.err
 		return
+	}
+
+	if a.server == nil {
+		a.server = a.CreateServer()
 	}
 
 	if a.startDelegate != nil {
@@ -615,40 +633,57 @@ func (a *App) StartWithServer(server *http.Server) (err error) {
 		}
 	}
 
-	err = a.commonStartupTasks()
+	err = a.StartupTasks()
 	if err != nil {
 		return
 	}
 
 	serverProtocol := "http"
-	if server.TLSConfig != nil {
+	if a.server.TLSConfig != nil {
 		serverProtocol = "https (tls)"
 	}
 
-	a.syncInfof("%s server started, listening on %s", serverProtocol, server.Addr)
+	a.syncInfof("%s server started, listening on %s", serverProtocol, a.bindAddr)
 	if a.log != nil {
 		if a.log.Flags() != nil {
 			a.syncInfof("%s server logging flags %s", serverProtocol, a.log.Flags().String())
 		}
-		a.log.Trigger(NewAppStartCompleteEvent(a, time.Since(start), err))
+
 	}
 
-	if server.TLSConfig != nil && server.TLSConfig.ClientCAs != nil {
-		a.syncInfof("%s using client cert pool with (%d) client certs", serverProtocol, len(a.tlsConfig.ClientCAs.Subjects()))
+	if a.server.TLSConfig != nil && a.server.TLSConfig.ClientCAs != nil {
+		a.syncInfof("%s using client cert pool with (%d) client certs", serverProtocol, len(a.server.TLSConfig.ClientCAs.Subjects()))
 	}
 
-	if server.TLSConfig != nil {
-		err = exception.Wrap(server.ListenAndServeTLS("", ""))
+	a.setRunning()
+	var listener net.Listener
+	listener, err = net.Listen("tcp", a.bindAddr)
+	if err != nil {
+		err = exception.Wrap(err)
 		return
 	}
+	a.listener = listener.(*net.TCPListener)
 
-	a.server = server
-	err = exception.Wrap(server.ListenAndServe())
+	if a.log != nil {
+		a.log.SyncTrigger(NewAppEvent(AppStartComplete).WithApp(a).WithElapsed(time.Since(start)))
+	}
+
+	keepAlive := TCPKeepAliveListener{a.listener}
+	if a.server.TLSConfig != nil {
+		err = exception.Wrap(a.server.ServeTLS(keepAlive, "", ""))
+	} else {
+		err = exception.Wrap(a.server.Serve(keepAlive))
+	}
+	a.setStopped()
 	return
 }
 
 // Shutdown stops the server.
 func (a *App) Shutdown() error {
+	if !a.Running() {
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -1057,7 +1092,8 @@ func (a *App) renderAction(action Action) Handler {
 	}
 }
 
-func (a *App) commonStartupTasks() error {
+// StartupTasks runs common startup tasks.
+func (a *App) StartupTasks() error {
 	return a.views.Initialize()
 }
 
@@ -1102,10 +1138,11 @@ func (a *App) loggerRequestEvent(ctx *Ctx) *logger.WebRequestEvent {
 
 func (a *App) recover(w http.ResponseWriter, req *http.Request) {
 	if rcv := recover(); rcv != nil {
+		if a.log != nil {
+			a.log.Fatalf("%v", rcv)
+		}
 		if a.panicAction != nil {
 			a.handlePanic(w, req, rcv)
-		} else if a.log != nil {
-			a.log.Fatalf("%v", rcv)
 		}
 	}
 }
@@ -1240,4 +1277,12 @@ func (a *App) syncFatalf(format string, args ...interface{}) {
 		return
 	}
 	a.log.SyncFatalf(format, args...)
+}
+
+func (a *App) setRunning() {
+	atomic.StoreInt32(&a.running, 1)
+}
+
+func (a *App) setStopped() {
+	atomic.StoreInt32(&a.running, 0)
 }

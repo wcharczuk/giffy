@@ -57,7 +57,7 @@ func (hu *HTTPSUpgrader) WithBindAddr(bindAddr string) *HTTPSUpgrader {
 
 // WithBindAddrFromEnv sets the address the app listens on, and returns a reference to the app.
 func (hu *HTTPSUpgrader) WithBindAddrFromEnv() *HTTPSUpgrader {
-	hu.bindAddr = env.Env().String(EnvVarBindAddr)
+	hu.bindAddr = env.Env().String(EnvironmentVariableBindAddr)
 	return hu
 }
 
@@ -85,8 +85,8 @@ func (hu *HTTPSUpgrader) WithPortFromEnv() *HTTPSUpgrader {
 
 // SetPortFromEnv sets the port from an environment variable, and returns a reference to the app.
 func (hu *HTTPSUpgrader) SetPortFromEnv() {
-	if env.Env().Has(EnvVarPort) {
-		port, err := env.Env().Int32(EnvVarPort)
+	if env.Env().Has(EnvironmentVariablePort) {
+		port, err := env.Env().Int32(EnvironmentVariablePort)
 		if err != nil {
 			hu.err = err
 		}

@@ -14,8 +14,7 @@ func TestViewResultRender(t *testing.T) {
 	assert := assert.New(t)
 
 	buffer := bytes.NewBuffer([]byte{})
-	rc, err := NewMockRequestBuilder(nil).WithResponseBuffer(buffer).Ctx(nil)
-	assert.Nil(err)
+	rc := NewCtx(NewMockResponseWriter(buffer), nil, nil, nil)
 
 	testView := template.New("testView")
 	testView.Parse("{{.ViewModel.Text}}")
@@ -26,7 +25,7 @@ func TestViewResultRender(t *testing.T) {
 		Template:   testView,
 	}
 
-	err = vr.Render(rc)
+	err := vr.Render(rc)
 	assert.Nil(err)
 
 	assert.NotZero(buffer.Len())
@@ -37,8 +36,7 @@ func TestViewResultRenderError(t *testing.T) {
 	assert := assert.New(t)
 
 	buffer := bytes.NewBuffer([]byte{})
-	rc, err := NewMockRequestBuilder(nil).WithResponseBuffer(buffer).Ctx(nil)
-	assert.Nil(err)
+	rc := NewCtx(NewMockResponseWriter(buffer), nil, nil, nil)
 
 	testView := template.New("testView")
 	testView.Parse("{{.ViewModel.Foo}}")
@@ -49,7 +47,7 @@ func TestViewResultRenderError(t *testing.T) {
 		Template:   testView,
 	}
 
-	err = vr.Render(rc)
+	err := vr.Render(rc)
 	assert.NotNil(err)
 	assert.Zero(buffer.Len())
 }
@@ -58,13 +56,12 @@ func TestViewResultRenderErrorTemplate(t *testing.T) {
 	assert := assert.New(t)
 
 	buffer := bytes.NewBuffer([]byte{})
-	rc, err := NewMockRequestBuilder(nil).WithResponseBuffer(buffer).Ctx(nil)
-	assert.Nil(err)
+	rc := NewCtx(NewMockResponseWriter(buffer), nil, nil, nil)
 
 	views := template.New("main")
 
-	errorTemplate := views.New(DefaultTemplateInternalError)
-	_, err = errorTemplate.Parse("{{.}}")
+	errorTemplate := views.New(DefaultTemplateNameInternalError)
+	_, err := errorTemplate.Parse("{{.}}")
 	assert.Nil(err)
 
 	testView := views.New("testView")
@@ -85,13 +82,12 @@ func TestViewResultErrorNestedViews(t *testing.T) {
 	assert := assert.New(t)
 
 	buffer := bytes.NewBuffer([]byte{})
-	rc, err := NewMockRequestBuilder(nil).WithResponseBuffer(buffer).Ctx(nil)
-	assert.Nil(err)
+	rc := NewCtx(NewMockResponseWriter(buffer), nil, nil, nil)
 
 	views := template.New("main")
 
-	errorTemplate := views.New(DefaultTemplateInternalError)
-	_, err = errorTemplate.Parse("{{.}}")
+	errorTemplate := views.New(DefaultTemplateNameInternalError)
+	_, err := errorTemplate.Parse("{{.}}")
 	assert.Nil(err)
 
 	outerView := views.New("outerView")

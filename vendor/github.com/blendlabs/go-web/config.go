@@ -11,9 +11,11 @@ import (
 
 // NewConfigFromEnv returns a new config from the environment.
 func NewConfigFromEnv() *Config {
-	var config Config
-	env.Env().ReadInto(&config)
-	return &config
+	var cfg Config
+	if err := env.Env().ReadInto(&cfg); err != nil {
+		panic(err)
+	}
+	return &cfg
 }
 
 // Config is an object used to set up a web app.
@@ -233,7 +235,10 @@ func (c Config) GetCookiePath(defaults ...string) string {
 
 // GetAuthSecret returns a property or a default.
 func (c Config) GetAuthSecret(defaults ...[]byte) []byte {
-	decoded, _ := Base64Decode(c.AuthSecret)
+	decoded, err := Base64Decode(c.AuthSecret)
+	if err != nil {
+		panic(err)
+	}
 	return decoded
 }
 

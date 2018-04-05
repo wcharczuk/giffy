@@ -154,35 +154,43 @@ const (
 
 // Environment Variables
 const (
-	// EnvVarBindAddr is an env var that determines (if set) what the bind address should be.
-	EnvVarBindAddr = "BIND_ADDR"
+	// EnvironmentVariableBindAddr is an env var that determines (if set) what the bind address should be.
+	EnvironmentVariableBindAddr = "BIND_ADDR"
 
-	// EnvVarUpgraderBindAddr is an env var that determines (if set) what the bind address should be.
-	EnvVarUpgraderBindAddr = "UPGRADER_BIND_ADDR"
+	// EnvironmentVariableHealthzBindAddr is an env var that determines (if set) what the healthz sidecar bind address should be.
+	EnvironmentVariableHealthzBindAddr = "HEALTHZ_BIND_ADDR"
 
-	// EnvVarPort is an env var that determines what the default bind address port segment returns.
-	EnvVarPort = "PORT"
+	// EnvironmentVariableUpgraderBindAddr is an env var that determines (if set) what the bind address should be.
+	EnvironmentVariableUpgraderBindAddr = "UPGRADER_BIND_ADDR"
 
-	// EnvVarUpgraderPort is an env var that determines what the default bind address port segment returns.
-	EnvVarUpgraderPort = "UPGRADER_PORT"
+	// EnvironmentVariablePort is an env var that determines what the default bind address port segment returns.
+	EnvironmentVariablePort = "PORT"
 
-	// EnvVarTLSCert is an env var that contains the TLS cert.
-	EnvVarTLSCert = "TLS_CERT"
+	// EnvironmentVariableHealthzPort is an env var that determines what the default healthz bind address port segment returns.
+	EnvironmentVariableHealthzPort = "HEALTHZ_PORT"
 
-	// EnvVarTLSKey is an env var that contains the TLS key.
-	EnvVarTLSKey = "TLS_KEY"
+	// EnvironmentVariableUpgraderPort is an env var that determines what the default bind address port segment returns.
+	EnvironmentVariableUpgraderPort = "UPGRADER_PORT"
 
-	// EnvVarTLSCertPath is an env var that contains the file path to the TLS cert.
-	EnvVarTLSCertPath = "TLS_CERT_PATH"
+	// EnvironmentVariableTLSCert is an env var that contains the TLS cert.
+	EnvironmentVariableTLSCert = "TLS_CERT"
 
-	// EnvVarTLSKeyPath is an env var that contains the file path to the TLS key.
-	EnvVarTLSKeyPath = "TLS_KEY_PATH"
+	// EnvironmentVariableTLSKey is an env var that contains the TLS key.
+	EnvironmentVariableTLSKey = "TLS_KEY"
+
+	// EnvironmentVariableTLSCertFile is an env var that contains the file path to the TLS cert.
+	EnvironmentVariableTLSCertFile = "TLS_CERT_FILE"
+
+	// EnvironmentVariableTLSKeyFile is an env var that contains the file path to the TLS key.
+	EnvironmentVariableTLSKeyFile = "TLS_KEY_FILE"
 )
 
 // Defaults
 const (
 	// DefaultBindAddr is the default bind address.
 	DefaultBindAddr = ":8080"
+	// DefaultHealthzBindAddr is the default healthz bind address.
+	DefaultHealthzBindAddr = ":8081"
 	// DefaultRedirectTrailingSlash is the default if we should redirect for missing trailing slashes.
 	DefaultRedirectTrailingSlash = true
 	// DefaultHandleOptions is a default.
@@ -249,17 +257,20 @@ const (
 	LenSessionID = 64
 	// LenSessionIDBase64 is the length of a session id base64 encoded.
 	LenSessionIDBase64 = 88
-	// ErrSessionIDEmpty is thrown if a session id is empty.
-	ErrSessionIDEmpty = Error("auth session id is empty")
-	// ErrSessionIDTooLong is thrown if a session id is too long.
-	ErrSessionIDTooLong = Error("auth session id is too long")
 
+	// ErrSessionIDEmpty is thrown if a session id is empty.
+	ErrSessionIDEmpty Error = "auth session id is empty"
+	// ErrSessionIDTooLong is thrown if a session id is too long.
+	ErrSessionIDTooLong Error = "auth session id is too long"
 	// ErrSecureSessionIDEmpty is an error that is thrown if a given secure session id is invalid.
-	ErrSecureSessionIDEmpty = Error("auth secure session id is empty")
+	ErrSecureSessionIDEmpty Error = "auth secure session id is empty"
 	// ErrSecureSessionIDTooLong is an error that is thrown if a given secure session id is invalid.
-	ErrSecureSessionIDTooLong = Error("auth secure session id is too long")
+	ErrSecureSessionIDTooLong Error = "auth secure session id is too long"
 	// ErrSecureSessionIDInvalid is an error that is thrown if a given secure session id is invalid.
-	ErrSecureSessionIDInvalid = Error("auth secure session id is invalid")
+	ErrSecureSessionIDInvalid Error = "auth secure session id is invalid"
+
+	// ErrUnsetViewTemplate is an error that is thrown if a given secure session id is invalid.
+	ErrUnsetViewTemplate Error = "view result template is unset"
 )
 
 // IsErrSessionInvalid returns if an error is a session invalid error.

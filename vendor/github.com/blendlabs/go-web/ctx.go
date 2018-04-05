@@ -106,12 +106,8 @@ func (rc *Ctx) Request() *http.Request {
 }
 
 // WithTx sets a transaction on the context.
-func (rc *Ctx) WithTx(tx *sql.Tx, keys ...string) *Ctx {
-	key := StateKeyTx
-	if keys != nil && len(keys) > 0 {
-		key = StateKeyPrefixTx + keys[0]
-	}
-	rc.SetState(key, tx)
+func (rc *Ctx) WithTx(tx *sql.Tx, optionalKey ...string) *Ctx {
+	WithTx(rc, tx, optionalKey...)
 	return rc
 }
 
@@ -199,25 +195,29 @@ func (rc *Ctx) WithDefaultResultProvider(provider ResultProvider) *Ctx {
 	return rc
 }
 
-// State returns the full state collection.
+// State returns the full state bag.
 func (rc *Ctx) State() State {
 	return rc.state
 }
 
-// GetState returns an object in the state cache.
-func (rc *Ctx) GetState(key string) interface{} {
-	if item, hasItem := rc.state[key]; hasItem {
-		return item
+// StateValue returns an object in the state cache.
+func (rc *Ctx) StateValue(key string) interface{} {
+	if rc.state == nil {
+		return nil
+	}
+	if value, hasValue := rc.state[key]; hasValue {
+		return value
 	}
 	return nil
 }
 
-// SetState sets the state for a key to an object.
-func (rc *Ctx) SetState(key string, value interface{}) {
+// WithStateValue sets the state for a key to an object.
+func (rc *Ctx) WithStateValue(key string, value interface{}) *Ctx {
 	if rc.state == nil {
 		rc.state = State{}
 	}
 	rc.state[key] = value
+	return rc
 }
 
 // ParamString is a shortcut for ParamString that swallows the missing value error.
@@ -686,6 +686,3 @@ type PostedFile struct {
 	FileName string
 	Contents []byte
 }
-
-// State is the collection of state objects on a context.
-type State map[string]interface{}

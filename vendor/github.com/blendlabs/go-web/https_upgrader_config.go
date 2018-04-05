@@ -11,7 +11,9 @@ import (
 // NewHTTPSUpgraderConfigFromEnv returns an https upgrader config populated from the environment.
 func NewHTTPSUpgraderConfigFromEnv() *HTTPSUpgraderConfig {
 	var cfg HTTPSUpgraderConfig
-	env.Env().ReadInto(cfg)
+	if err := env.Env().ReadInto(&cfg); err != nil {
+		panic(err)
+	}
 	return &cfg
 }
 

@@ -7,16 +7,12 @@ import (
 	exception "github.com/blendlabs/go-exception"
 )
 
-const (
-	// ErrUnsetViewTemplate is a common error.
-	ErrUnsetViewTemplate Error = "view result template is unset"
-)
-
 // ViewResult is a result that renders a view.
 type ViewResult struct {
 	StatusCode int
 	ViewModel  interface{}
 	Template   *template.Template
+	Provider   *ViewResultProvider
 }
 
 // Render renders the result to the given response writer.
@@ -32,6 +28,10 @@ func (vr *ViewResult) Render(ctx *Ctx) (err error) {
 		ViewModel: vr.ViewModel,
 	})
 	if err != nil {
+		if vr.Provider != nil {
+			err = vr.Provider.InternalError(err).Render(ctx)
+			return
+		}
 		err = exception.Wrap(err)
 		return
 	}

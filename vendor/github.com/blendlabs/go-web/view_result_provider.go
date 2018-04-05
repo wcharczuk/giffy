@@ -1,23 +1,38 @@
 package web
 
 import (
+	"html/template"
 	"net/http"
+
+	"github.com/blendlabs/go-exception"
 
 	logger "github.com/blendlabs/go-logger"
 )
 
 const (
-	// DefaultTemplateBadRequest is the default template name for bad request view results.
-	DefaultTemplateBadRequest = "bad_request"
+	// DefaultTemplateNameBadRequest is the default template name for bad request view results.
+	DefaultTemplateNameBadRequest = "bad_request"
 
-	// DefaultTemplateInternalError is the default template name for internal server error view results.
-	DefaultTemplateInternalError = "error"
+	// DefaultTemplateNameInternalError is the default template name for internal server error view results.
+	DefaultTemplateNameInternalError = "error"
 
-	// DefaultTemplateNotFound is the default template name for not found error view results.
-	DefaultTemplateNotFound = "not_found"
+	// DefaultTemplateNameNotFound is the default template name for not found error view results.
+	DefaultTemplateNameNotFound = "not_found"
 
-	// DefaultTemplateNotAuthorized is the default template name for not authorized error view results.
-	DefaultTemplateNotAuthorized = "not_authorized"
+	// DefaultTemplateNameNotAuthorized is the default template name for not authorized error view results.
+	DefaultTemplateNameNotAuthorized = "not_authorized"
+
+	// DefaultTemplateBadRequest is a basic view.
+	DefaultTemplateBadRequest = `<html><head><style>body { font-family: sans-serif; text-align: center; }</style></head><body><h4>Bad Request</h4></body><pre>{{ .ViewModel }}</pre></html>`
+
+	// DefaultTemplateInternalError is a basic view.
+	DefaultTemplateInternalError = `<html><head><style>body { font-family: sans-serif; text-align: center; }</style></head><body><h4>Internal Error</h4><pre>{{ .ViewModel }}</body></html>`
+
+	// DefaultTemplateNotAuthorized is a basic view.
+	DefaultTemplateNotAuthorized = `<html><head><style>body { font-family: sans-serif; text-align: center; }</style></head><body><h4>Not Authorized</h4></body></html>`
+
+	// DefaultTemplateNotFound is a basic view.
+	DefaultTemplateNotFound = `<html><head><style>body { font-family: sans-serif; text-align: center; }</style></head><body><h4>Not Found</h4></body></html>`
 )
 
 // NewViewResultProvider creates a new ViewResults object.
@@ -46,7 +61,7 @@ func (vr *ViewResultProvider) BadRequestTemplateName() string {
 	if len(vr.badRequestTemplateName) > 0 {
 		return vr.badRequestTemplateName
 	}
-	return DefaultTemplateBadRequest
+	return DefaultTemplateNameBadRequest
 }
 
 // WithInternalErrorTemplateName sets the bad request template.
@@ -60,7 +75,7 @@ func (vr *ViewResultProvider) InternalErrorTemplateName() string {
 	if len(vr.internalErrorTemplateName) > 0 {
 		return vr.internalErrorTemplateName
 	}
-	return DefaultTemplateInternalError
+	return DefaultTemplateNameInternalError
 }
 
 // WithNotFoundTemplateName sets the not found request template name.
@@ -74,7 +89,7 @@ func (vr *ViewResultProvider) NotFoundTemplateName() string {
 	if len(vr.notFoundTemplateName) > 0 {
 		return vr.notFoundTemplateName
 	}
-	return DefaultTemplateNotFound
+	return DefaultTemplateNameNotFound
 }
 
 // WithNotAuthorizedTemplateName sets the bad request template.
@@ -88,7 +103,7 @@ func (vr *ViewResultProvider) NotAuthorizedTemplateName() string {
 	if len(vr.notAuthorizedTemplateName) > 0 {
 		return vr.notAuthorizedTemplateName
 	}
-	return DefaultTemplateNotAuthorized
+	return DefaultTemplateNameNotAuthorized
 }
 
 // BadRequest returns a view result.
@@ -97,10 +112,15 @@ func (vr *ViewResultProvider) BadRequest(err error) Result {
 		vr.log.Warning(err)
 	}
 
+	temp := vr.views.Templates().Lookup(vr.BadRequestTemplateName())
+	if temp == nil {
+		temp, _ = template.New("").Parse(DefaultTemplateBadRequest)
+	}
+
 	return &ViewResult{
 		StatusCode: http.StatusBadRequest,
 		ViewModel:  err,
-		Template:   vr.views.Templates().Lookup(vr.BadRequestTemplateName()),
+		Template:   temp,
 	}
 }
 
@@ -110,36 +130,54 @@ func (vr *ViewResultProvider) InternalError(err error) Result {
 		vr.log.Fatal(err)
 	}
 
+	temp := vr.views.Templates().Lookup(vr.InternalErrorTemplateName())
+	if temp == nil {
+		temp, _ = template.New("").Parse(DefaultTemplateInternalError)
+	}
+
 	return &ViewResult{
 		StatusCode: http.StatusInternalServerError,
 		ViewModel:  err,
-		Template:   vr.views.Templates().Lookup(vr.InternalErrorTemplateName()),
+		Template:   temp,
 	}
 }
 
 // NotFound returns a view result.
 func (vr *ViewResultProvider) NotFound() Result {
+	temp := vr.views.Templates().Lookup(vr.NotFoundTemplateName())
+	if temp == nil {
+		temp, _ = template.New("").Parse(DefaultTemplateNotFound)
+	}
+
 	return &ViewResult{
 		StatusCode: http.StatusNotFound,
-		ViewModel:  nil,
-		Template:   vr.views.Templates().Lookup(vr.NotFoundTemplateName()),
+		Template:   temp,
 	}
 }
 
 // NotAuthorized returns a view result.
 func (vr *ViewResultProvider) NotAuthorized() Result {
+	temp := vr.views.Templates().Lookup(vr.NotAuthorizedTemplateName())
+	if temp == nil {
+		temp, _ = template.New("").Parse(DefaultTemplateNotAuthorized)
+	}
+
 	return &ViewResult{
 		StatusCode: http.StatusForbidden,
-		ViewModel:  nil,
-		Template:   vr.views.Templates().Lookup(vr.NotAuthorizedTemplateName()),
+		Template:   temp,
 	}
 }
 
 // View returns a view result.
 func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) Result {
+	temp := vr.views.Templates().Lookup(viewName)
+	if temp == nil {
+		return vr.InternalError(exception.NewFromErr(ErrUnsetViewTemplate).WithMessagef("template: %s", viewName))
+	}
 	return &ViewResult{
 		StatusCode: http.StatusOK,
 		ViewModel:  viewModel,
-		Template:   vr.views.Templates().Lookup(viewName),
+		Provider:   vr,
+		Template:   temp,
 	}
 }

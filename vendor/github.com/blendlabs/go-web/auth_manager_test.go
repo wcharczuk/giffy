@@ -14,13 +14,13 @@ func TestAuthManagerReadParam(t *testing.T) {
 
 	am := NewAuthManager()
 
-	rc, _ := New().Mock().WithFormValue(am.CookieName(), "form").Ctx(nil)
+	rc, _ := New().Mock().WithFormValue(am.CookieName(), "form").CreateCtx(nil)
 	assert.Empty(am.readParam(am.CookieName(), rc))
 
-	rc, _ = New().Mock().WithHeader(am.CookieName(), "header").Ctx(nil)
+	rc, _ = New().Mock().WithHeader(am.CookieName(), "header").CreateCtx(nil)
 	assert.Empty(am.readParam(am.CookieName(), rc))
 
-	rc, _ = New().Mock().WithCookieValue(am.CookieName(), "cookie").Ctx(nil)
+	rc, _ = New().Mock().WithCookieValue(am.CookieName(), "cookie").CreateCtx(nil)
 	assert.Equal("cookie", am.readParam(am.CookieName(), rc))
 }
 
@@ -28,13 +28,13 @@ func TestAuthManagerLogin(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New()
-	rc, _ := app.Mock().Ctx(nil)
+	rc, _ := app.Mock().CreateCtx(nil)
 
 	am := NewAuthManager()
 	session, err := am.Login("1", rc)
 	assert.Nil(err)
 
-	rc2, err := app.Mock().WithCookieValue(am.CookieName(), session.SessionID).Ctx(nil)
+	rc2, err := app.Mock().WithCookieValue(am.CookieName(), session.SessionID).CreateCtx(nil)
 	assert.Nil(err)
 
 	session, err = am.VerifySession(rc2)
@@ -47,7 +47,7 @@ func TestAuthManagerLoginSecure(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New()
-	rc, _ := app.Mock().Ctx(nil)
+	rc, _ := app.Mock().CreateCtx(nil)
 
 	am := NewAuthManager()
 	am.SetSecret(GenerateSHA512Key())
@@ -60,7 +60,7 @@ func TestAuthManagerLoginSecure(t *testing.T) {
 	rc2, err := app.Mock().
 		WithCookieValue(am.CookieName(), session.SessionID).
 		WithCookieValue(am.SecureCookieName(), secureSessionID).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	assert.Nil(err)
 
@@ -74,7 +74,7 @@ func TestAuthManagerLoginSecureEmptySecure(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New()
-	rc, _ := app.Mock().Ctx(nil)
+	rc, _ := app.Mock().CreateCtx(nil)
 
 	am := NewAuthManager()
 	am.SetSecret(GenerateSHA512Key())
@@ -84,7 +84,8 @@ func TestAuthManagerLoginSecureEmptySecure(t *testing.T) {
 	rc2, err := app.Mock().
 		WithCookieValue(am.CookieName(), session.SessionID).
 		WithCookieValue(am.SecureCookieName(), "").
-		Ctx(nil)
+		CreateCtx(nil)
+
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -97,7 +98,7 @@ func TestAuthManagerLoginSecureLongSecure(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New()
-	rc, _ := app.Mock().Ctx(nil)
+	rc, _ := app.Mock().CreateCtx(nil)
 
 	am := NewAuthManager()
 	am.SetSecret(GenerateSHA512Key())
@@ -107,7 +108,7 @@ func TestAuthManagerLoginSecureLongSecure(t *testing.T) {
 	rc2, err := app.Mock().
 		WithCookieValue(am.CookieName(), session.SessionID).
 		WithCookieValue(am.SecureCookieName(), util.String.MustSecureRandom(LenSessionID<<1)).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	assert.Nil(err)
 
@@ -121,7 +122,7 @@ func TestAuthManagerLoginSecureSecureNotBase64(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New()
-	rc, _ := app.Mock().Ctx(nil)
+	rc, _ := app.Mock().CreateCtx(nil)
 
 	am := NewAuthManager()
 	am.SetSecret(GenerateSHA512Key())
@@ -131,7 +132,8 @@ func TestAuthManagerLoginSecureSecureNotBase64(t *testing.T) {
 	rc2, err := app.Mock().
 		WithCookieValue(am.CookieName(), session.SessionID).
 		WithCookieValue(am.SecureCookieName(), util.String.Random(LenSessionID)).
-		Ctx(nil)
+		CreateCtx(nil)
+
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -144,7 +146,7 @@ func TestAuthManagerLoginSecureWrongKey(t *testing.T) {
 	assert := assert.New(t)
 
 	app := New()
-	rc, _ := app.Mock().Ctx(nil)
+	rc, _ := app.Mock().CreateCtx(nil)
 
 	am := NewAuthManager()
 	am.SetSecret(GenerateSHA512Key())
@@ -157,7 +159,7 @@ func TestAuthManagerLoginSecureWrongKey(t *testing.T) {
 	rc2, err := app.Mock().
 		WithCookieValue(am.CookieName(), session.SessionID).
 		WithCookieValue(am.SecureCookieName(), secureSessionID).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	assert.Nil(err)
 
@@ -173,7 +175,7 @@ func TestAuthManagerLoginWithPersist(t *testing.T) {
 	sessions := map[string]*Session{}
 
 	app := New()
-	rc, _ := app.Mock().Ctx(nil)
+	rc, _ := app.Mock().CreateCtx(nil)
 
 	didCallPersist := false
 	am := NewAuthManager()
@@ -194,7 +196,7 @@ func TestAuthManagerLoginWithPersist(t *testing.T) {
 
 	rc2, err := app.Mock().
 		WithCookieValue(am.CookieName(), session.SessionID).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	assert.Nil(err)
 
@@ -220,7 +222,7 @@ func TestAuthManagerLogout(t *testing.T) {
 	req, err := New().Mock().
 		WithCookieValue(auth.CookieName(), session.SessionID).
 		WithCookieValue(auth.SecureCookieName(), MustEncodeSignSessionID(session.SessionID, auth.Secret())).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	assert.Nil(err)
 
@@ -232,7 +234,7 @@ func TestAuthManagerLogout(t *testing.T) {
 	req, err = New().Mock().
 		WithCookieValue(auth.CookieName(), session.SessionID).
 		WithCookieValue(auth.SecureCookieName(), MustEncodeSignSessionID(session.SessionID, auth.Secret())).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	assert.Nil(err)
 	assert.Nil(err)
@@ -255,7 +257,7 @@ func TestAuthManagerLogout(t *testing.T) {
 	req, err = New().Mock().
 		WithCookieValue(auth.CookieName(), session.SessionID).
 		WithCookieValue(auth.SecureCookieName(), MustEncodeSignSessionID(session.SessionID, auth.Secret())).
-		Ctx(nil)
+		CreateCtx(nil)
 	assert.Nil(err)
 
 	verified, err = auth.VerifySession(req)
@@ -285,8 +287,8 @@ func TestAuthManagerLogoutRemoveHandler(t *testing.T) {
 
 	req, err := New().Mock().
 		WithCookieValue(auth.CookieName(), session.SessionID).
-		WithState("foo", "bar").
-		Ctx(nil)
+		WithStateValue("foo", "bar").
+		CreateCtx(nil)
 
 	assert.Nil(err)
 	assert.Nil(auth.Logout(req))
@@ -300,14 +302,15 @@ func TestAuthManagerVerifySessionInvalidSessionID(t *testing.T) {
 	assert := assert.New(t)
 
 	auth := NewAuthManager()
-	rc, _ := New().Mock().WithCookie(NewBasicCookie(auth.CookieName(), "")).Ctx(nil)
+	rc, _ := New().Mock().WithCookie(NewBasicCookie(auth.CookieName(), "")).CreateCtx(nil)
 	session, err := auth.VerifySession(rc)
 	assert.Nil(session)
 	assert.Equal(ErrSessionIDEmpty, err)
 
 	rc, _ = New().Mock().
 		WithCookieValue(auth.CookieName(), util.String.Random(LenSessionIDBase64+1)).
-		Ctx(nil)
+		CreateCtx(nil)
+
 	session, err = auth.VerifySession(rc)
 	assert.Nil(session)
 	assert.Equal(ErrSessionIDTooLong, err)
@@ -320,7 +323,7 @@ func TestAuthManagerVerifySessionInvalidSecureSessionID(t *testing.T) {
 	secureAuth := NewAuthManager().WithSecret(rightKey)
 	rc, _ := New().Mock().
 		WithCookieValue(secureAuth.CookieName(), NewSessionID()).
-		WithCookieValue(secureAuth.SecureCookieName(), "").Ctx(nil)
+		WithCookieValue(secureAuth.SecureCookieName(), "").CreateCtx(nil)
 
 	session, err := secureAuth.VerifySession(rc)
 	assert.Nil(session)
@@ -329,7 +332,7 @@ func TestAuthManagerVerifySessionInvalidSecureSessionID(t *testing.T) {
 	rc, _ = New().Mock().
 		WithCookie(NewBasicCookie(secureAuth.CookieName(), NewSessionID())).
 		WithCookie(NewBasicCookie(secureAuth.SecureCookieName(), util.String.Random(LenSessionIDBase64+1))).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	session, err = secureAuth.VerifySession(rc)
 	assert.Nil(session)
@@ -338,7 +341,7 @@ func TestAuthManagerVerifySessionInvalidSecureSessionID(t *testing.T) {
 	rc, _ = New().Mock().
 		WithCookieValue(secureAuth.CookieName(), NewSessionID()).
 		WithCookieValue(secureAuth.SecureCookieName(), util.String.Random(64)).
-		Ctx(nil)
+		CreateCtx(nil)
 	session, err = secureAuth.VerifySession(rc)
 	assert.Nil(session)
 	assert.Equal(ErrSecureSessionIDInvalid, err)
@@ -353,7 +356,7 @@ func TestAuthManagerVerifySessionInvalidSecureSessionID(t *testing.T) {
 	rc, _ = New().Mock().
 		WithCookieValue(secureAuth.CookieName(), sessionID).
 		WithCookieValue(secureAuth.SecureCookieName(), invalidSecureSessionID).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	session, err = secureAuth.VerifySession(rc)
 	assert.Nil(session)
@@ -377,7 +380,7 @@ func TestAuthManagerVerifySessionWithFetch(t *testing.T) {
 	sessionID := NewSessionID()
 	sessions[sessionID] = NewSession("1", sessionID)
 
-	rc2, err := app.Mock().WithCookieValue(am.CookieName(), sessionID).Ctx(nil)
+	rc2, err := app.Mock().WithCookieValue(am.CookieName(), sessionID).CreateCtx(nil)
 	assert.Nil(err)
 
 	valid, err := am.VerifySession(rc2)
@@ -386,7 +389,7 @@ func TestAuthManagerVerifySessionWithFetch(t *testing.T) {
 	assert.Equal("1", valid.UserID)
 	assert.True(didCallHandler)
 
-	rc3, err := app.Mock().WithCookieValue(am.CookieName(), NewSessionID()).Ctx(nil)
+	rc3, err := app.Mock().WithCookieValue(am.CookieName(), NewSessionID()).CreateCtx(nil)
 	assert.Nil(err)
 
 	invalid, err := am.VerifySession(rc3)
@@ -398,13 +401,13 @@ func TestAuthManagerVerifySessionCached(t *testing.T) {
 	assert := assert.New(t)
 
 	auth := NewAuthManager().WithUseSessionCache(true)
-	rc, err := New().Mock().Ctx(nil)
+	rc, err := New().Mock().CreateCtx(nil)
 	assert.Nil(err)
 	session, err := auth.Login("test_user", rc)
 	assert.Nil(err)
 	assert.NotNil(session)
 
-	rc, err = New().Mock().WithCookieValue(auth.CookieName(), session.SessionID).Ctx(nil)
+	rc, err = New().Mock().WithCookieValue(auth.CookieName(), session.SessionID).CreateCtx(nil)
 	assert.Nil(err)
 	cachedSession, err := auth.VerifySession(rc)
 	assert.Nil(err)
@@ -431,7 +434,7 @@ func TestAuthManagerVerifyUpdatesSessionExpiry(t *testing.T) {
 
 	assert.True(auth.shouldUpdateSessionExpiry())
 
-	rc, err := New().Mock().Ctx(nil)
+	rc, err := New().Mock().CreateCtx(nil)
 	assert.Nil(err)
 	session, err := auth.Login("test_user", rc)
 	assert.Nil(err)
@@ -440,7 +443,7 @@ func TestAuthManagerVerifyUpdatesSessionExpiry(t *testing.T) {
 	originalSetCookie := ReadSetCookieByName(rc.Response().Header(), auth.CookieName())
 	assert.False(originalSetCookie.Expires.IsZero())
 
-	rc, err = New().Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithState("foo", "bar").Ctx(nil)
+	rc, err = New().Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithStateValue("foo", "bar").CreateCtx(nil)
 	assert.Nil(err)
 	cachedSession, err := auth.VerifySession(rc)
 	assert.Nil(err)
@@ -472,7 +475,7 @@ func TestAuthManagerVerifySessionFetched(t *testing.T) {
 		}, nil
 	})
 
-	rc, _ := New().Mock().WithCookie(NewBasicCookie(auth.CookieName(), sessionID)).Ctx(nil)
+	rc, _ := New().Mock().WithCookie(NewBasicCookie(auth.CookieName(), sessionID)).CreateCtx(nil)
 	fetchedSession, err := auth.VerifySession(rc)
 	assert.Nil(err)
 	assert.True(didCallHandler)
@@ -497,7 +500,7 @@ func TestAuthManagerVerifySessionFetchedError(t *testing.T) {
 
 	rc, _ := New().Mock().
 		WithCookieValue(auth.CookieName(), sessionID).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	fetchedSession, err := auth.VerifySession(rc)
 	assert.NotNil(err)
@@ -527,7 +530,7 @@ func TestAuthManagerVerifySessionValidated(t *testing.T) {
 
 	rc, _ := New().Mock().
 		WithCookieValue(auth.CookieName(), sessionID).
-		Ctx(nil)
+		CreateCtx(nil)
 
 	fetchedSession, err := auth.VerifySession(rc)
 	assert.Nil(err)
@@ -552,7 +555,7 @@ func TestAuthManagerVerifySessionCachedRemoved(t *testing.T) {
 	})
 
 	sessionID := NewSessionID()
-	rc, err := New().Mock().WithCookieValue(auth.CookieName(), sessionID).WithState("foo", "bar").Ctx(nil)
+	rc, err := New().Mock().WithCookieValue(auth.CookieName(), sessionID).WithStateValue("foo", "bar").CreateCtx(nil)
 	assert.Nil(err)
 	cachedSession, err := auth.VerifySession(rc)
 	assert.Nil(err)
