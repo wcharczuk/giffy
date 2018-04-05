@@ -50,8 +50,9 @@ func Migrate() error {
 // New returns a new server instance.
 func New(log *logger.Logger, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
+
 	if env.Env().Has("CURRENT_REF") {
-		app.WithDefaultHeader("server-version", env.Env().String("CURRENT_REF"))
+		app.WithDefaultHeader("Server-Version", env.Env().String("CURRENT_REF"))
 	}
 
 	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
