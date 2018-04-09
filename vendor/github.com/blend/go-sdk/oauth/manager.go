@@ -24,6 +24,14 @@ func New() *Manager {
 	}
 }
 
+// Must is a helper for handling NewFromEnv() and NewFromConfig().
+func Must(m *Manager, err error) *Manager {
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
 // NewFromEnv returns a new manager from the environment.
 func NewFromEnv() (*Manager, error) {
 	return NewFromConfig(NewConfigFromEnv())

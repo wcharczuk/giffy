@@ -231,10 +231,10 @@
 			"revisionTime": "2018-04-09T20:17:02Z"
 		},
 		{
-			"checksumSHA1": "vxspZsEWrLEji81lSFDvOiaFrHM=",
+			"checksumSHA1": "aLYE3b2qkwlEHXqu+vOTQuneKSo=",
 			"path": "github.com/blend/go-sdk/oauth",
-			"revision": "8e107ddca5245d21a2bff4798bcde2df51ae1b8b",
-			"revisionTime": "2018-04-09T20:17:02Z"
+			"revision": "05ceaae4a1bc33bc02746dc236783b05b527d794",
+			"revisionTime": "2018-04-09T20:39:48Z"
 		},
 		{
 			"checksumSHA1": "lXlStcjLbidaG7JHZn/Ntu5BdpM=",

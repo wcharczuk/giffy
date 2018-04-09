@@ -17,7 +17,10 @@ func main() {
 	}
 
 	log := logger.NewFromConfig(&cfg.Logger)
-	oauth := oauth.NewFromConfig(&cfg.GoogleAuth)
+	oauth, err := oauth.NewFromConfig(&cfg.GoogleAuth)
+	if err != nil {
+		log.SyncFatalExit(err)
+	}
 
 	if cfg.Web.IsSecure() {
 		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader).WithLogger(log)

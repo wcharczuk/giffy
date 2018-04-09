@@ -11,6 +11,6 @@ import (
 
 func TestNew(t *testing.T) {
 	assert := assert.New(t)
-	app := New(logger.None(), oauth.NewFromEnv(), config.NewFromEnv())
+	app := New(logger.None(), oauth.Must(oauth.NewFromEnv()), config.NewFromEnv())
 	assert.NotNil(app)
 }
