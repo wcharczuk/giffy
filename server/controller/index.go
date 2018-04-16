@@ -61,14 +61,14 @@ func (i Index) Register(app *web.App) {
 
 	if i.Config.IsProduction() {
 		app.ServeStaticCached("/static/*filepath", "_client/dist")
-		app.WithStaticRewriteRule("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
+		app.SetStaticRewriteRule("/static/*filepath", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
 			if len(parts) < 4 {
 				return path
 			}
 			return fmt.Sprintf("%s.%s", parts[1], parts[3])
 		})
-		app.WithStaticHeader("/static/*filepath", "access-control-allow-origin", "*")
-		app.WithStaticHeader("/static/*filepath", "cache-control", "public,max-age=315360000")
+		app.SetStaticHeader("/static/*filepath", "access-control-allow-origin", "*")
+		app.SetStaticHeader("/static/*filepath", "cache-control", "public,max-age=315360000")
 	} else {
 		app.ServeStatic("/bower/*filepath", "_client/bower")
 		app.ServeStatic("/static/*filepath", "_client/src")

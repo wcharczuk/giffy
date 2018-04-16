@@ -77,7 +77,7 @@ func TestGetModerationLogByCountAndOffset(t *testing.T) {
 
 	moderationLog, err := GetModerationLogByCountAndOffset(5, 0, tx)
 	assert.Nil(err)
-	assert.Len(5, moderationLog)
+	assert.Len(moderationLog, 5)
 
 	firstEntry := moderationLog[0]
 	assert.NotNil(firstEntry.Moderator)

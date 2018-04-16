@@ -63,7 +63,7 @@ func TestGetRandomImages(t *testing.T) {
 
 	images, err := GetRandomImages(5, tx)
 	assert.Nil(err)
-	assert.Len(5, images)
+	assert.Len(images, 5)
 }
 
 func TestGetImageByID(t *testing.T) {
@@ -200,7 +200,7 @@ func TestSearchImages(t *testing.T) {
 	images, err := SearchImages("__test", ContentRatingFilterDefault, tx)
 	assert.Nil(err)
 	assert.NotEmpty(images)
-	assert.Len(3, images)
+	assert.Len(images, 3)
 
 	firstImage := images[0]
 	assert.NotNil(firstImage)
@@ -313,15 +313,15 @@ func TestImageSignaturesWeightedRandom(t *testing.T) {
 		{5, 1.0},
 	})
 	best := sigs.WeightedRandom(1, r)
-	assert.Len(1, best)
+	assert.Len(best, 1)
 	assert.Equal(2, best[0].ID, best.String())
 
 	best = sigs.WeightedRandom(1, r)
-	assert.Len(1, best)
+	assert.Len(best, 1)
 	assert.Equal(2, best[0].ID, best.String())
 
 	best = sigs.WeightedRandom(1, r)
-	assert.Len(1, best)
+	assert.Len(best, 1)
 	assert.Equal(1, best[0].ID, best.String())
 }
 
@@ -415,7 +415,7 @@ func TestGetImagesByID(t *testing.T) {
 	for _, returnedImage := range images {
 		if i.ID == returnedImage.ID {
 			assert.NotEmpty(returnedImage.Tags)
-			assert.Len(5, returnedImage.Tags)
+			assert.Len(returnedImage.Tags, 5)
 		}
 	}
 }
@@ -474,15 +474,15 @@ func TestImageWeightedRandom(t *testing.T) {
 	}
 
 	random1 := imageSignatures(images).WeightedRandom(1)
-	assert.Len(1, random1)
+	assert.Len(random1, 1)
 	random2 := imageSignatures(images).WeightedRandom(2)
-	assert.Len(2, random2)
+	assert.Len(random2, 2)
 	random3 := imageSignatures(images).WeightedRandom(3)
-	assert.Len(3, random3)
+	assert.Len(random3, 3)
 	random4 := imageSignatures(images).WeightedRandom(4)
-	assert.Len(4, random4)
+	assert.Len(random4, 4)
 	random5 := imageSignatures(images).WeightedRandom(5)
-	assert.Len(5, random5)
+	assert.Len(random5, 5)
 	randomN := imageSignatures(images).WeightedRandom(10)
-	assert.Len(5, randomN)
+	assert.Len(randomN, 5)
 }

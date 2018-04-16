@@ -45,5 +45,5 @@ func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
 
 	errors, err := GetAllErrorsWithLimitAndOffset(1, 0, tx)
 	assert.Nil(err)
-	assert.Len(1, errors)
+	assert.Len(errors, 1)
 }
