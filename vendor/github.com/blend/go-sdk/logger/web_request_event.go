@@ -6,21 +6,27 @@ import (
 	"time"
 )
 
+// these are compile time assertions
+var (
+	_ Event            = &WebRequestEvent{}
+	_ EventHeadings    = &WebRequestEvent{}
+	_ EventLabels      = &WebRequestEvent{}
+	_ EventAnnotations = &WebRequestEvent{}
+)
+
 // NewWebRequestEvent creates a new web request event.
 func NewWebRequestEvent(req *http.Request) *WebRequestEvent {
 	return &WebRequestEvent{
-		flag: WebRequest,
-		ts:   time.Now().UTC(),
-		req:  req,
+		EventMeta: NewEventMeta(WebRequest),
+		req:       req,
 	}
 }
 
 // NewWebRequestStartEvent creates a new web request start event.
 func NewWebRequestStartEvent(req *http.Request) *WebRequestEvent {
 	return &WebRequestEvent{
-		flag: WebRequestStart,
-		ts:   time.Now().UTC(),
-		req:  req,
+		EventMeta: NewEventMeta(WebRequestStart),
+		req:       req,
 	}
 }
 
@@ -35,11 +41,9 @@ func NewWebRequestEventListener(listener func(*WebRequestEvent)) Listener {
 
 // WebRequestEvent is an event type for http responses.
 type WebRequestEvent struct {
-	heading string
-	flag    Flag
-	ts      time.Time
-	req     *http.Request
+	*EventMeta
 
+	req             *http.Request
 	route           string
 	statusCode      int
 	contentLength   int64
@@ -47,37 +51,24 @@ type WebRequestEvent struct {
 	contentEncoding string
 	elapsed         time.Duration
 	state           map[string]interface{}
+}
 
-	labels      map[string]string
-	annotations map[string]string
+// WithHeadings sets the headings.
+func (e *WebRequestEvent) WithHeadings(headings ...string) *WebRequestEvent {
+	e.headings = headings
+	return e
 }
 
 // WithLabel sets a label on the event for later filtering.
 func (e *WebRequestEvent) WithLabel(key, value string) *WebRequestEvent {
-	if e.labels == nil {
-		e.labels = map[string]string{}
-	}
-	e.labels[key] = value
+	e.AddLabelValue(key, value)
 	return e
-}
-
-// Labels returns a labels collection.
-func (e *WebRequestEvent) Labels() map[string]string {
-	return e.labels
 }
 
 // WithAnnotation adds an annotation to the event.
 func (e *WebRequestEvent) WithAnnotation(key, value string) *WebRequestEvent {
-	if e.annotations == nil {
-		e.annotations = map[string]string{}
-	}
-	e.annotations[key] = value
+	e.AddAnnotationValue(key, value)
 	return e
-}
-
-// Annotations returns the annotations set.
-func (e *WebRequestEvent) Annotations() map[string]string {
-	return e.annotations
 }
 
 // WithFlag sets the event flag.
@@ -86,31 +77,10 @@ func (e *WebRequestEvent) WithFlag(flag Flag) *WebRequestEvent {
 	return e
 }
 
-// Flag returns the event flag.
-func (e *WebRequestEvent) Flag() Flag {
-	return e.flag
-}
-
 // WithTimestamp sets the timestamp.
 func (e *WebRequestEvent) WithTimestamp(ts time.Time) *WebRequestEvent {
 	e.ts = ts
 	return e
-}
-
-// Timestamp returns the event timestamp.
-func (e *WebRequestEvent) Timestamp() time.Time {
-	return e.ts
-}
-
-// WithHeading sets the event heading.
-func (e *WebRequestEvent) WithHeading(heading string) *WebRequestEvent {
-	e.heading = heading
-	return e
-}
-
-// Heading returns the event heading.
-func (e *WebRequestEvent) Heading() string {
-	return e.heading
 }
 
 // WithRequest sets the request metadata.
@@ -197,8 +167,8 @@ func (e *WebRequestEvent) WithState(state map[string]interface{}) *WebRequestEve
 }
 
 // State returns the state of the request.
-func (e *WebRequestEvent) State() time.Duration {
-	return e.elapsed
+func (e *WebRequestEvent) State() map[string]interface{} {
+	return e.state
 }
 
 // WriteText implements TextWritable.

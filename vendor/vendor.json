@@ -177,10 +177,10 @@
 			"revisionTime": "2018-03-30T20:31:45Z"
 		},
 		{
-			"checksumSHA1": "SgN0vczr34vLuSw2SHeWXDqeS6o=",
+			"checksumSHA1": "k0Rla9ir1hG3v9QoRzI2EEEzrug=",
 			"path": "github.com/blend/go-sdk/assert",
-			"revision": "8e107ddca5245d21a2bff4798bcde2df51ae1b8b",
-			"revisionTime": "2018-04-09T20:17:02Z"
+			"revision": "b991ffcb799af5695e796f5d501f55f0fec68aa6",
+			"revisionTime": "2018-04-16T20:10:44Z"
 		},
 		{
 			"checksumSHA1": "thoXzb4JevqdalaK16HO+ltZevw=",
@@ -189,10 +189,10 @@
 			"revisionTime": "2018-04-09T20:17:02Z"
 		},
 		{
-			"checksumSHA1": "CziTwZUCXqZx3Wqh0WE8Z4TBM8M=",
+			"checksumSHA1": "n+qtjiWNI6nkfzqX8ZFbQTyumx4=",
 			"path": "github.com/blend/go-sdk/configutil",
-			"revision": "8e107ddca5245d21a2bff4798bcde2df51ae1b8b",
-			"revisionTime": "2018-04-09T20:17:02Z"
+			"revision": "b991ffcb799af5695e796f5d501f55f0fec68aa6",
+			"revisionTime": "2018-04-16T20:10:44Z"
 		},
 		{
 			"checksumSHA1": "ktWxmWbLrRUngtkzgxD4yun0OFs=",
@@ -201,10 +201,10 @@
 			"revisionTime": "2018-04-09T20:17:02Z"
 		},
 		{
-			"checksumSHA1": "UKgPqREvpamWZAMJY1fj+C/pEdY=",
+			"checksumSHA1": "5bsm1CwtYnRe8bfL+L/MFMa0SAU=",
 			"path": "github.com/blend/go-sdk/db",
-			"revision": "8e107ddca5245d21a2bff4798bcde2df51ae1b8b",
-			"revisionTime": "2018-04-09T20:17:02Z"
+			"revision": "b991ffcb799af5695e796f5d501f55f0fec68aa6",
+			"revisionTime": "2018-04-16T20:10:44Z"
 		},
 		{
 			"checksumSHA1": "w6qzpf+aptSHhzL2Ps+Z8sH3yak=",
@@ -225,10 +225,10 @@
 			"revisionTime": "2018-04-09T20:17:02Z"
 		},
 		{
-			"checksumSHA1": "WOXmAkodeaxysFcPBoD+n/QcH/4=",
+			"checksumSHA1": "1kNdn7UUqWgSmRczpHSLnFEf2iA=",
 			"path": "github.com/blend/go-sdk/logger",
-			"revision": "8e107ddca5245d21a2bff4798bcde2df51ae1b8b",
-			"revisionTime": "2018-04-09T20:17:02Z"
+			"revision": "b991ffcb799af5695e796f5d501f55f0fec68aa6",
+			"revisionTime": "2018-04-16T20:10:44Z"
 		},
 		{
 			"checksumSHA1": "aLYE3b2qkwlEHXqu+vOTQuneKSo=",
@@ -255,10 +255,10 @@
 			"revisionTime": "2018-04-09T20:17:02Z"
 		},
 		{
-			"checksumSHA1": "xiI+38VzwfLoXXAFsZFEcdoP1c8=",
+			"checksumSHA1": "lGpJJPtC27zHdaNLYtEYW/9BNmw=",
 			"path": "github.com/blend/go-sdk/web",
-			"revision": "8e107ddca5245d21a2bff4798bcde2df51ae1b8b",
-			"revisionTime": "2018-04-09T20:17:02Z"
+			"revision": "b991ffcb799af5695e796f5d501f55f0fec68aa6",
+			"revisionTime": "2018-04-16T20:10:44Z"
 		},
 		{
 			"checksumSHA1": "9ydEvPlYnB5mzaHeft+DXk8mEII=",

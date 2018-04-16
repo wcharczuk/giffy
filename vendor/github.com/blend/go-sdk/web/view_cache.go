@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blend/go-sdk/exception"
@@ -46,6 +47,14 @@ type ViewCache struct {
 	viewLiterals []string
 	viewCache    *template.Template
 	cached       bool
+
+	initializedLock sync.Mutex
+	initialized     bool
+}
+
+// Initialized returns if the viewcache is initialized.
+func (vc *ViewCache) Initialized() bool {
+	return vc.initialized
 }
 
 // SetCached sets if we should cache views once they're compiled, or always read them from disk.
@@ -70,6 +79,23 @@ func (vc *ViewCache) Cached() bool {
 
 // Initialize caches templates by path.
 func (vc *ViewCache) Initialize() error {
+	if !vc.initialized {
+		vc.initializedLock.Lock()
+		defer vc.initializedLock.Unlock()
+
+		if !vc.initialized {
+			err := vc.initialize()
+			if err != nil {
+				return err
+			}
+			vc.initialized = true
+		}
+	}
+
+	return nil
+}
+
+func (vc *ViewCache) initialize() error {
 	if len(vc.viewPaths) == 0 && len(vc.viewLiterals) == 0 {
 		return nil
 	}

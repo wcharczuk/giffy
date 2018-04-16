@@ -24,8 +24,11 @@ const (
 	// ExtensionYML is a file extension.
 	ExtensionYML = ".yml"
 
-	// ErrPathUnset is a common error.
-	ErrPathUnset Error = "config path unset"
+	// ErrConfigPathUnset is a common error.
+	ErrConfigPathUnset Error = "config path unset"
+
+	// ErrInvalidConfigExtension is a common error.
+	ErrInvalidConfigExtension Error = "config extension invalid"
 )
 
 // Path returns the config path.
@@ -51,7 +54,7 @@ func Deserialize(ext string, r io.Reader, ref Any) error {
 		}
 		return exception.Wrap(yaml.Unmarshal(contents, ref))
 	default:
-		return exception.Wrap(json.NewDecoder(r).Decode(ref))
+		return exception.NewFromErr(ErrInvalidConfigExtension).WithMessagef("extension: %s", ext)
 	}
 }
 
@@ -65,7 +68,7 @@ func ReadFromPath(ref Any, path string) error {
 	defer env.Env().ReadInto(ref)
 
 	if len(path) == 0 {
-		return exception.Wrap(ErrPathUnset)
+		return exception.NewFromErr(ErrConfigPathUnset)
 	}
 
 	f, err := os.Open(path)
@@ -83,6 +86,14 @@ func ReadFromReader(ref Any, r io.Reader, ext string) error {
 	return Deserialize(ext, r, ref)
 }
 
+// IsIgnored returns if we should ignore the config read error.
+func IsIgnored(err error) bool {
+	if err == nil {
+		return true
+	}
+	return !IsNotExist(err) && !IsConfigPathUnset(err) && !IsInvalidConfigExtension(err)
+}
+
 // IsNotExist returns if an error is an os.ErrNotExist.
 func IsNotExist(err error) bool {
 	if typed, isTyped := err.(exception.Exception); isTyped {
@@ -91,18 +102,18 @@ func IsNotExist(err error) bool {
 	return os.IsNotExist(err)
 }
 
-// IsPathUnset returns if an error is ErrPathUnset.
-func IsPathUnset(err error) bool {
-	if typed, isTyped := err.(exception.Exception); isTyped {
+// IsConfigPathUnset returns if an error is an ErrConfigPathUnset.
+func IsConfigPathUnset(err error) bool {
+	if typed, isTyped := err.(*exception.Ex); isTyped {
 		err = typed.Inner()
 	}
-	return err == ErrPathUnset
+	return err == ErrConfigPathUnset
 }
 
-// IsIgnored returns if we should ignore the config read error.
-func IsIgnored(err error) bool {
-	if err == nil {
-		return true
+// IsInvalidConfigExtension returns if an error is an ErrInvalidConfigExtension.
+func IsInvalidConfigExtension(err error) bool {
+	if typed, isTyped := err.(*exception.Ex); isTyped {
+		err = typed.Inner()
 	}
-	return !IsNotExist(err) && !IsPathUnset(err)
+	return err == ErrInvalidConfigExtension
 }

@@ -19,14 +19,29 @@ func NewHTTPSUpgraderConfigFromEnv() *HTTPSUpgraderConfig {
 
 // HTTPSUpgraderConfig is the config for the https upgrader server.
 type HTTPSUpgraderConfig struct {
-	Port     int32  `json:"port" yaml:"port" env:"UPGRADE_PORT"`
-	BindAddr string `json:"bindAddr" yaml:"bindAddr" env:"UPGRADE_BIND_ADDR"`
+	Port       int32  `json:"port" yaml:"port" env:"UPGRADE_PORT"`
+	BindAddr   string `json:"bindAddr" yaml:"bindAddr" env:"UPGRADE_BIND_ADDR"`
+	TargetPort int32  `json:"targetPort" yaml:"targetPort" env:"UPGRADE_TARGET_PORT"`
 
 	MaxHeaderBytes    int           `json:"maxHeaderBytes" yaml:"maxHeaderBytes" env:"MAX_HEADER_BYTES"`
 	ReadTimeout       time.Duration `json:"readTimeout" yaml:"readTimeout" env:"READ_HEADER_TIMEOUT"`
 	ReadHeaderTimeout time.Duration `json:"readHeaderTimeout" yaml:"readHeaderTimeout" env:"READ_HEADER_TIMEOUT"`
 	WriteTimeout      time.Duration `json:"writeTimeout" yaml:"writeTimeout" env:"WRITE_TIMEOUT"`
 	IdleTimeout       time.Duration `json:"idleTimeout" yaml:"idleTimeout" env:"IDLE_TIMEOUT"`
+}
+
+// GetPort returns the int32 port for a given config.
+// This is useful in things like kubernetes pod templates.
+// If the config .Port is unset, it will parse the .BindAddr,
+// or the DefaultBindAddr for the port number.
+func (c HTTPSUpgraderConfig) GetPort(defaults ...int32) int32 {
+	if c.Port > 0 {
+		return c.Port
+	}
+	if len(c.BindAddr) > 0 {
+		return PortFromBindAddr(c.BindAddr)
+	}
+	return PortFromBindAddr(DefaultBindAddr)
 }
 
 // GetBindAddr coalesces the bind addr, the port, or the default.
@@ -43,18 +58,10 @@ func (c HTTPSUpgraderConfig) GetBindAddr(defaults ...string) string {
 	return DefaultBindAddr
 }
 
-// GetPort returns the int32 port for a given config.
-// This is useful in things like kubernetes pod templates.
-// If the config .Port is unset, it will parse the .BindAddr,
-// or the DefaultBindAddr for the port number.
-func (c HTTPSUpgraderConfig) GetPort(defaults ...int32) int32 {
-	if c.Port > 0 {
-		return c.Port
-	}
-	if len(c.BindAddr) > 0 {
-		return PortFromBindAddr(c.BindAddr)
-	}
-	return PortFromBindAddr(DefaultBindAddr)
+// GetTargetPort gets the target port.
+// It defaults to unset, i.e. use the https default of 443.
+func (c HTTPSUpgraderConfig) GetTargetPort(defaults ...int32) int32 {
+	return util.Coalesce.Int32(c.TargetPort, 0, defaults...)
 }
 
 // GetMaxHeaderBytes returns the maximum header size in bytes or a default.

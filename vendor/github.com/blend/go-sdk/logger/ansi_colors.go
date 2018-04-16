@@ -1,5 +1,10 @@
 package logger
 
+import (
+	"net/http"
+	"strconv"
+)
+
 // AnsiColor represents an ansi color code fragment.
 type AnsiColor string
 
@@ -95,4 +100,19 @@ func GetFlagTextColor(flag Flag) AnsiColor {
 		return color
 	}
 	return DefaultFlagTextColor
+}
+
+// ColorizeByStatusCode returns a value colored by an http status code.
+func ColorizeByStatusCode(statusCode int, value string) string {
+	if statusCode >= http.StatusOK && statusCode < 300 { //the http 2xx range is ok
+		return ColorGreen.Apply(value)
+	} else if statusCode == http.StatusInternalServerError {
+		return ColorRed.Apply(value)
+	}
+	return ColorYellow.Apply(value)
+}
+
+// ColorizeStatusCode colorizes a status code.
+func ColorizeStatusCode(statusCode int) string {
+	return ColorizeByStatusCode(statusCode, strconv.Itoa(statusCode))
 }

@@ -24,9 +24,6 @@ const (
 	// DefaultDatabase is the default database to connect to, we use
 	// `postgres` to not pollute the template databases.
 	DefaultDatabase = "postgres"
-	// DefaultSSLMode is the default connection ssl mode.
-	// We use `disable` because typical dev installs do not provision certs.
-	DefaultSSLMode = SSLModeDisable
 
 	// SSLModeDisable is an ssl mode.
 	// Postgres Docs: "I don't care about security, and I don't want to pay the overhead of encryption."
@@ -221,9 +218,10 @@ func (c Config) GetPassword(inherited ...string) string {
 	return util.Coalesce.String(c.Password, "", inherited...)
 }
 
-// GetSSLMode returns the connection ssl mode or a default.
+// GetSSLMode returns the connection ssl mode.
+// It defaults to unset, which will then use the lib/pq defaults.
 func (c Config) GetSSLMode(inherited ...string) string {
-	return util.Coalesce.String(c.SSLMode, DefaultSSLMode, inherited...)
+	return util.Coalesce.String(c.SSLMode, "", inherited...)
 }
 
 // GetUseStatementCache returns if we should enable the statement cache or a default.
@@ -253,7 +251,7 @@ func (c Config) GetBufferPoolSize(inherited ...int) int {
 
 // CreateDSN creates a postgres connection string from the config.
 func (c Config) CreateDSN() string {
-	if len(c.GetDSN()) != 0 {
+	if len(c.GetDSN()) > 0 {
 		return c.GetDSN()
 	}
 
@@ -274,4 +272,22 @@ func (c Config) CreateDSN() string {
 		return fmt.Sprintf("postgres://%s@%s%s/%s%s", url.QueryEscape(c.GetUsername()), c.GetHost(), port, c.GetDatabase(), sslMode)
 	}
 	return fmt.Sprintf("postgres://%s%s/%s%s", c.GetHost(), port, c.GetDatabase(), sslMode)
+}
+
+// ValidateProduction validates production configuration for the config.
+func (c Config) ValidateProduction() error {
+	if !(len(c.GetSSLMode()) == 0 ||
+		util.String.CaseInsensitiveEquals(c.GetSSLMode(), SSLModeRequire) ||
+		util.String.CaseInsensitiveEquals(c.GetSSLMode(), SSLModeVerifyCA) ||
+		util.String.CaseInsensitiveEquals(c.GetSSLMode(), SSLModeVerifyFull)) {
+		return exception.NewFromErr(ErrUnsafeSSLMode).WithMessagef("sslmode: %s", c.GetSSLMode())
+	}
+
+	if len(c.GetUsername()) == 0 {
+		return exception.NewFromErr(ErrUsernameUnset)
+	}
+	if len(c.GetPassword()) == 0 {
+		return exception.NewFromErr(ErrPasswordUnset)
+	}
+	return nil
 }

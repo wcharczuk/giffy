@@ -26,6 +26,9 @@ const (
 
 	// Audit is an event flag.
 	Audit Flag = "audit"
+
+	// Query is a logging flag.
+	Query Flag = "db.query"
 )
 
 // Flag represents an event type that can be enabled or disabled.

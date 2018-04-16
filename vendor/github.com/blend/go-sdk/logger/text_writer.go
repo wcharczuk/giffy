@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,10 +19,15 @@ const (
 
 	// DefaultTextWriterUseColor is a default setting for writers.
 	DefaultTextWriterUseColor = true
-	// DefaultTextWriterShowTime is a default setting for writers.
-	DefaultTextWriterShowTime = true
-	// DefaultTextWriterShowLabel is a default setting for writers.
-	DefaultTextWriterShowLabel = true
+	// DefaultTextWriterShowHeadings is a default setting for writers.
+	DefaultTextWriterShowHeadings = true
+	// DefaultTextWriterShowTimestamp is a default setting for writers.
+	DefaultTextWriterShowTimestamp = true
+)
+
+// Asserts text writer is a writer.
+var (
+	_ Writer = &TextWriter{}
 )
 
 // TextWritable is a type with a custom formater for text writing.
@@ -44,12 +50,12 @@ type TextFormatter interface {
 // NewTextWriter returns a new text writer for a given output.
 func NewTextWriter(output io.Writer) *TextWriter {
 	return &TextWriter{
-		output:     NewInterlockedWriter(output),
-		bufferPool: NewBufferPool(DefaultBufferPoolSize),
-		showLabel:  DefaultTextWriterShowLabel,
-		showTime:   DefaultTextWriterShowTime,
-		useColor:   DefaultTextWriterUseColor,
-		timeFormat: DefaultTextTimeFormat,
+		output:        NewInterlockedWriter(output),
+		bufferPool:    NewBufferPool(DefaultBufferPoolSize),
+		showHeadings:  DefaultTextWriterShowHeadings,
+		showTimestamp: DefaultTextWriterShowTimestamp,
+		useColor:      DefaultTextWriterUseColor,
+		timeFormat:    DefaultTextTimeFormat,
 	}
 }
 
@@ -66,14 +72,13 @@ func NewTextWriterFromEnv() *TextWriter {
 // NewTextWriterFromConfig creates a new text writer from a given config.
 func NewTextWriterFromConfig(cfg *TextWriterConfig) *TextWriter {
 	return &TextWriter{
-		output:      NewInterlockedWriter(os.Stdout),
-		errorOutput: NewInterlockedWriter(os.Stderr),
-		bufferPool:  NewBufferPool(DefaultBufferPoolSize),
-		showTime:    cfg.GetShowTime(),
-		showLabel:   cfg.GetShowLabel(),
-		useColor:    cfg.GetUseColor(),
-		label:       cfg.GetLabel(),
-		timeFormat:  cfg.GetTimeFormat(),
+		output:        NewInterlockedWriter(os.Stdout),
+		errorOutput:   NewInterlockedWriter(os.Stderr),
+		bufferPool:    NewBufferPool(DefaultBufferPoolSize),
+		showTimestamp: cfg.GetShowTimestamp(),
+		showHeadings:  cfg.GetShowHeadings(),
+		useColor:      cfg.GetUseColor(),
+		timeFormat:    cfg.GetTimeFormat(),
 	}
 }
 
@@ -82,12 +87,11 @@ type TextWriter struct {
 	output      io.Writer
 	errorOutput io.Writer
 
-	showTime  bool
-	showLabel bool
-	useColor  bool
+	showTimestamp bool
+	showHeadings  bool
+	useColor      bool
 
 	timeFormat string
-	label      string
 
 	bufferPool *BufferPool
 }
@@ -97,59 +101,48 @@ func (wr *TextWriter) OutputFormat() OutputFormat {
 	return OutputFormatText
 }
 
-// UseColor is a formatting option.
-func (wr *TextWriter) UseColor() bool {
-	return wr.useColor
-}
-
 // WithUseColor sets a formatting option.
 func (wr *TextWriter) WithUseColor(useColor bool) *TextWriter {
 	wr.useColor = useColor
 	return wr
 }
 
-// ShowTime is a formatting option.
-func (wr *TextWriter) ShowTime() bool {
-	return wr.showTime
+// UseColor is a formatting option.
+func (wr *TextWriter) UseColor() bool {
+	return wr.useColor
 }
 
 // WithShowTimestamp sets a formatting option.
 func (wr *TextWriter) WithShowTimestamp(showTime bool) *TextWriter {
-	wr.showTime = showTime
+	wr.showTimestamp = showTime
 	return wr
 }
 
-// ShowLabel is a formatting option.
-func (wr *TextWriter) ShowLabel() bool {
-	return wr.showLabel
+// ShowTimestamp is a formatting option.
+func (wr *TextWriter) ShowTimestamp() bool {
+	return wr.showTimestamp
 }
 
-// WithShowLabel sets a formatting option.
-func (wr *TextWriter) WithShowLabel(showLabel bool) *TextWriter {
-	wr.showLabel = showLabel
+// WithShowHeadings sets a formatting option.
+func (wr *TextWriter) WithShowHeadings(showHeadings bool) *TextWriter {
+	wr.showHeadings = showHeadings
 	return wr
 }
 
-// Label is a formatting option.
-func (wr *TextWriter) Label() string {
-	return wr.label
-}
-
-// WithLabel sets a formatting option.
-func (wr *TextWriter) WithLabel(label string) Writer {
-	wr.label = label
-	return wr
-}
-
-// TimeFormat is a formatting option.
-func (wr *TextWriter) TimeFormat() string {
-	return wr.timeFormat
+// ShowHeadings is a formatting option.
+func (wr *TextWriter) ShowHeadings() bool {
+	return wr.showHeadings
 }
 
 // WithTimeFormat sets a formatting option.
 func (wr *TextWriter) WithTimeFormat(timeFormat string) *TextWriter {
 	wr.timeFormat = timeFormat
 	return wr
+}
+
+// TimeFormat is a formatting option.
+func (wr *TextWriter) TimeFormat() string {
+	return wr.timeFormat
 }
 
 // Output returns the output.
@@ -201,14 +194,25 @@ func (wr *TextWriter) ColorizeByStatusCode(statusCode int, value string) string 
 	return value
 }
 
-// FormatFlag formats an event flag.
+// FormatFlag formats the flag portion of the message.
 func (wr *TextWriter) FormatFlag(flag Flag, color AnsiColor) string {
 	return fmt.Sprintf("[%s]", wr.Colorize(string(flag), color))
 }
 
-// FormatLabel returns the app name.
-func (wr *TextWriter) FormatLabel(contents string) string {
-	return fmt.Sprintf("[%s]", wr.Colorize(contents, ColorBlue))
+// FormatHeadings returns the headings section of the message.
+func (wr *TextWriter) FormatHeadings(headings ...string) string {
+	if len(headings) == 0 {
+		return ""
+	}
+	if len(headings) == 1 {
+		return fmt.Sprintf("[%s]", wr.Colorize(headings[0], ColorBlue))
+	}
+	if wr.useColor {
+		for index := 0; index < len(headings); index++ {
+			headings[index] = wr.Colorize(headings[index], ColorBlue)
+		}
+	}
+	return fmt.Sprintf("[%s]", strings.Join(headings, " > "))
 }
 
 // FormatTimestamp returns a new timestamp string.
@@ -248,19 +252,17 @@ func (wr *TextWriter) write(output io.Writer, e Event) error {
 	buf := wr.bufferPool.Get()
 	defer wr.bufferPool.Put(buf)
 
-	if wr.showTime {
+	if wr.showTimestamp {
 		buf.WriteString(wr.FormatTimestamp(e.Timestamp()))
 		buf.WriteRune(RuneSpace)
 	}
 
-	if wr.showLabel && len(wr.label) > 0 {
-		buf.WriteString(wr.FormatLabel(wr.label))
-		buf.WriteRune(RuneSpace)
-	}
-
-	if typed, isTyped := e.(EventHeading); isTyped && len(typed.Heading()) > 0 {
-		buf.WriteString(wr.FormatLabel(typed.Heading()))
-		buf.WriteRune(RuneSpace)
+	if typed, isTyped := e.(EventHeadings); isTyped {
+		headings := typed.Headings()
+		if len(headings) > 0 {
+			buf.WriteString(wr.FormatHeadings(headings...))
+			buf.WriteRune(RuneSpace)
+		}
 	}
 
 	if typed, isTyped := e.(FlagTextColorProvider); isTyped {
@@ -280,7 +282,7 @@ func (wr *TextWriter) write(output io.Writer, e Event) error {
 		buf.WriteString(typed.String())
 	}
 
-	if typed, isTyped := e.(EventMeta); isTyped {
+	if typed, isTyped := e.(EventLabels); isTyped {
 		if len(typed.Labels()) > 0 {
 			buf.WriteRune(RuneNewline)
 			for key, value := range typed.Labels() {

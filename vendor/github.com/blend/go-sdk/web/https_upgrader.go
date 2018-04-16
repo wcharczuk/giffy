@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/blend/go-sdk/env"
@@ -25,6 +26,7 @@ func NewHTTPSUpgraderFromEnv() *HTTPSUpgrader {
 func NewHTTPSUpgraderFromConfig(cfg *HTTPSUpgraderConfig) *HTTPSUpgrader {
 	return &HTTPSUpgrader{
 		bindAddr:          cfg.GetBindAddr(),
+		targetPort:        cfg.GetTargetPort(),
 		maxHeaderBytes:    cfg.GetMaxHeaderBytes(),
 		readTimeout:       cfg.GetReadTimeout(),
 		readHeaderTimeout: cfg.GetReadHeaderTimeout(),
@@ -35,7 +37,8 @@ func NewHTTPSUpgraderFromConfig(cfg *HTTPSUpgraderConfig) *HTTPSUpgrader {
 
 // HTTPSUpgrader redirects HTTP to HTTPS
 type HTTPSUpgrader struct {
-	bindAddr string
+	bindAddr   string
+	targetPort int32
 
 	server *http.Server
 
@@ -47,6 +50,19 @@ type HTTPSUpgrader struct {
 
 	err error
 	log *logger.Logger
+}
+
+// WithTargetPort sets the target upgrade port.
+// It defaults to unset, or the https default of 443.
+func (hu *HTTPSUpgrader) WithTargetPort(port int32) *HTTPSUpgrader {
+	hu.targetPort = port
+	return hu
+}
+
+// TargetPort returns the target upgrade port.
+// It defaults to unset, or the https default of 443.
+func (hu *HTTPSUpgrader) TargetPort() int32 {
+	return hu.targetPort
 }
 
 // WithBindAddr sets the address the app listens on, and returns a reference to the app.
@@ -190,6 +206,13 @@ func (hu *HTTPSUpgrader) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if len(newURL.Host) == 0 {
 		newURL.Host = req.Host
 	}
+	if hu.targetPort > 0 {
+		if strings.Contains(newURL.Host, ":") {
+			newURL.Host = fmt.Sprintf("%s:%d", strings.SplitN(newURL.Host, ":", 2)[0], hu.targetPort)
+		} else {
+			newURL.Host = fmt.Sprintf("%s:%d", newURL.Host, hu.targetPort)
+		}
+	}
 
 	http.Redirect(rw, req, newURL.String(), http.StatusMovedPermanently)
 }
@@ -208,7 +231,11 @@ func (hu *HTTPSUpgrader) StartWithServer(server *http.Server) (err error) {
 		err = hu.err
 		return
 	}
-	hu.log.SyncInfof("https upgrade server started, listening on %s", server.Addr)
+	if hu.targetPort > 0 {
+		hu.log.SyncInfof("https upgrade server started, listening on %s, upgrading to :%d", server.Addr, hu.targetPort)
+	} else {
+		hu.log.SyncInfof("https upgrade server started, listening on %s", server.Addr)
+	}
 	hu.server = server
 	err = exception.Wrap(server.ListenAndServe())
 	return

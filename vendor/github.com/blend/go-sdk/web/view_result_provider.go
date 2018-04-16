@@ -143,6 +143,11 @@ func (vr *ViewResultProvider) InternalError(err error) Result {
 
 // NotFound returns a view result.
 func (vr *ViewResultProvider) NotFound() Result {
+	err := vr.views.Initialize()
+	if err != nil {
+		return vr.InternalError(exception.NewFromErr(err).WithMessagef("viewname: %s", vr.NotFoundTemplateName()))
+	}
+
 	temp := vr.views.Templates().Lookup(vr.NotFoundTemplateName())
 	if temp == nil {
 		temp, _ = template.New("").Parse(DefaultTemplateNotFound)
@@ -171,7 +176,7 @@ func (vr *ViewResultProvider) NotAuthorized() Result {
 func (vr *ViewResultProvider) View(viewName string, viewModel interface{}) Result {
 	temp := vr.views.Templates().Lookup(viewName)
 	if temp == nil {
-		return vr.InternalError(exception.NewFromErr(ErrUnsetViewTemplate).WithMessagef("template: %s", viewName))
+		return vr.InternalError(exception.NewFromErr(ErrUnsetViewTemplate).WithMessagef("viewname: %s", viewName))
 	}
 	return &ViewResult{
 		StatusCode: http.StatusOK,

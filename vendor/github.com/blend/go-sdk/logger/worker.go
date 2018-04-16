@@ -69,6 +69,7 @@ func (w *Worker) Process(e Event) {
 			}
 		}()
 	}
+
 	w.Listener(e)
 }
 

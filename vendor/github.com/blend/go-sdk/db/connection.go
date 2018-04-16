@@ -35,7 +35,7 @@ const (
 // New returns a new Connection.
 func New() *Connection {
 	return &Connection{
-		Config:             &Config{},
+		config:             &Config{},
 		bufferPool:         NewBufferPool(DefaultBufferPoolSize),
 		useStatementCache:  DefaultUseStatementCache,
 		statementCacheLock: &sync.Mutex{},
@@ -45,13 +45,9 @@ func New() *Connection {
 
 // NewFromConfig returns a new connection from a config.
 func NewFromConfig(cfg *Config) *Connection {
-	return &Connection{
-		Config:             cfg,
-		bufferPool:         NewBufferPool(cfg.GetBufferPoolSize()),
-		useStatementCache:  cfg.GetUseStatementCache(), //doesnt actually help perf, maybe someday.
-		statementCacheLock: &sync.Mutex{},
-		connectionLock:     &sync.Mutex{},
-	}
+	dsn := cfg.CreateDSN()
+	parsed, _ := NewConfigFromDSN(dsn)
+	return New().WithConfig(parsed)
 }
 
 // NewFromEnv creates a new db connection from environment variables.
@@ -61,9 +57,8 @@ func NewFromEnv() *Connection {
 
 // Connection is the basic wrapper for connection parameters and saves a reference to the created sql.Connection.
 type Connection struct {
-	// Connection is the underlying sql driver connection for the Connection.
-	Connection *sql.DB
-	Config     *Config
+	connection *sql.DB
+	config     *Config
 
 	connectionLock     *sync.Mutex
 	statementCacheLock *sync.Mutex
@@ -73,14 +68,22 @@ type Connection struct {
 
 	useStatementCache bool
 	statementCache    *StatementCache
-
-	// database is used for logging.
-	database string
 }
 
-// Database returns the connected database name.
-func (dbc *Connection) Database() string {
-	return dbc.database
+// WithConfig sets the config.
+func (dbc *Connection) WithConfig(cfg *Config) *Connection {
+	dbc.config = cfg
+	return dbc
+}
+
+// Config returns the config.
+func (dbc *Connection) Config() *Config {
+	return dbc.config
+}
+
+// Connection returns the underlying driver connection.
+func (dbc *Connection) Connection() *sql.DB {
+	return dbc.connection
 }
 
 // Close implements a closer.
@@ -92,7 +95,7 @@ func (dbc *Connection) Close() error {
 	if err != nil {
 		return err
 	}
-	return dbc.Connection.Close()
+	return dbc.connection.Close()
 }
 
 // WithLogger sets the connection's diagnostic agent.
@@ -112,7 +115,7 @@ func (dbc *Connection) fireEvent(flag logger.Flag, query string, elapsed time.Du
 			queryLabel = optionalQueryLabel[0]
 		}
 
-		dbc.log.Trigger(logger.NewQueryEvent(query, elapsed).WithFlag(flag).WithDatabase(dbc.database).WithQueryLabel(queryLabel).WithEngine("postgres"))
+		dbc.log.Trigger(logger.NewQueryEvent(query, elapsed).WithFlag(flag).WithDatabase(dbc.config.GetDatabase()).WithQueryLabel(queryLabel).WithEngine("postgres").WithErr(err))
 		if err != nil {
 			dbc.log.Error(err)
 		}
@@ -142,35 +145,22 @@ func (dbc *Connection) StatementCache() *StatementCache {
 
 // openNewSQLConnection returns a new connection object.
 func (dbc *Connection) openNewSQLConnection() (*sql.DB, error) {
-	if dbc.Config == nil {
+	if dbc.config == nil {
 		return nil, exception.New("connection configuration is unset")
 	}
 
-	// the config resolution step is a little weird
-	// first, fully synthesize the dsn
-	// as it can be set directly or composed from individual fields
-	dsn := dbc.Config.CreateDSN()
-	// then re-parse it to get relevant fields we might want to save
-	// like the database name etc.
-	parsed, err := NewConfigFromDSN(dsn)
-	if err != nil {
-		exception.Wrap(err)
-	}
-
 	// open the connection
-	dbConn, err := sql.Open("postgres", dsn)
+	dbConn, err := sql.Open("postgres", dbc.config.CreateDSN())
 	if err != nil {
 		return nil, exception.Wrap(err)
 	}
 
-	// memoize the db name for logging calls
-	dbc.database = parsed.GetDatabase()
 	// action config points.
-	dbConn.SetConnMaxLifetime(dbc.Config.GetMaxLifetime())
-	dbConn.SetMaxIdleConns(dbc.Config.GetIdleConnections())
-	dbConn.SetMaxOpenConns(dbc.Config.GetMaxConnections())
+	dbConn.SetConnMaxLifetime(dbc.config.GetMaxLifetime())
+	dbConn.SetMaxIdleConns(dbc.config.GetIdleConnections())
+	dbConn.SetMaxOpenConns(dbc.config.GetMaxConnections())
 
-	schema := dbc.Config.GetSchema()
+	schema := dbc.config.GetSchema()
 	if len(schema) > 0 {
 		_, err = dbConn.Exec(fmt.Sprintf("SET search_path TO %s,public;", schema))
 		if err != nil {
@@ -189,16 +179,16 @@ func (dbc *Connection) openNewSQLConnection() (*sql.DB, error) {
 
 // Open returns a connection object, either a cached connection object or creating a new one in the process.
 func (dbc *Connection) Open() (*Connection, error) {
-	if dbc.Connection == nil {
+	if dbc.connection == nil {
 		dbc.connectionLock.Lock()
 		defer dbc.connectionLock.Unlock()
 
-		if dbc.Connection == nil {
+		if dbc.connection == nil {
 			newConn, err := dbc.openNewSQLConnection()
 			if err != nil {
 				return nil, err
 			}
-			dbc.Connection = newConn
+			dbc.connection = newConn
 		}
 	}
 	return dbc, nil
@@ -206,8 +196,8 @@ func (dbc *Connection) Open() (*Connection, error) {
 
 // Begin starts a new transaction.
 func (dbc *Connection) Begin() (*sql.Tx, error) {
-	if dbc.Connection != nil {
-		tx, txErr := dbc.Connection.Begin()
+	if dbc.connection != nil {
+		tx, txErr := dbc.connection.Begin()
 		return tx, exception.Wrap(txErr)
 	}
 
@@ -235,7 +225,7 @@ func (dbc *Connection) Prepare(statement string, tx *sql.Tx) (*sql.Stmt, error) 
 		return nil, exception.Wrap(err)
 	}
 
-	stmt, err := dbConn.Connection.Prepare(statement)
+	stmt, err := dbConn.connection.Prepare(statement)
 	if err != nil {
 		return nil, exception.Wrap(err)
 	}
@@ -251,7 +241,7 @@ func (dbc *Connection) ensureStatementCache() error {
 			if err != nil {
 				return exception.Wrap(err)
 			}
-			dbc.statementCache = newStatementCache(db.Connection)
+			dbc.statementCache = newStatementCache(db.connection)
 		}
 	}
 	return nil

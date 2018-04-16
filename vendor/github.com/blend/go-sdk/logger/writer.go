@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"io"
 	"strings"
 
 	"github.com/blend/go-sdk/env"
@@ -18,17 +17,6 @@ const (
 	// Sometime in the future ...
 	// OutputFormatProtobuf = "protobuf"
 )
-
-// Writer is a type that can consume events.
-type Writer interface {
-	Label() string
-	WithLabel(string) Writer
-	Write(Event) error
-	WriteError(Event) error
-	Output() io.Writer
-	ErrorOutput() io.Writer
-	OutputFormat() OutputFormat
-}
 
 // NewWriter creates a new writer based on a given format.
 // It reads the writer settings from the environment.

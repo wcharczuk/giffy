@@ -48,6 +48,19 @@ type MockRequestBuilder struct {
 	state State
 }
 
+// WithErr sets the error if it is unset.
+func (mrb *MockRequestBuilder) WithErr(err error) *MockRequestBuilder {
+	if err != nil {
+		mrb.err = err
+	}
+	return mrb
+}
+
+// Err rerturns an underlying error
+func (mrb *MockRequestBuilder) Err() error {
+	return mrb.err
+}
+
 // Get is a shortcut for WithVerb("GET") WithPathf(pathFormat, args...)
 func (mrb *MockRequestBuilder) Get(pathFormat string, args ...interface{}) *MockRequestBuilder {
 	return mrb.WithVerb("GET").WithPathf(pathFormat, args...)
@@ -271,7 +284,8 @@ func (mrb *MockRequestBuilder) Response() (res *http.Response, err error) {
 		return
 	}
 
-	req, err := mrb.Request()
+	var req *http.Request
+	req, err = mrb.Request()
 	if err != nil {
 		return
 	}

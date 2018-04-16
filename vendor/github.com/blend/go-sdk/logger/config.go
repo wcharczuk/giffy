@@ -25,7 +25,7 @@ func NewConfigFromEnv() *Config {
 
 // Config is the logger config.
 type Config struct {
-	Label         string   `json:"label" yaml:"label" env:"LOG_LABEL"`
+	Heading       string   `json:"heading" yaml:"heading" env:"LOG_HEADING"`
 	OutputFormat  string   `json:"format" yaml:"format" env:"LOG_FORMAT"`
 	Flags         []string `json:"flags" yaml:"flags" env:"LOG_EVENTS,csv"`
 	HiddenFlags   []string `json:"hidden" yaml:"hidden" env:"LOG_HIDDEN,csv"`
@@ -35,10 +35,10 @@ type Config struct {
 	JSONOutput JSONWriterConfig `json:"jsonOutput" yaml:"jsonOutput"`
 }
 
-// GetLabel returns the writer label.
-func (c Config) GetLabel() string {
-	if len(c.Label) > 0 {
-		return c.Label
+// GetHeading returns the writer heading.
+func (c Config) GetHeading() string {
+	if len(c.Heading) > 0 {
+		return c.Heading
 	}
 	return ""
 }
@@ -99,33 +99,32 @@ func NewTextWriterConfigFromEnv() *TextWriterConfig {
 
 // TextWriterConfig is the config for a text writer.
 type TextWriterConfig struct {
-	ShowLabel  *bool  `json:"showLabel" yaml:"showLabel" env:"LOG_SHOW_LABEL"`
-	ShowTime   *bool  `json:"showTime" yaml:"showTime" env:"LOG_SHOW_TIME"`
-	UseColor   *bool  `json:"useColor" yaml:"useColor" env:"LOG_USE_COLOR"`
-	Label      string `json:"label" yaml:"label" env:"LOG_LABEL"`
-	TimeFormat string `json:"timeFormat" yaml:"timeFormat" env:"LOG_TIME_FORMAT"`
+	ShowHeadings  *bool  `json:"showHeadings" yaml:"showHeadings" env:"LOG_SHOW_HEADINGS"`
+	ShowTimestamp *bool  `json:"showTimestamp" yaml:"showTimestamp" env:"LOG_SHOW_TIMESTAMP"`
+	UseColor      *bool  `json:"useColor" yaml:"useColor" env:"LOG_USE_COLOR"`
+	TimeFormat    string `json:"timeFormat" yaml:"timeFormat" env:"LOG_TIME_FORMAT"`
 }
 
-// GetShowLabel returns a field value or a default.
-func (twc TextWriterConfig) GetShowLabel(defaults ...bool) bool {
-	if twc.ShowLabel != nil {
-		return *twc.ShowLabel
+// GetShowHeadings returns a field value or a default.
+func (twc TextWriterConfig) GetShowHeadings(defaults ...bool) bool {
+	if twc.ShowHeadings != nil {
+		return *twc.ShowHeadings
 	}
 	if len(defaults) > 0 {
 		return defaults[0]
 	}
-	return DefaultTextWriterShowLabel
+	return DefaultTextWriterShowHeadings
 }
 
-// GetShowTime returns a field value or a default.
-func (twc TextWriterConfig) GetShowTime(defaults ...bool) bool {
-	if twc.ShowTime != nil {
-		return *twc.ShowTime
+// GetShowTimestamp returns a field value or a default.
+func (twc TextWriterConfig) GetShowTimestamp(defaults ...bool) bool {
+	if twc.ShowTimestamp != nil {
+		return *twc.ShowTimestamp
 	}
 	if len(defaults) > 0 {
 		return defaults[0]
 	}
-	return DefaultTextWriterShowTime
+	return DefaultTextWriterShowTimestamp
 }
 
 // GetUseColor returns a field value or a default.
@@ -137,17 +136,6 @@ func (twc TextWriterConfig) GetUseColor(defaults ...bool) bool {
 		return defaults[0]
 	}
 	return DefaultTextWriterUseColor
-}
-
-// GetLabel returns a field value or a default.
-func (twc TextWriterConfig) GetLabel(defaults ...string) string {
-	if len(twc.Label) > 0 {
-		return twc.Label
-	}
-	if len(defaults) > 0 {
-		return defaults[0]
-	}
-	return ""
 }
 
 // GetTimeFormat returns a field value or a default.

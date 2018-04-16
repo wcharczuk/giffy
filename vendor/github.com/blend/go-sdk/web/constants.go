@@ -230,6 +230,9 @@ const (
 	DefaultUseSessionCache = true
 	// DefaultSessionTimeoutIsAbsolute is the default if we should set absolute session expiries.
 	DefaultSessionTimeoutIsAbsolute = true
+
+	// DefaultHTTPSUpgradeTargetPort is the default upgrade target port.
+	DefaultHTTPSUpgradeTargetPort = 443
 )
 
 // DefaultHeaders are the default headers added by go-web.

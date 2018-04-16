@@ -41,6 +41,7 @@ func New(flags ...Flag) *Logger {
 // NewFromConfig returns a new logger from a config.
 func NewFromConfig(cfg *Config) *Logger {
 	return &Logger{
+		heading:       cfg.GetHeading(),
 		recoverPanics: cfg.GetRecoverPanics(),
 		flags:         NewFlagSetFromValues(cfg.GetFlags()...),
 		hiddenFlags:   NewFlagSetFromValues(cfg.GetHiddenFlags()...),
@@ -70,17 +71,19 @@ func None() *Logger {
 
 // NewText returns a new text logger.
 func NewText() *Logger {
-	return NewFromEnv().WithWriter(NewTextWriterFromEnv())
+	return New().WithFlagsFromEnv().WithWriter(NewTextWriterFromEnv())
 }
 
 // NewJSON returns a new json logger.
 func NewJSON() *Logger {
-	return NewFromEnv().WithWriter(NewJSONWriterFromEnv())
+	return New().WithFlagsFromEnv().WithWriter(NewJSONWriterFromEnv())
 }
 
 // Logger is a handler for various logging events with descendent handlers.
 type Logger struct {
 	writers []Writer
+
+	heading string
 
 	flagsLock sync.Mutex
 	flags     *FlagSet
@@ -99,14 +102,15 @@ type Logger struct {
 	writeErrorWorker     *Worker
 }
 
-// WithLabel sets the writer label for any configured writers.
-func (l *Logger) WithLabel(label string) *Logger {
-	if len(l.writers) > 0 {
-		for _, w := range l.writers {
-			w.WithLabel(label)
-		}
-	}
+// WithHeading returns the logger heading.
+func (l *Logger) WithHeading(heading string) *Logger {
+	l.heading = heading
 	return l
+}
+
+// Heading returns the logger heading.
+func (l *Logger) Heading() string {
+	return l.heading
 }
 
 // Writers returns the output writers for events.
@@ -300,6 +304,22 @@ func (l *Logger) HasListener(flag Flag, listenerName string) bool {
 	return hasWorker
 }
 
+// SubContext returns a sub context for the logger.
+// It provides a more limited api surface area but lets you
+// decoarate events with context specific headings, labels and annotations.
+func (l *Logger) SubContext(heading string) *SubContext {
+	if len(l.heading) > 0 {
+		return &SubContext{
+			log:      l,
+			headings: []string{l.heading, heading},
+		}
+	}
+	return &SubContext{
+		log:      l,
+		headings: []string{heading},
+	}
+}
+
 // Listen adds a listener for a given flag.
 func (l *Logger) Listen(flag Flag, listenerName string, listener Listener) {
 	l.workersLock.Lock()
@@ -408,7 +428,9 @@ func (l *Logger) trigger(async bool, e Event) {
 					if async {
 						worker.Work <- e
 					} else {
-						worker.Listener(e)
+						l.safeExecute(func() {
+							worker.Listener(e)
+						})
 					}
 				}
 			}
@@ -429,16 +451,31 @@ func (l *Logger) trigger(async bool, e Event) {
 			if async {
 				l.writeErrorWorker.Work <- e
 			} else {
-				l.WriteError(e)
+				l.safeExecute(func() {
+					l.WriteError(e)
+				})
 			}
 		} else {
 			if async {
 				l.writeWorker.Work <- e
 			} else {
-				l.Write(e)
+				l.safeExecute(func() {
+					l.Write(e)
+				})
 			}
 		}
 	}
+}
+
+func (l *Logger) safeExecute(action func()) {
+	if l.recoverPanics {
+		defer func() {
+			if r := recover(); r != nil {
+				l.SyncFatalf("%v", r)
+			}
+		}()
+	}
+	action()
 }
 
 // --------------------------------------------------------------------------------
@@ -702,6 +739,7 @@ func (l *Logger) ensureInitialized() {
 	if l.writeWorker == nil {
 		l.writeWorkerLock.Lock()
 		defer l.writeWorkerLock.Unlock()
+
 		if l.writeWorker == nil {
 			l.writeWorker = NewWorker(l, l.Write)
 			l.writeWorker.Start()
@@ -710,6 +748,7 @@ func (l *Logger) ensureInitialized() {
 	if l.writeErrorWorker == nil {
 		l.writeErrorWorkerLock.Lock()
 		defer l.writeErrorWorkerLock.Unlock()
+
 		if l.writeErrorWorker == nil {
 			l.writeErrorWorker = NewWorker(l, l.WriteError)
 			l.writeErrorWorker.Start()

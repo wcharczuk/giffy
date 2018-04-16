@@ -94,30 +94,47 @@ func (efs *FlagSet) Enable(flag Flag) {
 	efs.flags[flag] = true
 }
 
-// Disable disabled an event flag.
+// WithEnabled enables an list of flags.
+func (efs *FlagSet) WithEnabled(flags ...Flag) *FlagSet {
+	for _, flag := range flags {
+		efs.Enable(flag)
+	}
+	return efs
+}
+
+// Disable disables a flag.
 func (efs *FlagSet) Disable(flag Flag) {
 	efs.flags[flag] = false
 }
 
-// SetAll flips the `all` bit on the flag set.
+// WithDisabled sets a list of flags as disabled.
+func (efs *FlagSet) WithDisabled(flags ...Flag) *FlagSet {
+	for _, flag := range flags {
+		efs.Disable(flag)
+	}
+	return efs
+}
+
+// SetAll flips the `all` bit on the flag set to true.
 func (efs *FlagSet) SetAll() {
 	efs.all = true
 	efs.none = false
 }
 
-// All returns if the all bit is flipped on.
+// All returns if the all bit is flipped to true.
 func (efs *FlagSet) All() bool {
 	return efs.all
 }
 
-// SetNone flips the `none` bit on the flag set.
+// SetNone flips the `none` bit on the flag set to true.
+// It also disables the `all` bit.
 func (efs *FlagSet) SetNone() {
 	efs.all = false
 	efs.flags = map[Flag]bool{}
 	efs.none = true
 }
 
-// None returns if the none bit is flipped on.
+// None returns if the none bit is flipped to true.
 func (efs *FlagSet) None() bool {
 	return efs.none
 }

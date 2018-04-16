@@ -15,11 +15,11 @@ const (
 	EnvVarUseColor = "LOG_USE_COLOR"
 	// EnvVarShowTimestamp is the env var that controls if we show timestamps in output.
 	EnvVarShowTime = "LOG_SHOW_TIME"
-	// EnvVarShowLabel is the env var that controls if we show a descriptive label in output.
-	EnvVarShowLabel = "LOG_SHOW_LABEL"
+	// EnvVarShowHeadings is the env var that controls if we show a descriptive label in output.
+	EnvVarShowHeadings = "LOG_SHOW_HEADINGS"
 
-	// EnvVarLabel is the env var that sets the descriptive label in output.
-	EnvVarLabel = "LOG_LABEL"
+	// EnvVarHeading is the env var that sets the descriptive label in output.
+	EnvVarHeading = "LOG_HEADING"
 
 	// EnvVarTimeFormat is the env var that sets the time format for text output.
 	EnvVarTimeFormat = "LOG_TIME_FORMAT"
