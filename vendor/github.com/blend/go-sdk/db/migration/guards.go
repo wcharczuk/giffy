@@ -29,25 +29,27 @@ const (
 // Guards
 // --------------------------------------------------------------------------------
 
-// DynamicGuard is a dynamic guard.
+// DynamicGuard is guard that can dynamically determine if the inner invocable should run.
 func DynamicGuard(label string, guard func(c *db.Connection, tx *sql.Tx) (bool, error)) Guard {
 	return func(s *Step, c *db.Connection, tx *sql.Tx) error {
-		s.SetLabel(label)
+		s.WithLabel(label)
 
 		proceed, err := guard(c, tx)
 		if err != nil {
-			return s.logger.Error(s, err)
+			return s.Collector().Error(s, err)
 		}
 
 		if proceed {
 			err = s.body.Invoke(c, tx)
 			if err != nil {
-				return s.logger.Error(s, err)
+				return s.Collector().Error(s, err)
 			}
-			return s.logger.Applyf(s, label)
+			s.Collector().Applyf(s, label)
+			return nil
 		}
 
-		return s.logger.Skipf(s, label)
+		s.Collector().Skipf(s, label)
+		return nil
 	}
 }
 
@@ -159,49 +161,50 @@ func guardImpl(s *Step, verb, noun string, c *db.Connection, tx *sql.Tx) error {
 	err := s.body.Invoke(c, tx)
 
 	if err != nil {
-		if s.logger != nil {
-			return s.logger.Error(s, err)
-		}
-		return nil
+		return s.collector.Error(s, err)
 	}
-	if s.logger != nil {
-		return s.logger.Applyf(s, "done")
+	if s.collector != nil {
+		s.collector.Applyf(s, "done")
 	}
 	return nil
 }
 
 func guardImpl1(s *Step, verb, noun string, guard guard1, subject string, c *db.Connection, tx *sql.Tx) error {
-	s.SetLabel(actionName(verb, noun))
+	s.WithLabel(actionName(verb, noun))
 
 	if exists, err := guard(c, tx, subject); err != nil {
-		return s.logger.Error(s, err)
+		return s.collector.Error(s, err)
 	} else if (verb == verbCreate && !exists) ||
 		(verb == verbAlter && exists) ||
 		(verb == verbRun && exists) {
 		err = s.body.Invoke(c, tx)
 		if err != nil {
-			return s.logger.Error(s, err)
+			return s.collector.Error(s, err)
 		}
-		return s.logger.Applyf(s, "%s `%s`", verb, subject)
+		s.collector.Applyf(s, "%s `%s`", verb, subject)
+		return nil
 	}
-	return s.logger.Skipf(s, "%s `%s`", verb, subject)
+	s.collector.Skipf(s, "%s `%s`", verb, subject)
+	return nil
 }
 
 func guardImpl2(s *Step, verb, noun string, guard guard2, subject1, subject2 string, c *db.Connection, tx *sql.Tx) error {
-	s.SetLabel(actionName(verb, noun))
+	s.WithLabel(actionName(verb, noun))
 
 	if exists, err := guard(c, tx, subject1, subject2); err != nil {
-		return s.logger.Error(s, err)
+		return s.collector.Error(s, err)
 	} else if (verb == verbCreate && !exists) || (verb == verbAlter && exists) || (verb == verbRun && exists) {
 		err = s.body.Invoke(c, tx)
 		if err != nil {
-			return s.logger.Error(s, err)
+			return s.collector.Error(s, err)
 		}
 
-		return s.logger.Applyf(s, "%s `%s` on `%s`", verb, subject2, subject1)
+		s.collector.Applyf(s, "%s `%s` on `%s`", verb, subject2, subject1)
+		return nil
 	}
 
-	return s.logger.Skipf(s, "%s `%s` on `%s`", verb, subject2, subject1)
+	s.collector.Skipf(s, "%s `%s` on `%s`", verb, subject2, subject1)
+	return nil
 }
 
 // --------------------------------------------------------------------------------

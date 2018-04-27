@@ -96,7 +96,7 @@ func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
 		return r.View().NotAuthorized()
 	}
 	prototypeUser := ac.mapGoogleUser(res.Profile)
-	return ac.finishOAuthLogin(r, OAuthProviderGoogle, res.Response.AccessToken, res.Response.IDToken, prototypeUser)
+	return ac.finishOAuthLogin(r, OAuthProviderGoogle, res.Response.AccessToken, "", prototypeUser)
 }
 
 func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret string, prototypeUser *model.User) web.Result {

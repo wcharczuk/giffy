@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/blend/go-sdk/logger"
 )
@@ -12,25 +11,27 @@ import (
 const (
 	// Flag is a logger event flag.
 	Flag logger.Flag = "db.migration"
+
+	// FlagStats is a logger event flag.
+	FlagStats logger.Flag = "db.migration.stats"
 )
+
+// NewEvent returns a new event.
+func NewEvent(result, body string, labels ...string) *Event {
+	return &Event{
+		EventMeta: logger.NewEventMeta(Flag),
+		result:    result,
+		body:      body,
+		labels:    labels,
+	}
+}
 
 // Event is a migration logger event.
 type Event struct {
-	ts     time.Time
-	phase  string
+	*logger.EventMeta
 	result string
-	labels []string
 	body   string
-}
-
-// Flag returns the logger flag.
-func (e Event) Flag() logger.Flag {
-	return Flag
-}
-
-// Timestamp returns a timestamp.
-func (e Event) Timestamp() time.Time {
-	return e.ts
+	labels []string
 }
 
 func (e Event) colorizeFixedWidthLeftAligned(tf logger.TextFormatter, text string, color logger.AnsiColor, width int) string {
@@ -48,16 +49,15 @@ func (e Event) WriteText(tf logger.TextFormatter, buf *bytes.Buffer) {
 		resultColor = logger.ColorRed
 	}
 
-	buf.WriteString(e.colorizeFixedWidthLeftAligned(tf, e.phase, logger.ColorBlue, 5))
-	buf.WriteRune(logger.RuneSpace)
 	buf.WriteString(tf.Colorize("--", logger.ColorLightBlack))
 	buf.WriteRune(logger.RuneSpace)
-	buf.WriteString(e.colorizeFixedWidthLeftAligned(tf, e.result, resultColor, 5))
+	buf.WriteString(tf.Colorize(e.result, resultColor))
 
 	if len(e.labels) > 0 {
 		buf.WriteRune(logger.RuneSpace)
 		buf.WriteString(strings.Join(e.labels, " > "))
 	}
+
 	if len(e.body) > 0 {
 		buf.WriteRune(logger.RuneSpace)
 		buf.WriteString(tf.Colorize("--", logger.ColorLightBlack))
@@ -69,30 +69,30 @@ func (e Event) WriteText(tf logger.TextFormatter, buf *bytes.Buffer) {
 // WriteJSON implements logger.JSONWritable.
 func (e Event) WriteJSON() logger.JSONObj {
 	return logger.JSONObj{
-		"phase":  e.phase,
 		"result": e.result,
 		"labels": e.labels,
 		"body":   e.body,
 	}
 }
 
+// NewStatsEvent returns a new stats event.
+func NewStatsEvent(applied, skipped, failed, total int) *StatsEvent {
+	return &StatsEvent{
+		EventMeta: logger.NewEventMeta(FlagStats),
+		applied:   applied,
+		skipped:   skipped,
+		failed:    failed,
+		total:     total,
+	}
+}
+
 // StatsEvent is a migration logger event.
 type StatsEvent struct {
-	ts      time.Time
+	*logger.EventMeta
 	applied int
 	skipped int
 	failed  int
 	total   int
-}
-
-// Flag returns the logger flag.
-func (se StatsEvent) Flag() logger.Flag {
-	return Flag
-}
-
-// Timestamp returns a timestamp.
-func (se StatsEvent) Timestamp() time.Time {
-	return se.ts
 }
 
 // WriteText writes the event to a text writer.
@@ -108,9 +108,9 @@ func (se StatsEvent) WriteText(tf logger.TextFormatter, buf *bytes.Buffer) {
 // WriteJSON implements logger.JSONWritable.
 func (se StatsEvent) WriteJSON() logger.JSONObj {
 	return logger.JSONObj{
-		"applied": se.applied,
-		"skipped": se.skipped,
-		"failed":  se.failed,
-		"total":   se.total,
+		StatApplied: se.applied,
+		StatSkipped: se.skipped,
+		StatFailed:  se.failed,
+		StatTotal:   se.total,
 	}
 }

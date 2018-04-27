@@ -13,26 +13,6 @@ import (
 	"github.com/blend/go-sdk/logger"
 )
 
-// State is a job state.
-type State string
-
-const (
-	// DefaultHeartbeatInterval is the interval between schedule next run checks.
-	DefaultHeartbeatInterval = 50 * time.Millisecond
-
-	// HighPrecisionHeartbeatInterval is the high precision interval between schedule next run checks.
-	HighPrecisionHeartbeatInterval = 5 * time.Millisecond
-
-	//StateRunning is the running state.
-	StateRunning State = "running"
-
-	// StateEnabled is the enabled state.
-	StateEnabled State = "enabled"
-
-	// StateDisabled is the disabled state.
-	StateDisabled State = "disabled"
-)
-
 // New returns a new job manager.
 func New() *JobManager {
 	jm := JobManager{
@@ -52,20 +32,14 @@ func New() *JobManager {
 	return &jm
 }
 
-var _default *JobManager
-var _defaultLock = &sync.Mutex{}
+// NewFromConfig returns a new job manager from a given config.
+func NewFromConfig(cfg *Config) *JobManager {
+	return New().WithHeartbeatInterval(cfg.GetHeartbeatInterval())
+}
 
-// Default returns a shared instance of a JobManager.
-func Default() *JobManager {
-	if _default == nil {
-		_defaultLock.Lock()
-		defer _defaultLock.Unlock()
-
-		if _default == nil {
-			_default = New()
-		}
-	}
-	return _default
+// NewFromEnv returns a new job manager from the environment.
+func NewFromEnv() *JobManager {
+	return NewFromConfig(NewConfigFromEnv())
 }
 
 // JobManager is the main orchestration and job management object.
@@ -113,19 +87,20 @@ func (jm *JobManager) Logger() *logger.Logger {
 	return jm.log
 }
 
-// SetLogger sets the diagnostics agent.
+// WithLogger sets the logger and returns a reference to the job manager.
+func (jm *JobManager) WithLogger(log *logger.Logger) *JobManager {
+	jm.SetLogger(log)
+	return jm
+}
+
+// SetLogger sets the logger.
 func (jm *JobManager) SetLogger(log *logger.Logger) {
 	jm.log = log
 }
 
-// HeartbeatInterval returns the current heartbeat interval.
-func (jm *JobManager) HeartbeatInterval() time.Duration {
-	return jm.heartbeatInterval
-}
-
 // WithHighPrecisionHeartbeat sets the heartbeat interval to the high precision interval and returns a reference.
 func (jm *JobManager) WithHighPrecisionHeartbeat() *JobManager {
-	jm.heartbeatInterval = HighPrecisionHeartbeatInterval
+	jm.heartbeatInterval = DefaultHighPrecisionHeartbeatInterval
 	return jm
 }
 
@@ -135,9 +110,20 @@ func (jm *JobManager) WithDefaultPrecisionHeartbeat() *JobManager {
 	return jm
 }
 
+// WithHeartbeatInterval sets the heartbeat interval explicitly and returns the job manager.
+func (jm *JobManager) WithHeartbeatInterval(interval time.Duration) *JobManager {
+	jm.SetHeartbeatInterval(interval)
+	return jm
+}
+
 // SetHeartbeatInterval sets the heartbeat interval explicitly.
 func (jm *JobManager) SetHeartbeatInterval(interval time.Duration) {
 	jm.heartbeatInterval = interval
+}
+
+// HeartbeatInterval returns the current heartbeat interval.
+func (jm *JobManager) HeartbeatInterval() time.Duration {
+	return jm.heartbeatInterval
 }
 
 // ShouldTriggerListeners is a helper function to determine if we should trigger listeners for a given task.
@@ -167,17 +153,12 @@ func (jm *JobManager) ShouldWriteOutput(taskName string) bool {
 	return true
 }
 
-// fireTaskListeners fires the currently configured task listeners.
-func (jm *JobManager) fireTaskListeners(taskName string) {
+// fireTaskStartedListeners fires the currently configured task listeners.
+func (jm *JobManager) fireTaskStartedListeners(taskName string) {
 	if jm.log == nil {
 		return
 	}
-	jm.log.Trigger(EventStarted{
-		ts:         time.Now().UTC(),
-		isEnabled:  jm.ShouldTriggerListeners(taskName),
-		isWritable: jm.ShouldWriteOutput(taskName),
-		taskName:   taskName,
-	})
+	jm.log.Trigger(NewEvent(FlagStarted, taskName).WithIsEnabled(jm.ShouldTriggerListeners(taskName)).WithIsWritable(jm.ShouldWriteOutput(taskName)))
 }
 
 // fireTaskListeners fires the currently configured task listeners.
@@ -185,14 +166,13 @@ func (jm *JobManager) fireTaskCompleteListeners(taskName string, elapsed time.Du
 	if jm.log == nil {
 		return
 	}
-	jm.log.Trigger(EventComplete{
-		ts:         time.Now().UTC(),
-		taskName:   taskName,
-		isEnabled:  jm.ShouldTriggerListeners(taskName),
-		isWritable: jm.ShouldWriteOutput(taskName),
-		elapsed:    elapsed,
-		err:        err,
-	})
+
+	jm.log.Trigger(NewEvent(FlagComplete, taskName).
+		WithIsEnabled(jm.ShouldTriggerListeners(taskName)).
+		WithIsWritable(jm.ShouldWriteOutput(taskName)).
+		WithElapsed(elapsed).
+		WithErr(err))
+
 	if err != nil {
 		jm.log.Error(err)
 	}
@@ -257,12 +237,24 @@ func (jm *JobManager) ReadAllJobs(action func(jobs map[string]Job)) {
 // Core Methods
 // --------------------------------------------------------------------------------
 
+// LoadJobs loads a variadic list of jobs.
+func (jm *JobManager) LoadJobs(jobs ...Job) error {
+	var err error
+	for _, job := range jobs {
+		err = jm.LoadJob(job)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // LoadJob adds a job to the manager.
 func (jm *JobManager) LoadJob(j Job) error {
 	jobName := j.Name()
 
 	if jm.HasJob(jobName) {
-		return exception.Newf("Job name `%s` already loaded.", j.Name())
+		return exception.NewFromErr(ErrJobAlreadyLoaded).WithMessagef("job: %s", j.Name())
 	}
 
 	jm.setLoadedJob(jobName, j)
@@ -273,10 +265,22 @@ func (jm *JobManager) LoadJob(j Job) error {
 	return nil
 }
 
+// DisableJobs disables a variadic list of job names.
+func (jm *JobManager) DisableJobs(jobNames ...string) error {
+	var err error
+	for _, jobName := range jobNames {
+		err = jm.DisableJob(jobName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // DisableJob stops a job from running but does not unload it.
 func (jm *JobManager) DisableJob(jobName string) error {
 	if !jm.HasJob(jobName) {
-		return exception.Newf("Job name `%s` isn't loaded.", jobName)
+		return exception.NewFromErr(ErrJobNotLoaded).WithMessagef("job: %s", jobName)
 	}
 
 	jm.setDisabledJob(jobName)
@@ -284,10 +288,22 @@ func (jm *JobManager) DisableJob(jobName string) error {
 	return nil
 }
 
+// EnableJobs enables a variadic list of job names.
+func (jm *JobManager) EnableJobs(jobNames ...string) error {
+	var err error
+	for _, jobName := range jobNames {
+		err = jm.EnableJob(jobName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // EnableJob enables a job that has been disabled.
 func (jm *JobManager) EnableJob(jobName string) error {
 	if !jm.HasJob(jobName) {
-		return exception.Newf("Job name `%s` isn't loaded.", jobName)
+		return exception.NewFromErr(ErrJobNotLoaded).WithMessagef("job: %s", jobName)
 	}
 
 	jm.deleteDisabledJob(jobName)
@@ -295,6 +311,26 @@ func (jm *JobManager) EnableJob(jobName string) error {
 	jobSchedule := job.Schedule()
 	jm.setNextRunTime(jobName, jobSchedule.GetNextRunTime(nil))
 
+	return nil
+}
+
+// RunJobs runs a variadic list of job names.
+func (jm *JobManager) RunJobs(jobNames ...string) error {
+	jm.loadedJobsLock.Lock()
+	defer jm.loadedJobsLock.Unlock()
+
+	for _, jobName := range jobNames {
+		if job, hasJob := jm.loadedJobs[jobName]; hasJob {
+			if !jm.IsDisabled(jobName) {
+				jobErr := jm.RunTask(job)
+				if jobErr != nil {
+					return jobErr
+				}
+			}
+		} else {
+			return exception.NewFromErr(ErrJobNotLoaded).WithMessagef("job: %s", jobName)
+		}
+	}
 	return nil
 }
 
@@ -312,7 +348,7 @@ func (jm *JobManager) RunJob(jobName string) error {
 		}
 		return nil
 	}
-	return exception.Newf("Job name `%s` not found.", jobName)
+	return exception.NewFromErr(ErrJobNotLoaded).WithMessagef("job: %s", jobName)
 }
 
 // RunAllJobs runs every job that has been loaded in the JobManager at once.
@@ -329,19 +365,6 @@ func (jm *JobManager) RunAllJobs() error {
 		}
 	}
 	return nil
-}
-
-func (jm *JobManager) createContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(context.Background())
-}
-
-// shouldRunTask returns whether a task should be executed based on its status
-func (jm *JobManager) shouldRunTask(t Task) bool {
-	_, serial := t.(SerialProvider)
-	if serial {
-		return !jm.IsRunning(t.Name())
-	}
-	return true
 }
 
 // RunTask runs a task on demand.
@@ -376,12 +399,63 @@ func (jm *JobManager) RunTask(t Task) error {
 		}()
 
 		jm.onTaskStart(t)
-		jm.fireTaskListeners(taskName)
+		jm.fireTaskStartedListeners(taskName)
 		err = t.Execute(ctx)
 		jm.onTaskComplete(t, err)
 	}()
 
 	return nil
+}
+
+// CancelTask cancels (sends the cancellation signal) to a running task.
+func (jm *JobManager) CancelTask(taskName string) error {
+	jm.runningTasksLock.Lock()
+	defer jm.runningTasksLock.Unlock()
+
+	if task, hasTask := jm.runningTasks[taskName]; hasTask {
+		cancel := jm.getCancelFunc(taskName)
+		jm.onTaskCancellation(task)
+		cancel()
+	}
+
+	return exception.NewFromErr(ErrTaskNotFound).WithMessagef("task: %s", taskName)
+}
+
+// Start begins the schedule runner for a JobManager.
+func (jm *JobManager) Start() {
+	ctx, cancel := jm.createContext()
+	jm.schedulerCancel = cancel
+
+	go jm.runDueJobs(ctx)
+	go jm.killHangingJobs(ctx)
+
+	jm.isRunning = true
+}
+
+// Stop stops the schedule runner for a JobManager.
+func (jm *JobManager) Stop() {
+	if !jm.isRunning {
+		return
+	}
+	jm.schedulerCancel()
+	jm.isRunning = false
+}
+
+// --------------------------------------------------------------------------------
+// Utility Methods
+// --------------------------------------------------------------------------------
+
+func (jm *JobManager) createContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.Background())
+}
+
+// shouldRunTask returns whether a task should be executed based on its status
+func (jm *JobManager) shouldRunTask(t Task) bool {
+	_, serial := t.(SerialProvider)
+	if serial {
+		return !jm.IsRunning(t.Name())
+	}
+	return true
 }
 
 func (jm *JobManager) onTaskStart(t Task) {
@@ -408,43 +482,6 @@ func (jm *JobManager) cleanupTask(taskName string) {
 	jm.deleteContext(taskName)
 	jm.deleteCancelFunc(taskName)
 }
-
-// CancelTask cancels (sends the cancellation signal) to a running task.
-func (jm *JobManager) CancelTask(taskName string) error {
-	jm.runningTasksLock.Lock()
-	defer jm.runningTasksLock.Unlock()
-
-	if task, hasTask := jm.runningTasks[taskName]; hasTask {
-		cancel := jm.getCancelFunc(taskName)
-		jm.onTaskCancellation(task)
-		cancel()
-	}
-	return exception.Newf("Task name `%s` not found.", taskName)
-}
-
-// Start begins the schedule runner for a JobManager.
-func (jm *JobManager) Start() {
-	ctx, cancel := jm.createContext()
-	jm.schedulerCancel = cancel
-
-	go jm.runDueJobs(ctx)
-	go jm.killHangingJobs(ctx)
-
-	jm.isRunning = true
-}
-
-// Stop stops the schedule runner for a JobManager.
-func (jm *JobManager) Stop() {
-	if !jm.isRunning {
-		return
-	}
-	jm.schedulerCancel()
-	jm.isRunning = false
-}
-
-// --------------------------------------------------------------------------------
-// Utility Methods
-// --------------------------------------------------------------------------------
 
 func (jm *JobManager) runDueJobs(ctx context.Context) {
 	heartbeat := time.Tick(jm.heartbeatInterval)

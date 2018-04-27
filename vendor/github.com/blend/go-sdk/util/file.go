@@ -180,3 +180,15 @@ func (fu fileUtil) ReadAllBytes(filePath string) ([]byte, error) {
 	defer file.Close()
 	return ioutil.ReadAll(file)
 }
+
+// FormatFileSize returns a string representation of a file size in bytes.
+func (fu fileUtil) FormatFileSize(sizeBytes int64) string {
+	if sizeBytes >= 1<<30 {
+		return strconv.FormatInt(sizeBytes/Gigabyte, 10) + "gb"
+	} else if sizeBytes >= 1<<20 {
+		return strconv.FormatInt(sizeBytes/Megabyte, 10) + "mb"
+	} else if sizeBytes >= 1<<10 {
+		return strconv.FormatInt(sizeBytes/Kilobyte, 10) + "kb"
+	}
+	return strconv.FormatInt(sizeBytes, 10)
+}

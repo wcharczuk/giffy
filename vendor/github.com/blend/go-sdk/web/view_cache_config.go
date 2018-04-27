@@ -4,8 +4,8 @@ import "github.com/blend/go-sdk/util"
 
 // ViewCacheConfig is a config for the view cache.
 type ViewCacheConfig struct {
-	Cached *bool    `json:"cached" yaml:"cached" env:"VIEW_CACHE_ENABLED"`
-	Paths  []string `json:"paths" yaml:"paths" env:"VIEW_CACHE_PATHS,csv"`
+	Cached *bool    `json:"cached,omitempty" yaml:"cached,omitempty" env:"VIEW_CACHE_ENABLED"`
+	Paths  []string `json:"paths,omitempty" yaml:"paths,omitempty" env:"VIEW_CACHE_PATHS,csv"`
 }
 
 // GetCached returns if the viewcache should store templates in memory or read from disk.

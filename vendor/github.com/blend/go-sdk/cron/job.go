@@ -50,7 +50,7 @@ type JobFactory struct {
 	schedule             Schedule
 	timeout              time.Duration
 	action               TaskAction
-	enabledProvider      func() bool
+	isEnabledProvider    func() bool
 	showMessagesProvider func() bool
 }
 
@@ -101,17 +101,28 @@ func (jf *JobFactory) WithAction(action TaskAction) *JobFactory {
 	return jf
 }
 
-// Enabled returns if the job is enabled.
-func (jf *JobFactory) Enabled() bool {
-	if jf.enabledProvider != nil {
-		return jf.enabledProvider()
+// Action returns the job action.
+func (jf *JobFactory) Action() TaskAction {
+	return jf.action
+}
+
+// WithIsEnabledProvider sets the enabled provider for the job.
+func (jf *JobFactory) WithIsEnabledProvider(provider func() bool) *JobFactory {
+	jf.isEnabledProvider = provider
+	return jf
+}
+
+// IsEnabled returns if the job is enabled.
+func (jf *JobFactory) IsEnabled() bool {
+	if jf.isEnabledProvider != nil {
+		return jf.isEnabledProvider()
 	}
 	return true
 }
 
-// WithEnabledProvider sets the enabled provider for the job.
-func (jf *JobFactory) WithEnabledProvider(provider func() bool) *JobFactory {
-	jf.enabledProvider = provider
+// WithShowMessagesProvider sets the enabled provider for the job.
+func (jf *JobFactory) WithShowMessagesProvider(provider func() bool) *JobFactory {
+	jf.showMessagesProvider = provider
 	return jf
 }
 
@@ -121,10 +132,4 @@ func (jf *JobFactory) ShowMessages() bool {
 		return jf.showMessagesProvider()
 	}
 	return true
-}
-
-// WithShowMessagesProvider sets the enabled provider for the job.
-func (jf *JobFactory) WithShowMessagesProvider(provider func() bool) *JobFactory {
-	jf.showMessagesProvider = provider
-	return jf
 }

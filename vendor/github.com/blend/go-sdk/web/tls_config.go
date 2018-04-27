@@ -11,12 +11,12 @@ import (
 
 // TLSConfig is a config for app tls settings.
 type TLSConfig struct {
-	Cert     []byte `json:"cert" yaml:"cert" env:"TLS_CERT"`
-	CertPath string `json:"certPath" yaml:"certPath" env:"TLS_CERT_PATH"`
-	Key      []byte `json:"key" yaml:"key" env:"TLS_KEY"`
-	KeyPath  string `json:"keyPath" yaml:"keyPath" env:"TLS_KEY_PATH"`
+	Cert     []byte `json:"cert,omitempty" yaml:"cert,omitempty" env:"TLS_CERT"`
+	CertPath string `json:"certPath,omitempty" yaml:"certPath,omitempty" env:"TLS_CERT_PATH"`
+	Key      []byte `json:"key,omitempty" yaml:"key,omitempty" env:"TLS_KEY"`
+	KeyPath  string `json:"keyPath,omitempty" yaml:"keyPath,omitempty" env:"TLS_KEY_PATH"`
 
-	CAPaths []string `json:"caPaths" yaml:"caPaths" env:"TLS_CA_PATHS,csv"`
+	CAPaths []string `json:"caPaths,omitempty" yaml:"caPaths,omitempty" env:"TLS_CA_PATHS,csv"`
 }
 
 // GetCert returns a tls cert.

@@ -23,8 +23,8 @@ func DeserializeState(raw string) (*State, error) {
 	return &state, nil
 }
 
-// SerializeOAuthState serializes the oauth state.
-func SerializeOAuthState(state *State) (output string, err error) {
+// SerializeState serializes the oauth state.
+func SerializeState(state *State) (output string, err error) {
 	buffer := bytes.NewBuffer(nil)
 	err = gob.NewEncoder(buffer).Encode(state)
 	if err != nil {
@@ -36,7 +36,11 @@ func SerializeOAuthState(state *State) (output string, err error) {
 
 // State is the oauth state.
 type State struct {
-	Token       string
-	Secure      string
+	// Token is a plaintext random token.
+	Token string
+	// SecureToken is the hashed version of the token.
+	// If a key is set, it validates that our app created the oauth state.
+	SecureToken string
+	// RedirectURL is the redirect url.
 	RedirectURL string
 }

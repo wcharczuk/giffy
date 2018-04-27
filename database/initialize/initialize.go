@@ -10,8 +10,8 @@ import (
 // Initialize returns the initialize migrations.
 func Initialize(cfg *config.Giffy) migration.Migration {
 
-	return migration.New(
-		migration.New(
+	return migration.NewGroup(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.AlwaysRun(),
 				migration.Statements(
@@ -21,7 +21,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			).WithLabel("recreate schema"),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.AlwaysRun(),
 				migration.Statements(
@@ -31,7 +31,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			).WithLabel("add pg_trgm and pgcrypto"),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("error"),
 				migration.Statements(
@@ -53,7 +53,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("users"),
 				migration.Statements(
@@ -77,7 +77,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("user_auth"),
 				migration.Statements(
@@ -96,7 +96,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("user_session"),
 				migration.Statements(
@@ -111,7 +111,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("content_rating"),
 				migration.Statements(
@@ -125,7 +125,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("image"),
 				migration.Statements(
@@ -159,7 +159,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("tag"),
 				migration.Statements(
@@ -179,7 +179,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("vote_summary"),
 				migration.Statements(
@@ -200,7 +200,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("vote"),
 				migration.Statements(
@@ -219,7 +219,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("moderation"),
 				migration.Statements(
@@ -238,7 +238,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("search_history"),
 				migration.Statements(
@@ -265,7 +265,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.TableNotExists("slack_team"),
 				migration.Statements(
@@ -283,7 +283,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.AlwaysRun(),
 				migration.Statements(
@@ -299,7 +299,7 @@ func Initialize(cfg *config.Giffy) migration.Migration {
 			).WithLabel("create admin user"),
 		),
 
-		migration.New(
+		migration.NewGroup(
 			migration.NewStep(
 				migration.AlwaysRun(),
 				migration.Statements(

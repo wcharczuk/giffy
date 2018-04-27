@@ -20,54 +20,54 @@ func NewConfigFromEnv() *Config {
 
 // Config is an object used to set up a web app.
 type Config struct {
-	Port     int32  `json:"port" yaml:"port" env:"PORT"`
-	BindAddr string `json:"bindAddr" yaml:"bindAddr" env:"BIND_ADDR"`
-	BaseURL  string `json:"baseURL" yaml:"baseURL" env:"BASE_URL"`
+	Port     int32  `json:"port,omitempty" yaml:"port,omitempty" env:"PORT"`
+	BindAddr string `json:"bindAddr,omitempty" yaml:"bindAddr,omitempty" env:"BIND_ADDR"`
+	BaseURL  string `json:"baseURL,omitempty" yaml:"baseURL,omitempty" env:"BASE_URL"`
 
-	RedirectTrailingSlash  *bool `json:"redirectTrailingSlash" yaml:"redirectTrailingSlash"`
-	HandleOptions          *bool `json:"handleOptions" yaml:"handleOptions"`
-	HandleMethodNotAllowed *bool `json:"handleMethodNotAllowed" yaml:"handleMethodNotAllowed"`
-	RecoverPanics          *bool `json:"recoverPanics" yaml:"recoverPanics"`
+	RedirectTrailingSlash  *bool `json:"redirectTrailingSlash,omitempty" yaml:"redirectTrailingSlash,omitempty"`
+	HandleOptions          *bool `json:"handleOptions,omitempty" yaml:"handleOptions,omitempty"`
+	HandleMethodNotAllowed *bool `json:"handleMethodNotAllowed,omitempty" yaml:"handleMethodNotAllowed,omitempty"`
+	RecoverPanics          *bool `json:"recoverPanics,omitempty" yaml:"recoverPanics,omitempty"`
 
 	// HSTS determines if we should issue the Strict-Transport-Security header.
-	HSTS                  *bool `json:"hsts" yaml:"hsts"`
-	HSTSMaxAgeSeconds     int   `json:"hstsMaxAgeSeconds" yaml:"hstsMaxAgeSeconds"`
-	HSTSIncludeSubDomains *bool `json:"hstsIncludeSubdomains" yaml:"hstsIncludeSubdomains"`
-	HSTSPreload           *bool `json:"hstsPreload" yaml:"hstsPreload"`
+	HSTS                  *bool `json:"hsts,omitempty" yaml:"hsts,omitempty"`
+	HSTSMaxAgeSeconds     int   `json:"hstsMaxAgeSeconds,omitempty" yaml:"hstsMaxAgeSeconds,omitempty"`
+	HSTSIncludeSubDomains *bool `json:"hstsIncludeSubdomains,omitempty" yaml:"hstsIncludeSubdomains,omitempty"`
+	HSTSPreload           *bool `json:"hstsPreload,omitempty" yaml:"hstsPreload,omitempty"`
 
 	// UseSessionCache enables or disables the in memory session cache.
 	// Note: If the session cache is disabled you *must* provide a fetch handler.
-	UseSessionCache *bool `json:"useSessionCache" yaml:"useSessionCache" env:"USE_SESSION_CACHE"`
+	UseSessionCache *bool `json:"useSessionCache,omitempty" yaml:"useSessionCache,omitempty" env:"USE_SESSION_CACHE"`
 	// SessionTimeout is a fixed duration to use when calculating hard or rolling deadlines.
-	SessionTimeout time.Duration `json:"sessionTimeout" yaml:"sessionTimeout" env:"SESSION_TIMEOUT"`
+	SessionTimeout time.Duration `json:"sessionTimeout,omitempty" yaml:"sessionTimeout,omitempty" env:"SESSION_TIMEOUT"`
 	// SessionTimeoutIsAbsolute determines if the session timeout is a hard deadline or if it gets pushed forward with usage.
 	// The default is to use a hard deadline.
-	SessionTimeoutIsAbsolute *bool `json:"sessionTimeoutIsAbsolute" yaml:"sessionTimeoutIsAbsolute" env:"SESSION_TIMEOUT_ABSOLUTE"`
+	SessionTimeoutIsAbsolute *bool `json:"sessionTimeoutIsAbsolute,omitempty" yaml:"sessionTimeoutIsAbsolute,omitempty" env:"SESSION_TIMEOUT_ABSOLUTE"`
 	// CookieHTTPS determines if we should flip the `https only` flag on issued cookies.
-	CookieHTTPSOnly *bool `json:"cookieHTTPSOnly" yaml:"cookieHTTPSOnly" env:"COOKIE_HTTPS_ONLY"`
+	CookieHTTPSOnly *bool `json:"cookieHTTPSOnly,omitempty" yaml:"cookieHTTPSOnly,omitempty" env:"COOKIE_HTTPS_ONLY"`
 	// CookieName is the name of the cookie to issue with sessions.
-	CookieName string `json:"cookieName" yaml:"cookieName" env:"COOKIE_NAME"`
+	CookieName string `json:"cookieName,omitempty" yaml:"cookieName,omitempty" env:"COOKIE_NAME"`
 	// CookiePath is the path on the cookie to issue with sessions.
-	CookiePath string `json:"cookiePath" yaml:"cookiePath" env:"COOKIE_PATH"`
+	CookiePath string `json:"cookiePath,omitempty" yaml:"cookiePath,omitempty" env:"COOKIE_PATH"`
 
 	// AuthSecret is a key to use to encrypt the sessionID as a second factor cookie.
-	AuthSecret string `json:"authSecret" yaml:"authSecret" env:"AUTH_SECRET"`
+	AuthSecret string `json:"authSecret,omitempty" yaml:"authSecret,omitempty" env:"AUTH_SECRET"`
 	// SecureCookieHTTPS determines if we should flip the `https only` flag on issued secure cookies.
-	SecureCookieHTTPSOnly *bool `json:"secureCookieHTTPSOnly" yaml:"secureCookieHTTPSOnly" env:"SECURE_COOKIE_HTTPS_ONLY"`
+	SecureCookieHTTPSOnly *bool `json:"secureCookieHTTPSOnly,omitempty" yaml:"secureCookieHTTPSOnly,omitempty" env:"SECURE_COOKIE_HTTPS_ONLY"`
 	// SecureCookieName is the name of the secure cookie to issue with sessions.
-	SecureCookieName string `json:"secureCookieName" yaml:"secureCookieName" env:"SECURE_COOKIE_NAME"`
+	SecureCookieName string `json:"secureCookieName,omitempty" yaml:"secureCookieName,omitempty" env:"SECURE_COOKIE_NAME"`
 
 	// DefaultHeaders are included on any responses. The app ships with a set of default headers, which you can augment with this property.
-	DefaultHeaders map[string]string `json:"defaultHeaders" yaml:"defaultHeaders"`
+	DefaultHeaders map[string]string `json:"defaultHeaders,omitempty" yaml:"defaultHeaders,omitempty"`
 
-	MaxHeaderBytes    int           `json:"maxHeaderBytes" yaml:"maxHeaderBytes" env:"MAX_HEADER_BYTES"`
-	ReadTimeout       time.Duration `json:"readTimeout" yaml:"readTimeout" env:"READ_HEADER_TIMEOUT"`
-	ReadHeaderTimeout time.Duration `json:"readHeaderTimeout" yaml:"readHeaderTimeout" env:"READ_HEADER_TIMEOUT"`
-	WriteTimeout      time.Duration `json:"writeTimeout" yaml:"writeTimeout" env:"WRITE_TIMEOUT"`
-	IdleTimeout       time.Duration `json:"idleTimeout" yaml:"idleTimeout" env:"IDLE_TIMEOUT"`
+	MaxHeaderBytes    int           `json:"maxHeaderBytes,omitempty" yaml:"maxHeaderBytes,omitempty" env:"MAX_HEADER_BYTES"`
+	ReadTimeout       time.Duration `json:"readTimeout,omitempty" yaml:"readTimeout,omitempty" env:"READ_HEADER_TIMEOUT"`
+	ReadHeaderTimeout time.Duration `json:"readHeaderTimeout,omitempty" yaml:"readHeaderTimeout,omitempty" env:"READ_HEADER_TIMEOUT"`
+	WriteTimeout      time.Duration `json:"writeTimeout,omitempty" yaml:"writeTimeout,omitempty" env:"WRITE_TIMEOUT"`
+	IdleTimeout       time.Duration `json:"idleTimeout,omitempty" yaml:"idleTimeout,omitempty" env:"IDLE_TIMEOUT"`
 
-	TLS   TLSConfig       `json:"tls" yaml:"tls"`
-	Views ViewCacheConfig `json:"views" yaml:"views"`
+	TLS   TLSConfig       `json:"tls,omitempty" yaml:"tls,omitempty"`
+	Views ViewCacheConfig `json:"views,omitempty" yaml:"views,omitempty"`
 }
 
 // GetBindAddr util.Coalesces the bind addr, the port, or the default.

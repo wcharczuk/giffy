@@ -3,7 +3,6 @@ package configutil
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,11 +47,7 @@ func Deserialize(ext string, r io.Reader, ref Any) error {
 	case ExtensionJSON:
 		return exception.Wrap(json.NewDecoder(r).Decode(ref))
 	case ExtensionYAML, ExtensionYML:
-		contents, err := ioutil.ReadAll(r)
-		if err != nil {
-			return exception.Wrap(err)
-		}
-		return exception.Wrap(yaml.Unmarshal(contents, ref))
+		return exception.Wrap(yaml.NewDecoder(r).Decode(ref))
 	default:
 		return exception.NewFromErr(ErrInvalidConfigExtension).WithMessagef("extension: %s", ext)
 	}

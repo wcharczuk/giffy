@@ -17,15 +17,12 @@ func PopulateByName(object interface{}, row *sql.Rows, cols *ColumnCollection) e
 
 	var values = make([]interface{}, len(rowColumns))
 	var columnLookup = cols.Lookup()
-
 	for i, name := range rowColumns {
+		// these are hard because the columns might not exist
+		// so we sniff if they map, and insert a placeholder
+		// if they're missing
 		if col, ok := columnLookup[name]; ok {
-			if col.IsJSON {
-				str := ""
-				values[i] = &str
-			} else {
-				values[i] = reflect.New(reflect.PtrTo(col.FieldType)).Interface()
-			}
+			initColumnValue(i, values, col)
 		} else {
 			var value interface{}
 			values[i] = &value
@@ -59,26 +56,7 @@ func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols *ColumnCollectio
 	var values = make([]interface{}, cols.Len())
 
 	for i, col := range cols.Columns() {
-		if col.FieldType.Kind() == reflect.Ptr {
-			if col.IsJSON {
-				str := ""
-				values[i] = &str
-			} else {
-				blankPtr := reflect.New(reflect.PtrTo(col.FieldType))
-				if blankPtr.CanAddr() {
-					values[i] = blankPtr.Addr()
-				} else {
-					values[i] = blankPtr.Interface()
-				}
-			}
-		} else {
-			if col.IsJSON {
-				str := ""
-				values[i] = &str
-			} else {
-				values[i] = reflect.New(reflect.PtrTo(col.FieldType)).Interface()
-			}
-		}
+		initColumnValue(i, values, &col)
 	}
 
 	scanErr := row.Scan(values...)
@@ -97,4 +75,25 @@ func PopulateInOrder(object DatabaseMapped, row *sql.Rows, cols *ColumnCollectio
 	}
 
 	return nil
+}
+
+// initColumnValue inserts the correct placeholder in the scan array of values.
+// it will use `sql.Null` forms where appropriate.
+// JSON fields are implicitly nullable.
+func initColumnValue(index int, values []interface{}, col *Column) {
+	if col.IsJSON {
+		values[index] = &sql.NullString{}
+	} else {
+		if col.IsNullable && col.FieldType.Kind() == reflect.String {
+			values[index] = &sql.NullString{}
+		} else if col.IsNullable && col.FieldType.Kind() == reflect.Int {
+			values[index] = &sql.NullInt64{}
+		} else if col.IsNullable && col.FieldType.Kind() == reflect.Int64 {
+			values[index] = &sql.NullInt64{}
+		} else if col.IsNullable && col.FieldType.Kind() == reflect.Float64 {
+			values[index] = &sql.NullFloat64{}
+		} else {
+			values[index] = reflect.New(reflect.PtrTo(col.FieldType)).Interface()
+		}
+	}
 }

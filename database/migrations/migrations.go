@@ -4,7 +4,7 @@ import "github.com/blend/go-sdk/db/migration"
 
 // Migrations returns the migrations.
 func Migrations() migration.Migration {
-	return migration.New(
+	return migration.NewGroup(
 		contentRating(),
 		slackTeam(),
 		errors(),
@@ -46,7 +46,7 @@ func contentRating() migration.Migration {
 		),
 	)
 
-	return migration.New(
+	return migration.NewGroup(
 		createContentRating,
 		addContentRatingToImage,
 		dropIsCensoredFromImage,
@@ -54,7 +54,7 @@ func contentRating() migration.Migration {
 }
 
 func slackTeam() migration.Migration {
-	return migration.New(
+	return migration.NewGroup(
 		migration.NewStep(
 			migration.TableNotExists("slack_team"),
 			migration.Statements(
@@ -98,7 +98,7 @@ func slackTeam() migration.Migration {
 }
 
 func errors() migration.Migration {
-	return migration.New(
+	return migration.NewGroup(
 		migration.NewStep(
 			migration.TableNotExists("error"),
 			migration.Statements(
@@ -122,7 +122,7 @@ func errors() migration.Migration {
 }
 
 func sessionIDs() migration.Migration {
-	return migration.New(
+	return migration.NewGroup(
 		migration.NewStep(
 			migration.ColumnExists("user_session", "session_id"),
 			migration.Statements(`AlTER TABLE user_session ALTER session_id TYPE varchar(128)`),

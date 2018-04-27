@@ -1,4 +1,4 @@
-Spiffy
+db
 ======
 
 This is a very bare bones database interface for golang. It abstracts away a bunch of boilerplate so that the developer can concentrate on writing their app.
@@ -7,17 +7,25 @@ It does not abstract away actual sql, however.
 
 # Gotchas & General Notes #
 
-There is a standing pattern that every action (query, exec, create, update etc.) has a corresponding ...InTx method that these top level methods actually call into with `nil` as the tx. If the tx is nil, a direct connection, free of a wrapping transaction will be created for that command during the `prepare` phase of the command execution. 
+- Stuct to database table / column mapping is done through field tags.
+- There are a bunch of helpers for common operations (Get, GetAll, Create, CreateMany, Update, Delete, etc.).
+	- These will write sql for you, and generally simplify basic operations.
+- We leverage statement caching aggressively. What this means is that if a query or exec is assigned a label, we will save the returned query plan for later increasing throughput.
+	- The pre-built (`Get`, `GetAll`, `Create`, `CreateMany` etc.) methods create query labels for you.
+	- Your statements will not be cached if you don't set a query label.
+	- You set the query label by:
+		`conn.Invoke().WithLabel("my_label").[Query(...)|Exec(...)]`
 
-# Mapping Structs Using Spiffy #
+# Mapping Structs Using `go-sdk/db` #
 
 A sample database mapped type:
 ```go
 type MyTable struct {
-	Id int `db:"id,serial,pk"`
+	Id int `db:"id,auto,pk"`
 	Name string
 	Excluded `db:"-"`
 }
+// note; if we don't do this, the table name will be inferred from the type name.
 func (mt MyTable) TableName() string {
 	return "my_table"
 }
@@ -29,85 +37,168 @@ the table name for the struct as it is mapped in the db.
 Tags are laid out in the following format `db:"<column_name>,<options>,..."`, where after the `column_name` there can be multiple `options`. An example above is `id,serial,pk`, which translates to a column name `id` and options `serial,pk` respectively. 
 
 Options include:
-- `serial` : denotes a column that will be read back on `Create` (there can only be 1 at this time)
+- `auto` : denotes a column that will be read back on `Create` (there can be many of these).
 - `pk` : deontes a column that consitutes a primary key. Will be used when creating SQL where clauses.
 - `readonly` : denotes a column that is only read, not written to the db.
 
 # Managing Connections and Aliases #
 
-The next step in running a database driven app is to tell the app how to connect to the db. There are 4 required pieces of info to do this: `host`, `db name`, `username`, `password`. Note: `host` should include the port if it's non-standard. `db name` is the database you're hitting. 
+The next step in running a database driven app is to tell the app how to connect to the db. 
 
-We can manage connections (and save a default so it doesn't need to be passed around) with "Aliases".
-
-*Example:*
+We can create a connection with a configuration:
 ```golang
-connection := spiffy.NewConnection("localhost", "my_db", "postgres", "super_secret_pw"))
-spiffy.InitDefault(connection)
+conn, err := db.NewFromConfig(db.NewConfig().WithHost("localhost").WithDatabase("my_db").WithUser("postgres").WithPassword("super_secret_pw")).Open()
 ```
 
-The above snipped creates a connection, and then saves it as the default connection. This lets us then call `spiffy.DB()` to retrieve this connection. Alternatively we could spin up a connection and pass it around the app as pointer, but this get's tricky and it's easier just to save it to the a central location.
+The above snipped creates a connection, and opens it (establishing the connection). We can then pass this connection around to other things like controllers.
 
-# Querying, Execing, Getting Objects from the Database #
+## The `Default` Connection ##
 
-There are two paradigms for interacting with the database; functions that return QueryResults, and functions that just return errors. 
+If we don't want to manage connection references ourselves and just want to have a simple `.Default()` accessible anywhere, we can use:
 
-## Execing ##
-
-Simple execute operations can be done with `Exec` or `ExecInTx` functions. 
-
-*Example:*
 ```golang
-err := spiffy.DB().Exec("delete from my_table where id = $1", obj_id)
+err := db.OpenDefault(db.NewFromConfig(db.NewConfig().WithHost("localhost").WithDatabase("my_db").WithUser("postgres").WithPassword("super_secret_pw")))
 ```
 
-When we need to pass parameters to the queries, use `$1` numbered tokens to denote the parameter in the sql. We then need to pass that parameter as an argument to `Exec` in the order that maps to the numbered token.
+This will then let the connection be accessible from a central place `db.Default()`.
 
-## Querying ###
+The downside of this is if we need multiple connections to multiple databases we'll need to create another default singleton, and it's easier in that case just to manage the references ourselves.
 
-Querying in Spiffy can be done with the `Query` or `QueryInTx` functions. Each takes SQL as it's main parameter. That's it, no complicated DSL's for replacing sql, just write it yourself. 
+# ORM Actions: Create, Update, Delete, Get, GetAll
 
-*Struct Output Example*
-```golang
-obj := MyObject{}
-err := spiffy.DB().Query("select * from my_table where id = $1", obj_id).Out(&obj)
-```
+To create an object that has been mapped to a table, simply call:
 
-*Slice Ouptut Example:*
-```golang
-objs := []MyObject{}
-err := spiffy.DB().Query("select * from my_table").OutMany(&objs)
-```
-
-In order to query the database, we need a query and a target for the output. The output can be a single struct, or a slice of structs. Which we're using determines if we use `Out` or `OutMany`. Like `Exec`, when we need to pass parameters to the queries, use `$1` numbered tokens to denote the parameter in the sql. We then need to pass that parameter as an argument to `Query` in the order that maps to the numbered token.
-
-# CrUD Operations #
-
-You can perform the following CrUD operations:
-- `Create` or `CreateInTx` : create objects
-
-*Example:*
 ```golang
 obj := MyObj{...}
-create_err := spiffy.DB().Create(&obj) //note the reference! this is incase we have to write back a serial id.
+err := db.Default().Create(&obj) //note the reference! this is incase we have to write back a auto id.
 ```
 
-- `Update` or `UpdateInTx` : update objects
+Then we can get the object with:
 
-*Example:*
 ```golang
-obj := MyObj{..}
-err := spiffy.DB().GetById(&obj, objID) //note, there can be multiple params (!!) if there are multiple pks
+var obj MyObj
+err := db.Default().Get(&obj, "foo") // "foo" here is an imaginary primary key value.
+```
+
+To udpate an object:
+```golang
+var obj  MyObj
+err := db.Default().Get(&obj, objID) //note, there can be multiple params (!!) if there are multiple pks
+// .. handle the err
 obj.Property = "new_value"
-err = spiffy.DB().Update(obj) //note we don't need a reference for this, as it's read only.
+err = db.Default().Update(obj) //note we don't need a reference for this, as it's read only.
 ```
 
-- `Delete` or `DeleteInTx` : delete objects
-
-*Example:*
+To delete an object:
 ```golang
-obj := MyObj{...}
-err := spiffy.DB().GetById(&obj, objID) //note, there can be multiple params (!!) if there are multiple pks
-err = spiffy.DB().Delete(obj) //note we don't need a reference for this, as it's read only.
+var obj MyObj
+err := db.Default().Get(&obj, objID) //note, there can be multiple params (!!) if there are multiple pks
+// .. handle the err
+err = db.Default().Delete(obj) //note we don't need a reference for this, as it's read only.
+```
+
+# Complex queries; using raw sql
+
+To use sql directly, we need to use either an `Exec` (when we don't need to return results) or a `Query` (when we do want the results).
+
+## Query
+
+There are a couple options / paths we can take to actually running a query, and it's important to understand when to use each path.
+
+- We need to run a query against the database without a transaction or a statement cache label:
+```golang
+db.Default().Query(<SQL Statement>, <Args...>).<Out(...)|OutMany(...)|Each(...)|First(...)|Scan(...)|Any()|None()>
+```
+- We need to run a query against the database with statement cache label:
+```golang
+db.Default().Invoke().WithLabel("cached_statement").Query(<SQL Statement>, <Args...>).<Out(...)|OutMany(...)|Each(...)|First(...)|Scan(...)|Any()|None()>
+```
+- We need to run a query against the database using a transaction, with a cache label:
+```golang
+db.Default().InTx(tx).WithLabel("cached_statement").Query(<SQL Statement>, <Args...>).<Out(...)|OutMany(...)|Each(...)|First(...)|Scan(...)|Any()|None()>
+```
+
+Note that after the `Query(...)` function itself, there can be various collectors. Each collector serves a different purpose:
+- `Out(&obj)`: take the first result and automatically populate it against the object reference `obj` (must be passed by addr `&`)
+- `OutMany(&objs)`: take all results and automatically populate them against the object array reference `objs` (must be passed by addr `&`)
+- `Each(func(*sql.Rows) error)`: run the given handler for each result. This is useful if you need to read nested objects.
+- `First(func(*sql.Rows) error)`: run the given handler for the first result. This is useful if you need to read a single complicated object.
+- `Scan(<Args...>)`: read the first result into a given set of references. Useful for scalar return values.
+- `Any`, `None`: return if there are results present, or conversely no results present. 
+
+## Exec
+
+Executes have very similar preambles to queries:
+
+- We need to execute a sql statement:
+```golang
+db.Default().Exec(<SQL Statement>, <Args...>)
+```
+
+The only difference is the lack of a collector.
+
+# Common Patterns / Advanced Usage
+
+## Nested objects
+
+Lets say you have to model the following:
+
+```golang
+type Parent struct {
+	ID int `db:"id,pk,serial"`
+	TimestampUTC time.Time `db:"timestamp_utc"`
+	Children []Child `db:"-"` // not we don't actually map this to the db.
+}
+
+type Child struct {
+	ID int `db:"id,pk,serial"`
+	ParentID int `db:"parent_id"`
+	Name string `db:"name"`
+}
+```
+
+What would the best way be to read all the `Parent` objects out with a given query?
+
+We would want to query the parent objects, and while we're doing so, create a way to modify the parents as we read all the children.
+
+To do this we use a map as a lookup, and some careful handling of pointers.
+
+```golang
+func GetAllParents() (parents []Parent, err error) {
+	parentLookup := map[int]*Parent{} // note the pointer! this is so we can modify it.
+
+	if err = db.Default().Query("select * from parent").Each(func(r *sql.Rows) error {
+		var parent Parent
+		// populate by name is a helper to set an object from a given row result
+		// it is used internally by `OutMany` on `Query`.
+		if err := db.PopulateByName(&parent, r, db.Columns(parent)); err != nil {
+			return err
+		}
+		parents = append(parents, parent)
+		parentLookup[parent.ID] = &parent
+		return nil
+	}); err != nil {
+		return 
+	}
+
+	// now we need to do a second query to get all the children.
+	if err = db.Default().Query("select * from children").Each(func(r *sql.Rows) error {
+		var child Child
+		if err := db.PopulateByName(&child, r. db.Columns(child)); err != nil {
+			return err
+		}
+		// here is the key part, we're looking up the parent to add the children.
+		// because we're modifying references, the changes propagate to the original instances.
+		if parent, hasParent := parentLookup[child.ParentID]; hasParent {
+			parent.Children = append(parent.Children, child)
+		}
+		return nil
+	}); err != nil {
+		return 
+	}
+	return
+}
+
 ```
 
 # Performance #

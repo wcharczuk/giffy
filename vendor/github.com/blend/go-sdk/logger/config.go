@@ -25,14 +25,14 @@ func NewConfigFromEnv() *Config {
 
 // Config is the logger config.
 type Config struct {
-	Heading       string   `json:"heading" yaml:"heading" env:"LOG_HEADING"`
-	OutputFormat  string   `json:"format" yaml:"format" env:"LOG_FORMAT"`
-	Flags         []string `json:"flags" yaml:"flags" env:"LOG_EVENTS,csv"`
-	HiddenFlags   []string `json:"hidden" yaml:"hidden" env:"LOG_HIDDEN,csv"`
-	RecoverPanics *bool    `json:"recoverPanics" yaml:"recoverPanics" env:"LOG_RECOVER"`
+	Heading       string   `json:"heading,omitempty" yaml:"heading,omitempty" env:"LOG_HEADING"`
+	OutputFormat  string   `json:"format,omitempty" yaml:"format,omitempty" env:"LOG_FORMAT"`
+	Flags         []string `json:"flags,omitempty" yaml:"flags,omitempty" env:"LOG_EVENTS,csv"`
+	HiddenFlags   []string `json:"hidden,omitempty" yaml:"hidden,omitempty" env:"LOG_HIDDEN,csv"`
+	RecoverPanics *bool    `json:"recoverPanics,omitempty" yaml:"recoverPanics,omitempty" env:"LOG_RECOVER"`
 
-	TextOutput TextWriterConfig `json:"textOutput" yaml:"textOutput"`
-	JSONOutput JSONWriterConfig `json:"jsonOutput" yaml:"jsonOutput"`
+	TextOutput TextWriterConfig `json:"textOutput,omitempty" yaml:"textOutput,omitempty"`
+	JSONOutput JSONWriterConfig `json:"jsonOutput,omitempty" yaml:"jsonOutput,omitempty"`
 }
 
 // GetHeading returns the writer heading.
@@ -99,10 +99,10 @@ func NewTextWriterConfigFromEnv() *TextWriterConfig {
 
 // TextWriterConfig is the config for a text writer.
 type TextWriterConfig struct {
-	ShowHeadings  *bool  `json:"showHeadings" yaml:"showHeadings" env:"LOG_SHOW_HEADINGS"`
-	ShowTimestamp *bool  `json:"showTimestamp" yaml:"showTimestamp" env:"LOG_SHOW_TIMESTAMP"`
-	UseColor      *bool  `json:"useColor" yaml:"useColor" env:"LOG_USE_COLOR"`
-	TimeFormat    string `json:"timeFormat" yaml:"timeFormat" env:"LOG_TIME_FORMAT"`
+	ShowHeadings  *bool  `json:"showHeadings,omitempty" yaml:"showHeadings,omitempty" env:"LOG_SHOW_HEADINGS"`
+	ShowTimestamp *bool  `json:"showTimestamp,omitempty" yaml:"showTimestamp,omitempty" env:"LOG_SHOW_TIMESTAMP"`
+	UseColor      *bool  `json:"useColor,omitempty" yaml:"useColor,omitempty" env:"LOG_USE_COLOR"`
+	TimeFormat    string `json:"timeFormat,omitempty" yaml:"timeFormat,omitempty" env:"LOG_TIME_FORMAT"`
 }
 
 // GetShowHeadings returns a field value or a default.
@@ -158,7 +158,7 @@ func NewJSONWriterConfigFromEnv() *JSONWriterConfig {
 
 // JSONWriterConfig is the config for a json writer.
 type JSONWriterConfig struct {
-	Pretty *bool `json:"pretty" yaml:"pretty" env:"LOG_JSON_PRETTY"`
+	Pretty *bool `json:"pretty,omitempty" yaml:"pretty,omitempty" env:"LOG_JSON_PRETTY"`
 }
 
 // GetPretty returns a field value or a default.

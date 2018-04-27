@@ -107,31 +107,31 @@ func NewConfigFromEnv() *Config {
 // Config is a set of connection config options.
 type Config struct {
 	// DSN is a fully formed DSN (this skips DSN formation from all other variables outside `schema`).
-	DSN string `json:"dsn" yaml:"dsn" env:"DATABASE_URL"`
+	DSN string `json:"dsn,omitempty" yaml:"dsn,omitempty" env:"DATABASE_URL"`
 	// Host is the server to connect to.
-	Host string `json:"host" yaml:"host" env:"DB_HOST"`
+	Host string `json:"host,omitempty" yaml:"host,omitempty" env:"DB_HOST"`
 	// Port is the port to connect to.
-	Port string `json:"port" yaml:"port" env:"DB_PORT"`
+	Port string `json:"port,omitempty" yaml:"port,omitempty" env:"DB_PORT"`
 	// DBName is the database name
-	Database string `json:"database" yaml:"database" env:"DB_NAME"`
+	Database string `json:"database,omitempty" yaml:"database,omitempty" env:"DB_NAME"`
 	// Schema is the application schema within the database, defaults to `public`.
-	Schema string `json:"schema" yaml:"schema" env:"DB_SCHEMA"`
+	Schema string `json:"schema,omitempty" yaml:"schema,omitempty" env:"DB_SCHEMA"`
 	// Username is the username for the connection via password auth.
-	Username string `json:"username" yaml:"username" env:"DB_USER"`
+	Username string `json:"username,omitempty" yaml:"username,omitempty" env:"DB_USER"`
 	// Password is the password for the connection via password auth.
-	Password string `json:"password" yaml:"password" env:"DB_PASSWORD"`
+	Password string `json:"password,omitempty" yaml:"password,omitempty" env:"DB_PASSWORD"`
 	// SSLMode is the sslmode for the connection.
-	SSLMode string `json:"sslMode" yaml:"sslMode" env:"DB_SSLMODE"`
+	SSLMode string `json:"sslMode,omitempty" yaml:"sslMode,omitempty" env:"DB_SSLMODE"`
 	// UseStatementCache indicates if we should use the prepared statement cache.
-	UseStatementCache *bool `json:"useStatementCache" yaml:"useStatementCache" env:"DB_USE_STATEMENT_CACHE"`
+	UseStatementCache *bool `json:"useStatementCache,omitempty" yaml:"useStatementCache,omitempty" env:"DB_USE_STATEMENT_CACHE"`
 	// IdleConnections is the number of idle connections.
-	IdleConnections int `json:"idleConnections" yaml:"idleConnections" env:"DB_IDLE_CONNECTIONS"`
+	IdleConnections int `json:"idleConnections,omitempty" yaml:"idleConnections,omitempty" env:"DB_IDLE_CONNECTIONS"`
 	// MaxConnections is the maximum number of connections.
-	MaxConnections int `json:"maxConnections" yaml:"maxConnections" env:"DB_MAX_CONNECTIONS"`
+	MaxConnections int `json:"maxConnections,omitempty" yaml:"maxConnections,omitempty" env:"DB_MAX_CONNECTIONS"`
 	// MaxLifetime is the maximum time a connection can be open.
-	MaxLifetime time.Duration `json:"maxLifetime" yaml:"maxLifetime" env:"DB_MAX_LIFETIME"`
+	MaxLifetime time.Duration `json:"maxLifetime,omitempty" yaml:"maxLifetime,omitempty" env:"DB_MAX_LIFETIME"`
 	// BufferPoolSize is the number of query composition buffers to maintain.
-	BufferPoolSize int `json:"bufferPoolSize" yaml:"bufferPoolSize" env:"DB_BUFFER_POOL_SIZE"`
+	BufferPoolSize int `json:"bufferPoolSize,omitempty" yaml:"bufferPoolSize,omitempty" env:"DB_BUFFER_POOL_SIZE"`
 }
 
 // WithDSN sets the config dsn and returns a reference to the config.

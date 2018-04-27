@@ -265,7 +265,7 @@ func (q *Query) OutMany(collection interface{}) (err error) {
 	return
 }
 
-// Each writes the query results to a slice of objects.
+// Each executes the consumer for each result of the query (one to many).
 func (q *Query) Each(consumer RowsConsumer) (err error) {
 	defer func() { err = q.finalizer(recover(), err) }()
 
@@ -281,6 +281,30 @@ func (q *Query) Each(consumer RowsConsumer) (err error) {
 	}
 
 	for q.rows.Next() {
+		err = consumer(q.rows)
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
+// First executes the consumer for the first result of a query.
+func (q *Query) First(consumer RowsConsumer) (err error) {
+	defer func() { err = q.finalizer(recover(), err) }()
+
+	q.stmt, q.rows, q.err = q.Execute()
+	if q.err != nil {
+		return q.err
+	}
+
+	rowsErr := q.rows.Err()
+	if rowsErr != nil {
+		err = exception.Wrap(rowsErr)
+		return
+	}
+
+	if q.rows.Next() {
 		err = consumer(q.rows)
 		if err != nil {
 			return err

@@ -20,23 +20,16 @@ supported since they're a poor design and are gone in YAML 1.2.
 Installation and usage
 ----------------------
 
-The import path for the package is *gopkg.in/yaml.v2*.
+The import path for the package is *github.com/blend/go-sdk/yaml*.
 
 To install it, run:
 
-    go get gopkg.in/yaml.v2
-
-API documentation
------------------
-
-If opened in a browser, the import path itself leads to the API documentation:
-
-  * [https://gopkg.in/yaml.v2](https://gopkg.in/yaml.v2)
+    go get github.com/blend/go-sdk/yaml
 
 API stability
 -------------
 
-The package API for yaml v2 will remain stable as described in [gopkg.in](https://gopkg.in).
+The package API for yaml will remain stable in accordance with semver for the overall package.
 
 
 License
@@ -55,7 +48,7 @@ import (
         "fmt"
         "log"
 
-        "gopkg.in/yaml.v2"
+        "github.com/blend/go-sk/yaml"
 )
 
 var data = `
@@ -65,6 +58,8 @@ b:
   d: [3, 4]
 `
 
+// Note: struct fields must be public in order for unmarshal to
+// correctly populate the data.
 type T struct {
         A string
         B struct {

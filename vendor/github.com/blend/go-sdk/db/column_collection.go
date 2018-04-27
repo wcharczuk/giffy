@@ -129,8 +129,8 @@ type ColumnCollection struct {
 	lookup       map[string]*Column
 	columnPrefix string
 
-	serials        *ColumnCollection
-	notSerials     *ColumnCollection
+	autos          *ColumnCollection
+	notAutos       *ColumnCollection
 	readOnly       *ColumnCollection
 	notReadOnly    *ColumnCollection
 	primaryKeys    *ColumnCollection
@@ -184,7 +184,7 @@ func (cc *ColumnCollection) WriteColumns() *ColumnCollection {
 		return cc.writeColumns
 	}
 
-	cc.writeColumns = cc.NotReadOnly().NotSerials().NotPrimaryKeys()
+	cc.writeColumns = cc.NotReadOnly().NotPrimaryKeys()
 	return cc.writeColumns
 }
 
@@ -233,39 +233,39 @@ func (cc *ColumnCollection) NotPrimaryKeys() *ColumnCollection {
 	return cc.notPrimaryKeys
 }
 
-// Serials are columns we have to return the id of.
-func (cc *ColumnCollection) Serials() *ColumnCollection {
-	if cc.serials != nil {
-		return cc.serials
+// Autos are columns we have to return the id of.
+func (cc *ColumnCollection) Autos() *ColumnCollection {
+	if cc.autos != nil {
+		return cc.autos
 	}
 
 	newCC := newColumnCollectionWithPrefix(cc.columnPrefix)
 
 	for _, c := range cc.columns {
-		if c.IsSerial {
+		if c.IsAuto {
 			newCC.Add(c)
 		}
 	}
 
-	cc.serials = newCC
-	return cc.serials
+	cc.autos = newCC
+	return cc.autos
 }
 
-// NotSerials are columns we don't have to return the id of.
-func (cc *ColumnCollection) NotSerials() *ColumnCollection {
-	if cc.notSerials != nil {
-		return cc.notSerials
+// NotAutos are columns we don't have to return the id of.
+func (cc *ColumnCollection) NotAutos() *ColumnCollection {
+	if cc.notAutos != nil {
+		return cc.notAutos
 	}
 
 	newCC := newColumnCollectionWithPrefix(cc.columnPrefix)
 
 	for _, c := range cc.columns {
-		if !c.IsSerial {
+		if !c.IsAuto {
 			newCC.Add(c)
 		}
 	}
-	cc.notSerials = newCC
-	return cc.notSerials
+	cc.notAutos = newCC
+	return cc.notAutos
 }
 
 // ReadOnly are columns that we don't have to insert upon Create().
@@ -372,9 +372,12 @@ func (cc ColumnCollection) ColumnValues(instance interface{}) []interface{} {
 		c := cc.columns[x]
 		valueField := value.FieldByName(c.FieldName)
 		if c.IsJSON {
-			toSerialize := valueField.Interface()
-			jsonBytes, _ := json.Marshal(toSerialize)
-			values[x] = string(jsonBytes)
+			jsonBytes, _ := json.Marshal(valueField.Interface())
+			if result := string(jsonBytes); result != "null" { // explicitly bad.
+				values[x] = result
+			} else {
+				values[x] = nil
+			}
 		} else {
 			values[x] = valueField.Interface()
 		}

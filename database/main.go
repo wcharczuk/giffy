@@ -38,7 +38,7 @@ func main() {
 		m = initialize.Initialize(&cfg)
 	}
 
-	m.WithLogger(migration.NewLogger(log))
+	m.WithLogger(log)
 	err = m.Apply(conn)
 	if err != nil {
 		log.SyncFatalExit(err)

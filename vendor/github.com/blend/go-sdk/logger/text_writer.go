@@ -282,15 +282,17 @@ func (wr *TextWriter) write(output io.Writer, e Event) error {
 		buf.WriteString(typed.String())
 	}
 
-	if typed, isTyped := e.(EventLabels); isTyped {
-		if len(typed.Labels()) > 0 {
-			buf.WriteRune(RuneNewline)
-			for key, value := range typed.Labels() {
-				buf.WriteString(fmt.Sprintf("%s=%s", key, value))
-				buf.WriteRune(RuneSpace)
+	/*
+		if typed, isTyped := e.(EventLabels); isTyped {
+			if len(typed.Labels()) > 0 {
+				buf.WriteRune(RuneNewline)
+				for key, value := range typed.Labels() {
+					buf.WriteString(fmt.Sprintf("%s=%s", key, value))
+					buf.WriteRune(RuneSpace)
+				}
 			}
 		}
-	}
+	*/
 
 	buf.WriteRune(RuneNewline)
 	_, err := buf.WriteTo(output)

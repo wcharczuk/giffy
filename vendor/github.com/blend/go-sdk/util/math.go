@@ -35,7 +35,7 @@ func (mu mathUtil) PowOfInt(base, power uint) int {
 	if base == 2 {
 		return 1 << power
 	}
-	return float64ToInt(math.Pow(float64(base), float64(power)))
+	return int(math.RoundToEven((math.Pow(float64(base), float64(power)))))
 }
 
 // MinAndMax returns both the min and max in one pass.
@@ -262,19 +262,27 @@ func (mu mathUtil) MeanOfDuration(input []time.Duration) time.Duration {
 }
 
 // Median gets the median number in a slice of numbers
-func (mu mathUtil) Median(input []float64) float64 {
-	median := float64(0)
+func (mu mathUtil) Median(input []float64) (median float64) {
 	l := len(input)
 	if l == 0 {
 		return 0
 	}
-	c := copyslice(input)
-	sort.Float64s(c)
+
+	median = mu.MedianSorted(mu.CopySort(input))
+	return
+}
+
+// Median gets the median number in a sorted slice of numbers
+func (mu mathUtil) MedianSorted(sortedInput []float64) (median float64) {
+	l := len(sortedInput)
+	if l == 0 {
+		return 0
+	}
 
 	if l%2 == 0 {
-		median = mu.Mean(c[l/2-1 : l/2+1])
+		median = (sortedInput[(l>>1)-1] + sortedInput[l>>1]) / 2.0
 	} else {
-		median = float64(c[l/2])
+		median = sortedInput[l>>1]
 	}
 
 	return median
@@ -283,7 +291,6 @@ func (mu mathUtil) Median(input []float64) float64 {
 // Mode gets the mode of a slice of numbers
 // `Mode` generally is the most frequently occurring values within the input set.
 func (mu mathUtil) Mode(input []float64) []float64 {
-
 	l := len(input)
 	if l == 1 {
 		return input
@@ -319,13 +326,10 @@ func (mu mathUtil) Mode(input []float64) []float64 {
 }
 
 // Variance finds the variance for both population and sample data
-func (mu mathUtil) Variance(input []float64, sample int) float64 {
-
+func (mu mathUtil) Variance(input []float64, sample int) (variance float64) {
 	if len(input) == 0 {
 		return 0
 	}
-
-	variance := float64(0)
 	m := mu.Mean(input)
 
 	for _, n := range input {
@@ -335,7 +339,8 @@ func (mu mathUtil) Variance(input []float64, sample int) float64 {
 	// When getting the mean of the squared differences
 	// "sample" will allow us to know if it's a sample
 	// or population and wether to subtract by one or not
-	return variance / float64((len(input) - (1 * sample)))
+	variance = variance / float64((len(input) - (1 * sample)))
+	return
 }
 
 // VarP finds the amount of variance within a population
@@ -350,7 +355,6 @@ func (mu mathUtil) VarS(input []float64) float64 {
 
 // StdDevP finds the amount of variation from the population
 func (mu mathUtil) StdDevP(input []float64) float64 {
-
 	if len(input) == 0 {
 		return 0
 	}
@@ -361,7 +365,6 @@ func (mu mathUtil) StdDevP(input []float64) float64 {
 
 // StdDevS finds the amount of variation from a sample
 func (mu mathUtil) StdDevS(input []float64) float64 {
-
 	if len(input) == 0 {
 		return 0
 	}
@@ -415,34 +418,22 @@ func (mu mathUtil) Percentile(input []float64, percent float64) float64 {
 		return 0
 	}
 
-	c := copyslice(input)
-	sort.Float64s(c)
-	index := (percent / 100.0) * float64(len(c))
+	return mu.PercentileSorted(mu.CopySort(input), percent)
+}
 
+// PercentileSorted finds the relative standing in a sorted slice of floats.
+// `percent` should be given on the interval [0,100.0).
+func (mu mathUtil) PercentileSorted(sortedInput []float64, percent float64) float64 {
+	index := (percent / 100.0) * float64(len(sortedInput))
 	percentile := float64(0)
+	i := int(math.RoundToEven(index))
 	if index == float64(int64(index)) {
-		i := float64ToInt(index)
-		percentile = mu.Mean([]float64{c[i-1], c[i]})
+		percentile = (sortedInput[i-1] + sortedInput[i]) / 2.0
 	} else {
-		i := float64ToInt(index)
-		percentile = c[i-1]
+		percentile = sortedInput[i-1]
 	}
 
 	return percentile
-}
-
-type durations []time.Duration
-
-func (dl durations) Len() int {
-	return len(dl)
-}
-
-func (dl durations) Less(i, j int) bool {
-	return dl[i] < dl[j]
-}
-
-func (dl durations) Swap(i, j int) {
-	dl[i], dl[j] = dl[j], dl[i]
 }
 
 // Percentile finds the relative standing in a slice of floats
@@ -451,8 +442,12 @@ func (mu mathUtil) PercentileOfDuration(input []time.Duration, percentile float6
 		return 0
 	}
 
-	sort.Sort(durations(input))
-	index := (percentile / 100.0) * float64(len(input))
+	return mu.PercentileOfDurationSorted(mu.CopySortDurations(input), percentile)
+}
+
+// Percentile finds the relative standing in a sorted slice of floats
+func (mu mathUtil) PercentileOfDurationSorted(sortedInput []time.Duration, percentile float64) time.Duration {
+	index := (percentile / 100.0) * float64(len(sortedInput))
 	if index == float64(int64(index)) {
 		i := int(Math.Round(index, 0))
 
@@ -460,7 +455,7 @@ func (mu mathUtil) PercentileOfDuration(input []time.Duration, percentile float6
 			return time.Duration(0)
 		}
 
-		return mu.MeanOfDuration([]time.Duration{input[i-1], input[i]})
+		return mu.MeanOfDuration([]time.Duration{sortedInput[i-1], sortedInput[i]})
 	}
 
 	i := int(Math.Round(index, 0))
@@ -468,7 +463,7 @@ func (mu mathUtil) PercentileOfDuration(input []time.Duration, percentile float6
 		return time.Duration(0)
 	}
 
-	return input[i-1]
+	return sortedInput[i-1]
 }
 
 // AbsInt returns the absolute value of an integer.
@@ -549,15 +544,45 @@ func (mu mathUtil) InEpsilon(a, b float64) bool {
 	return (a-b) < Epsilon && (b-a) < Epsilon
 }
 
-// float64ToInt rounds a float64 to an int
-func float64ToInt(input float64) (output int) {
-	r := Math.Round(input, 0)
-	return int(r)
+// Copy copies an array of float64s.
+func (mu mathUtil) Copy(input []float64) []float64 {
+	output := make([]float64, len(input))
+	copy(output, input)
+	return output
 }
 
-// copyslice copies a slice of float64s
-func copyslice(input []float64) []float64 {
-	s := make([]float64, len(input))
-	copy(s, input)
-	return s
+// CopySort copies and sorts an array of floats.
+func (mu mathUtil) CopySort(input []float64) []float64 {
+	copy := mu.Copy(input)
+	sort.Float64s(copy)
+	return copy
+}
+
+type durations []time.Duration
+
+func (dl durations) Len() int {
+	return len(dl)
+}
+
+func (dl durations) Less(i, j int) bool {
+	return dl[i] < dl[j]
+}
+
+func (dl durations) Swap(i, j int) {
+	dl[i], dl[j] = dl[j], dl[i]
+}
+
+// CopyDurations copies an array of durations.
+func (mu mathUtil) CopyDurations(input []time.Duration) []time.Duration {
+	output := make([]time.Duration, len(input))
+	copy(input, output)
+	return output
+}
+
+// CopySortDurations copies and sorts an array of durations.
+func (mu mathUtil) CopySortDurations(input []time.Duration) []time.Duration {
+	output := make([]time.Duration, len(input))
+	copy(output, input)
+	sort.Sort(durations(output))
+	return output
 }

@@ -38,8 +38,7 @@ const (
 // NewAppEvent creates a new app start event.
 func NewAppEvent(flag logger.Flag) *AppEvent {
 	return &AppEvent{
-		flag: flag,
-		ts:   time.Now().UTC(),
+		EventMeta: logger.NewEventMeta(flag),
 	}
 }
 
@@ -54,8 +53,7 @@ func NewAppEventListener(listener func(me *AppEvent)) logger.Listener {
 
 // AppEvent is an event.
 type AppEvent struct {
-	flag     logger.Flag
-	ts       time.Time
+	*logger.EventMeta
 	app      *App
 	hz       *Healthz
 	upgrader *HTTPSUpgrader
@@ -63,26 +61,34 @@ type AppEvent struct {
 	err      error
 }
 
-// WithFlag sets the event flag.
+// WithHeadings sets the headings.
+func (ae *AppEvent) WithHeadings(headings ...string) *AppEvent {
+	ae.SetHeadings(headings...)
+	return ae
+}
+
+// WithLabel sets a label on the event for later filtering.
+func (ae *AppEvent) WithLabel(key, value string) *AppEvent {
+	ae.AddLabelValue(key, value)
+	return ae
+}
+
+// WithAnnotation adds an annotation to the event.
+func (ae *AppEvent) WithAnnotation(key, value string) *AppEvent {
+	ae.AddAnnotationValue(key, value)
+	return ae
+}
+
+// WithFlag sets the flag.
 func (ae *AppEvent) WithFlag(flag logger.Flag) *AppEvent {
-	ae.flag = flag
+	ae.SetFlag(flag)
 	return ae
 }
 
-// Flag returns the logger flag.
-func (ae *AppEvent) Flag() logger.Flag {
-	return ae.flag
-}
-
-// WithTimestamp sets the event timestamp.
+// WithTimestamp sets the timestamp.
 func (ae *AppEvent) WithTimestamp(ts time.Time) *AppEvent {
-	ae.ts = ts
+	ae.SetTimestamp(ts)
 	return ae
-}
-
-// Timestamp returns the timestamp for a
-func (ae *AppEvent) Timestamp() time.Time {
-	return ae.ts
 }
 
 // WithApp sets the event app reference.

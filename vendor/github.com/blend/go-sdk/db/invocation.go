@@ -23,7 +23,6 @@ type Invocation struct {
 	tx             *sql.Tx
 	fireEvents     bool
 	statementLabel string
-	err            error
 }
 
 // WithCtx sets the ctx and returns a reference to the invocation.
@@ -48,11 +47,6 @@ func (i *Invocation) WithFireEvents(flag bool) *Invocation {
 	return i
 }
 
-// Err returns the context's error.
-func (i *Invocation) Err() error {
-	return i.err
-}
-
 // WithLabel instructs the query generator to get or create a cached prepared statement.
 func (i *Invocation) WithLabel(label string) *Invocation {
 	i.statementLabel = label
@@ -71,9 +65,6 @@ func (i *Invocation) Tx() *sql.Tx {
 
 // Prepare returns a cached or newly prepared statment plan for a given sql statement.
 func (i *Invocation) Prepare(statement string) (*sql.Stmt, error) {
-	if i.err != nil {
-		return nil, i.err
-	}
 	if len(i.statementLabel) > 0 {
 		return i.conn.PrepareCached(i.statementLabel, statement, i.tx)
 	}
@@ -82,7 +73,7 @@ func (i *Invocation) Prepare(statement string) (*sql.Stmt, error) {
 
 // Exec executes a sql statement with a given set of arguments.
 func (i *Invocation) Exec(statement string, args ...interface{}) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -111,12 +102,12 @@ func (i *Invocation) Exec(statement string, args ...interface{}) (err error) {
 
 // Query returns a new query object for a given sql query and arguments.
 func (i *Invocation) Query(query string, args ...interface{}) *Query {
-	return &Query{statement: query, args: args, start: time.Now(), conn: i.conn, ctx: i.ctx, tx: i.tx, fireEvents: i.fireEvents, err: i.check(), statementLabel: i.statementLabel}
+	return &Query{statement: query, args: args, start: time.Now(), conn: i.conn, ctx: i.ctx, tx: i.tx, fireEvents: i.fireEvents, statementLabel: i.statementLabel}
 }
 
 // Get returns a given object based on a group of primary key ids within a transaction.
 func (i *Invocation) Get(object DatabaseMapped, ids ...interface{}) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -218,7 +209,7 @@ func (i *Invocation) Get(object DatabaseMapped, ids ...interface{}) (err error) 
 
 // GetAll returns all rows of an object mapped table wrapped in a transaction.
 func (i *Invocation) GetAll(collection interface{}) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -308,7 +299,7 @@ func (i *Invocation) GetAll(collection interface{}) (err error) {
 
 // Create writes an object to the database within a transaction.
 func (i *Invocation) Create(object DatabaseMapped) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -318,10 +309,9 @@ func (i *Invocation) Create(object DatabaseMapped) (err error) {
 	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
-	writeCols := cols.NotReadOnly().NotSerials()
+	writeCols := cols.NotReadOnly().NotAutos()
 
-	//NOTE: we're only using one.
-	serials := cols.Serials()
+	autos := cols.Autos()
 	tableName := TableName(object)
 
 	if len(i.statementLabel) == 0 {
@@ -352,10 +342,9 @@ func (i *Invocation) Create(object DatabaseMapped) (err error) {
 	}
 	queryBodyBuffer.WriteString(")")
 
-	if serials.Len() > 0 {
-		serial := serials.FirstOrDefault()
+	if autos.Len() > 0 {
 		queryBodyBuffer.WriteString(" RETURNING ")
-		queryBodyBuffer.WriteString(serial.ColumnName)
+		queryBodyBuffer.WriteString(autos.ColumnNamesCSV())
 	}
 
 	queryBody = queryBodyBuffer.String()
@@ -367,7 +356,7 @@ func (i *Invocation) Create(object DatabaseMapped) (err error) {
 	defer func() { err = i.closeStatement(err, stmt) }()
 
 	var execErr error
-	if serials.Len() == 0 {
+	if autos.Len() == 0 {
 		if i.ctx != nil {
 			_, execErr = stmt.ExecContext(i.ctx, colValues...)
 		} else {
@@ -380,23 +369,28 @@ func (i *Invocation) Create(object DatabaseMapped) (err error) {
 			return
 		}
 	} else {
-		serial := serials.FirstOrDefault()
+		autoValues := make([]interface{}, autos.Len())
+		for i, autoCol := range autos.Columns() {
+			autoValues[i] = reflect.New(reflect.PtrTo(autoCol.FieldType)).Interface()
+		}
 
-		var id interface{}
 		if i.ctx != nil {
-			execErr = stmt.QueryRowContext(i.ctx, colValues...).Scan(&id)
+			execErr = stmt.QueryRowContext(i.ctx, colValues...).Scan(autoValues...)
 		} else {
-			execErr = stmt.QueryRow(colValues...).Scan(&id)
+			execErr = stmt.QueryRow(colValues...).Scan(autoValues...)
 		}
 
 		if execErr != nil {
 			err = exception.Wrap(execErr)
 			return
 		}
-		setErr := serial.SetValue(object, id)
-		if setErr != nil {
-			err = exception.Wrap(setErr)
-			return
+
+		for index := 0; index < len(autoValues); index++ {
+			setErr := autos.Columns()[index].SetValue(object, autoValues[index])
+			if setErr != nil {
+				err = exception.Wrap(setErr)
+				return
+			}
 		}
 	}
 
@@ -405,7 +399,7 @@ func (i *Invocation) Create(object DatabaseMapped) (err error) {
 
 // CreateIfNotExists writes an object to the database if it does not already exist within a transaction.
 func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -415,10 +409,10 @@ func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
 	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
-	writeCols := cols.NotReadOnly().NotSerials()
+	writeCols := cols.NotReadOnly().NotAutos()
 
 	//NOTE: we're only using one.
-	serials := cols.Serials()
+	autos := cols.Autos()
 	pks := cols.PrimaryKeys()
 	tableName := TableName(object)
 
@@ -462,10 +456,9 @@ func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
 		queryBodyBuffer.WriteString(") DO NOTHING")
 	}
 
-	if serials.Len() > 0 {
-		serial := serials.FirstOrDefault()
+	if autos.Len() > 0 {
 		queryBodyBuffer.WriteString(" RETURNING ")
-		queryBodyBuffer.WriteString(serial.ColumnName)
+		queryBodyBuffer.WriteString(autos.ColumnNamesCSV())
 	}
 
 	queryBody = queryBodyBuffer.String()
@@ -477,7 +470,7 @@ func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
 	defer func() { err = i.closeStatement(err, stmt) }()
 
 	var execErr error
-	if serials.Len() == 0 {
+	if autos.Len() == 0 {
 		if i.ctx != nil {
 			_, execErr = stmt.ExecContext(i.ctx, colValues...)
 		} else {
@@ -489,23 +482,28 @@ func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
 			return
 		}
 	} else {
-		serial := serials.FirstOrDefault()
+		autoValues := make([]interface{}, autos.Len())
+		for i, autoCol := range autos.Columns() {
+			autoValues[i] = reflect.New(reflect.PtrTo(autoCol.FieldType)).Interface()
+		}
 
-		var id interface{}
 		if i.ctx != nil {
-			execErr = stmt.QueryRowContext(i.ctx, colValues...).Scan(&id)
+			execErr = stmt.QueryRowContext(i.ctx, colValues...).Scan(autoValues...)
 		} else {
-			execErr = stmt.QueryRow(colValues...).Scan(&id)
+			execErr = stmt.QueryRow(colValues...).Scan(autoValues...)
 		}
 
 		if execErr != nil {
 			err = exception.Wrap(execErr)
 			return
 		}
-		setErr := serial.SetValue(object, id)
-		if setErr != nil {
-			err = exception.Wrap(setErr)
-			return
+
+		for index := 0; index < len(autoValues); index++ {
+			setErr := autos.Columns()[index].SetValue(object, autoValues[index])
+			if setErr != nil {
+				err = exception.Wrap(setErr)
+				return
+			}
 		}
 	}
 
@@ -514,7 +512,7 @@ func (i *Invocation) CreateIfNotExists(object DatabaseMapped) (err error) {
 
 // CreateMany writes many an objects to the database within a transaction.
 func (i *Invocation) CreateMany(objects interface{}) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -532,7 +530,7 @@ func (i *Invocation) CreateMany(objects interface{}) (err error) {
 	tableName := TableNameByType(sliceType)
 
 	cols := getCachedColumnCollectionFromType(tableName, sliceType)
-	writeCols := cols.NotReadOnly().NotSerials()
+	writeCols := cols.NotReadOnly().NotAutos()
 
 	//NOTE: we're only using one.
 	//serials := cols.Serials()
@@ -594,7 +592,7 @@ func (i *Invocation) CreateMany(objects interface{}) (err error) {
 
 // Update updates an object wrapped in a transaction.
 func (i *Invocation) Update(object DatabaseMapped) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -670,7 +668,7 @@ func (i *Invocation) Update(object DatabaseMapped) (err error) {
 
 // Exists returns a bool if a given object exists (utilizing the primary key columns if they exist) wrapped in a transaction.
 func (i *Invocation) Exists(object DatabaseMapped) (exists bool, err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -747,7 +745,7 @@ func (i *Invocation) Exists(object DatabaseMapped) (exists bool, err error) {
 
 // Delete deletes an object from the database wrapped in a transaction.
 func (i *Invocation) Delete(object DatabaseMapped) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -812,7 +810,7 @@ func (i *Invocation) Delete(object DatabaseMapped) (err error) {
 
 // Truncate completely empties a table in a single command.
 func (i *Invocation) Truncate(object DatabaseMapped) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -857,7 +855,7 @@ func (i *Invocation) Truncate(object DatabaseMapped) (err error) {
 
 // Upsert inserts the object if it doesn't exist already (as defined by its primary keys) or updates it wrapped in a transaction.
 func (i *Invocation) Upsert(object DatabaseMapped) (err error) {
-	err = i.check()
+	err = i.Validate()
 	if err != nil {
 		return
 	}
@@ -867,11 +865,11 @@ func (i *Invocation) Upsert(object DatabaseMapped) (err error) {
 	defer func() { err = i.finalizer(recover(), err, logger.Query, queryBody, start) }()
 
 	cols := getCachedColumnCollectionFromInstance(object)
-	writeCols := cols.NotReadOnly().NotSerials()
+	writeCols := cols.NotReadOnly().NotAutos()
 
-	conflictUpdateCols := cols.NotReadOnly().NotSerials().NotPrimaryKeys()
+	conflictUpdateCols := cols.NotReadOnly().NotAutos().NotPrimaryKeys()
 
-	serials := cols.Serials()
+	serials := cols.Autos()
 	pks := cols.PrimaryKeys()
 	tableName := TableName(object)
 
@@ -982,12 +980,10 @@ func (i *Invocation) Upsert(object DatabaseMapped) (err error) {
 // helpers
 // --------------------------------------------------------------------------------
 
-func (i *Invocation) check() error {
+// Validate validates the invocation is ready
+func (i *Invocation) Validate() error {
 	if i.conn == nil {
 		return exception.Newf(connectionErrorMessage)
-	}
-	if i.err != nil {
-		return i.err
 	}
 	return nil
 }

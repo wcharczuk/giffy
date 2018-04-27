@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -28,12 +29,13 @@ func NewColumnFromFieldTag(field reflect.StructField) *Column {
 			}
 
 			if len(pieces) >= 1 {
-				args := strings.Join(pieces[1:], ",")
-				col.IsPrimaryKey = strings.Contains(strings.ToLower(args), "pk")
-				col.IsSerial = strings.Contains(strings.ToLower(args), "serial")
-				col.IsNullable = strings.Contains(strings.ToLower(args), "nullable")
-				col.IsReadOnly = strings.Contains(strings.ToLower(args), "readonly")
-				col.IsJSON = strings.Contains(strings.ToLower(args), "json")
+				args := strings.ToLower(strings.Join(pieces[1:], ","))
+
+				col.IsPrimaryKey = strings.Contains(args, "pk")
+				col.IsAuto = strings.Contains(args, "serial") || strings.Contains(args, "auto")
+				col.IsReadOnly = strings.Contains(args, "readonly")
+				col.IsNullable = strings.Contains(args, "nullable")
+				col.IsJSON = strings.Contains(args, "json")
 			}
 		}
 		return &col
@@ -50,7 +52,7 @@ type Column struct {
 	ColumnName   string
 	Index        int
 	IsPrimaryKey bool
-	IsSerial     bool
+	IsAuto       bool
 	IsNullable   bool
 	IsReadOnly   bool
 	IsJSON       bool
@@ -70,11 +72,11 @@ func (c Column) SetValue(object interface{}, value interface{}) error {
 		return nil
 	}
 
-	if c.IsJSON {
-		valueAsString, ok := valueReflected.Interface().(string)
-		if ok && len(valueAsString) != 0 {
+	if c.IsJSON { // very special dispensation for json columns
+		valueContents, ok := valueReflected.Interface().(sql.NullString)
+		if ok && valueContents.Valid && len(valueContents.String) > 0 {
 			fieldAddr := field.Addr().Interface()
-			jsonErr := json.Unmarshal([]byte(valueAsString), fieldAddr)
+			jsonErr := json.Unmarshal([]byte(valueContents.String), fieldAddr)
 			if jsonErr != nil {
 				return exception.Wrap(jsonErr)
 			}
@@ -110,7 +112,6 @@ func (c Column) SetValue(object interface{}, value interface{}) error {
 
 	convertedValue := valueReflected.Convert(fieldType)
 	field.Set(convertedValue)
-
 	return nil
 }
 

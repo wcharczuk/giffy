@@ -6,53 +6,46 @@ import (
 
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/logger"
 )
 
-// New creates a new migration group.
-func New(migrations ...Migration) *Group {
-	return NewGroup(migrations...)
-}
+var (
+	// Assert group implements migration.
+	_ Migration = &Group{}
+)
 
 // NewGroup creates a new migration group.
 func NewGroup(migrations ...Migration) *Group {
 	r := &Group{
-		shouldAbortOnError: false,
+		useTransaction: true,
+		abortOnError:   true,
 	}
-	r.Add(migrations...)
-	return r
+	return r.With(migrations...)
 }
 
 // Group is an atomic series of migrations.
+// It uses transactions to apply a set of sub-migrations as a unit.
 type Group struct {
 	label              string
-	shouldAbortOnError bool
+	abortOnError       bool
+	rollbackOnComplete bool
+	useTransaction     bool
 	parent             Migration
-	stack              []string
-	log                *Logger
+	collector          *Collector
 	migrations         []Migration
 }
 
-// Add adds migrations to the suite.
+// With adds migrations to the group and returns a reference.
+func (g *Group) With(migrations ...Migration) *Group {
+	g.Add(migrations...)
+	return g
+}
+
+// Add adds migrations to the group.
 func (g *Group) Add(migrations ...Migration) {
 	for _, m := range migrations {
-		m.SetParent(g)
-		g.migrations = append(g.migrations, m)
+		g.migrations = append(g.migrations, m.WithParent(g))
 	}
-}
-
-// Clear removes migrations from the suite.
-func (g *Group) Clear() {
-	g.migrations = []Migration{}
-}
-
-// Label returns a label for the runner.
-func (g *Group) Label() string {
-	return g.label
-}
-
-// SetLabel sets the migration label.
-func (g *Group) SetLabel(value string) {
-	g.label = value
 }
 
 // WithLabel sets the migration label.
@@ -61,19 +54,14 @@ func (g *Group) WithLabel(value string) Migration {
 	return g
 }
 
+// Label returns a label for the runner.
+func (g *Group) Label() string {
+	return g.label
+}
+
 // IsRoot denotes if the runner is the root runner (or not).
 func (g *Group) IsRoot() bool {
 	return g.parent == nil
-}
-
-// Parent returns the runner's parent.
-func (g *Group) Parent() Migration {
-	return g.parent
-}
-
-// SetParent sets the runner's parent.
-func (g *Group) SetParent(parent Migration) {
-	g.parent = parent
 }
 
 // WithParent sets the runner's parent.
@@ -82,109 +70,114 @@ func (g *Group) WithParent(parent Migration) Migration {
 	return g
 }
 
-// ShouldAbortOnError indicates that the group will abort if it sees an error from a step.
-func (g *Group) ShouldAbortOnError() bool {
-	return g.shouldAbortOnError
+// Parent returns the runner's parent.
+func (g *Group) Parent() Migration {
+	return g.parent
 }
 
-// SetShouldAbortOnError sets if the group should abort on error.
-func (g *Group) SetShouldAbortOnError(value bool) {
-	g.shouldAbortOnError = value
-}
-
-// WithShouldAbortOnError sets if the group should abort on error.
-func (g *Group) WithShouldAbortOnError(value bool) *Group {
-	g.shouldAbortOnError = value
+// WithAbortOnError sets if the group should abort on error.
+func (g *Group) WithAbortOnError(value bool) *Group {
+	g.abortOnError = value
 	return g
 }
 
-// Logger returns the logger.
-func (g *Group) Logger() *Logger {
-	return g.log
+// AbortOnError indicates that the group will abort if it sees an error from a step.
+func (g *Group) AbortOnError() bool {
+	return g.abortOnError
 }
 
-// SetLogger sets the logger the Runner should use.
-func (g *Group) SetLogger(logger *Logger) {
-	g.log = logger
-}
-
-// WithLogger sets the logger the Runner should use.
-func (g *Group) WithLogger(logger *Logger) Migration {
-	g.log = logger
+// WithCollector sets the collector.
+func (g *Group) WithCollector(collector *Collector) Migration {
+	g.collector = collector
 	return g
 }
 
-// IsTransactionIsolated returns if the migration is transaction isolated.
-func (g *Group) IsTransactionIsolated() bool {
-	return true
+// Collector returns the collector.
+func (g *Group) Collector() *Collector {
+	return g.collector
 }
 
-// Test wraps the action in a transaction and rolls the transaction back upon completion.
-func (g *Group) Test(c *db.Connection, optionalTx ...*sql.Tx) (err error) {
-	if g.log != nil {
-		g.log.Phase = "test"
-	}
-
-	for _, m := range g.migrations {
-		if g.log != nil {
-			m.SetLogger(g.log)
+// WithLogger sets the collector output logger.
+func (g *Group) WithLogger(log *logger.Logger) *Group {
+	if g.collector == nil {
+		g.collector = &Collector{
+			output: log,
 		}
-
-		err = g.invoke(true, m, c, optionalTx...)
-		if err != nil && g.shouldAbortOnError {
-			break
-		}
+		return g
 	}
-	return
+	g.collector.output = log
+	return g
+}
+
+// WithUseTransaction sets if we should begin a transaction for the work within the group.
+func (g *Group) WithUseTransaction(useTransaction bool) Migration {
+	g.useTransaction = useTransaction
+	return g
+}
+
+// UseTransaction returns if the group should wrap child steps in a transaction.
+func (g *Group) UseTransaction() bool {
+	return g.useTransaction
+}
+
+// TransactionBound returns if the migration manages its own transactions.
+// This is a group, it is the one doing the managing.
+func (g *Group) TransactionBound() bool {
+	return false
+}
+
+// WithRollbackOnComplete sets if we should roll the transaction back on complete.
+func (g *Group) WithRollbackOnComplete(rollbackOnComplete bool) *Group {
+	g.rollbackOnComplete = rollbackOnComplete
+	return g
+}
+
+// RollbackOnComplete returns if we should rollback the migration on complete.
+func (g *Group) RollbackOnComplete() bool {
+	return g.rollbackOnComplete
 }
 
 // Apply wraps the action in a transaction and commits it if there were no errors, rolling back if there were.
-func (g *Group) Apply(c *db.Connection, optionalTx ...*sql.Tx) (err error) {
-	if g.log != nil {
-		g.log.Phase = "apply"
-	}
-
-	for _, m := range g.migrations {
-		if g.log != nil {
-			m.SetLogger(g.log)
-		}
-
-		err = g.invoke(false, m, c, optionalTx...)
-		if err != nil && g.shouldAbortOnError {
-			break
-		}
-	}
-
-	if g.IsRoot() && g.log != nil {
-		g.log.WriteStats()
-	}
-	return
-}
-
-func (g *Group) invoke(isTest bool, m Migration, c *db.Connection, optionalTx ...*sql.Tx) (err error) {
+func (g *Group) Apply(c *db.Connection, txs ...*sql.Tx) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%v", err)
 		}
-	}()
 
-	if m.IsTransactionIsolated() {
-		err = m.Apply(c, db.OptionalTx(optionalTx...))
-		return
-	}
-
-	var tx *sql.Tx
-	tx, err = c.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == nil {
-			err = exception.Wrap(tx.Commit())
-		} else {
-			err = exception.Nest(err, exception.New(tx.Rollback()))
+		if g.IsRoot() && g.collector != nil {
+			g.collector.WriteStats()
 		}
 	}()
-	err = m.Apply(c, tx)
+
+	// if the migration
+	var tx *sql.Tx
+	if g.useTransaction {
+		tx, err = c.Begin()
+		if err != nil {
+			return
+		}
+
+		defer func() {
+			if err != nil || g.rollbackOnComplete {
+				err = exception.Nest(err, exception.New(tx.Rollback()))
+			} else if err == nil {
+				err = exception.Wrap(tx.Commit())
+			}
+		}()
+	}
+
+	for _, m := range g.migrations {
+		// if the migration is a group or something else that manages it's own transactions ...
+		if m.TransactionBound() {
+			err = m.WithCollector(g.collector).Apply(c, tx)
+		} else {
+			err = m.WithCollector(g.collector).Apply(c)
+		}
+		if err != nil && g.abortOnError {
+			return
+		}
+		continue
+	}
+
 	return
 }
