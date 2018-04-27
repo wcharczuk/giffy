@@ -30,7 +30,7 @@ func main() {
 		log.SyncFatalExit(err)
 	}
 
-	var m migration.Migration
+	var m *migration.Group
 	switch strings.ToLower(command) {
 	case "migrate":
 		m = migrations.Migrations()

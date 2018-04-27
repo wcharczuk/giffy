@@ -3,7 +3,7 @@ package migrations
 import "github.com/blend/go-sdk/db/migration"
 
 // Migrations returns the migrations.
-func Migrations() migration.Migration {
+func Migrations() *migration.Group {
 	return migration.NewGroup(
 		contentRating(),
 		slackTeam(),

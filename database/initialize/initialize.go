@@ -8,8 +8,7 @@ import (
 )
 
 // Initialize returns the initialize migrations.
-func Initialize(cfg *config.Giffy) migration.Migration {
-
+func Initialize(cfg *config.Giffy) *migration.Group {
 	return migration.NewGroup(
 		migration.NewGroup(
 			migration.NewStep(
