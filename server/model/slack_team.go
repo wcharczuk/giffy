@@ -1,10 +1,7 @@
 package model
 
 import (
-	"database/sql"
 	"time"
-
-	"github.com/blend/go-sdk/db"
 )
 
 // NewSlackTeam returns a new SlackTeam.
@@ -39,18 +36,4 @@ func (st SlackTeam) TableName() string {
 // IsZero returns if the object has been set or not.
 func (st SlackTeam) IsZero() bool {
 	return len(st.TeamID) == 0
-}
-
-// GetAllSlackTeams gets all slack teams.
-func GetAllSlackTeams(txs ...*sql.Tx) ([]SlackTeam, error) {
-	var teams []SlackTeam
-	err := DB().QueryInTx(`select * from slack_team order by team_name asc`, db.OptionalTx(txs...)).OutMany(&teams)
-	return teams, err
-}
-
-// GetSlackTeamByTeamID gets a slack team by the team id.
-func GetSlackTeamByTeamID(teamID string, txs ...*sql.Tx) (*SlackTeam, error) {
-	var team SlackTeam
-	err := DB().InTx(txs...).Get(&team, teamID)
-	return &team, err
 }

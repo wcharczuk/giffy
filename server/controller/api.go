@@ -22,6 +22,7 @@ import (
 // API is the controller for api endpoints.
 type API struct {
 	Config *config.Giffy
+	Model *model.Manager
 	OAuth  *oauth.Manager
 	Files  *filemanager.FileManager
 }
@@ -110,7 +111,7 @@ func (api API) getUsersAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotAuthorized()
 	}
 
-	users, err := model.GetAllUsers(web.Tx(r))
+	users, err := api.Model.GetAllUsers(r.Context())
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}

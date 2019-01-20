@@ -2,7 +2,6 @@ package model
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 )
 
@@ -42,74 +41,4 @@ func NewVote(userID, imageID, tagID int64, isUpvote bool) *Vote {
 		CreatedUTC: time.Now().UTC(),
 		IsUpvote:   isUpvote,
 	}
-}
-
-func getVotesQuery(whereClause string) string {
-	return fmt.Sprintf(`
-select
-	v.*
-	, u.uuid as user_uuid
-	, i.uuid as image_uuid
-	, t.uuid as tag_uuid
-from
-	vote v
-	join users u on v.user_id = u.id
-	join image i on v.image_id = i.id
-	join tag t on v.tag_id = t.id
-%s
-order by
-	v.created_utc desc;
-`, whereClause)
-}
-
-// GetVotesForUser gets all the vote log entries for a user.
-func GetVotesForUser(userID int64, tx *sql.Tx) ([]Vote, error) {
-	votes := []Vote{}
-	err := DB().QueryInTx(getVotesQuery("where v.user_id = $1"), tx, userID).OutMany(&votes)
-	return votes, err
-}
-
-// GetVotesForImage gets all the votes log entries for an image.
-func GetVotesForImage(imageID int64, tx *sql.Tx) ([]Vote, error) {
-	votes := []Vote{}
-	err := DB().QueryInTx(getVotesQuery("where v.image_id = $1"), tx, imageID).OutMany(&votes)
-	return votes, err
-}
-
-// GetVotesForTag gets all the votes log entries for an image.
-func GetVotesForTag(tagID int64, tx *sql.Tx) ([]Vote, error) {
-	votes := []Vote{}
-	err := DB().QueryInTx(getVotesQuery("where v.tag_id = $1"), tx, tagID).OutMany(&votes)
-	return votes, err
-}
-
-// GetVotesForUserForImage gets the votes for an image by a user.
-func GetVotesForUserForImage(userID, imageID int64, tx *sql.Tx) ([]Vote, error) {
-	votes := []Vote{}
-	err := DB().QueryInTx(getVotesQuery("where v.user_id = $1 and v.image_id = $2"), tx, userID, imageID).OutMany(&votes)
-	return votes, err
-}
-
-// GetVotesForUserForTag gets the votes for an image by a user.
-func GetVotesForUserForTag(userID, tagID int64, tx *sql.Tx) ([]Vote, error) {
-	votes := []Vote{}
-	err := DB().QueryInTx(getVotesQuery("where v.user_id = $1 and v.tag_id = $2"), tx, userID, tagID).OutMany(&votes)
-	return votes, err
-}
-
-// GetVote gets a user's vote for an image and a tag.
-func GetVote(userID, imageID, tagID int64, tx *sql.Tx) (*Vote, error) {
-	voteLog := Vote{}
-	err := DB().QueryInTx(getVotesQuery("where v.user_id = $1 and v.image_id = $2 and v.tag_id = $3"), tx, userID, imageID, tagID).Out(&voteLog)
-	return &voteLog, err
-}
-
-// SetVoteTagID sets the tag_id for a vote object.
-func SetVoteTagID(userID, imageID, oldTagID, newTagID int64, tx *sql.Tx) error {
-	return DB().ExecInTx(`update vote set tag_id = $1 where user_id = $2 and image_id = $3 and tag_id = $4`, tx, newTagID, userID, imageID, oldTagID)
-}
-
-// DeleteVote deletes a vote.
-func DeleteVote(userID, imageID, tagID int64, tx *sql.Tx) error {
-	return DB().ExecInTx(`DELETE from vote where user_id = $1 and image_id = $2 and tag_id = $3`, tx, userID, imageID, tagID)
 }

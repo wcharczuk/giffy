@@ -5,9 +5,10 @@ import (
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/uuid"
 )
 
-func TestDeleteUserSession(t *testing.T) {
+func TestGetSiteStats(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
 	tx, err := db.Default().Begin()
@@ -17,15 +18,15 @@ func TestDeleteUserSession(t *testing.T) {
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
-
-	us, err := m.CreateTestUserSession(todo, u.ID)
+	i, err := m.CreateTestImage(todo, u.ID)
+	assert.Nil(err)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	err = m.DeleteUserSession(todo, u.ID, us.SessionID)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	var verify UserSession
-	err = m.Invoke(todo).Get(&verify, us.SessionID)
+	stats, err := m.GetSiteStats(todo)
 	assert.Nil(err)
-	assert.True(verify.IsZero())
+	assert.NotNil(stats)
 }

@@ -12,6 +12,7 @@ import (
 // Index is the root controller.
 type Index struct {
 	Config *config.Giffy
+	Model  *model.Manager
 }
 
 func (i Index) indexAction(r *web.Ctx) web.Result {

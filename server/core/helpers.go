@@ -32,9 +32,9 @@ func ConfigLocalIP() string {
 func Setwd(relativePath string) error {
 	fullPath, err := filepath.Abs(relativePath)
 	if err != nil {
-		return exception.Wrap(err)
+		return exception.New(err)
 	}
-	return exception.Wrap(os.Chdir(fullPath))
+	return exception.New(os.Chdir(fullPath))
 }
 
 // InitTest initializes the test prereqs.
@@ -44,5 +44,5 @@ func InitTest() error {
 		return err
 	}
 
-	return db.OpenDefault(db.NewFromConfig(&cfg.DB))
+	return db.OpenDefault(db.MustNewFromConfig(&cfg.DB))
 }

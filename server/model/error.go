@@ -1,13 +1,11 @@
 package model
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
 
 	exception "github.com/blend/go-sdk/exception"
-	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/uuid"
 )
 
@@ -57,18 +55,4 @@ type Error struct {
 // TableName returns the mapped table name.
 func (e Error) TableName() string {
 	return "error"
-}
-
-// GetAllErrorsWithLimitAndOffset gets all the errors up to a limit.
-func GetAllErrorsWithLimitAndOffset(limit, offset int, txs ...*sql.Tx) ([]Error, error) {
-	var errors []Error
-	err := DB().QueryInTx(`SELECT * FROM error ORDER BY created_utc desc LIMIT $1 OFFSET $2`, db.OptionalTx(txs...), limit, offset).OutMany(&errors)
-	return errors, err
-}
-
-// GetAllErrorsSince gets all the errors since a cutoff.
-func GetAllErrorsSince(since time.Time, txs ...*sql.Tx) ([]Error, error) {
-	var errors []Error
-	err := DB().QueryInTx(`SELECT * FROM error WHERE created_utc > $1 ORDER BY created_utc desc`, db.OptionalTx(txs...), since).OutMany(&errors)
-	return errors, err
 }

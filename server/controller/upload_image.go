@@ -23,6 +23,7 @@ import (
 // UploadImage is the controller responsible for image actions.
 type UploadImage struct {
 	Config *config.Giffy
+	Model *model.Manager
 	Files  *filemanager.FileManager
 }
 
@@ -92,7 +93,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	}
 
 	md5sum := model.ConvertMD5(md5.Sum(fileContents))
-	existing, err := model.GetImageByMD5(md5sum, nil)
+	existing, err := ic.Model.GetImageByMD5(r.Context(), md5sum)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -101,7 +102,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().View("upload_image_complete", existing)
 	}
 
-	image, err := CreateImageFromFile(sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files, web.Tx(r))
+	image, err := CreateImageFromFile(r.Context(), sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -109,7 +110,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().InternalError(exception.New("Nil image returned from `createImageFromFile`."))
 	}
 
-	r.Logger().Trigger(model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+	logger.MaybeTrigger(r.Logger(), model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return r.View().View("upload_image_complete", image)
 }
 

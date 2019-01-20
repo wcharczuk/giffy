@@ -51,12 +51,3 @@ func (cr *ContentRating) Populate(rows *sql.Rows) error {
 func (cr *ContentRating) IsZero() bool {
 	return cr.ID == 0 && len(cr.Name) == 0
 }
-
-// GetContentRatingByName gets a content rating by name.
-func GetContentRatingByName(name string, tx *sql.Tx) (*ContentRating, error) {
-	var rating ContentRating
-	err := DB().QueryInTx(
-		`SELECT * from content_rating where name = $1`, tx, name,
-	).Out(&rating)
-	return &rating, err
-}

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/blend/go-sdk/util"
@@ -31,9 +30,4 @@ func NewUserSession(userID int64) *UserSession {
 		TimestampUTC: time.Now().UTC(),
 		SessionID:    util.String.Random(32),
 	}
-}
-
-// DeleteUserSession removes a session from the db.
-func DeleteUserSession(userID int64, sessionID string, tx *sql.Tx) error {
-	return DB().ExecInTx("DELETE FROM user_session where user_id = $1 and session_id = $2", tx, userID, sessionID)
 }

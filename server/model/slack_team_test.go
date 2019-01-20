@@ -5,14 +5,17 @@ import (
 	"time"
 
 	assert "github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	util "github.com/blend/go-sdk/util"
 )
 
 func TestSlackTeam(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := DB().Begin()
+	todo := testCtx()
+	tx, err := db.Default().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
 	newTeam := &SlackTeam{
 		TeamID:              util.String.Random(32),
@@ -23,11 +26,11 @@ func TestSlackTeam(t *testing.T) {
 		CreatedByID:         util.String.Random(32),
 		CreatedByName:       util.String.Random(128),
 	}
-	err = DB().CreateInTx(newTeam, tx)
+	err = m.Invoke(todo).Create(newTeam)
 	assert.Nil(err)
 
 	var verify SlackTeam
-	err = DB().InTx(tx).Get(&verify, newTeam.TeamID)
+	err = m.Invoke(todo).Get(&verify, newTeam.TeamID)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }

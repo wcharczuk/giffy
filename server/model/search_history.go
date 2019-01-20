@@ -1,12 +1,9 @@
 package model
 
 import (
-	"database/sql"
-	"fmt"
 	"time"
 
 	logger "github.com/blend/go-sdk/logger"
-	"github.com/blend/go-sdk/db"
 	"github.com/wcharczuk/giffy/server/core"
 )
 
@@ -77,74 +74,4 @@ func (sh SearchHistory) Flag() logger.Flag {
 // Timestamp implements logger.Event.
 func (sh SearchHistory) Timestamp() time.Time {
 	return sh.TimestampUTC
-}
-
-func createSearchHistoryQuery(whereClause ...string) string {
-	searchColumns := db.Columns(SearchHistory{}).NotReadOnly().ColumnNamesCSVFromAlias("sh")
-	imageColumns := db.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_").ColumnNamesCSVFromAlias("i")
-	tagColumns := db.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_").ColumnNamesCSVFromAlias("t")
-
-	query := `
-	select
-		%s,
-		%s,
-		%s
-	from
-		search_history sh
-		left join image i on i.id = sh.image_id
-		left join tag t on t.id = sh.tag_id
-	%s
-	order by timestamp_utc desc
-	`
-	if len(whereClause) > 0 {
-		return fmt.Sprintf(query, searchColumns, imageColumns, tagColumns, whereClause[0])
-	}
-	return fmt.Sprintf(query, searchColumns, imageColumns, tagColumns, "")
-}
-
-func searchHistoryConsumer(searchHistory *[]SearchHistory) db.RowsConsumer {
-	searchColumns := db.Columns(SearchHistory{}).NotReadOnly()
-	imageColumns := db.Columns(Image{}).NotReadOnly().CopyWithColumnPrefix("image_")
-	tagColumns := db.Columns(Tag{}).NotReadOnly().CopyWithColumnPrefix("tag_")
-
-	return func(r *sql.Rows) error {
-		var sh SearchHistory
-		var i Image
-		var t Tag
-
-		err := db.PopulateByName(&sh, r, searchColumns)
-		if err != nil {
-			return err
-		}
-
-		err = db.PopulateByName(&i, r, imageColumns)
-		if err == nil && !i.IsZero() {
-			sh.Image = &i
-		}
-
-		err = db.PopulateByName(&t, r, tagColumns)
-		if err == nil && !t.IsZero() {
-			sh.Tag = &t
-		}
-
-		*searchHistory = append(*searchHistory, sh)
-		return nil
-	}
-}
-
-// GetSearchHistory returns the entire search history in chrono order.
-func GetSearchHistory(txs ...*sql.Tx) ([]SearchHistory, error) {
-	var searchHistory []SearchHistory
-	query := createSearchHistoryQuery()
-	err := DB().QueryInTx(query, db.OptionalTx(txs...)).Each(searchHistoryConsumer(&searchHistory))
-	return searchHistory, err
-}
-
-// GetSearchHistoryByCountAndOffset returns the search history in chrono order by count and offset.
-func GetSearchHistoryByCountAndOffset(count, offset int, tx *sql.Tx) ([]SearchHistory, error) {
-	var searchHistory []SearchHistory
-	query := createSearchHistoryQuery()
-	query = query + `limit $1 offset $2`
-	err := DB().QueryInTx(query, tx, count, offset).Each(searchHistoryConsumer(&searchHistory))
-	return searchHistory, err
 }

@@ -3,6 +3,7 @@ package external
 import (
 	"fmt"
 
+	"github.com/blend/go-sdk/request"
 	"github.com/wcharczuk/giffy/server/config"
 )
 
@@ -42,9 +43,9 @@ func SlackAuthReturnURL(cfg *config.Giffy) string {
 // FetchSlackProfile gets the slack user details for an access token.
 func FetchSlackProfile(accessToken string, cfg *config.Giffy) (*SlackProfile, error) {
 	var auth SlackProfile
-	err := NewRequest().
+	err := request.New().
 		AsPost().
-		WithURL("https://slack.com/api/auth.test").
+		MustWithRawURL("https://slack.com/api/auth.test").
 		WithPostData("token", accessToken).
 		JSON(&auth)
 	return &auth, err
@@ -54,9 +55,9 @@ func FetchSlackProfile(accessToken string, cfg *config.Giffy) (*SlackProfile, er
 func SlackOAuth(code string, cfg *config.Giffy) (*SlackOAuthResponse, error) {
 	var oar SlackOAuthResponse
 
-	err := NewRequest().
+	err := request.New().
 		AsPost().
-		WithURL("https://slack.com/api/oauth.access").
+		MustWithRawURL("https://slack.com/api/oauth.access").
 		WithPostData("client_id", cfg.SlackClientID).
 		WithPostData("client_secret", cfg.SlackClientSecret).
 		WithPostData("redirect_uri", SlackAuthReturnURL(cfg)).

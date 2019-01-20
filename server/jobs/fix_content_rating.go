@@ -2,15 +2,17 @@ package jobs
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/blend/go-sdk/cron"
+	"github.com/blend/go-sdk/db"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 // FixContentRating fixes images that have been uploaded with a 0 content rating.
-type FixContentRating struct{}
+type FixContentRating struct {
+	Model *model.Manager
+}
 
 // Name returns the job name.
 func (fis FixContentRating) Name() string {
@@ -26,7 +28,7 @@ func (fis FixContentRating) Schedule() cron.Schedule {
 func (fis FixContentRating) Execute(ctx context.Context) error {
 	imageIDs := []int64{}
 
-	err := model.DB().Query(`select id from image where content_rating = 0;`).Each(func(r *sql.Rows) error {
+	err := fis.Model.Invoke(ctx).Query(`select id from image where content_rating = 0;`).Each(func(r db.Rows) error {
 		var id int64
 		err := r.Scan(&id)
 		if err != nil {
@@ -43,13 +45,13 @@ func (fis FixContentRating) Execute(ctx context.Context) error {
 	var image model.Image
 	for _, id := range imageIDs {
 
-		err = model.DB().Get(&image, id)
+		err = fis.Model.Invoke(ctx).Get(&image, id)
 		if err != nil {
 			return err
 		}
 
 		image.ContentRating = model.ContentRatingG
-		err = model.DB().Update(&image)
+		err = fis.Model.Invoke(ctx).Update(&image)
 		if err != nil {
 			return err
 		}

@@ -14,6 +14,7 @@ import (
 // Chart is a controller for common chart endpoints.
 type Chart struct {
 	Config *config.Giffy
+	Model *model.Manager
 }
 
 func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {

@@ -1,11 +1,10 @@
 package model
 
 import (
-	"database/sql"
-	"fmt"
 	"time"
 
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/uuid"
 )
 
 // User is a user in the app.
@@ -36,7 +35,7 @@ func (u User) IsZero() bool {
 }
 
 // Populate scans the rows into the struct.
-func (u *User) Populate(r *sql.Rows) error {
+func (u *User) Populate(r db.Rows) error {
 	return r.Scan(
 		&u.ID,
 		&u.UUID,
@@ -55,55 +54,9 @@ func (u *User) Populate(r *sql.Rows) error {
 // NewUser returns a new user.
 func NewUser(username string) *User {
 	return &User{
-		UUID:            core.UUIDv4().ToShortString(),
+		UUID:            uuid.V4().String(),
 		CreatedUTC:      time.Now().UTC(),
 		Username:        username,
 		IsEmailVerified: false,
 	}
-}
-
-// GetAllUsers returns all the users.
-func GetAllUsers(tx *sql.Tx) ([]User, error) {
-	var all []User
-	err := DB().GetAllInTx(&all, tx)
-	return all, err
-}
-
-// GetUsersByCountAndOffset returns users by count and offset.
-func GetUsersByCountAndOffset(count, offset int, tx *sql.Tx) ([]User, error) {
-	var all []User
-	err := DB().QueryInTx(`select * from users order by created_utc desc limit $1 offset $2`, tx, count, offset).OutMany(&all)
-	return all, err
-}
-
-// GetUserByID returns a user by id.
-func GetUserByID(id int64, tx *sql.Tx) (*User, error) {
-	var user User
-	err := DB().InTx(tx).Get(&user, id)
-	return &user, err
-}
-
-// GetUserByUUID returns a user for a uuid.
-func GetUserByUUID(uuid string, tx *sql.Tx) (*User, error) {
-	var user User
-	err := DB().InTx(tx).
-		Query(`select * from users where uuid = $1`, uuid).Out(&user)
-	return &user, err
-}
-
-// SearchUsers searches users by searchString.
-func SearchUsers(query string, tx *sql.Tx) ([]User, error) {
-	var users []User
-	queryFormat := fmt.Sprintf("%%%s%%", query)
-	sqlQuery := `select * from users where username ilike $1 or first_name ilike $1 or last_name ilike $1 or email_address ilike $1`
-	err := DB().InTx(tx).Query(sqlQuery, queryFormat).OutMany(&users)
-	return users, err
-}
-
-// GetUserByUsername returns a user for a uuid.
-func GetUserByUsername(username string, tx *sql.Tx) (*User, error) {
-	var user User
-	err := DB().InTx(tx).
-		Query(`select * from users where username = $1`, username).Out(&user)
-	return &user, err
 }

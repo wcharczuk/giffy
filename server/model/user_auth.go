@@ -1,10 +1,8 @@
 package model
 
 import (
-	"database/sql"
 	"time"
 
-	"github.com/blend/go-sdk/exception"
 	util "github.com/blend/go-sdk/util"
 )
 
@@ -51,29 +49,4 @@ func (ua UserAuth) TableName() string {
 // IsZero returns if the object has been set or not.
 func (ua UserAuth) IsZero() bool {
 	return ua.UserID == 0
-}
-
-// GetUserAuthByToken returns an auth entry for the given auth token.
-func GetUserAuthByToken(token string, key []byte, tx *sql.Tx) (*UserAuth, error) {
-	if len(key) == 0 {
-		return nil, exception.New("`ENCRYPTION_KEY` is not set, cannot continue.")
-	}
-
-	authTokenHash := util.Crypto.Hash(key, []byte(token))
-
-	var auth UserAuth
-	err := DB().QueryInTx("SELECT * FROM user_auth where auth_token_hash = $1", tx, authTokenHash).Out(&auth)
-	return &auth, err
-}
-
-// GetUserAuthByProvider returns an auth entry for the given auth token.
-func GetUserAuthByProvider(userID int64, provider string, tx *sql.Tx) (*UserAuth, error) {
-	var auth UserAuth
-	err := DB().QueryInTx("SELECT * FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider).Out(&auth)
-	return &auth, err
-}
-
-// DeleteUserAuthForProvider deletes auth entries for a provider for a user.
-func DeleteUserAuthForProvider(userID int64, provider string, tx *sql.Tx) error {
-	return DB().ExecInTx("DELETE FROM user_auth where user_id = $1 and provider = $2", tx, userID, provider)
 }

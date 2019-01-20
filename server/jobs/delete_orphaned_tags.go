@@ -9,7 +9,9 @@ import (
 )
 
 // DeleteOrphanedTags is a job that deletes orphaned tags
-type DeleteOrphanedTags struct{}
+type DeleteOrphanedTags struct {
+	Model *model.Manager
+}
 
 // Name returns the job name
 func (ot DeleteOrphanedTags) Name() string {
@@ -23,5 +25,5 @@ func (ot DeleteOrphanedTags) Schedule() cron.Schedule {
 
 // Execute runs the job
 func (ot DeleteOrphanedTags) Execute(ctx context.Context) error {
-	return model.DeleteOrphanedTags(nil)
+	return ot.Model.DeleteOrphanedTags(ctx)
 }

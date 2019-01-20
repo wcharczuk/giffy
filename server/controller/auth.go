@@ -29,21 +29,100 @@ const (
 type Auth struct {
 	OAuth  *oauth.Manager
 	Config *config.Giffy
+	Model *model.Manager
 }
 
 // Register registers the controllers routes.
 func (ac Auth) Register(app *web.App) {
-
-	app.Auth().SetLoginRedirectHandler(webutil.LoginRedirect)
-	app.Auth().SetFetchHandler(webutil.FetchSession)
-	app.Auth().SetPersistHandler(webutil.PersistSession)
-	app.Auth().SetRemoveHandler(webutil.RemoveSession)
+	app.Auth().SetLoginRedirectHandler(ac.loginRedirect)
+	app.Auth().SetFetchHandler(ac.fetchSession)
+	app.Auth().SetPersistHandler(ac.persistSession)
+	app.Auth().SetRemoveHandler(ac.removeSession)
 
 	app.GET("/oauth/google", ac.oauthGoogleAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
 	app.GET("/oauth/slack", ac.oauthSlackAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
 	app.GET("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
 	app.POST("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
 }
+
+// LoginRedirect returns the login redirect.
+// This is used when a client tries to access a session required route and isn't authed.
+// It should generally point to the login page.
+func (ac Auth) LoginRedirect(ctx *web.Ctx) *url.URL {
+	from := ctx.Request().URL
+	if from.Path != "/" {
+		return &url.URL{
+			Path:     "/",
+			RawQuery: fmt.Sprintf("redirect=%s", url.QueryEscape(from.Path)),
+		}
+	}
+	return &url.URL{
+		Path: "/",
+	}
+}
+
+// FetchSession fetches a session from the db.
+// Returning `nil` for the session represents a logged out state, and will trigger
+// an auth redirect (if one is provided) or a 403 (not authorized) result.
+func (ac Auth) FetchSession(sessionID string, state web.State) (*web.Session, error) {
+	tx := web.TxFromState(state)
+	var session model.UserSession
+	err := model.DB().GetInTx(&session, tx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	if session.IsZero() {
+		return nil, nil
+	}
+
+	// check if the user exists in the database
+	var dbUser model.User
+	err = model.DB().GetInTx(&dbUser, tx, session.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if dbUser.IsZero() {
+		return nil, nil
+	}
+
+	newSession := &web.Session{
+		CreatedUTC: session.TimestampUTC,
+		SessionID:  sessionID,
+		UserID:     util.String.FromInt64(session.UserID),
+	}
+	SetUser(newSession, &dbUser)
+	return newSession, nil
+}
+
+// PersistSession saves a session to the db.
+// It is called when the user logs into the session manager, and allows sessions to persist
+// across server restarts.
+func (ac Auth) PersistSession(context *web.Ctx, session *web.Session, state web.State) error {
+	tx := web.TxFromState(state)
+	dbSession := &model.UserSession{
+		SessionID:    session.SessionID,
+		TimestampUTC: session.CreatedUTC,
+		UserID:       util.Parse.Int64(session.UserID),
+	}
+
+	return model.DB().CreateIfNotExistsInTx(dbSession, tx)
+}
+
+// RemoveSession removes a session from the db.
+// It is called when the user logs out, and removes their session from the db so it isn't
+// returned by `FetchSession`
+func (ac Auth) RemoveSession(sessionID string, state web.State) error {
+	tx := web.TxFromState(state)
+	var session model.UserSession
+	err := model.DB().GetInTx(&session, tx, sessionID)
+	if err != nil {
+		return err
+	}
+	return model.DB().DeleteInTx(session, tx)
+}
+
 
 func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 	code := r.ParamString("code")
@@ -174,3 +253,4 @@ func (ac Auth) logoutAction(r *web.Ctx) web.Result {
 
 	return r.Redirectf("/")
 }
+

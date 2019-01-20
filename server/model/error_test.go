@@ -6,16 +6,19 @@ import (
 	"testing"
 
 	assert "github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	exception "github.com/blend/go-sdk/exception"
 )
 
 func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := DB().Begin()
+	todo := testCtx()
+	tx, err := db.Default().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	err = DB().CreateInTx(NewError(
+	err = m.Invoke(todo).Create(NewError(
 		exception.New("This is only a test"),
 		&http.Request{
 			Method: "GET",
@@ -26,10 +29,10 @@ func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
 				RawQuery: "foo=bar",
 			},
 		},
-	), tx)
+	))
 	assert.Nil(err)
 
-	err = DB().CreateInTx(NewError(
+	err = m.Invoke(todo).Create(NewError(
 		exception.New("This is only a test"),
 		&http.Request{
 			Method: "GET",
@@ -40,10 +43,10 @@ func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
 				RawQuery: "foo=bar",
 			},
 		},
-	), tx)
+	))
 	assert.Nil(err)
 
-	errors, err := GetAllErrorsWithLimitAndOffset(1, 0, tx)
+	errors, err := m.GetAllErrorsWithLimitAndOffset(todo, 1, 0)
 	assert.Nil(err)
 	assert.Len(errors, 1)
 }

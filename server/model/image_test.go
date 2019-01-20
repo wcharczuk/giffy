@@ -7,29 +7,32 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/util"
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/blend/go-sdk/uuid"
 )
 
 func TestGetAllImages(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	allImages, err := GetAllImages(tx)
+	allImages, err := m.GetAllImages(todo)
 	assert.Nil(err)
 	assert.NotEmpty(allImages)
 
@@ -49,39 +52,43 @@ func TestGetAllImages(t *testing.T) {
 
 func TestGetRandomImages(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {
-		_, err = CreateTestImage(u.ID, tx)
+		_, err = m.CreateTestImage(todo, u.ID)
 		assert.Nil(err)
 	}
 
-	images, err := GetRandomImages(5, tx)
+	images, err := m.GetRandomImages(todo, 5)
 	assert.Nil(err)
 	assert.Len(images, 5)
 }
 
 func TestGetImageByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	verify, err := GetImageByID(i.ID, tx)
+	verify, err := m.GetImageByID(todo, i.ID)
 	assert.Nil(err)
 	assert.NotNil(verify)
 	assert.False(verify.IsZero())
@@ -94,11 +101,13 @@ func TestGetImageByID(t *testing.T) {
 
 func TestGetImageByIDNotFound(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	verify, err := GetImageByID(-1, tx)
+	verify, err := m.GetImageByID(todo, -1)
 	assert.Nil(err)
 	assert.NotNil(verify)
 	assert.True(verify.IsZero())
@@ -106,98 +115,106 @@ func TestGetImageByIDNotFound(t *testing.T) {
 
 func TestUpdateImageDisplayName(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	err = UpdateImageDisplayName(i.ID, fmt.Sprintf("not %s", i.DisplayName), tx)
+	err = m.UpdateImageDisplayName(todo, i.ID, fmt.Sprintf("not %s", i.DisplayName))
 	assert.Nil(err)
 
-	verify, err := GetImageByID(i.ID, tx)
+	verify, err := m.GetImageByID(todo, i.ID)
 	assert.Nil(err)
 	assert.Equal(fmt.Sprintf("not %s", i.DisplayName), verify.DisplayName)
 }
 
 func TestDeleteImageByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	err = DeleteImageByID(i.ID, tx)
+	err = m.DeleteImageByID(todo, i.ID)
 	assert.Nil(err)
 
-	verify, err := GetImageByID(i.ID, tx)
+	verify, err := m.GetImageByID(todo, i.ID)
 	assert.Nil(err)
 	assert.True(verify.IsZero())
 }
 
 func TestImageMD5Check(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	verify, err := GetImageByMD5(i.MD5, tx)
+	verify, err := m.GetImageByMD5(todo, i.MD5, tx)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }
 
 func TestSearchImages(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i4, err := CreateTestImage(u.ID, tx)
+	i4, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i3, err := CreateTestImage(u.ID, tx)
+	i3, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i2, err := CreateTestImage(u.ID, tx)
+	i2, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, "not_foo_bar", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i4.ID, "not_foo_bar")
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i3.ID, "__test_foo_bar", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i3.ID, "__test_foo_bar")
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i2.ID, "__test_bar", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i2.ID, "__test_bar")
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, "__test")
 	assert.Nil(err)
 
-	images, err := SearchImages("__test", ContentRatingFilterDefault, tx)
+	images, err := m.SearchImages(todo, "__test", ContentRatingFilterDefault)
 	assert.Nil(err)
 	assert.NotEmpty(images)
 	assert.Len(images, 3)
@@ -214,38 +231,40 @@ func TestSearchImages(t *testing.T) {
 
 func TestSearchImagesRandom(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i4, err := CreateTestImage(u.ID, tx)
+	i4, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i3, err := CreateTestImage(u.ID, tx)
+	i3, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i2, err := CreateTestImage(u.ID, tx)
+	i2, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, "not__test_foo_bar", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i4.ID, "not__test_foo_bar")
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i3.ID, "__test_foo_bar", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i3.ID, "__test_foo_bar")
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i2.ID, "__test_bar", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i2.ID, "__test_bar")
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, "__test")
 	assert.Nil(err)
 
-	images, err := SearchImagesWeightedRandom("__test", ContentRatingFilterDefault, 2, tx)
+	images, err := m.SearchImagesWeightedRandom(todo, "__test", ContentRatingFilterDefault, 2)
 	assert.Nil(err)
 	assert.NotNil(images)
 	assert.NotEmpty(images)
@@ -253,23 +272,25 @@ func TestSearchImagesRandom(t *testing.T) {
 
 func TestSearchImagesBestResult(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i4, err := CreateTestImage(u.ID, tx)
+	i4, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i3, err := CreateTestImage(u.ID, tx)
+	i3, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i2, err := CreateTestImage(u.ID, tx)
+	i2, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
 	tag4value := fmt.Sprintf("__test_foo_bar_%s", util.String.Random(4))
@@ -277,24 +298,24 @@ func TestSearchImagesBestResult(t *testing.T) {
 	tag2value := fmt.Sprintf("__test_foo_%s", util.String.Random(4))
 	tag1value := fmt.Sprintf("__test_%s", util.String.Random(4))
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i4.ID, tag4value, tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i4.ID, tag4value)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i3.ID, tag3value, tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i3.ID, tag3value)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i2.ID, tag2value, tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i2.ID, tag2value)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, tag1value, tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, tag1value)
 	assert.Nil(err)
 
-	image, err := SearchImagesBestResult(tag1value, nil, ContentRatingFilterDefault, tx)
+	image, err := m.SearchImagesBestResult(todo, tag1value, nil, ContentRatingFilterDefault)
 	assert.Nil(err)
 	assert.NotNil(image)
 	assert.Equal(i.ID, image.ID)
 
-	image, err = SearchImagesBestResult("__test", []string{i.UUID}, ContentRatingFilterDefault, tx)
+	image, err = m.SearchImagesBestResult(todo, "__test", []string{i.UUID}, ContentRatingFilterDefault)
 	assert.Nil(err)
 	assert.NotNil(image)
 	assert.NotEqual(i.ID, image.ID)
@@ -370,44 +391,46 @@ func TestImageSignaturesSortScoreDescending(t *testing.T) {
 
 func TestGetImagesByID(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestImage(u.ID, tx)
+	_, err = m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestImage(u.ID, tx)
+	_, err = m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	_, err = CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	baz, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	baz, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	biz, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
+	biz, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	err = SetVoteSummaryVoteCounts(i.ID, baz.ID, 100, 3, tx)
+	err = m.SetVoteSummaryVoteCounts(todo, i.ID, baz.ID, 100, 3)
 	assert.Nil(err)
 
-	err = SetVoteSummaryVoteCounts(i.ID, biz.ID, 1000, 30, tx)
+	err = m.SetVoteSummaryVoteCounts(todo, i.ID, biz.ID, 1000, 30)
 	assert.Nil(err)
 
-	images, err := GetAllImages(tx)
+	images, err := m.GetAllImages(todo)
 	assert.Nil(err)
 	assert.NotNil(images)
 	assert.NotEmpty(images)
@@ -438,24 +461,26 @@ func TestSortImagesByIndex(t *testing.T) {
 
 func TestGetAllImagesCensored(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	i2, err := CreateTestImage(u.ID, tx)
+	i2, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
 	i.ContentRating = ContentRatingNR
-	err = DB().UpdateInTx(i, tx)
+	err = m.Invoke(todo).Update(i)
 	assert.Nil(err)
 
-	censored, err := GetAllImagesWithContentRating(ContentRatingNR, tx)
+	censored, err := m.GetAllImagesWithContentRating(todo, ContentRatingNR)
 	assert.NotEmpty(censored)
 	assert.None(censored, NewImagePredicate(func(img Image) bool {
 		return img.ID == i2.ID

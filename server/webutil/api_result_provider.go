@@ -48,6 +48,18 @@ type APIResultProvider struct {
 	requestContext *web.Ctx
 }
 
+// Status returns a service response.
+func (ar *APIResultProvider) Status(statusCode int, data ...interface{}) web.Result {
+	return &web.JSONResult{
+		StatusCode: statusCode,
+		Response: &APIResponse{
+			Meta: &APIResponseMeta{
+				StatusCode: statusCode,
+			},
+		},
+	}
+}
+
 // NotFound returns a service response.
 func (ar *APIResultProvider) NotFound() web.Result {
 	return &web.JSONResult{

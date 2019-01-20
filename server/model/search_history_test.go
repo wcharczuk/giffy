@@ -4,28 +4,31 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/util"
 )
 
 func TestGetSearchHistory(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, "__test_search_history", tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, "__test_search_history")
 	assert.Nil(err)
 
-	_, err = CreateTestSearchHistory("unit test", "test search", util.OptionalInt64(i.ID), util.OptionalInt64(tag.ID), tx)
+	_, err = m.CreateTestSearchHistory(todo, "unit test", "test search", util.OptionalInt64(i.ID), util.OptionalInt64(tag.ID))
 	assert.Nil(err)
 
-	history, err := GetSearchHistory(tx)
+	history, err := m.GetSearchHistory(todo)
 	assert.Nil(err)
 	assert.NotEmpty(history)
 }

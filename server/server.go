@@ -13,7 +13,7 @@ import (
 	"github.com/blend/go-sdk/workqueue"
 
 	// includes migrations
-	_ "github.com/wcharczuk/giffy/database/migrations"
+	_ "github.com/wcharczuk/giffy/db/migrations"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"

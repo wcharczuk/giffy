@@ -4,131 +4,144 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/uuid"
 )
 
 func TestGetVotesForUser(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
-	assert.Nil(err)
-
-	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	votes, err := GetVotesForUser(u.ID, tx)
+	_, err = m.CreateOrUpdateVote(todo, u.ID, i.ID, tag.ID, false)
+	assert.Nil(err)
+
+	votes, err := m.GetVotesForUser(todo, u.ID)
 	assert.Nil(err)
 	assert.NotEmpty(votes)
 }
 
 func TestGetVotesForImage(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
-	assert.Nil(err)
-
-	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	votes, err := GetVotesForImage(i.ID, tx)
+	_, err = m.CreateOrUpdateVote(todo, u.ID, i.ID, tag.ID, false)
+	assert.Nil(err)
+
+	votes, err := m.GetVotesForImage(todo, i.ID)
 	assert.Nil(err)
 	assert.NotEmpty(votes)
 }
 
 func TestGetVotesForTag(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
-	assert.Nil(err)
-
-	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	votes, err := GetVotesForTag(tag.ID, tx)
+	_, err = m.CreateOrUpdateVote(todo, u.ID, i.ID, tag.ID, false)
+	assert.Nil(err)
+
+	votes, err := m.GetVotesForTag(todo, tag.ID)
 	assert.Nil(err)
 	assert.NotEmpty(votes)
 }
 
 func TestGetVotesForUserForImage(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
-	assert.Nil(err)
-
-	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	votes, err := GetVotesForUserForImage(u.ID, i.ID, tx)
+	_, err = m.CreateOrUpdateVote(todo, u.ID, i.ID, tag.ID, false)
+	assert.Nil(err)
+
+	votes, err := m.GetVotesForUserForImage(todo, u.ID, i.ID)
 	assert.Nil(err)
 	assert.NotEmpty(votes)
 }
 
 func TestGetVotesForUserForTag(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
-	assert.Nil(err)
-
-	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	votes, err := GetVotesForUserForTag(u.ID, tag.ID, tx)
+	_, err = m.CreateOrUpdateVote(todo, u.ID, i.ID, tag.ID, false)
+	assert.Nil(err)
+
+	votes, err := m.GetVotesForUserForTag(todo, u.ID, tag.ID)
 	assert.Nil(err)
 	assert.NotEmpty(votes)
 }
 
 func TestGetVote(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
-	i, err := CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
-	tag, err := CreateTestTagForImageWithVote(u.ID, i.ID, core.UUIDv4().ToShortString(), tx)
-	assert.Nil(err)
-
-	_, err = CreateOrUpdateVote(u.ID, i.ID, tag.ID, false, tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, uuid.V4().String())
 	assert.Nil(err)
 
-	vote, err := GetVote(u.ID, i.ID, tag.ID, tx)
+	_, err = m.CreateOrUpdateVote(todo, u.ID, i.ID, tag.ID, false)
+	assert.Nil(err)
+
+	vote, err := m.GetVote(todo, u.ID, i.ID, tag.ID)
 	assert.Nil(err)
 	assert.False(vote.IsZero())
 }

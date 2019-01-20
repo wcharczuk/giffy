@@ -4,25 +4,28 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	util "github.com/blend/go-sdk/util"
 )
 
 func TestGetUserAuthByToken(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
 	key, err := util.Crypto.CreateKey(32)
 	assert.Nil(err)
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	_, err = CreateTestUserAuth(u.ID, "test", "password", key, tx)
+	_, err = m.CreateTestUserAuth(todo, u.ID, "test", "password", key)
 	assert.Nil(err)
 
-	verify, err := GetUserAuthByToken("test", key, tx)
+	verify, err := m.GetUserAuthByToken(todo, "test", key)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 
@@ -32,23 +35,25 @@ func TestGetUserAuthByToken(t *testing.T) {
 
 func TestDeleteUserAuthForProvider(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := Manager{DB: db.Default(), Tx: tx}
 
 	key, err := util.Crypto.CreateKey(32)
 	assert.Nil(err)
 
-	u, err := CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	_, err = CreateTestUserAuth(u.ID, "test", "password", key, tx)
+	_, err = m.CreateTestUserAuth(todo, u.ID, "test", "password", key)
 	assert.Nil(err)
 
-	err = DeleteUserAuthForProvider(u.ID, "test", tx)
+	err = m.DeleteUserAuthForProvider(todo, u.ID, "test")
 	assert.Nil(err)
 
-	verify, err := GetUserAuthByToken("test", key, tx)
+	verify, err := m.GetUserAuthByToken(todo, "test", key)
 	assert.Nil(err)
 	assert.True(verify.IsZero())
 }
