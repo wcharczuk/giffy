@@ -125,8 +125,8 @@ func (api API) searchUsersAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotAuthorized()
 	}
 
-	query := r.ParamString("query")
-	users, err := model.SearchUsers(query, web.Tx(r))
+	query := web.StringValue(r.Param("query"))
+	users, err := api.Model.SearchUsers(r.Context(), query)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -140,16 +140,16 @@ func (api API) getUsersByCountAndOffsetAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotAuthorized()
 	}
 
-	count, err := r.RouteParamInt("count")
+	count, err := web.IntValue(r.RouteParam("count"))
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
-	offset, err := r.RouteParamInt("offset")
+	offset, err := web.IntValue(r.RouteParam("offset"))
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	users, err := model.GetUsersByCountAndOffset(count, offset, web.Tx(r))
+	users, err := api.Model.GetUsersByCountAndOffset(r.Context(), count, offset)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -163,7 +163,7 @@ func (api API) getUserAction(r *web.Ctx) web.Result {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	user, err := model.GetUserByUUID(userUUID, web.Tx(r))
+	user, err := api.Model.GetUserByUUID(r.Context(), userUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -188,7 +188,7 @@ func (api API) updateUserAction(r *web.Ctx) web.Result {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	user, err := model.GetUserByUUID(userUUID, web.Tx(r))
+	user, err := api.Model.GetUserByUUID(r.Context(), userUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -234,7 +234,7 @@ func (api API) updateUserAction(r *web.Ctx) web.Result {
 
 	r.Logger().Trigger(moderationEntry)
 
-	err = model.DB().Update(&postedUser)
+	err = api.Model.Invoke(r.Context()).Update(&postedUser)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -249,7 +249,7 @@ func (api API) getUserImagesAction(r *web.Ctx) web.Result {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	user, err := model.GetUserByUUID(userUUID, web.Tx(r))
+	user, err := api.Model.GetUserByUUID(r.Context(), userUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -258,7 +258,7 @@ func (api API) getUserImagesAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotFound()
 	}
 
-	images, err := model.GetImagesForUserID(user.ID, web.Tx(r))
+	images, err := api.Model.GetImagesForUserID(r.Context(), user.ID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -273,7 +273,7 @@ func (api API) getModerationForUserAction(r *web.Ctx) web.Result {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	user, err := model.GetUserByUUID(userUUID, web.Tx(r))
+	user, err := api.Model.GetUserByUUID(r.Context(), userUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -281,7 +281,7 @@ func (api API) getModerationForUserAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotFound()
 	}
 
-	actions, err := model.GetModerationForUserID(user.ID, web.Tx(r))
+	actions, err := api.Model.GetModerationForUserID(r.Context(), user.ID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -296,14 +296,14 @@ func (api API) getVotesForUserForImageAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
-	image, err := model.GetImageByUUID(imageUUID, web.Tx(r))
+	image, err := api.Model.GetImageByUUID(r.Context(), imageUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
 	if image.IsZero() {
 		return webutil.API(r).NotFound()
 	}
-	votes, err := model.GetVotesForUserForImage(util.Parse.Int64(session.UserID), image.ID, web.Tx(r))
+	votes, err := api.Model.GetVotesForUserForImage(r.Context(), util.Parse.Int64(session.UserID), image.ID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -318,14 +318,14 @@ func (api API) getVotesForUserForTagAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
-	tag, err := model.GetTagByUUID(tagUUID, web.Tx(r))
+	tag, err := api.Model.GetTagByUUID(r.Context(), tagUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
 	if tag.IsZero() {
 		return webutil.API(r).NotFound()
 	}
-	votes, err := model.GetVotesForUserForTag(util.Parse.Int64(session.UserID), tag.ID, web.Tx(r))
+	votes, err := api.Model.GetVotesForUserForTag(r.Context(), util.Parse.Int64(session.UserID), tag.ID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -346,7 +346,7 @@ func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
 	}
 	userID := util.Parse.Int64(session.UserID)
 
-	image, err := model.GetImageByUUID(imageUUID, web.Tx(r))
+	image, err := api.Model.GetImageByUUID(r.Context(), imageUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -354,7 +354,7 @@ func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotFound()
 	}
 
-	tag, err := model.GetTagByUUID(tagUUID, web.Tx(r))
+	tag, err := api.Model.GetTagByUUID(r.Context(), tagUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -362,15 +362,11 @@ func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotFound()
 	}
 
-	tx, err := model.DB().Begin()
-
-	vote, err := model.GetVote(userID, image.ID, tag.ID, tx)
+	vote, err := api.Model.GetVote(r.Context(),userID, image.ID, tag.ID)
 	if err != nil {
-		tx.Rollback()
 		return webutil.API(r).InternalError(err)
 	}
 	if vote.IsZero() {
-		tx.Rollback()
 		return webutil.API(r).NotFound()
 	}
 
@@ -378,9 +374,8 @@ func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
 	wasUpvote := vote.IsUpvote
 
 	// adjust the vote summary ...
-	voteSummary, err := model.GetVoteSummary(image.ID, tag.ID, tx)
+	voteSummary, err := api.Model.GetVoteSummary(r.Context(), image.ID, tag.ID)
 	if err != nil {
-		tx.Rollback()
 		return webutil.API(r).InternalError(err)
 	}
 
@@ -390,25 +385,22 @@ func (api API) deleteUserVoteAction(r *web.Ctx) web.Result {
 		voteSummary.VotesAgainst--
 	}
 
-	err = model.SetVoteSummaryVoteCounts(image.ID, tag.ID, voteSummary.VotesFor, voteSummary.VotesAgainst, tx)
+	err = api.Model.SetVoteSummaryVoteCounts(r.Context(), image.ID, tag.ID, voteSummary.VotesFor, voteSummary.VotesAgainst)
 	if err != nil {
-		tx.Rollback()
 		return webutil.API(r).InternalError(err)
 	}
 
-	err = model.DeleteVote(userID, image.ID, tag.ID, web.Tx(r))
+	err = api.Model.DeleteVote(r.Context(), userID, image.ID, tag.ID)
 	if err != nil {
-		tx.Rollback()
 		return webutil.API(r).InternalError(err)
 	}
 
-	tx.Commit()
 	return webutil.API(r).OK()
 }
 
 // GET "/api/images"
 func (api API) getImagesAction(r *web.Ctx) web.Result {
-	images, err := model.GetAllImages(web.Tx(r))
+	images, err := api.Model.GetAllImages(r.Context())
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -428,7 +420,7 @@ func (api API) createImageAction(r *web.Ctx) web.Result {
 
 	postedFile := files[0]
 	md5sum := model.ConvertMD5(md5.Sum(postedFile.Contents))
-	existing, err := model.GetImageByMD5(md5sum, nil)
+	existing, err := api.Model.GetImageByMD5(r.Context(), md5sum)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -440,7 +432,7 @@ func (api API) createImageAction(r *web.Ctx) web.Result {
 	session := r.Session()
 	sessionUser := webutil.GetUser(session)
 	userID := util.Parse.Int64(session.UserID)
-	image, err := CreateImageFromFile(userID, !sessionUser.IsAdmin, postedFile.Contents, postedFile.FileName, api.Files, web.Tx(r))
+	image, err := CreateImageFromFile(r.Context(), api.Model, userID, !sessionUser.IsAdmin, postedFile.Contents, postedFile.FileName, api.Files)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -451,12 +443,12 @@ func (api API) createImageAction(r *web.Ctx) web.Result {
 
 // GET "/api/images/random/:count"
 func (api API) getRandomImagesAction(r *web.Ctx) web.Result {
-	count, err := r.RouteParamInt("count")
+	count, err := web.IntValue(r.RouteParam("count"))
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	images, err := model.GetRandomImages(count, web.Tx(r))
+	images, err := api.Model.GetRandomImages(r.Context(), count)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -472,8 +464,8 @@ func (api API) searchImagesAction(r *web.Ctx) web.Result {
 		contentRating = model.ContentRatingFilterAll
 	}
 
-	query := r.ParamString("query")
-	results, err := model.SearchImages(query, contentRating, web.Tx(r))
+	query := web.StringValue(r.Param("query"))
+	results, err := api.Model.SearchImages(r.Context(), query, contentRating)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -487,13 +479,13 @@ func (api API) searchImagesRandomAction(r *web.Ctx) web.Result {
 	if sessionUser != nil && sessionUser.IsModerator {
 		contentRating = model.ContentRatingFilterAll
 	}
-	count, err := r.RouteParamInt("count")
+	count, err := web.IntValue(r.RouteParam("count"))
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	query := r.ParamString("query")
-	results, err := model.SearchImagesWeightedRandom(query, contentRating, count, web.Tx(r))
+	query := web.StringValue(r.Param("query"))
+	results, err := api.Model.SearchImagesWeightedRandom(r.Context(),query, contentRating, count)
 
 	if err != nil {
 		return webutil.API(r).InternalError(err)
@@ -508,7 +500,7 @@ func (api API) getImageAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
-	image, err := model.GetImageByUUID(imageUUID, web.Tx(r))
+	image, err := api.Model.GetImageByUUID(r.Context(), imageUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -531,7 +523,7 @@ func (api API) updateImageAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotAuthorized()
 	}
 
-	image, err := model.GetImageByUUID(imageUUID, web.Tx(r))
+	image, err := api.Model.GetImageByUUID(r.Context(), imageUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -556,7 +548,7 @@ func (api API) updateImageAction(r *web.Ctx) web.Result {
 
 	if didUpdate {
 		r.Logger().Trigger(model.NewModeration(sessionUser.ID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
-		err = model.DB().Update(image)
+		err = api.Model.Invoke(r.Context()).Update(image)
 		if err != nil {
 			return webutil.API(r).InternalError(err)
 		}
@@ -569,7 +561,7 @@ func (api API) updateImageAction(r *web.Ctx) web.Result {
 func (api API) deleteImageAction(r *web.Ctx) web.Result {
 	session := r.Session()
 
-	currentUser, err := model.GetUserByID(util.Parse.Int64(session.UserID), web.Tx(r))
+	currentUser, err := api.Model.GetUserByID(r.Context(), util.Parse.Int64(session.UserID))
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -579,7 +571,7 @@ func (api API) deleteImageAction(r *web.Ctx) web.Result {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	image, err := model.GetImageByUUID(imageUUID, web.Tx(r))
+	image, err := api.Model.GetImageByUUID(r.Context(), imageUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -596,7 +588,7 @@ func (api API) deleteImageAction(r *web.Ctx) web.Result {
 		return webutil.API(r).InternalError(err)
 	}
 
-	err = model.DeleteImageByID(image.ID, web.Tx(r))
+	err = api.Model.DeleteImageByID(r.Context(), image.ID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -611,14 +603,14 @@ func (api API) getLinksForImageAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
-	image, err := model.GetImageByUUID(imageUUID, web.Tx(r))
+	image, err := api.Model.GetImageByUUID(r.Context(), imageUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
 	if image.IsZero() {
 		return webutil.API(r).NotFound()
 	}
-	voteSummaries, err := model.GetVoteSummariesForImage(image.ID, web.Tx(r))
+	voteSummaries, err := api.Model.GetVoteSummariesForImage(r.Context(), image.ID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -631,7 +623,7 @@ func (api API) getTagsForImageAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
-	image, err := model.GetImageByUUID(imageUUID, web.Tx(r))
+	image, err := api.Model.GetImageByUUID(r.Context(), imageUUID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -639,7 +631,7 @@ func (api API) getTagsForImageAction(r *web.Ctx) web.Result {
 		return webutil.API(r).NotFound()
 	}
 
-	results, err := model.GetTagsForImageID(image.ID, web.Tx(r))
+	results, err := api.Model.GetTagsForImageID(r.Context(), image.ID)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}
@@ -648,12 +640,12 @@ func (api API) getTagsForImageAction(r *web.Ctx) web.Result {
 
 // GET "/api/tags"
 func (api API) getRandomTagsAction(r *web.Ctx) web.Result {
-	count, err := r.RouteParamInt("count")
+	count, err := web.IntValue(r.RouteParam("count"))
 	if err != nil {
 		return webutil.API(r).BadRequest(err)
 	}
 
-	tags, err := model.GetRandomTags(count, web.Tx(r))
+	tags, err := api.Model.GetRandomTags(r.Context(), count)
 	if err != nil {
 		return webutil.API(r).InternalError(err)
 	}

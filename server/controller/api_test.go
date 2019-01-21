@@ -42,7 +42,7 @@ type testCurrentUserResponse struct {
 
 type testSiteStatsResponse struct {
 	Meta     *webutil.APIResponseMeta `json:"meta"`
-	Response *viewmodel.SiteStats     `json:"response"`
+	Response *model.SiteStats     `json:"response"`
 }
 
 type testTeamsResponse struct {

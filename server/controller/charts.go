@@ -6,6 +6,7 @@ import (
 
 	web "github.com/blend/go-sdk/web"
 	"github.com/wcharczuk/giffy/server/config"
+	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
 	"github.com/wcharczuk/giffy/server/webutil"
 	"github.com/wcharczuk/go-chart"

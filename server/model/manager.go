@@ -101,7 +101,7 @@ func (m Manager) GetImageByID(ctx context.Context, id int64) (*Image, error) {
 }
 
 // GetImageByUUID returns an image by uuid.
-func (m Manager) GetImageByUUID(ctx context.Context, uuid string, tx *sql.Tx) (*Image, error) {
+func (m Manager) GetImageByUUID(ctx context.Context, uuid string) (*Image, error) {
 	var image imageSignature
 	err := m.Invoke(ctx).Query(`select id from image where uuid = $1`, uuid).Out(&image)
 
@@ -117,7 +117,7 @@ func (m Manager) GetImageByUUID(ctx context.Context, uuid string, tx *sql.Tx) (*
 }
 
 // GetImageByMD5 returns an image by uuid.
-func (m Manager) GetImageByMD5(ctx context.Context, md5sum []byte, tx *sql.Tx) (*Image, error) {
+func (m Manager) GetImageByMD5(ctx context.Context, md5sum []byte) (*Image, error) {
 	image := Image{}
 	imageColumns := db.Columns(Image{}).ColumnNames()
 	err := m.Invoke(ctx).Query(fmt.Sprintf(`select %s from image where md5 = $1`, strings.Join(imageColumns, ",")), md5sum).Out(&image)

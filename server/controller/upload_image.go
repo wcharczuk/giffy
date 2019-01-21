@@ -2,8 +2,8 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -115,7 +115,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 }
 
 // CreateImageFromFile creates and uploads a new image.
-func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte, fileName string, fm *filemanager.FileManager, tx *sql.Tx) (*model.Image, error) {
+func CreateImageFromFile(ctx context.Context, mgr *model.Manager, userID int64, shouldValidate bool, fileContents []byte, fileName string, fm *filemanager.FileManager) (*model.Image, error) {
 	newImage, err := model.NewImageFromPostedFile(userID, shouldValidate, fileContents, fileName)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func CreateImageFromFile(userID int64, shouldValidate bool, fileContents []byte,
 	newImage.S3Bucket = remoteEntry.Bucket
 	newImage.S3Key = remoteEntry.Key
 
-	err = model.DB().CreateInTx(newImage, tx)
+	err = mgr.Invoke(ctx).Create(newImage)
 	if err != nil {
 		return nil, err
 	}
