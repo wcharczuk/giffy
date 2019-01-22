@@ -4,26 +4,30 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
+
 	"github.com/wcharczuk/giffy/server/config"
-	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestSlack(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := model.DB().Begin()
-	assert.Nil(txErr)
+	todo := testCtx()
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := model.Manager{DB: db.Default(), Tx: tx}
 
-	u, err := model.CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	i, err := model.CreateTestImage(u.ID, tx)
+	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "__test", tx)
+	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, "__test")
 	assert.Nil(err)
 
 	app := web.New()
@@ -33,10 +37,10 @@ func TestSlack(t *testing.T) {
 	app.WithLogger(logger.None())
 	app.Register(Integrations{Config: config.NewFromEnv()})
 
-	err = app.Mock().WithTx(tx).WithVerb("POST").WithPathf("/integrations/slack").
-		WithQueryString("team_id", core.UUIDv4().ToShortString()).
-		WithQueryString("channel_id", core.UUIDv4().ToShortString()).
-		WithQueryString("user_id", core.UUIDv4().ToShortString()).
+	err = app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
+		WithQueryString("team_id", uuid.V4().String()).
+		WithQueryString("channel_id", uuid.V4().String()).
+		WithQueryString("user_id", uuid.V4().String()).
 		WithQueryString("team_doman", "test_domain").
 		WithQueryString("channel_name", "test_channel").
 		WithQueryString("user_name", "test_user").
@@ -54,9 +58,9 @@ func TestSlackErrorsWithShortQuery(t *testing.T) {
 
 	app.Register(Integrations{Config: config.NewFromEnv()})
 	res, err := app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
-		WithQueryString("team_id", core.UUIDv4().ToShortString()).
-		WithQueryString("channel_id", core.UUIDv4().ToShortString()).
-		WithQueryString("user_id", core.UUIDv4().ToShortString()).
+		WithQueryString("team_id", uuid.V4().String()).
+		WithQueryString("channel_id", uuid.V4().String()).
+		WithQueryString("user_id", uuid.V4().String()).
 		WithQueryString("team_doman", "test_domain").
 		WithQueryString("channel_name", "test_channel").
 		WithQueryString("user_name", "test_user").

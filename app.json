@@ -7,9 +7,6 @@
   "repository": "https://github.com/wcharczuk/giffy",
   "env": {},
   "image": "gliderlabs/herokuish",
-  "addons": [
-    "dokku-postgres"
-  ],
   "buildpacks": [
     {
       "url": "https://github.com/heroku/heroku-buildpack-go"

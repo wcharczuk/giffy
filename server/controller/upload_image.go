@@ -11,24 +11,24 @@ import (
 	"path"
 
 	"github.com/blend/go-sdk/exception"
+	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/request"
 	"github.com/blend/go-sdk/web"
 
 	"github.com/wcharczuk/giffy/server/config"
-	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 // UploadImage is the controller responsible for image actions.
 type UploadImage struct {
 	Config *config.Giffy
-	Model *model.Manager
+	Model  *model.Manager
 	Files  *filemanager.FileManager
 }
 
 func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
-	sessionUser := webutil.GetUser(r.Session())
+	sessionUser := GetUser(r.Session())
 	if !sessionUser.IsModerator {
 		return r.View().NotAuthorized()
 	}
@@ -37,7 +37,7 @@ func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
 }
 
 func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
-	sessionUser := webutil.GetUser(r.Session())
+	sessionUser := GetUser(r.Session())
 	if !sessionUser.IsModerator {
 		return r.View().NotAuthorized()
 	}
@@ -45,16 +45,16 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	var fileContents []byte
 	var fileName string
 
-	imageURL := r.ParamString("image_url")
+	imageURL := web.StringValue(r.Param("image_url"))
 	if len(imageURL) != 0 {
 		refURL, err := url.Parse(imageURL)
 		if err != nil {
 			return r.View().BadRequest(fmt.Errorf("`image_url` was malformed"))
 		}
 
-		res, err := external.NewRequest().
+		res, err := request.New().WithLogger(r.Logger()).
 			AsGet().
-			WithURL(refURL.String()).
+			MustWithRawURL(refURL.String()).
 			WithHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36").
 			WithHeader("Cache-Control", "no-cache").
 			Response()
@@ -102,7 +102,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.View().View("upload_image_complete", existing)
 	}
 
-	image, err := CreateImageFromFile(r.Context(), sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files)
+	image, err := CreateImageFromFile(r.Context(), ic.Model, sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files)
 	if err != nil {
 		return r.View().InternalError(err)
 	}

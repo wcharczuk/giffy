@@ -5,45 +5,48 @@ import (
 	"testing"
 	"time"
 
-	assert "github.com/blend/go-sdk/assert"
-	util "github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/uuid"
-	web "github.com/blend/go-sdk/web"
+	"github.com/blend/go-sdk/web"
+
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestChartsSeaches(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := model.DB().Begin()
+	todo := testCtx()
+	tx, err := db.Default().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
+	m := model.Manager{DB: db.Default(), Tx: tx}
 
-	u, err := model.CreateTestUser(tx)
+	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
 
-	img, err := model.CreateTestImage(u.ID, tx)
+	img, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	tag, err := model.CreateTestTagForImageWithVote(u.ID, img.ID, uuid.V4().String(), tx)
+	tag, err := m.CreateTestTagForImageWithVote(todo, u.ID, img.ID, uuid.V4().String())
 	assert.Nil(err)
 
 	for x := 0; x < 30; x++ {
 		for y := 0; y < x; y++ {
-			err = model.DB().CreateInTx(&model.SearchHistory{
+			err = m.Invoke(todo).Create(&model.SearchHistory{
 				Source:       "slack",
 				TimestampUTC: time.Now().UTC().AddDate(0, 0, -1*x),
 				SearchQuery:  "test",
 				DidFindMatch: true,
-				ImageID:      util.OptionalInt64(img.ID),
-				TagID:        util.OptionalInt64(tag.ID),
-			}, tx)
+				ImageID:      &img.ID,
+				TagID:        &tag.ID,
+			})
 			assert.Nil(err)
 		}
 	}
 
 	app := web.New()
 	app.Register(Chart{})
-	contents, meta, err := app.Mock().WithTx(tx).WithPathf("/chart/searches").BytesWithMeta()
+	contents, meta, err := app.Mock().WithPathf("/chart/searches").BytesWithMeta()
 	assert.Nil(err)
 	assert.NotZero(meta.ContentLength)
 	assert.Equal(http.StatusOK, meta.StatusCode)

@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/blend/go-sdk/exception"
-	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/uuid"
 	"github.com/wcharczuk/giffy/server/config"
 )
@@ -31,7 +30,7 @@ type FileType struct {
 // New returns a new filemanager.
 func New(s3Bucket string, cfg *config.Aws) *FileManager {
 	awsConfig := &aws.Config{
-		Region:      util.OptionalString(cfg.GetRegion()),
+		Region:      aws.String(cfg.GetRegion()),
 		Credentials: credentials.NewStaticCredentials(cfg.GetAccessKeyID(), cfg.GetSecretAccessKey(), cfg.GetSecurityToken()),
 	}
 	awsSession := session.New(awsConfig)
@@ -81,7 +80,7 @@ func (fm *FileManager) UploadFileToBucket(bucket string, uploadFile io.Reader, f
 			Key:         &fileKey,
 			Body:        uploadFile,
 			ContentType: &fileType.MimeType,
-			ACL:         util.OptionalString("public-read"),
+			ACL:         aws.String("public-read"),
 		})
 	}
 

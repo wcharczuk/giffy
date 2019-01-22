@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blend/go-sdk/crypto"
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/exception"
-	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/uuid"
 )
 
@@ -975,7 +975,7 @@ func (m Manager) GetUserAuthByToken(ctx context.Context, token string, key []byt
 		return nil, exception.New("`ENCRYPTION_KEY` is not set, cannot continue.")
 	}
 
-	authTokenHash := util.Crypto.Hash(key, []byte(token))
+	authTokenHash := crypto.HMAC512(key, []byte(token))
 
 	var auth UserAuth
 	err := m.Invoke(ctx).Query("SELECT * FROM user_auth where auth_token_hash = $1", authTokenHash).Out(&auth)

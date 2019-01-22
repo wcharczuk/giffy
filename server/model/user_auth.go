@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	util "github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/crypto"
 )
 
 // NewUserAuth returns a new user auth entry, encrypting the authToken and authSecret.
@@ -13,15 +13,15 @@ func NewUserAuth(userID int64, authToken, authSecret string, key []byte) (*UserA
 		TimestampUTC: time.Now().UTC(),
 	}
 
-	token, err := util.Crypto.Encrypt(key, []byte(authToken))
+	token, err := crypto.Encrypt(key, []byte(authToken))
 	if err != nil {
 		return auth, err
 	}
 	auth.AuthToken = token
-	auth.AuthTokenHash = util.Crypto.Hash(key, []byte(authToken))
+	auth.AuthTokenHash = crypto.HMAC512(key, []byte(authToken))
 
 	if len(authSecret) != 0 {
-		secret, err := util.Crypto.Encrypt(key, []byte(authSecret))
+		secret, err := crypto.Encrypt(key, []byte(authSecret))
 		if err != nil {
 			return auth, err
 		}

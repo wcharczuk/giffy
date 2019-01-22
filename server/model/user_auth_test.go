@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/crypto"
 	"github.com/blend/go-sdk/db"
-	util "github.com/blend/go-sdk/util"
 )
 
 func TestGetUserAuthByToken(t *testing.T) {
@@ -16,7 +16,7 @@ func TestGetUserAuthByToken(t *testing.T) {
 	defer tx.Rollback()
 	m := Manager{DB: db.Default(), Tx: tx}
 
-	key, err := util.Crypto.CreateKey(32)
+	key, err := crypto.CreateKey(32)
 	assert.Nil(err)
 
 	u, err := m.CreateTestUser(todo)
@@ -41,7 +41,7 @@ func TestDeleteUserAuthForProvider(t *testing.T) {
 	defer tx.Rollback()
 	m := Manager{DB: db.Default(), Tx: tx}
 
-	key, err := util.Crypto.CreateKey(32)
+	key, err := crypto.CreateKey(32)
 	assert.Nil(err)
 
 	u, err := m.CreateTestUser(todo)

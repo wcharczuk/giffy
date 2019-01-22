@@ -1,18 +1,18 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/blend/go-sdk/oauth"
-	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/web"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/external"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
-	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 const (
@@ -26,11 +26,23 @@ const (
 	OAuthProviderSlack = "slack"
 )
 
+const (
+	// SessionStateUserKey is the key we store the user in the session state.
+	SessionStateUserKey = "User"
+)
+
 // Auth is the main controller for the app.
 type Auth struct {
 	OAuth  *oauth.Manager
 	Config *config.Giffy
-	Model *model.Manager
+	Model  *model.Manager
+}
+
+func (ac Auth) middleware(extra ...web.Middleware) []web.Middleware {
+	return append(extra, []web.Middleware{
+		web.SessionAware,
+		web.ViewProviderAsDefault,
+	}...)
 }
 
 // Register registers the controllers routes.
@@ -40,10 +52,10 @@ func (ac Auth) Register(app *web.App) {
 	app.Auth().WithPersistHandler(ac.persistSession)
 	app.Auth().WithRemoveHandler(ac.removeSession)
 
-	app.GET("/oauth/google", ac.oauthGoogleAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
-	app.GET("/oauth/slack", ac.oauthSlackAction, web.SessionAwareMutating, web.ViewProviderAsDefault)
-	app.GET("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
-	app.POST("/logout", ac.logoutAction, web.SessionRequiredMutating, web.ViewProviderAsDefault)
+	app.GET("/oauth/google", ac.oauthGoogleAction)
+	app.GET("/oauth/slack", ac.oauthSlackAction, ac.middleware()...)
+	app.GET("/logout", ac.logoutAction, ac.middleware()...)
+	app.POST("/logout", ac.logoutAction, ac.middleware()...)
 }
 
 // loginRedirect returns the login redirect.
@@ -65,10 +77,9 @@ func (ac Auth) loginRedirect(ctx *web.Ctx) *url.URL {
 // fetchSession fetches a session from the db.
 // Returning `nil` for the session represents a logged out state, and will trigger
 // an auth redirect (if one is provided) or a 403 (not authorized) result.
-func (ac Auth) fetchSession(sessionID string, state web.State) (*web.Session, error) {
-	tx := web.TxFromState(state)
+func (ac Auth) fetchSession(ctx context.Context, sessionID string, state web.State) (*web.Session, error) {
 	var session model.UserSession
-	err := model.DB().GetInTx(&session, tx, sessionID)
+	err := ac.Model.Invoke(ctx).Get(&session, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +90,7 @@ func (ac Auth) fetchSession(sessionID string, state web.State) (*web.Session, er
 
 	// check if the user exists in the database
 	var dbUser model.User
-	err = model.DB().GetInTx(&dbUser, tx, session.UserID)
+	err = ac.Model.Invoke(ctx).Get(&dbUser, session.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +102,7 @@ func (ac Auth) fetchSession(sessionID string, state web.State) (*web.Session, er
 	newSession := &web.Session{
 		CreatedUTC: session.TimestampUTC,
 		SessionID:  sessionID,
-		UserID:     util.String.FromInt64(session.UserID),
+		UserID:     strconv.FormatInt(session.UserID, 10),
 	}
 	SetUser(newSession, &dbUser)
 	return newSession, nil
@@ -100,31 +111,30 @@ func (ac Auth) fetchSession(sessionID string, state web.State) (*web.Session, er
 // persistSession saves a session to the db.
 // It is called when the user logs into the session manager, and allows sessions to persist
 // across server restarts.
-func (ac Auth) persistSession(context *web.Ctx, session *web.Session, state web.State) error {
+func (ac Auth) persistSession(ctx context.Context, session *web.Session, state web.State) error {
 	dbSession := &model.UserSession{
 		SessionID:    session.SessionID,
 		TimestampUTC: session.CreatedUTC,
-		UserID:       util.Parse.Int64(session.UserID),
+		UserID:       parseInt64(session.UserID),
 	}
 
-	return model.DB().CreateIfNotExistsInTx(dbSession, tx)
+	return ac.Model.Invoke(ctx).CreateIfNotExists(dbSession)
 }
 
 // removeSession removes a session from the db.
 // It is called when the user logs out, and removes their session from the db so it isn't
 // returned by `FetchSession`
-func (ac Auth) removeSession(sessionID string, state web.State) error {
+func (ac Auth) removeSession(ctx context.Context, sessionID string, state web.State) error {
 	var session model.UserSession
 	err := ac.Model.Invoke(context.TODO()).Get(&session, sessionID)
 	if err != nil {
 		return err
 	}
-	return model.DB().DeleteInTx(session, tx)
+	return ac.Model.Invoke(ctx).Delete(session)
 }
 
-
 func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
-	code := r.ParamString("code")
+	code := web.StringValue(r.Param("code"))
 	if len(code) == 0 {
 		return r.View().BadRequest(fmt.Errorf("`code` parameter missing, cannot continue"))
 	}
@@ -143,14 +153,14 @@ func (ac Auth) oauthSlackAction(r *web.Ctx) web.Result {
 		return r.View().InternalError(err)
 	}
 
-	existingTeam, err := model.GetSlackTeamByTeamID(auth.TeamID)
+	existingTeam, err := ac.Model.GetSlackTeamByTeamID(r.Context(), auth.TeamID)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
 	if existingTeam.IsZero() {
 		team := model.NewSlackTeam(auth.TeamID, auth.Team, auth.UserID, auth.User)
-		err = model.DB().CreateInTx(team, web.Tx(r))
+		err = ac.Model.Invoke(r.Context()).Create(team)
 		if err != nil {
 			return r.View().InternalError(err)
 		}
@@ -173,12 +183,12 @@ func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
 	if err != nil {
 		return r.View().NotAuthorized()
 	}
-	prototypeUser := ac.mapGoogleUser(res.Profile)
+	prototypeUser := ac.mapGoogleUser(&res.Profile)
 	return ac.finishOAuthLogin(r, OAuthProviderGoogle, res.Response.AccessToken, "", prototypeUser)
 }
 
 func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret string, prototypeUser *model.User) web.Result {
-	existingUser, err := model.GetUserByUsername(prototypeUser.Username, web.Tx(r))
+	existingUser, err := ac.Model.GetUserByUsername(r.Context(), prototypeUser.Username)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -186,7 +196,7 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 	var userID int64
 	//create the user if it doesn't exist ...
 	if existingUser.IsZero() {
-		err = model.DB().Create(prototypeUser)
+		err = ac.Model.Invoke(r.Context()).Create(prototypeUser)
 		if err != nil {
 			return r.View().InternalError(err)
 		}
@@ -195,7 +205,7 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 		userID = existingUser.ID
 	}
 
-	err = model.DeleteUserAuthForProvider(userID, provider, web.Tx(r))
+	err = ac.Model.DeleteUserAuthForProvider(r.Context(), userID, provider)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
@@ -208,23 +218,22 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 
 	newCredentials.Provider = provider
 
-	err = model.DB().Create(newCredentials)
-
+	err = ac.Model.Invoke(r.Context()).Create(newCredentials)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
-	session, err := r.Auth().Login(util.String.FromInt64(userID), r)
+	session, err := r.Auth().Login(strconv.FormatInt(userID, 10), r)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
-	currentUser, err := model.GetUserByID(userID, web.Tx(r))
+	currentUser, err := ac.Model.GetUserByID(r.Context(), userID)
 	if err != nil {
 		return r.View().InternalError(err)
 	}
 
-	webutil.SetUser(session, currentUser)
+	SetUser(session, currentUser)
 
 	cu := &viewmodel.CurrentUser{
 		IsLoggedIn:    true,
@@ -232,7 +241,7 @@ func (ac Auth) finishOAuthLogin(r *web.Ctx, provider, authToken, authSecret stri
 	}
 
 	cu.SetFromUser(currentUser)
-	return r.View().View("login_complete", loginCompleteArguments{CurrentUser: util.JSON.Serialize(cu)})
+	return r.View().View("login_complete", loginCompleteArguments{CurrentUser: toJSON(cu)})
 }
 
 type loginCompleteArguments struct {

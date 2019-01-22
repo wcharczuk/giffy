@@ -22,8 +22,8 @@ func (ot CleanTagValues) Schedule() cron.Schedule {
 	return cron.EveryHour()
 }
 
-// ExecuteInTx runs the job in a transaction
-func (ot CleanTagValues) ExecuteInTx(ctx context.Context) error {
+// Execute runs the job in a transaction
+func (ot CleanTagValues) Execute(ctx context.Context) error {
 	allTags, err := ot.Model.GetAllTags(ctx)
 	if err != nil {
 		return err

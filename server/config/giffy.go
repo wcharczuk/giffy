@@ -1,13 +1,14 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 
+	"github.com/blend/go-sdk/configutil"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/env"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/oauth"
-	"github.com/blend/go-sdk/db"
-	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/web"
 )
 
@@ -49,13 +50,13 @@ type Giffy struct {
 	GoogleAuth oauth.Config            `json:"googleAuth" yaml:"googleAuth"`
 	Web        web.Config              `json:"web" yaml:"web"`
 	Upgrader   web.HTTPSUpgraderConfig `json:"upgrader" yaml:"upgrader"`
-	DB         db.Config           `json:"db" yaml:"db"`
+	DB         db.Config               `json:"db" yaml:"db"`
 	Aws        Aws                     `json:"aws" yaml:"aws"`
 }
 
 // GetEnvironment returns a property or a default.
 func (g Giffy) GetEnvironment(inherited ...string) string {
-	return util.Coalesce.String(g.Environment, EnvironmentDev, inherited...)
+	return configutil.CoalesceString(g.Environment, EnvironmentDev, inherited...)
 }
 
 // IsProduction returns if the current env is prodlike.
@@ -65,18 +66,18 @@ func (g Giffy) IsProduction() bool {
 
 // GetS3Bucket gets a property or a default.
 func (g Giffy) GetS3Bucket(inherited ...string) string {
-	return util.Coalesce.String(g.S3Bucket, fmt.Sprintf("giffy-%s", g.GetEnvironment()), inherited...)
+	return configutil.CoalesceString(g.S3Bucket, fmt.Sprintf("giffy-%s", g.GetEnvironment()), inherited...)
 }
 
 // GetCloudFrontDNS returns the cdn.
 func (g Giffy) GetCloudFrontDNS(inherited ...string) string {
-	return util.Coalesce.String(g.CloudFrontDNS, "", inherited...)
+	return configutil.CoalesceString(g.CloudFrontDNS, "", inherited...)
 }
 
 // GetEncryptionKey gets the config encryption key as a byte blob.
 func (g Giffy) GetEncryptionKey() []byte {
 	if len(g.EncryptionKey) > 0 {
-		key, _ := util.Base64.Decode(g.EncryptionKey)
+		key, _ := base64.StdEncoding.DecodeString(g.EncryptionKey)
 		return key
 	}
 	return nil
@@ -84,5 +85,5 @@ func (g Giffy) GetEncryptionKey() []byte {
 
 // GetAdminUserEmail returns the admin user email.
 func (g Giffy) GetAdminUserEmail(inherited ...string) string {
-	return util.Coalesce.String(g.AdminUserEmail, "will.charczuk@gmail.com", inherited...)
+	return configutil.CoalesceString(g.AdminUserEmail, "will.charczuk@gmail.com", inherited...)
 }

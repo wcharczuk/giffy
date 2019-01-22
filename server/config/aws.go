@@ -1,8 +1,8 @@
 package config
 
 import (
+	"github.com/blend/go-sdk/configutil"
 	"github.com/blend/go-sdk/env"
-	util "github.com/blend/go-sdk/util"
 )
 
 const (
@@ -27,20 +27,20 @@ type Aws struct {
 
 // GetRegion gets a property or a default.
 func (a Aws) GetRegion(defaults ...string) string {
-	return util.Coalesce.String(a.Region, DefaultAWSRegion, defaults...)
+	return configutil.CoalesceString(a.Region, DefaultAWSRegion, defaults...)
 }
 
 // GetAccessKeyID gets a property or a default.
 func (a Aws) GetAccessKeyID(defaults ...string) string {
-	return util.Coalesce.String(a.AccessKeyID, "", defaults...)
+	return configutil.CoalesceString(a.AccessKeyID, "", defaults...)
 }
 
 // GetSecretAccessKey gets a property or a default.
 func (a Aws) GetSecretAccessKey(defaults ...string) string {
-	return util.Coalesce.String(a.SecretAccessKey, "", defaults...)
+	return configutil.CoalesceString(a.SecretAccessKey, "", defaults...)
 }
 
 // GetSecurityToken gets a property or a default.
 func (a Aws) GetSecurityToken(defaults ...string) string {
-	return util.Coalesce.String(a.SecurityToken, "", defaults...)
+	return configutil.CoalesceString(a.SecurityToken, "", defaults...)
 }

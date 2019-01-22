@@ -6,7 +6,7 @@ import (
 
 	assert "github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/db"
-	util "github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/uuid"
 )
 
 func TestSlackTeam(t *testing.T) {
@@ -18,13 +18,13 @@ func TestSlackTeam(t *testing.T) {
 	m := Manager{DB: db.Default(), Tx: tx}
 
 	newTeam := &SlackTeam{
-		TeamID:              util.String.Random(32),
-		TeamName:            util.String.Random(128),
+		TeamID:              uuid.V4().String(),
+		TeamName:            uuid.V4().String(),
 		CreatedUTC:          time.Now().UTC(),
 		IsEnabled:           true,
 		ContentRatingFilter: ContentRatingPG13,
-		CreatedByID:         util.String.Random(32),
-		CreatedByName:       util.String.Random(128),
+		CreatedByID:         uuid.V4().String(),
+		CreatedByName:       uuid.V4().String(),
 	}
 	err = m.Invoke(todo).Create(newTeam)
 	assert.Nil(err)

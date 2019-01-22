@@ -1,26 +1,25 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/blend/go-sdk/cron"
 	"github.com/blend/go-sdk/db"
-	"github.com/blend/go-sdk/db/migration"
 	"github.com/blend/go-sdk/env"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/oauth"
 	"github.com/blend/go-sdk/web"
-	"github.com/blend/go-sdk/workqueue"
 
 	// includes migrations
 	_ "github.com/wcharczuk/giffy/db/migrations"
+
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/controller"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/filemanager"
 	"github.com/wcharczuk/giffy/server/jobs"
 	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 const (
@@ -42,36 +41,30 @@ var (
 	}
 )
 
-// Migrate migrates the db
-func Migrate() error {
-	return migration.Default().Apply(model.DB())
-}
-
 // New returns a new server instance.
-func New(log *logger.Logger, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
+func New(log *logger.Logger, mgr *model.Manager, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
 	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
 
 	if env.Env().Has("CURRENT_REF") {
 		app.WithDefaultHeader("X-Server-Version", env.Env().String("CURRENT_REF"))
 	}
 
-	app.Logger().Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
+	log.Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
-			model.DB().Create(model.NewError(ev.Err(), req))
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), req))
 		}
 	}))
-	app.Logger().Listen(logger.Error, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
+	log.Listen(logger.Error, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
-			model.DB().Create(model.NewError(ev.Err(), req))
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), req))
 		}
 	}))
 
-	app.Logger().Enable(core.FlagSearch, core.FlagModeration)
-	app.Logger().Listen(core.FlagSearch, "event-writer", func(e logger.Event) {
-		workqueue.Default().Enqueue(model.CreateObject, e)
+	log.Enable(core.FlagSearch, core.FlagModeration)
+	log.Listen(core.FlagSearch, "event-writer", func(e logger.Event) {
+		mgr.Invoke(context.Background()).Create(e)
 	})
 	app.Logger().Listen(core.FlagModeration, "event-writer", func(e logger.Event) {
-		workqueue.Default().Enqueue(model.CreateObject, e)
 	})
 
 	if cfg.IsProduction() {
@@ -80,45 +73,32 @@ func New(log *logger.Logger, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
 		app.Views().AddPaths("server/_views/header.html")
 	}
 
-	webutil.LiveReloads(app)
-	webutil.BaseURL(app)
-	webutil.SecureCookies(app)
-
-	app.Auth().SetCookieName("giffy")
-	app.Auth().SetSecureCookieName("giffy-secure")
+	app.Auth().WithCookieName("giffy")
 	app.Views().AddPaths(ViewPaths...)
 
 	fm := filemanager.New(cfg.GetS3Bucket(), &cfg.Aws)
 
-	app.Register(controller.Index{Config: cfg})
-	app.Register(controller.API{Config: cfg, Files: fm, OAuth: oauth})
-	app.Register(controller.Integrations{Config: cfg})
-	app.Register(controller.Auth{Config: cfg, OAuth: oauth})
-	app.Register(controller.UploadImage{Config: cfg, Files: fm})
-	app.Register(controller.Chart{Config: cfg})
+	app.Register(controller.Index{Model: mgr, Config: cfg})
+	app.Register(controller.APIs{Model: mgr, Config: cfg, Files: fm, OAuth: oauth})
+	app.Register(controller.Integrations{Model: mgr, Config: cfg})
+	app.Register(controller.Auth{Model: mgr, Config: cfg, OAuth: oauth})
+	app.Register(controller.UploadImage{Model: mgr, Config: cfg, Files: fm})
+	app.Register(controller.Chart{Model: mgr, Config: cfg})
 
-	app.OnStart(func(a *web.App) error {
-		err := db.OpenDefault(db.NewFromConfig(&cfg.DB))
-		if err != nil {
-			return err
-		}
+	err := db.OpenDefault(db.NewFromConfig(&cfg.DB))
+	if err != nil {
+		return err
+	}
 
-		model.DB().WithLogger(a.Logger())
+	err = Migrate()
+	if err != nil {
+		return err
+	}
 
-		err = Migrate()
-		if err != nil {
-			return err
-		}
-
-		workqueue.Default().Start()
-
-		cron.Default().LoadJob(jobs.DeleteOrphanedTags{})
-		cron.Default().LoadJob(jobs.CleanTagValues{})
-		cron.Default().LoadJob(jobs.FixContentRating{})
-		cron.Default().Start()
-
-		return nil
-	})
+	cron.Default().LoadJob(jobs.DeleteOrphanedTags{})
+	cron.Default().LoadJob(jobs.CleanTagValues{Model: mgr})
+	cron.Default().LoadJob(jobs.FixContentRating{})
+	cron.Default().Start()
 
 	return app
 }

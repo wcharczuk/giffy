@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/logger"
-	util "github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
 	"github.com/wcharczuk/giffy/server/config"
@@ -19,16 +19,18 @@ import (
 
 func TestUploadImageByPostedFile(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := model.DB().Begin()
+	todo := testCtx()
+	tx, err := db.Default().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
+	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	fm := filemanager.New(uuid.V4().String(), config.NewAwsFromEnv())
 	fm.Mock()
 	defer fm.ReleaseMock()
 
-	auth, session := MockAuth(assert, tx, MockAdminLogin)
-	defer MockLogout(assert, auth, session, tx)
+	auth, session := MockAuth(assert, &m, MockAdminLogin)
+	defer MockLogout(assert, &m, auth, session)
 
 	f, err := os.Open("server/controller/testdata/image.gif")
 
@@ -47,7 +49,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	)
 	err = app.Views().Initialize()
 	assert.Nil(err)
-	res, err := app.Mock().WithTx(tx).WithVerb("POST").WithPathf("/images/upload").WithPostedFile(web.PostedFile{
+	res, err := app.Mock().WithVerb("POST").WithPathf("/images/upload").WithPostedFile(web.PostedFile{
 		Key:      "image",
 		FileName: "image.gif",
 		Contents: contents,
@@ -62,7 +64,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	assert.Nil(err)
 	assert.True(strings.Contains(string(resContents), "SUCCESS"))
 
-	imagesByUser, err := model.GetImagesForUserID(util.Parse.Int64(session.UserID), tx)
+	imagesByUser, err := m.GetImagesForUserID(todo, parseInt64(session.UserID))
 	assert.Nil(err)
 	assert.NotEmpty(imagesByUser)
 	assert.Equal("image.gif", imagesByUser[0].DisplayName)

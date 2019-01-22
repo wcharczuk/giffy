@@ -4,41 +4,39 @@ import (
 	"net/http"
 	"time"
 
-	web "github.com/blend/go-sdk/web"
+	"github.com/blend/go-sdk/web"
+	"github.com/wcharczuk/go-chart"
+
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
-	"github.com/wcharczuk/giffy/server/viewmodel"
-	"github.com/wcharczuk/giffy/server/webutil"
-	"github.com/wcharczuk/go-chart"
 )
 
 // Chart is a controller for common chart endpoints.
 type Chart struct {
 	Config *config.Giffy
-	Model *model.Manager
+	Model  *model.Manager
 }
 
 func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
-
-	data, err := viewmodel.GetSearchesPerDay(time.Now().UTC().AddDate(0, -6, 0), web.Tx(rc))
+	data, err := c.Model.GetSearchesPerDay(rc.Context(), time.Now().UTC().AddDate(0, -6, 0))
 	if err != nil {
-		return webutil.API(rc).InternalError(err)
+		return API(rc).InternalError(err)
 	}
 
 	var width, height int
-	if widthParam, err := rc.ParamInt("width"); err == nil {
+	if widthParam, err := web.IntValue(rc.Param("width")); err == nil {
 		width = widthParam
 	} else {
 		width = 1280
 	}
 
-	if heightParam, err := rc.ParamInt("height"); err == nil {
+	if heightParam, err := web.IntValue(rc.Param("height")); err == nil {
 		height = heightParam
 	} else {
 		height = 256
 	}
 
-	xvalues, yvalues := viewmodel.DayCounts(data).ChartData()
+	xvalues, yvalues := model.DayCounts(data).ChartData()
 
 	mainSeries := chart.TimeSeries{
 		Name: "Search Count By Day",
@@ -86,7 +84,7 @@ func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 	rc.Response().Header().Set("Content-Type", "image/svg+xml")
 	err = graph.Render(chart.SVG, rc.Response())
 	if err != nil {
-		return webutil.API(rc).InternalError(err)
+		return API(rc).InternalError(err)
 	}
 	rc.Response().WriteHeader(http.StatusOK)
 	return nil

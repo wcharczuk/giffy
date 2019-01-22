@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/stringutil"
 )
 
 // UserSession is a session for a user
@@ -28,6 +28,6 @@ func NewUserSession(userID int64) *UserSession {
 	return &UserSession{
 		UserID:       userID,
 		TimestampUTC: time.Now().UTC(),
-		SessionID:    util.String.Random(32),
+		SessionID:    stringutil.Random(stringutil.LettersAndNumbers, 32),
 	}
 }

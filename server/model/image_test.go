@@ -8,7 +8,6 @@ import (
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/db"
-	"github.com/blend/go-sdk/util"
 	"github.com/blend/go-sdk/uuid"
 )
 
@@ -174,7 +173,7 @@ func TestImageMD5Check(t *testing.T) {
 	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	verify, err := m.GetImageByMD5(todo, i.MD5, tx)
+	verify, err := m.GetImageByMD5(todo, i.MD5)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }
@@ -293,10 +292,10 @@ func TestSearchImagesBestResult(t *testing.T) {
 	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	tag4value := fmt.Sprintf("__test_foo_bar_%s", util.String.Random(4))
-	tag3value := fmt.Sprintf("__test_bar_%s", util.String.Random(4))
-	tag2value := fmt.Sprintf("__test_foo_%s", util.String.Random(4))
-	tag1value := fmt.Sprintf("__test_%s", util.String.Random(4))
+	tag4value := fmt.Sprintf("__test_foo_bar_%s", uuid.V4().String())
+	tag3value := fmt.Sprintf("__test_bar_%s", uuid.V4().String())
+	tag2value := fmt.Sprintf("__test_foo_%s", uuid.V4().String())
+	tag1value := fmt.Sprintf("__test_%s", uuid.V4().String())
 
 	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i4.ID, tag4value)
 	assert.Nil(err)

@@ -38,11 +38,11 @@ func (i Index) notFoundHandler(r *web.Ctx) web.Result {
 }
 
 func (i Index) panicHandler(r *web.Ctx, err interface{}) web.Result {
-	return r.View().InternalError(exception.Newf("%v", err))
+	return r.View().InternalError(exception.New(err))
 }
 
 func (i Index) statusAction(r *web.Ctx) web.Result {
-	_, err := model.DB().Query("select 'ok!'").Any()
+	_, err := i.Model.Invoke(r.Context()).Query("select 'ok!'").Any()
 	if err != nil {
 		r.Logger().Error(err)
 		return r.JSON().Result(map[string]interface{}{"status": false})

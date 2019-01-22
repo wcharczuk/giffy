@@ -1,17 +1,17 @@
 package controller
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"github.com/blend/go-sdk/util"
+	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/web"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
 	"github.com/wcharczuk/giffy/server/viewmodel"
-	"github.com/wcharczuk/giffy/server/webutil"
 )
 
 const (
@@ -31,6 +31,7 @@ const (
 // Integrations controller is responsible for integration responses.
 type Integrations struct {
 	Config *config.Giffy
+	Model  *model.Manager
 }
 
 // Register registers the controller's actions with the app.
@@ -80,17 +81,17 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	var payload slackActionPayload
 	body, err := rc.PostBodyAsString()
 	if err != nil {
-		rc.Logger().ErrorWithReq(err, rc.Request())
+		logger.MaybeError(rc.Logger(), err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 	bodyUnescaped, err := url.QueryUnescape(strings.TrimPrefix(body, "payload="))
 	if err != nil {
-		rc.Logger().ErrorWithReq(err, rc.Request())
+		logger.MaybeError(rc.Logger(), err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
-	err = util.JSON.Deserialize(&payload, bodyUnescaped)
+	err = fromJSON([]byte(bodyUnescaped), &payload)
 	if err != nil {
-		rc.Logger().ErrorWithReq(err, rc.Request())
+		logger.MaybeError(rc.Logger(), err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 
@@ -116,9 +117,9 @@ func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.
 		return errRes
 	}
 
-	rc.Logger().Infof("%#v", payload)
-	rc.Logger().Infof("search query: %s, excludes: %s", query, uuid)
-	result, err := model.SearchImagesBestResult(query, []string{uuid}, contentRatingFilter, web.Tx(rc))
+	logger.MaybeInfof(rc.Logger(), "%#v", payload)
+	logger.MaybeInfof(rc.Logger(), "search query: %s, excludes: %s", query, uuid)
+	result, err := i.Model.SearchImagesBestResult(rc.Context(), query, []string{uuid}, contentRatingFilter)
 	if err != nil {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
@@ -157,7 +158,7 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 
 	_, uuid := i.extractCallbackState(payload.CallbackID)
 
-	img, err := model.GetImageByUUID(uuid, web.Tx(rc))
+	img, err := i.Model.GetImageByUUID(rc.Context(), uuid)
 	if err != nil {
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
@@ -191,12 +192,12 @@ func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
 	var e slackEvent
 	err := rc.PostBodyAsJSON(&e)
 	if err != nil {
-		return webutil.API(rc).BadRequest(err)
+		return API(rc).BadRequest(err)
 	}
 
 	switch e.Type {
 	case "url_verification":
-		return rc.RawWithContentType("application/json", []byte(util.JSON.Serialize(slackEventChallegeRepsonse{Challenge: e.Challenge})))
+		return rc.RawWithContentType("application/json", []byte(toJSON(slackEventChallegeRepsonse{Challenge: e.Challenge})))
 	}
 
 	return rc.NoContent()
@@ -208,9 +209,9 @@ func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
 
 func (i Integrations) contentRatingFilter(teamID string, rc *web.Ctx) (int, web.Result) {
 	contentRatingFilter := model.ContentRatingNR
-	teamSettings, err := model.GetSlackTeamByTeamID(teamID, web.Tx(rc))
+	teamSettings, err := i.Model.GetSlackTeamByTeamID(rc.Context(), teamID)
 	if err != nil {
-		rc.Logger().FatalWithReq(err, rc.Request())
+		logger.MaybeFatal(rc.Logger(), err)
 		return contentRatingFilter, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	} else if !teamSettings.IsZero() {
 		if !teamSettings.IsEnabled {
@@ -224,13 +225,13 @@ func (i Integrations) contentRatingFilter(teamID string, rc *web.Ctx) (int, web.
 
 func (i Integrations) arguments(rc *web.Ctx) slackArguments {
 	return slackArguments{
-		TeamID:      rc.ParamString("team_id"),
-		ChannelID:   rc.ParamString("channel_id"),
-		UserID:      rc.ParamString("user_id"),
-		TeamName:    rc.ParamString("team_domain"),
-		ChannelName: rc.ParamString("channel_name"),
-		UserName:    rc.ParamString("user_name"),
-		Query:       rc.ParamString("text"),
+		TeamID:      web.StringValue(rc.Param("team_id")),
+		ChannelID:   web.StringValue(rc.Param("channel_id")),
+		UserID:      web.StringValue(rc.Param("user_id")),
+		TeamName:    web.StringValue(rc.Param("team_domain")),
+		ChannelName: web.StringValue(rc.Param("channel_name")),
+		UserName:    web.StringValue(rc.Param("user_name")),
+		Query:       web.StringValue(rc.Param("text")),
 	}
 }
 
@@ -242,7 +243,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 	var err error
 
 	defer func() {
-		rc.Logger().Trigger(model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
+		logger.MaybeTrigger(rc.Logger(), model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
 	}()
 
 	contentRatingFilter, errRes := i.contentRatingFilter(args.TeamID, rc)
@@ -252,13 +253,13 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 
 	if strings.HasPrefix(args.Query, "img:") {
 		uuid := strings.TrimPrefix(args.Query, "img:")
-		result, err = model.GetImageByUUID(uuid, web.Tx(rc))
+		result, err = i.Model.GetImageByUUID(rc.Context(), uuid)
 	} else {
-		result, err = model.SearchImagesBestResult(args.Query, nil, contentRatingFilter, web.Tx(rc))
+		result, err = i.Model.SearchImagesBestResult(rc.Context(), args.Query, nil, contentRatingFilter)
 	}
 
 	if err != nil {
-		rc.Logger().FatalWithReq(err, rc.Request())
+		logger.MaybeFatal(rc.Logger(), err)
 		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
@@ -267,7 +268,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 	}
 
 	foundResult = true
-	resultID = util.OptionalInt64(result.ID)
+	resultID = &result.ID
 	output := viewmodel.NewImage(*result, i.Config)
 	return &output, nil
 }
@@ -275,7 +276,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
-		rc.Logger().FatalWithReq(err, rc.Request())
+		logger.MaybeFatal(rc.Logger(), err)
 		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
@@ -313,7 +314,7 @@ func (i Integrations) buttonActions(query, imageUUID string) slackActionAttachme
 }
 
 func (i Integrations) callbackState(query, uuid string) string {
-	return fmt.Sprintf("%s||%s", util.Base64.Encode([]byte(query)), uuid)
+	return fmt.Sprintf("%s||%s", base64.StdEncoding.EncodeToString([]byte(query)), uuid)
 }
 
 func (i Integrations) extractCallbackState(callbackID string) (query, uuid string) {
@@ -325,7 +326,7 @@ func (i Integrations) extractCallbackState(callbackID string) (query, uuid strin
 		return
 	}
 
-	decoded, _ := util.Base64.Decode(parts[0])
+	decoded, _ := base64.StdEncoding.DecodeString(parts[0])
 	query = string(decoded)
 	uuid = parts[1]
 	return

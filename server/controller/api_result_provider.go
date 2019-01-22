@@ -1,4 +1,4 @@
-package webutil
+package controller
 
 import (
 	"net/http"
@@ -44,7 +44,7 @@ func NewAPIResultProvider(r *web.Ctx) *APIResultProvider {
 
 // APIResultProvider are context results for api methods.
 type APIResultProvider struct {
-	log            *logger.Logger
+	log            logger.FullLogger
 	requestContext *web.Ctx
 }
 
@@ -88,13 +88,7 @@ func (ar *APIResultProvider) NotAuthorized() web.Result {
 
 // InternalError returns a service response.
 func (ar *APIResultProvider) InternalError(err error) web.Result {
-	if ar.log != nil {
-		if ar.requestContext != nil {
-			ar.log.FatalWithReq(err, ar.requestContext.Request())
-		} else {
-			ar.log.FatalWithReq(err, nil)
-		}
-	}
+	logger.MaybeFatal(ar.log, err)
 
 	if exPtr, isException := err.(*exception.Ex); isException {
 		return &web.JSONResult{

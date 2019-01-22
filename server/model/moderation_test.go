@@ -5,7 +5,6 @@ import (
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/db"
-	"github.com/blend/go-sdk/util"
 )
 
 func TestModerationCreate(t *testing.T) {
@@ -22,7 +21,7 @@ func TestModerationCreate(t *testing.T) {
 	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	mod := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
+	mod := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, "")
 	err = m.Invoke(todo).Create(mod)
 	assert.Nil(err)
 
@@ -47,7 +46,7 @@ func TestGetModerationsForUser(t *testing.T) {
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {
-		mod := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
+		mod := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, "")
 		err = m.Invoke(todo).Create(mod)
 		assert.Nil(err)
 	}
@@ -77,7 +76,7 @@ func TestGetModerationLogByCountAndOffset(t *testing.T) {
 	assert.Nil(err)
 
 	for x := 0; x < 10; x++ {
-		mod := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, util.StringEmpty)
+		mod := NewModeration(u.ID, ModerationVerbCreate, ModerationObjectImage, i.UUID, "")
 		err = m.Invoke(todo).Create(mod)
 		assert.Nil(err)
 	}
