@@ -33,7 +33,7 @@ func NewFromEnv() *Giffy {
 // Giffy is the root config for the server.
 type Giffy struct {
 	Name        string `json:"name" yaml:"name" env:"SERVICE_NAME"`
-	Environment string `json:"envionment" yaml:"environment" env:"SERVICE_ENV"`
+	Environment string `json:"env" yaml:"env" env:"SERVICE_ENV"`
 
 	// If this user authenticates it is automatically made a super-admin.
 	AdminUserEmail string `json:"adminUserEmail" yaml:"adminUserEmail" env:"ADMIN_USER"`

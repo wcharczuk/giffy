@@ -20,21 +20,17 @@ test:
 	@go test -timeout 5s "./server/..."
 	@echo "==> Tests Done!"
 
-db-init: init-db
-
-init-db:
-	@echo "==> Fist Time Database Setup"
-	@createdb giffy
-	@echo "==> Fist Time Database Setup Done!"
-
+.PHONY: db
 db:
 	@echo "==> Initializing Database"
-	@go run ./database/main.go init
+	@dropdb giffy --if-exists
+	@createdb giffy
+	@go run ./db/main.go init
 	@echo "==> Initializing Database Done!"
 
 migrate:
 	@echo "==> Migrating Database"
-	@go run ./database/main.go migrate
+	@go run ./db/main.go migrate
 	@echo "==> Migrating Database Done!"
 
 list-packages:

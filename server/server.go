@@ -12,7 +12,7 @@ import (
 	"github.com/blend/go-sdk/web"
 
 	// includes migrations
-	_ "github.com/wcharczuk/giffy/db/migrations"
+	migrations "github.com/wcharczuk/giffy/db/migrations"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/controller"
@@ -42,9 +42,27 @@ var (
 )
 
 // New returns a new server instance.
-func New(log *logger.Logger, mgr *model.Manager, oauth *oauth.Manager, cfg *config.Giffy) *web.App {
-	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
+func New(cfg *config.Giffy) (*web.App, error) {
+	log := logger.NewFromConfig(&cfg.Logger)
+	log.Enable(core.FlagSearch, core.FlagModeration)
 
+	conn, err := db.NewFromConfig(&cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	if err := conn.Open(); err != nil {
+		return nil, err
+	}
+	conn.WithLogger(log)
+
+	mgr := &model.Manager{DB: conn}
+
+	oauthMgr, err := oauth.NewFromConfig(&cfg.GoogleAuth)
+	if err != nil {
+		return nil, err
+	}
+
+	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
 	if env.Env().Has("CURRENT_REF") {
 		app.WithDefaultHeader("X-Server-Version", env.Env().String("CURRENT_REF"))
 	}
@@ -52,19 +70,26 @@ func New(log *logger.Logger, mgr *model.Manager, oauth *oauth.Manager, cfg *conf
 	log.Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
 			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), req))
+		} else {
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), nil))
 		}
 	}))
 	log.Listen(logger.Error, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
 		if req, isReq := ev.State().(*http.Request); isReq {
 			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), req))
+		} else {
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), nil))
 		}
 	}))
-
-	log.Enable(core.FlagSearch, core.FlagModeration)
 	log.Listen(core.FlagSearch, "event-writer", func(e logger.Event) {
-		mgr.Invoke(context.Background()).Create(e)
+		if typed, ok := e.(db.DatabaseMapped); ok {
+			logger.MaybeError(log, mgr.Invoke(context.Background()).Create(typed))
+		}
 	})
-	app.Logger().Listen(core.FlagModeration, "event-writer", func(e logger.Event) {
+	log.Listen(core.FlagModeration, "event-writer", func(e logger.Event) {
+		if typed, ok := e.(db.DatabaseMapped); ok {
+			logger.MaybeError(log, mgr.Invoke(context.Background()).Create(typed))
+		}
 	})
 
 	if cfg.IsProduction() {
@@ -73,26 +98,19 @@ func New(log *logger.Logger, mgr *model.Manager, oauth *oauth.Manager, cfg *conf
 		app.Views().AddPaths("server/_views/header.html")
 	}
 
-	app.Auth().WithCookieName("giffy")
 	app.Views().AddPaths(ViewPaths...)
 
 	fm := filemanager.New(cfg.GetS3Bucket(), &cfg.Aws)
 
 	app.Register(controller.Index{Model: mgr, Config: cfg})
-	app.Register(controller.APIs{Model: mgr, Config: cfg, Files: fm, OAuth: oauth})
+	app.Register(controller.APIs{Model: mgr, Config: cfg, Files: fm, OAuth: oauthMgr})
 	app.Register(controller.Integrations{Model: mgr, Config: cfg})
-	app.Register(controller.Auth{Model: mgr, Config: cfg, OAuth: oauth})
+	app.Register(controller.Auth{Model: mgr, Config: cfg, OAuth: oauthMgr})
 	app.Register(controller.UploadImage{Model: mgr, Config: cfg, Files: fm})
 	app.Register(controller.Chart{Model: mgr, Config: cfg})
 
-	err := db.OpenDefault(db.NewFromConfig(&cfg.DB))
-	if err != nil {
-		return err
-	}
-
-	err = Migrate()
-	if err != nil {
-		return err
+	if migrations.Migrations().Apply(conn); err != nil {
+		return nil, err
 	}
 
 	cron.Default().LoadJob(jobs.DeleteOrphanedTags{})
@@ -100,5 +118,5 @@ func New(log *logger.Logger, mgr *model.Manager, oauth *oauth.Manager, cfg *conf
 	cron.Default().LoadJob(jobs.FixContentRating{})
 	cron.Default().Start()
 
-	return app
+	return app, nil
 }

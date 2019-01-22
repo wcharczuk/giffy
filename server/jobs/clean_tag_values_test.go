@@ -5,50 +5,54 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/db"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestCleanTagValues(t *testing.T) {
 	assert := assert.New(t)
-	tx, txErr := model.DB().Begin()
-	assert.Nil(txErr)
+	tx, err := db.Default().Begin()
+	assert.Nil(err)
 	defer tx.Rollback()
+	m := model.Manager{DB: db.Default(), Tx: tx}
 
-	u, err := model.CreateTestUser(tx)
-	assert.Nil(err)
-	i, err := model.CreateTestImage(u.ID, tx)
-	assert.Nil(err)
+	ctx := context.TODO()
 
-	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "winning's", tx)
+	u, err := m.CreateTestUser(ctx)
 	assert.Nil(err)
-
-	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "they're", tx)
+	i, err := m.CreateTestImage(ctx, u.ID)
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "theyre", tx)
+	_, err = m.CreateTestTagForImageWithVote(ctx, u.ID, i.ID, "winning's")
 	assert.Nil(err)
 
-	_, err = model.CreateTestTagForImageWithVote(u.ID, i.ID, "crushing it", tx)
+	_, err = m.CreateTestTagForImageWithVote(ctx, u.ID, i.ID, "they're")
 	assert.Nil(err)
 
-	job := &CleanTagValues{}
-	err = job.ExecuteInTx(context.TODO(), tx)
+	_, err = m.CreateTestTagForImageWithVote(ctx, u.ID, i.ID, "theyre")
+	assert.Nil(err)
+
+	_, err = m.CreateTestTagForImageWithVote(ctx, u.ID, i.ID, "crushing it")
+	assert.Nil(err)
+
+	job := &CleanTagValues{Model: &m}
+	err = job.Execute(ctx)
 
 	assert.Nil(err)
 
-	verify, err := model.GetTagByValue("winning's", tx)
+	verify, err := m.GetTagByValue(ctx, "winning's")
 	assert.Nil(err)
 	assert.True(verify.IsZero())
 
-	verify, err = model.GetTagByValue("they're", tx)
+	verify, err = m.GetTagByValue(ctx, "they're")
 	assert.Nil(err)
 	assert.True(verify.IsZero())
 
-	verify, err = model.GetTagByValue("theyre", tx)
+	verify, err = m.GetTagByValue(ctx, "theyre")
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 
-	verify, err = model.GetTagByValue("crushing it", tx)
+	verify, err = m.GetTagByValue(ctx, "crushing it")
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }

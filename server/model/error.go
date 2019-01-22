@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -11,31 +10,29 @@ import (
 
 // NewError creates a new error.
 func NewError(err error, req *http.Request) *Error {
-	if _, isException := err.(*exception.Ex); isException {
-		return &Error{
+	var merr Error
+	if typed, ok := err.(*exception.Ex); ok {
+		merr = Error{
 			UUID:       uuid.V4().String(),
 			CreatedUTC: time.Now().UTC(),
-			Message:    fmt.Sprintf("%v", err),
-			StackTrace: fmt.Sprintf("%+v", err),
-
-			Verb:  req.Method,
-			Proto: req.Proto,
-			Host:  req.Host,
-			Path:  req.URL.Path,
-			Query: req.URL.RawQuery,
+			Message:    typed.Message(),
+			StackTrace: typed.Stack().String(),
+		}
+	} else {
+		merr = Error{
+			UUID:       uuid.V4().String(),
+			CreatedUTC: time.Now().UTC(),
+			Message:    err.Error(),
 		}
 	}
-	return &Error{
-		UUID:       uuid.V4().String(),
-		CreatedUTC: time.Now().UTC(),
-		Message:    err.Error(),
-
-		Verb:  req.Method,
-		Proto: req.Proto,
-		Host:  req.Host,
-		Path:  req.URL.Path,
-		Query: req.URL.RawQuery,
+	if req != nil {
+		merr.Verb = req.Method
+		merr.Proto = req.Proto
+		merr.Host = req.Host
+		merr.Path = req.URL.Path
+		merr.Query = req.URL.RawQuery
 	}
+	return &merr
 }
 
 // Error represents an exception that has bubbled up to the global exception handler.

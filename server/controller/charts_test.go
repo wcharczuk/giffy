@@ -45,7 +45,7 @@ func TestChartsSeaches(t *testing.T) {
 	}
 
 	app := web.New()
-	app.Register(Chart{})
+	app.Register(Chart{Model: &m})
 	contents, meta, err := app.Mock().WithPathf("/chart/searches").BytesWithMeta()
 	assert.Nil(err)
 	assert.NotZero(meta.ContentLength)

@@ -664,7 +664,7 @@ func (a *App) ServeStatic(route string, searchPaths ...string) {
 	for _, searchPath := range searchPaths {
 		searchPathFS = append(searchPathFS, http.Dir(searchPath))
 	}
-	sfs := NewStaticFileServer(searchPathFS...).WithLogger(a.log)
+	sfs := NewStaticFileServer(searchPathFS...)
 	mountedRoute := a.createStaticMountRoute(route)
 	a.statics[mountedRoute] = sfs
 	a.Handle("GET", mountedRoute, a.renderAction(a.middlewarePipeline(sfs.Action)))
@@ -678,7 +678,6 @@ func (a *App) ServeStaticCached(route string, searchPaths ...string) {
 		searchPathFS = append(searchPathFS, http.Dir(searchPath))
 	}
 	sfs := NewCachedStaticFileServer(searchPathFS...)
-	sfs.WithLogger(a.log)
 	mountedRoute := a.createStaticMountRoute(route)
 	a.statics[mountedRoute] = sfs
 	a.Handle("GET", mountedRoute, a.renderAction(a.middlewarePipeline(sfs.Action)))

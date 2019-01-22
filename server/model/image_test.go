@@ -8,6 +8,7 @@ import (
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/stringutil"
 	"github.com/blend/go-sdk/uuid"
 )
 
@@ -292,10 +293,10 @@ func TestSearchImagesBestResult(t *testing.T) {
 	i, err := m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	tag4value := fmt.Sprintf("__test_foo_bar_%s", uuid.V4().String())
-	tag3value := fmt.Sprintf("__test_bar_%s", uuid.V4().String())
-	tag2value := fmt.Sprintf("__test_foo_%s", uuid.V4().String())
-	tag1value := fmt.Sprintf("__test_%s", uuid.V4().String())
+	tag4value := fmt.Sprintf("__test_foo_bar_%s", stringutil.Letters.Random(4))
+	tag3value := fmt.Sprintf("__test_bar_%s", stringutil.Letters.Random(4))
+	tag2value := fmt.Sprintf("__test_foo_%s", stringutil.Letters.Random(4))
+	tag1value := fmt.Sprintf("__test_%s", stringutil.Letters.Random(4))
 
 	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i4.ID, tag4value)
 	assert.Nil(err)

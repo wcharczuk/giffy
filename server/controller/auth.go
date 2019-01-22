@@ -47,6 +47,8 @@ func (ac Auth) middleware(extra ...web.Middleware) []web.Middleware {
 
 // Register registers the controllers routes.
 func (ac Auth) Register(app *web.App) {
+	app.Auth().WithCookieName("giffy")
+
 	app.Auth().WithLoginRedirectHandler(ac.loginRedirect)
 	app.Auth().WithFetchHandler(ac.fetchSession)
 	app.Auth().WithPersistHandler(ac.persistSession)

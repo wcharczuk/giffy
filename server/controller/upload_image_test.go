@@ -40,7 +40,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	app := web.New()
 	app.WithAuth(auth)
 	app.WithLogger(logger.None())
-	app.Register(UploadImage{Config: config.NewFromEnv(), Files: fm})
+	app.Register(UploadImage{Model: &m, Config: config.NewFromEnv(), Files: fm})
 	app.Views().AddPaths(
 		"server/_views/footer.html",
 		"server/_views/upload_image.html",

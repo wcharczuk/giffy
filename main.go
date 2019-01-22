@@ -2,9 +2,8 @@ package main
 
 import (
 	"github.com/blend/go-sdk/configutil"
+	"github.com/blend/go-sdk/graceful"
 	"github.com/blend/go-sdk/logger"
-	"github.com/blend/go-sdk/oauth"
-	"github.com/blend/go-sdk/web"
 
 	"github.com/wcharczuk/giffy/server"
 	"github.com/wcharczuk/giffy/server/config"
@@ -13,21 +12,15 @@ import (
 func main() {
 	var cfg config.Giffy
 	if err := configutil.Read(&cfg); err != nil {
-		logger.All().SyncFatalExit(err)
+		logger.FatalExit(err)
 	}
 
-	log := logger.NewFromConfig(&cfg.Logger)
-	oauth, err := oauth.NewFromConfig(&cfg.GoogleAuth)
+	app, err := server.New(&cfg)
 	if err != nil {
-		log.SyncFatalExit(err)
+		logger.FatalExit(err)
 	}
 
-	if cfg.Web.IsSecure() {
-		upgrader := web.NewHTTPSUpgraderFromConfig(&cfg.Upgrader).WithLogger(log)
-		go func() {
-			log.SyncFatal(upgrader.Start())
-		}()
+	if err = graceful.Shutdown(app); err != nil {
+		logger.FatalExit(err)
 	}
-
-	log.SyncFatal(server.New(log, oauth, &cfg).WithLogger(log).Start())
 }
