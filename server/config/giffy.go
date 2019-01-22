@@ -21,13 +21,23 @@ const (
 	EnvironmentProd = "prod"
 )
 
-// NewFromEnv creates a new config from the environment.
-func NewFromEnv() *Giffy {
+// MustNewFromEnv creates a new config from the environment.
+// It will panic on error.
+func MustNewFromEnv() *Giffy {
 	var cfg Giffy
 	if err := env.Env().ReadInto(&cfg); err != nil {
 		panic(err)
 	}
 	return &cfg
+}
+
+// NewFromEnv creates a new config from the environment.
+func NewFromEnv() (*Giffy, error) {
+	var cfg Giffy
+	if err := env.Env().ReadInto(&cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 // Giffy is the root config for the server.

@@ -26,7 +26,14 @@ type APIs struct {
 	Files  *filemanager.FileManager
 }
 
-func (api APIs) middleware(extra ...web.Middleware) []web.Middleware {
+func (api APIs) awareMiddleware(extra ...web.Middleware) []web.Middleware {
+	return append(extra, []web.Middleware{
+		web.SessionAware,
+		APIProviderAsDefault,
+	}...)
+}
+
+func (api APIs) requiredMiddleware(extra ...web.Middleware) []web.Middleware {
 	return append(extra, []web.Middleware{
 		web.SessionRequired,
 		APIProviderAsDefault,
@@ -35,79 +42,79 @@ func (api APIs) middleware(extra ...web.Middleware) []web.Middleware {
 
 // Register adds the routes to the app.
 func (api APIs) Register(app *web.App) {
-	app.GET("/api/users", api.getUsersAction, api.middleware()...)
-	app.GET("/api/users.search", api.searchUsersAction, api.middleware()...)
-	app.GET("/api/users/pages/:count/:offset", api.getUsersByCountAndOffsetAction, api.middleware()...)
+	app.GET("/api/users", api.getUsersAction, api.requiredMiddleware()...)
+	app.GET("/api/users.search", api.searchUsersAction, api.requiredMiddleware()...)
+	app.GET("/api/users/pages/:count/:offset", api.getUsersByCountAndOffsetAction, api.requiredMiddleware()...)
 
 	app.GET("/api/user/:user_id", api.getUserAction)
-	app.PUT("/api/user/:user_id", api.updateUserAction, api.middleware()...)
+	app.PUT("/api/user/:user_id", api.updateUserAction, api.requiredMiddleware()...)
 	app.GET("/api/user.images/:user_id", api.getUserImagesAction)
 	app.GET("/api/user.moderation/:user_id", api.getModerationForUserAction)
-	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, api.middleware()...)
-	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, api.middleware()...)
+	app.GET("/api/user.votes.image/:image_id", api.getVotesForUserForImageAction, api.requiredMiddleware()...)
+	app.GET("/api/user.votes.tag/:tag_id", api.getVotesForUserForTagAction, api.requiredMiddleware()...)
 
-	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, api.middleware()...)
+	app.DELETE("/api/user.vote/:image_id/:tag_id", api.deleteUserVoteAction, api.requiredMiddleware()...)
 
 	app.GET("/api/images", api.getImagesAction)
-	app.POST("/api/images", api.createImageAction, api.middleware()...)
-	app.GET("/api/images/random/:count", api.getRandomImagesAction, api.middleware()...)
-	app.GET("/api/images.search", api.searchImagesAction, api.middleware()...)
-	app.GET("/api/images.search/random/:count", api.searchImagesRandomAction, api.middleware()...)
+	app.POST("/api/images", api.createImageAction, api.requiredMiddleware()...)
+	app.GET("/api/images/random/:count", api.getRandomImagesAction, api.awareMiddleware()...)
+	app.GET("/api/images.search", api.searchImagesAction, api.awareMiddleware()...)
+	app.GET("/api/images.search/random/:count", api.searchImagesRandomAction, api.awareMiddleware()...)
 
 	app.GET("/api/image/:image_id", api.getImageAction)
-	app.PUT("/api/image/:image_id", api.updateImageAction, api.middleware()...)
-	app.DELETE("/api/image/:image_id", api.deleteImageAction, api.middleware()...)
+	app.PUT("/api/image/:image_id", api.updateImageAction, api.requiredMiddleware()...)
+	app.DELETE("/api/image/:image_id", api.deleteImageAction, api.requiredMiddleware()...)
 	app.GET("/api/image.votes/:image_id", api.getLinksForImageAction)
 	app.GET("/api/image.tags/:image_id", api.getTagsForImageAction)
 
 	app.GET("/api/tags", api.getTagsAction)
-	app.POST("/api/tags", api.createTagsAction, api.middleware()...)
+	app.POST("/api/tags", api.createTagsAction, api.requiredMiddleware()...)
 	app.GET("/api/tags/random/:count", api.getRandomTagsAction)
 	app.GET("/api/tags.search", api.searchTagsAction)
 	app.GET("/api/tags.search/random/:count", api.searchTagsRandomAction)
 
 	app.GET("/api/tag/:tag_id", api.getTagAction)
-	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, api.middleware()...)
+	app.DELETE("/api/tag/:tag_id", api.deleteTagAction, api.requiredMiddleware()...)
 	app.GET("/api/tag.images/:tag_id", api.getImagesForTagAction)
 	app.GET("/api/tag.votes/:tag_id", api.getLinksForTagAction)
 
-	app.GET("/api/teams", api.getTeamsAction, api.middleware()...)
-	app.GET("/api/team/:team_id", api.getTeamAction, api.middleware()...)
-	app.POST("/api/team/:team_id", api.createTeamAction, api.middleware()...)
-	app.PUT("/api/team/:team_id", api.updateTeamAction, api.middleware()...)
-	app.PATCH("/api/team/:team_id", api.patchTeamAction, api.middleware()...)
-	app.DELETE("/api/team/:team_id", api.deleteTeamAction, api.middleware()...)
+	app.GET("/api/teams", api.getTeamsAction, api.requiredMiddleware()...)
+	app.GET("/api/team/:team_id", api.getTeamAction, api.requiredMiddleware()...)
+	app.POST("/api/team/:team_id", api.createTeamAction, api.requiredMiddleware()...)
+	app.PUT("/api/team/:team_id", api.updateTeamAction, api.requiredMiddleware()...)
+	app.PATCH("/api/team/:team_id", api.patchTeamAction, api.requiredMiddleware()...)
+	app.DELETE("/api/team/:team_id", api.deleteTeamAction, api.requiredMiddleware()...)
 
-	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, api.middleware()...)
+	app.DELETE("/api/link/:image_id/:tag_id", api.deleteLinkAction, api.requiredMiddleware()...)
 
-	app.POST("/api/vote.up/:image_id/:tag_id", api.upvoteAction, api.middleware()...)
-	app.POST("/api/vote.down/:image_id/:tag_id", api.downvoteAction, api.middleware()...)
+	app.POST("/api/vote.up/:image_id/:tag_id", api.upvoteAction, api.requiredMiddleware()...)
+	app.POST("/api/vote.down/:image_id/:tag_id", api.downvoteAction, api.requiredMiddleware()...)
 
 	app.GET("/api/moderation.log/recent", api.getRecentModerationLogAction)
 	app.GET("/api/moderation.log/pages/:count/:offset", api.getModerationLogByCountAndOffsetAction)
 
-	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction, api.middleware()...)
-	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, api.middleware()...)
+	app.GET("/api/search.history/recent", api.getRecentSearchHistoryAction, api.requiredMiddleware()...)
+	app.GET("/api/search.history/pages/:count/:offset", api.getSearchHistoryByCountAndOffsetAction, api.requiredMiddleware()...)
 
 	app.GET("/api/stats", api.getSiteStatsAction)
 	app.GET("/api/image.stats/:image_id", api.getImageStatsAction)
 
 	//session endpoints
-	app.GET("/api/session.user", api.getCurrentUserAction, api.middleware()...)
-	app.GET("/api/session/:key", api.getSessionKeyAction, api.middleware()...)
-	app.POST("/api/session/:key", api.setSessionKeyAction, api.middleware()...)
-	app.PUT("/api/session/:key", api.setSessionKeyAction, api.middleware()...)
-	app.DELETE("/api/session/:key", api.deleteSessionKeyAction, api.middleware()...)
+	app.GET("/api/session.user", api.getCurrentUserAction, api.awareMiddleware()...)
+	app.GET("/api/session/:key", api.getSessionKeyAction, api.requiredMiddleware()...)
+	app.POST("/api/session/:key", api.setSessionKeyAction, api.requiredMiddleware()...)
+	app.PUT("/api/session/:key", api.setSessionKeyAction, api.requiredMiddleware()...)
+	app.DELETE("/api/session/:key", api.deleteSessionKeyAction, api.requiredMiddleware()...)
 
 	//jobs
-	app.GET("/api/jobs", api.getJobsStatusAction, api.middleware()...)
-	app.POST("/api/job/:job_id", api.runJobAction, api.middleware()...)
+	app.GET("/api/jobs", api.getJobsStatusAction, api.requiredMiddleware()...)
+	app.POST("/api/job/:job_id", api.runJobAction, api.requiredMiddleware()...)
 
 	//errors
-	app.GET("/api/errors/:limit/:offset", api.getErrorsAction, api.middleware()...)
+	app.GET("/api/errors/:limit/:offset", api.getErrorsAction, api.requiredMiddleware()...)
 
 	// auth endpoints
-	app.POST("/api/logout", api.logoutAction, api.middleware()...)
+	app.POST("/api/logout", api.logoutAction, api.requiredMiddleware()...)
 }
 
 // GET "/api/users"

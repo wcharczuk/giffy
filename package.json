@@ -7,17 +7,18 @@
 	},
 	"description": "Giffy is a better way to search for gifs.",
 	"dependencies": {
-			"bower" : "*",
-			"grunt" : "*",
-			"grunt-cache-breaker": "*",
-			"grunt-contrib-clean": "*",
-			"grunt-contrib-concat": "*",
-			"grunt-contrib-copy": "*",
-			"grunt-contrib-cssmin" : "*",
-			"grunt-contrib-jshint" : "*",
-			"grunt-contrib-less" : "*",
-			"grunt-contrib-uglify" : "*",
-			"grunt-html2js" : "*",
-			"grunt-processhtml": "*"
+		"bower": "*",
+		"grunt": "*",
+		"grunt-cache-breaker": "*",
+		"grunt-cli": "^1.3.2",
+		"grunt-contrib-clean": "*",
+		"grunt-contrib-concat": "*",
+		"grunt-contrib-copy": "*",
+		"grunt-contrib-cssmin": "*",
+		"grunt-contrib-jshint": "*",
+		"grunt-contrib-less": "*",
+		"grunt-contrib-uglify": "*",
+		"grunt-html2js": "*",
+		"grunt-processhtml": "*"
 	}
 }
