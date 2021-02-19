@@ -19,7 +19,7 @@ jobs:
       - run:
           name: Database Setup 
           command: |
-            go run ./database/main.go init
+            go run ./db/main.go init
       - run: 
           name: Tests
           command: | 
