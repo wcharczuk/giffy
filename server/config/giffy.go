@@ -63,6 +63,11 @@ type Giffy struct {
 	Web        web.Config    `json:"web" yaml:"web"`
 }
 
+// Resolve resolves the config.
+func (g *Giffy) Resolve() error {
+	return env.Env().ReadInto(g)
+}
+
 // GetEnvironment returns a property or a default.
 func (g Giffy) GetEnvironment(inherited ...string) string {
 	return configutil.CoalesceString(g.Environment, EnvironmentDev, inherited...)
