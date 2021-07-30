@@ -58,6 +58,9 @@ func New(cfg *config.Giffy) (*web.App, error) {
 	log.Infof("using env.PORT: %s", env.Env().String("PORT"))
 	log.Infof("using web bindAddr: %s", cfg.Web.GetBindAddr())
 	log.Infof("using database: %s", conn.Config().CreateDSN())
+	log.Infof("using admin user email: %s", cfg.AdminUserEmail)
+	log.Infof("using cloudfront dns: %s", cfg.CloudFrontDNS)
+	log.Infof("using s3 bucket: %s", cfg.S3Bucket)
 
 	mgr := &model.Manager{DB: conn}
 
