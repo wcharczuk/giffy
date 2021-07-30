@@ -55,6 +55,8 @@ func New(cfg *config.Giffy) (*web.App, error) {
 	}
 	conn.WithLogger(log)
 
+	log.Infof("using env.PORT: %s", env.Env().String("PORT"))
+	log.Infof("using web bindAddr: %s", cfg.Web.GetBindAddr())
 	log.Infof("using database: %s", conn.Config().CreateDSN())
 
 	mgr := &model.Manager{DB: conn}
