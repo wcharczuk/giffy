@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,22 +9,15 @@ import (
 
 	"github.com/blend/go-sdk/crypto"
 	"github.com/blend/go-sdk/db"
-	exception "github.com/blend/go-sdk/ex"
+	"github.com/blend/go-sdk/db/dbutil"
+	"github.com/blend/go-sdk/ex"
+
 	"github.com/blend/go-sdk/uuid"
 )
 
 // Manager is the common entrypoint for model functions.
 type Manager struct {
-	DB *db.Connection
-	Tx *sql.Tx
-}
-
-// Invoke returns an invocation.
-func (m Manager) Invoke(ctx context.Context, txs ...*sql.Tx) *db.Invocation {
-	if m.Tx != nil {
-		return m.DB.Invoke(ctx, m.Tx)
-	}
-	return m.DB.Invoke(ctx, txs...)
+	dbutil.BaseManager
 }
 
 // GetContentRatingByName gets a content rating by name.
@@ -975,7 +967,7 @@ func (m Manager) GetSlackTeamByTeamID(ctx context.Context, teamID string) (*Slac
 // GetUserAuthByToken returns an auth entry for the given auth token.
 func (m Manager) GetUserAuthByToken(ctx context.Context, token string, key []byte) (*UserAuth, error) {
 	if len(key) == 0 {
-		return nil, exception.New("`ENCRYPTION_KEY` is not set, cannot continue.")
+		return nil, ex.New("`ENCRYPTION_KEY` is not set, cannot continue.")
 	}
 
 	authTokenHash := crypto.HMAC512(key, []byte(token))

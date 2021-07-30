@@ -5,10 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/blend/go-sdk/configutil"
-	"github.com/blend/go-sdk/db"
 	exception "github.com/blend/go-sdk/ex"
-	"github.com/wcharczuk/giffy/server/config"
 )
 
 // ConfigLocalIP is the server local IP.
@@ -35,14 +32,4 @@ func Setwd(relativePath string) error {
 		return exception.New(err)
 	}
 	return exception.New(os.Chdir(fullPath))
-}
-
-// InitTest initializes the test prereqs.
-func InitTest() error {
-	var cfg config.Giffy
-	if err := configutil.Read(&cfg); !configutil.IsIgnored(err) {
-		return err
-	}
-
-	return db.OpenDefault(db.MustNewFromConfig(&cfg.DB))
 }

@@ -9,8 +9,8 @@ import (
 
 func TestGetContentRatingByName(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := todo()
+	tx, err := defaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
 	m := Manager{DB: db.Default(), Tx: tx}

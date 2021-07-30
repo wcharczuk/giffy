@@ -1,24 +1,17 @@
 package config
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 
+	"github.com/blend/go-sdk/configmeta"
 	"github.com/blend/go-sdk/configutil"
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/env"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/oauth"
 	"github.com/blend/go-sdk/web"
-)
-
-const (
-	// EnvironmentDev is a service environment
-	EnvironmentDev = "dev"
-	// EnvironmentStaging is a service environment
-	EnvironmentStaging = "staging"
-	// EnvironmentProd is a service environment
-	EnvironmentProd = "prod"
 )
 
 // MustNewFromEnv creates a new config from the environment.
@@ -42,8 +35,7 @@ func NewFromEnv() (*Giffy, error) {
 
 // Giffy is the root config for the server.
 type Giffy struct {
-	Name        string `json:"name" yaml:"name" env:"SERVICE_NAME"`
-	Environment string `json:"env" yaml:"env" env:"SERVICE_ENV"`
+	configmeta.Meta `yaml:",inline"`
 
 	// If this user authenticates it is automatically made a super-admin.
 	AdminUserEmail string `json:"adminUserEmail" yaml:"adminUserEmail" env:"ADMIN_USER_EMAIL"`
@@ -64,28 +56,23 @@ type Giffy struct {
 }
 
 // Resolve resolves the config.
-func (g *Giffy) Resolve() error {
-	return env.Env().ReadInto(g)
-}
+func (g *Giffy) Resolve(ctx context.Context) error {
+	return configutil.Resolve(ctx,
+		(&g.Meta).Resolve,
+		(&g.DB).Resolve,
+		(&g.GoogleAuth).Resolve,
+		(&g.Logger).Resolve,
+		(&g.Web).Resolve,
 
-// GetEnvironment returns a property or a default.
-func (g Giffy) GetEnvironment(inherited ...string) string {
-	return configutil.CoalesceString(g.Environment, EnvironmentDev, inherited...)
-}
-
-// IsProduction returns if the current env is prodlike.
-func (g Giffy) IsProduction() bool {
-	return g.GetEnvironment() == EnvironmentProd
+		configutil.SetString(&g.AdminUserEmail, configutil.String(g.AdminUserEmail), configutil.String("will.charczuk@gmail.com")),
+		configutil.SetString(&g.S3Bucket, configutil.String(g.S3Bucket), configutil.StringFunc(g.ResolveS3Bucket)),
+	)
 }
 
 // GetS3Bucket gets a property or a default.
-func (g Giffy) GetS3Bucket(inherited ...string) string {
-	return configutil.CoalesceString(g.S3Bucket, fmt.Sprintf("giffy-%s", g.GetEnvironment()), inherited...)
-}
-
-// GetCloudFrontDNS returns the cdn.
-func (g Giffy) GetCloudFrontDNS(inherited ...string) string {
-	return configutil.CoalesceString(g.CloudFrontDNS, "", inherited...)
+func (g Giffy) ResolveS3Bucket(_ context.Context) (*string, error) {
+	bucket := fmt.Sprintf("giffy-%s", g.Meta.ServiceEnvOrDefault())
+	return &bucket, nil
 }
 
 // GetEncryptionKey gets the config encryption key as a byte blob.
@@ -95,9 +82,4 @@ func (g Giffy) GetEncryptionKey() []byte {
 		return key
 	}
 	return nil
-}
-
-// GetAdminUserEmail returns the admin user email.
-func (g Giffy) GetAdminUserEmail(inherited ...string) string {
-	return configutil.CoalesceString(g.AdminUserEmail, "will.charczuk@gmail.com", inherited...)
 }

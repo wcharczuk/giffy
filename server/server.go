@@ -6,13 +6,10 @@ import (
 
 	"github.com/blend/go-sdk/cron"
 	"github.com/blend/go-sdk/db"
-	"github.com/blend/go-sdk/env"
+	"github.com/blend/go-sdk/db/dbutil"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/oauth"
 	"github.com/blend/go-sdk/web"
-
-	// includes migrations
-	migrations "github.com/wcharczuk/giffy/db/migrations"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/controller"
@@ -46,39 +43,45 @@ var (
 
 // New returns a new server instance.
 func New(cfg *config.Giffy) (*web.App, error) {
-	log := logger.NewFromConfig(&cfg.Logger)
+	log := logger.MustNew(
+		logger.OptConfig(cfg.Logger),
+	)
 	log.Enable(core.FlagSearch, core.FlagModeration)
 
-	conn, err := db.NewFromConfig(&cfg.DB)
+	conn, err := db.New(
+		db.OptConfig(cfg.DB),
+		db.OptLog(log),
+	)
 	if err != nil {
 		return nil, err
 	}
 	if err := conn.Open(); err != nil {
 		return nil, err
 	}
-	conn.WithLogger(log)
 
-	log.Infof("using env.PORT: %s", env.Env().String("PORT"))
-	log.Infof("using web bindAddr: %s", cfg.Web.GetBindAddr())
-	log.Infof("using database: %s", conn.Config().CreateDSN())
+	log.Infof("using database: %s", conn.Config.CreateLoggingDSN())
 	log.Infof("using admin user email: %s", cfg.AdminUserEmail)
 	log.Infof("using cloudfront dns: %s", cfg.CloudFrontDNS)
 	log.Infof("using s3 bucket: %s", cfg.S3Bucket)
 
-	mgr := &model.Manager{DB: conn}
+	mgr := &model.Manager{BaseManager: dbutil.NewBaseManager(conn)}
 
-	oauthMgr, err := oauth.NewFromConfig(&cfg.GoogleAuth)
+	oauthMgr, err := oauth.New(
+		oauth.OptConfig(cfg.GoogleAuth),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	app := web.NewFromConfig(&cfg.Web).WithLogger(log)
-	if env.Env().Has("CURRENT_REF") {
-		app.WithDefaultHeader("X-Server-Version", env.Env().String("CURRENT_REF"))
+	app := web.MustNew(web.OptConfig(cfg.Web), web.OptLog(log))
+	if cfg.Meta.Version != "" {
+		app.BaseHeaders.Add("X-Server-Version", cfg.Meta.Version)
+	} else if cfg.Meta.GitRef != "" {
+		app.BaseHeaders.Add("X-Server-Version", cfg.Meta.GitRef)
 	}
 
-	log.Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
-		if req, isReq := ev.State().(*http.Request); isReq {
+	log.Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(_ context.Context, ev logger.ErrorEvent) {
+		if req, isReq := ev.State.(*http.Request); isReq {
 			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), req))
 		} else {
 			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), nil))
@@ -104,7 +107,7 @@ func New(cfg *config.Giffy) (*web.App, error) {
 
 	app.Views().AddPaths(ViewPaths...)
 
-	fm := filemanager.New(cfg.GetS3Bucket(), &cfg.Aws)
+	fm := filemanager.New(cfg.S3Bucket, &cfg.Aws)
 
 	app.Register(controller.Index{Model: mgr, Config: cfg})
 	app.Register(controller.APIs{Model: mgr, Config: cfg, Files: fm, OAuth: oauthMgr})
@@ -113,13 +116,13 @@ func New(cfg *config.Giffy) (*web.App, error) {
 	app.Register(controller.UploadImage{Model: mgr, Config: cfg, Files: fm})
 	app.Register(controller.Chart{Model: mgr, Config: cfg})
 
-	if migrations.Migrations().Apply(conn); err != nil {
+	if model.Migrations(cfg).Apply(context.Background(), conn); err != nil {
 		return nil, err
 	}
 
-	cron.Default().LoadJob(jobs.DeleteOrphanedTags{})
-	cron.Default().LoadJob(jobs.CleanTagValues{Model: mgr})
-	cron.Default().LoadJob(jobs.FixContentRating{})
+	cron.Default().LoadJobs(jobs.DeleteOrphanedTags{})
+	cron.Default().LoadJobs(jobs.CleanTagValues{Model: mgr})
+	cron.Default().LoadJobs(jobs.FixContentRating{})
 	cron.Default().Start()
 
 	return app, nil

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -9,9 +10,8 @@ import (
 	"github.com/blend/go-sdk/db/migration"
 	"github.com/blend/go-sdk/logger"
 
-	"github.com/wcharczuk/giffy/db/initialize"
-	"github.com/wcharczuk/giffy/db/migrations"
 	"github.com/wcharczuk/giffy/server/config"
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 func main() {
@@ -21,26 +21,29 @@ func main() {
 	}
 
 	var cfg config.Giffy
-	if err := configutil.Read(&cfg); !configutil.IsIgnored(err) {
-		logger.All().SyncFatalExit(err)
+	if _, err := configutil.Read(&cfg); !configutil.IsIgnored(err) {
+		logger.FatalExit(err)
 	}
 
-	log := logger.NewFromConfig(&cfg.Logger)
-	conn := db.MustNewFromConfig(&cfg.DB)
+	log := logger.MustNew(logger.OptConfig(cfg.Logger))
+	conn := db.MustNew(
+		db.OptConfig(cfg.DB),
+		db.OptLog(log),
+	)
 	if err := conn.Open(); err != nil {
-		log.SyncFatalExit(err)
+		logger.FatalExit(err)
 	}
 
 	var m *migration.Suite
 	switch strings.ToLower(command) {
 	case "migrate":
-		m = migrations.Migrations()
+		m = model.Migrations(&cfg)
 	case "init":
-		m = initialize.Initialize(&cfg)
+		m = model.Schema(&cfg)
 	}
+	m.Log = log
 
-	m.WithLogger(log)
-	if err := m.Apply(conn); err != nil {
-		log.SyncFatalExit(err)
+	if err := m.Apply(context.Background(), conn); err != nil {
+		logger.MaybeFatalExit(log, err)
 	}
 }

@@ -59,10 +59,12 @@ github.com/blend/go-sdk/ansi
 github.com/blend/go-sdk/assert
 github.com/blend/go-sdk/async
 github.com/blend/go-sdk/bufferutil
+github.com/blend/go-sdk/configmeta
 github.com/blend/go-sdk/configutil
 github.com/blend/go-sdk/cron
 github.com/blend/go-sdk/crypto
 github.com/blend/go-sdk/db
+github.com/blend/go-sdk/db/dbutil
 github.com/blend/go-sdk/db/migration
 github.com/blend/go-sdk/env
 github.com/blend/go-sdk/ex
@@ -79,6 +81,7 @@ github.com/blend/go-sdk/sanitize
 github.com/blend/go-sdk/semver
 github.com/blend/go-sdk/stringutil
 github.com/blend/go-sdk/template
+github.com/blend/go-sdk/testutil
 github.com/blend/go-sdk/timeutil
 github.com/blend/go-sdk/uuid
 github.com/blend/go-sdk/web

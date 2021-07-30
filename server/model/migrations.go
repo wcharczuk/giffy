@@ -1,4 +1,4 @@
-package initialize
+package model
 
 import (
 	"fmt"
@@ -7,31 +7,28 @@ import (
 	"github.com/wcharczuk/giffy/server/config"
 )
 
-// Initialize returns the initialize migrations.
-func Initialize(cfg *config.Giffy) *migration.Suite {
+// Schema returns the initialize migrations.
+func Schema(cfg *config.Giffy) *migration.Suite {
 	return migration.New(
-		migration.NewGroup(
-			migration.NewStep(
-				migration.AlwaysRun(),
+		migration.OptGroups(
+
+			migration.NewGroupWithAction(
+				migration.Always(),
 				migration.Statements(
 					"DROP SCHEMA public CASCADE;",
 					"CREATE SCHEMA public;",
 				),
 			),
-		).WithLabel("recreate schema"),
 
-		migration.NewGroup(
-			migration.NewStep(
-				migration.AlwaysRun(),
+			migration.NewGroupWithAction(
+				migration.Always(),
 				migration.Statements(
 					"create extension if not exists pgcrypto;",
 					"create extension if not exists pg_trgm;",
 				),
 			),
-		).WithLabel("add pg_trgm and pgcrypto"),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("error"),
 				migration.Statements(
 					`CREATE TABLE error (
@@ -50,10 +47,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`CREATE INDEX ix_error_created_utc ON error(created_utc);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("users"),
 				migration.Statements(
 					`CREATE TABLE users (
@@ -74,10 +69,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE users ADD CONSTRAINT uk_users_username UNIQUE (username);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("user_auth"),
 				migration.Statements(
 					`CREATE TABLE user_auth (
@@ -93,10 +86,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`CREATE INDEX ix_user_auth_auth_token_hash ON user_auth(auth_token_hash);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("user_session"),
 				migration.Statements(
 					`CREATE TABLE user_session (
@@ -108,10 +99,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE user_session ADD CONSTRAINT fk_user_session_user_id FOREIGN KEY (user_id) REFERENCES users(id);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("content_rating"),
 				migration.Statements(
 					`CREATE TABLE content_rating (
@@ -122,10 +111,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE content_rating ADD CONSTRAINT pk_content_rating_id PRIMARY KEY (id);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("image"),
 				migration.Statements(
 					`CREATE TABLE image (
@@ -156,10 +143,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE image ADD CONSTRAINT fk_image_content_rating FOREIGN KEY (content_rating) REFERENCES content_rating(id);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("tag"),
 				migration.Statements(
 					`CREATE TABLE tag (
@@ -176,10 +161,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`CREATE INDEX idx_tag_tag_value_gin ON tag USING gin (tag_value gin_trgm_ops);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("vote_summary"),
 				migration.Statements(
 					`CREATE TABLE vote_summary (
@@ -197,10 +180,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE vote_summary ADD CONSTRAINT fk_vote_summary_tag_id FOREIGN KEY (tag_id) REFERENCES tag(id);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("vote"),
 				migration.Statements(
 					`CREATE TABLE vote (
@@ -216,10 +197,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE vote ADD CONSTRAINT fk_vote_tag_id FOREIGN KEY (tag_id) REFERENCES tag(id);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("moderation"),
 				migration.Statements(
 					`CREATE TABLE moderation (
@@ -235,10 +214,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE moderation add CONSTRAINT fk_moderation_user_id FOREIGN KEY (user_id) REFERENCES users(id);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("search_history"),
 				migration.Statements(
 					`create table search_history (
@@ -262,10 +239,8 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
+			migration.NewGroupWithAction(
 				migration.TableNotExists("slack_team"),
 				migration.Statements(
 					`CREATE TABLE slack_team (
@@ -280,11 +255,9 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					`ALTER TABLE slack_team ADD CONSTRAINT pk_content_rating_team_id PRIMARY KEY (team_id);`,
 				),
 			),
-		),
 
-		migration.NewGroup(
-			migration.NewStep(
-				migration.AlwaysRun(),
+			migration.NewGroupWithAction(
+				migration.Always(),
 				migration.Statements(
 					fmt.Sprintf(`
 						insert into users
@@ -296,11 +269,9 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 						cfg.GetAdminUserEmail(), cfg.GetAdminUserEmail()),
 				),
 			),
-		).WithLabel("create admin user"),
 
-		migration.NewGroup(
-			migration.NewStep(
-				migration.AlwaysRun(),
+			migration.NewGroupWithAction(
+				migration.Always(),
 				migration.Statements(
 					"INSERT INTO content_rating (id, name, description) select 1, 'G', 'General Audiences; no violence or sexual content. No live action.' where not exists ( select 1 from content_rating where id = 1 );",
 					"INSERT INTO content_rating (id, name, description) select 2, 'PG', 'Parental Guidance; limited violence and sexual content. Some live action' where not exists ( select 1 from content_rating where id = 2 );",
@@ -309,6 +280,11 @@ func Initialize(cfg *config.Giffy) *migration.Suite {
 					"INSERT INTO content_rating (id, name, description) select 5, 'NR', 'Not Rated; reserved for the dankest of may-mays, may be disturbing. Usually NSFW, will generally get you fired if you look at these at work.' where not exists ( select 1 from content_rating where id = 5 );",
 				),
 			),
-		).WithLabel("create content ratings"),
+		),
 	)
+}
+
+// Migrations returns the migrations.
+func Migrations(cfg *config.Giffy) *migration.Suite {
+	return migration.New()
 }
