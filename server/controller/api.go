@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/blend/go-sdk/cron"
-	"github.com/blend/go-sdk/exception"
+	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/oauth"
 	"github.com/blend/go-sdk/reflectutil"
 	"github.com/blend/go-sdk/web"

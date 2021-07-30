@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/blend/go-sdk/exception"
+	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/web"
 	"github.com/wcharczuk/giffy/server/model"
 )

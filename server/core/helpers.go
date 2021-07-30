@@ -7,7 +7,7 @@ import (
 
 	"github.com/blend/go-sdk/configutil"
 	"github.com/blend/go-sdk/db"
-	"github.com/blend/go-sdk/exception"
+	exception "github.com/blend/go-sdk/ex"
 	"github.com/wcharczuk/giffy/server/config"
 )
 

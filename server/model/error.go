@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	exception "github.com/blend/go-sdk/exception"
+	exception exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/uuid"
 )
 

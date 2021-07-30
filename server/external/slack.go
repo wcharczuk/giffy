@@ -3,7 +3,7 @@ package external
 import (
 	"fmt"
 
-	"github.com/blend/go-sdk/request"
+	"github.com/blend/go-sdk/r2"
 	"github.com/wcharczuk/giffy/server/config"
 )
 
@@ -43,26 +43,21 @@ func SlackAuthReturnURL(cfg *config.Giffy) string {
 // FetchSlackProfile gets the slack user details for an access token.
 func FetchSlackProfile(accessToken string, cfg *config.Giffy) (*SlackProfile, error) {
 	var auth SlackProfile
-	err := request.New().
-		AsPost().
-		MustWithRawURL("https://slack.com/api/auth.test").
-		WithPostData("token", accessToken).
-		JSON(&auth)
+	_, err := r2.New("https://slack.com/api/auth.test",
+		r2.OptPost(),
+		r2.OptPostFormValue("token", accessToken)).JSON(&auth)
 	return &auth, err
 }
 
 // SlackOAuth completes the oauth 2.0 process with slack.
 func SlackOAuth(code string, cfg *config.Giffy) (*SlackOAuthResponse, error) {
 	var oar SlackOAuthResponse
-
-	err := request.New().
-		AsPost().
-		MustWithRawURL("https://slack.com/api/oauth.access").
-		WithPostData("client_id", cfg.SlackClientID).
-		WithPostData("client_secret", cfg.SlackClientSecret).
-		WithPostData("redirect_uri", SlackAuthReturnURL(cfg)).
-		WithPostData("code", code).
-		JSON(&oar)
-
+	_, err := r2.New("https://slack.com/api/oauth.access",
+		r2.OptPost(),
+		r2.OptPostFormValue("client_id", cfg.SlackClientID),
+		r2.OptPostFormValue("client_secret", cfg.SlackClientSecret),
+		r2.OptPostFormValue("redirect_uri", SlackAuthReturnURL(cfg)),
+		r2.OptPostFormValue("code", code),
+	).JSON(&oar)
 	return &oar, err
 }

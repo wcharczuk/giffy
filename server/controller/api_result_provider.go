@@ -3,7 +3,7 @@ package controller
 import (
 	"net/http"
 
-	"github.com/blend/go-sdk/exception"
+	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/web"
 )

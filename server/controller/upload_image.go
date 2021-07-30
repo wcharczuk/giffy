@@ -10,9 +10,9 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/blend/go-sdk/exception"
+	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/logger"
-	"github.com/blend/go-sdk/request"
+	"github.com/blend/go-sdk/r2"
 	"github.com/blend/go-sdk/web"
 
 	"github.com/wcharczuk/giffy/server/config"
@@ -52,13 +52,10 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 			return r.View().BadRequest(fmt.Errorf("`image_url` was malformed"))
 		}
 
-		res, err := request.New().WithLogger(r.Logger()).
-			AsGet().
-			MustWithRawURL(refURL.String()).
-			WithHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36").
-			WithHeader("Cache-Control", "no-cache").
-			Response()
-
+		res, err := r2.New(refURL.String(),
+			r2.OptLog(r.App.Logger),
+			r2.OptHeaderValue("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"),
+			r2.OptHeaderValue("Cache-Control", "no-cache")).Do()
 		if err != nil {
 			return r.View().InternalError(err)
 		}

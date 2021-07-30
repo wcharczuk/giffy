@@ -7,7 +7,7 @@ import (
 
 	assert "github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/db"
-	exception "github.com/blend/go-sdk/exception"
+	exception exception "github.com/blend/go-sdk/ex"
 )
 
 func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
