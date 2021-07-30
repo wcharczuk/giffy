@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/blend/go-sdk/configutil"
 	"github.com/blend/go-sdk/env"
 	"github.com/blend/go-sdk/graceful"
 	"github.com/blend/go-sdk/logger"
@@ -10,11 +11,11 @@ import (
 )
 
 func main() {
-	/*var cfg config.Giffy
+	var cfg config.Giffy
 	if err := configutil.Read(&cfg); !configutil.IsIgnored(err) {
 		logger.FatalExit(err)
-	}*/
-	var cfg config.Giffy
+	}
+
 	if err := env.Env().ReadInto(&cfg); err != nil {
 		logger.FatalExit(err)
 	}
