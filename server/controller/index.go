@@ -16,17 +16,11 @@ type Index struct {
 }
 
 func (i Index) indexAction(r *web.Ctx) web.Result {
-	if i.Config.IsProduction() {
-		return r.Static("_client/dist/index.html")
-	}
-	return r.Static("_client/src/index.html")
+	return r.Static("_client/dist/index.html")
 }
 
 func (i Index) faviconAction(r *web.Ctx) web.Result {
-	if i.Config.IsProduction() {
-		return r.Static("_client/dist/images/favicon.ico")
-	}
-	return r.Static("_client/src/images/favicon.ico")
+	return r.Static("_client/dist/images/favicon.ico")
 }
 
 func (i Index) methodNotAllowedHandler(r *web.Ctx) web.Result {
@@ -60,20 +54,15 @@ func (i Index) Register(app *web.App) {
 	app.GET("/index.html", i.indexAction)
 	app.GET("/favicon.ico", i.faviconAction)
 
-	if i.Config.IsProduction() {
-		app.ServeStaticCached("/static", "_client/dist")
-		app.SetStaticRewriteRule("/static", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
-			if len(parts) < 4 {
-				return path
-			}
-			return fmt.Sprintf("%s.%s", parts[1], parts[3])
-		})
-		app.SetStaticHeader("/static", "access-control-allow-origin", "*")
-		app.SetStaticHeader("/static", "cache-control", "public,max-age=315360000")
-	} else {
-		app.ServeStatic("/bower", "_client/bower")
-		app.ServeStatic("/static", "_client/src")
-	}
+	app.ServeStaticCached("/static", "_client/dist")
+	app.SetStaticRewriteRule("/static", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
+		if len(parts) < 4 {
+			return path
+		}
+		return fmt.Sprintf("%s.%s", parts[1], parts[3])
+	})
+	app.SetStaticHeader("/static", "access-control-allow-origin", "*")
+	app.SetStaticHeader("/static", "cache-control", "public,max-age=315360000")
 
 	app.GET("/status", i.statusAction)
 }

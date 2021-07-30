@@ -55,6 +55,8 @@ func New(cfg *config.Giffy) (*web.App, error) {
 	}
 	conn.WithLogger(log)
 
+	log.Infof("using database: %s", conn.Config().CreateDSN())
+
 	mgr := &model.Manager{DB: conn}
 
 	oauthMgr, err := oauth.NewFromConfig(&cfg.GoogleAuth)
