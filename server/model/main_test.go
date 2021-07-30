@@ -6,19 +6,27 @@ import (
 	"testing"
 
 	logger "github.com/blend/go-sdk/logger"
-	"github.com/wcharczuk/giffy/server/core"
 )
 
-func testCtx() context.Context {
+func defaultDB() *db.Connection {
+	return testutil.DefaultDB()
+}
+
+func todo() context.Context {
 	return context.TODO()
 }
 
 func TestMain(m *testing.M) {
-	if err := core.Setwd("../../"); err != nil {
-		logger.All().SyncFatalExit(err)
-	}
-	if err := core.InitTest(); err != nil {
-		logger.All().SyncFatalExit(err)
-	}
-	os.Exit(m.Run())
+	testutil.New(m,
+		testutil.OptLog(logger.All()),
+		testutil.OptWithDefaultDB(),
+		testutil.OptBefore(
+			func(ctx context.Context) error {
+				return Schema().Apply(ctx, testutil.DefaultDB())
+			},
+			func(ctx context.Context) error {
+				return Migrations().Apply(ctx, testutil.DefaultDB())
+			},
+		),
+	).Run()
 }
