@@ -30,6 +30,7 @@ const (
 var (
 	// ViewPaths are paths to load into the view cache.
 	ViewPaths = []string{
+		"server/_views/header.html",
 		"server/_views/footer.html",
 		"server/_views/not_found.html",
 		"server/_views/error.html",
@@ -98,12 +99,6 @@ func New(cfg *config.Giffy) (*web.App, error) {
 			logger.MaybeError(log, mgr.Invoke(context.Background()).Create(typed))
 		}
 	})
-
-	if cfg.IsProduction() {
-		app.Views().AddPaths("server/_views/header_prod.html")
-	} else {
-		app.Views().AddPaths("server/_views/header.html")
-	}
 
 	app.Views().AddPaths(ViewPaths...)
 
