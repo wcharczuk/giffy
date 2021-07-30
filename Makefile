@@ -9,7 +9,7 @@ export CURRENT_REF
 
 all: migrate test
 
-new-install: init-db db
+new-install: db
 
 run:
 	@echo "==> Running"

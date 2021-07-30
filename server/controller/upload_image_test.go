@@ -33,6 +33,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	defer MockLogout(assert, &m, auth, session)
 
 	f, err := os.Open("server/controller/testdata/image.gif")
+	assert.Nil(err)
 
 	contents, err := ioutil.ReadAll(f)
 	assert.Nil(err)
@@ -40,7 +41,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	app := web.New()
 	app.WithAuth(auth)
 	app.WithLogger(logger.None())
-	app.Register(UploadImage{Model: &m, Config: config.NewFromEnv(), Files: fm})
+	app.Register(UploadImage{Model: &m, Config: config.MustNewFromEnv(), Files: fm})
 	app.Views().AddPaths(
 		"server/_views/footer.html",
 		"server/_views/upload_image.html",

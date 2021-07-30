@@ -8,6 +8,7 @@ import (
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/db/migration"
 	"github.com/blend/go-sdk/logger"
+
 	"github.com/wcharczuk/giffy/db/initialize"
 	"github.com/wcharczuk/giffy/db/migrations"
 	"github.com/wcharczuk/giffy/server/config"
@@ -20,13 +21,13 @@ func main() {
 	}
 
 	var cfg config.Giffy
-	if err := configutil.Read(&cfg); err != nil {
+	if err := configutil.Read(&cfg); !configutil.IsIgnored(err) {
 		logger.All().SyncFatalExit(err)
 	}
 
 	log := logger.NewFromConfig(&cfg.Logger)
 	conn := db.MustNewFromConfig(&cfg.DB)
-	if err:=conn.Open(); err != nil {
+	if err := conn.Open(); err != nil {
 		log.SyncFatalExit(err)
 	}
 

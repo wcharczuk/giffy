@@ -35,7 +35,7 @@ func TestSlack(t *testing.T) {
 	var res slackMessage
 
 	app.WithLogger(logger.None())
-	app.Register(Integrations{Model: &m, Config: config.NewFromEnv()})
+	app.Register(Integrations{Model: &m, Config: config.MustNewFromEnv()})
 
 	err = app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", uuid.V4().String()).
@@ -60,7 +60,7 @@ func TestSlackErrorsWithShortQuery(t *testing.T) {
 	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	app := web.New()
-	app.Register(Integrations{Model: &m, Config: config.NewFromEnv()})
+	app.Register(Integrations{Model: &m, Config: config.MustNewFromEnv()})
 	res, err := app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
 		WithQueryString("team_id", uuid.V4().String()).
 		WithQueryString("channel_id", uuid.V4().String()).

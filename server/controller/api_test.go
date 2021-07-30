@@ -73,7 +73,7 @@ func TestAPIUsers(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
@@ -93,7 +93,7 @@ func TestAPIUsersNonAdmin(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
@@ -113,7 +113,7 @@ func TestAPIUserSearch(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().
@@ -138,7 +138,7 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
 	err = app.Mock().
@@ -159,7 +159,7 @@ func TestAPIUser(t *testing.T) {
 	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUserResponse
 	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
@@ -184,7 +184,7 @@ func TestAPIImages(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testImagesResponse
 	err = app.Mock().WithPathf("/api/images").JSON(&res)
@@ -208,7 +208,7 @@ func TestAPIImagesRandom(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testImagesResponse
 	err = app.Mock().WithPathf("/api/images/random/10").JSON(&res)
@@ -225,7 +225,7 @@ func TestAPISiteStats(t *testing.T) {
 	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testSiteStatsResponse
 	err = app.Mock().WithPathf("/api/stats").JSON(&res)
@@ -245,7 +245,7 @@ func TestAPISessionUser(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv(), OAuth: oauth.New().WithSecret(crypto.MustCreateKey(32))})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv(), OAuth: oauth.New().WithSecret(crypto.MustCreateKey(32))})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
@@ -263,7 +263,7 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv(), OAuth: oauth.New().WithSecret(crypto.MustCreateKey(32))})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv(), OAuth: oauth.New().WithSecret(crypto.MustCreateKey(32))})
 
 	var res testCurrentUserResponse
 	err = app.Mock().WithPathf("/api/session.user").JSON(&res)
@@ -281,7 +281,7 @@ func TestAPIGetTeamsNoAuth(t *testing.T) {
 	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamsResponse
 	err = app.Mock().WithPathf("/api/teams").JSON(&res)
@@ -298,6 +298,7 @@ func TestAPIGetTeams(t *testing.T) {
 	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	auth, session, err := MockAdminLogin(&m)
+	assert.Nil(err)
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
@@ -327,7 +328,7 @@ func TestAPIGetTeams(t *testing.T) {
 	app := web.New()
 	app.WithAuth(auth)
 
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamsResponse
 	err = app.Mock().WithPathf("/api/teams").WithCookieValue(auth.CookieName(), session.SessionID).JSON(&res)
@@ -358,7 +359,7 @@ func TestAPIGetTeamNotAuthed(t *testing.T) {
 	assert.Nil(err)
 
 	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamResponse
 	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).JSON(&res)
@@ -375,6 +376,7 @@ func TestAPIGetTeam(t *testing.T) {
 	m := model.Manager{DB: db.Default(), Tx: tx}
 
 	auth, session, err := MockAdminLogin(&m)
+	assert.Nil(err)
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
@@ -390,7 +392,7 @@ func TestAPIGetTeam(t *testing.T) {
 
 	app := web.New()
 	app.WithAuth(auth)
-	app.Register(APIs{Model: &m, Config: config.NewFromEnv()})
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamResponse
 	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithCookieValue(auth.CookieName(), session.SessionID).JSON(&res)

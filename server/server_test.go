@@ -9,7 +9,7 @@ import (
 
 func TestNew(t *testing.T) {
 	assert := assert.New(t)
-	app, err := New(config.NewFromEnv())
+	app, err := New(config.MustNewFromEnv())
 	assert.Nil(err)
 	assert.NotNil(app)
 }

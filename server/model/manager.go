@@ -104,6 +104,9 @@ func (m Manager) GetImageByID(ctx context.Context, id int64) (*Image, error) {
 func (m Manager) GetImageByUUID(ctx context.Context, uuid string) (*Image, error) {
 	var image imageSignature
 	err := m.Invoke(ctx).Query(`select id from image where uuid = $1`, uuid).Out(&image)
+	if err != nil {
+		return nil, err
+	}
 
 	images, err := m.GetImagesByID(ctx, []int64{image.ID})
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 
 func main() {
 	var cfg config.Giffy
-	if err := configutil.Read(&cfg); err != nil {
+	if err := configutil.Read(&cfg); !configutil.IsIgnored(err) {
 		logger.FatalExit(err)
 	}
 

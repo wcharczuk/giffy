@@ -174,6 +174,7 @@ func TestDeleteTagAndVotesByID(t *testing.T) {
 	assert.Nil(err)
 
 	err = m.DeleteTagAndVotesByID(todo, tag.ID)
+	assert.Nil(err)
 
 	verify, err := m.GetTagByID(todo, tag.ID)
 	assert.Nil(err)

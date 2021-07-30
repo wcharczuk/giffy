@@ -1,4 +1,4 @@
-FROM golang:1-alpine
+FROM golang:1.16-alpine
 
 ENV APP_PATH=github.com/wcharczuk/giffy
 ENV APP_ROOT=/go/src/${APP_PATH}

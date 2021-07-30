@@ -449,10 +449,10 @@ func TestSortImagesByIndex(t *testing.T) {
 	ids := []int64{4, 3, 2, 1}
 
 	images := []Image{
-		Image{ID: 1},
-		Image{ID: 2},
-		Image{ID: 3},
-		Image{ID: 4},
+		{ID: 1},
+		{ID: 2},
+		{ID: 3},
+		{ID: 4},
 	}
 	assert.Equal(1, images[0].ID)
 	sort.Sort(newImagesByIndex(&images, ids))
@@ -481,6 +481,7 @@ func TestGetAllImagesCensored(t *testing.T) {
 	assert.Nil(err)
 
 	censored, err := m.GetAllImagesWithContentRating(todo, ContentRatingNR)
+	assert.Nil(err)
 	assert.NotEmpty(censored)
 	assert.None(censored, NewImagePredicate(func(img Image) bool {
 		return img.ID == i2.ID
@@ -491,11 +492,11 @@ func TestImageWeightedRandom(t *testing.T) {
 	assert := assert.New(t)
 
 	images := []imageSignature{
-		imageSignature{1, 1.0},
-		imageSignature{2, 0.675},
-		imageSignature{3, 0.325},
-		imageSignature{4, 0.125},
-		imageSignature{5, 0.075},
+		{1, 1.0},
+		{2, 0.675},
+		{3, 0.325},
+		{4, 0.125},
+		{5, 0.075},
 	}
 
 	random1 := imageSignatures(images).WeightedRandom(1)

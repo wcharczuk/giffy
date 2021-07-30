@@ -40,7 +40,7 @@ func Setwd(relativePath string) error {
 // InitTest initializes the test prereqs.
 func InitTest() error {
 	var cfg config.Giffy
-	if err := configutil.Read(&cfg); err != nil {
+	if err := configutil.Read(&cfg); !configutil.IsIgnored(err) {
 		return err
 	}
 

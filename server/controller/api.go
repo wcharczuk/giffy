@@ -548,6 +548,9 @@ func (api APIs) updateImageAction(r *web.Ctx) web.Result {
 
 	updatedImage := model.Image{}
 	err = r.PostBodyAsJSON(&updatedImage)
+	if err != nil {
+		return API(r).BadRequest(err)
+	}
 
 	if len(updatedImage.DisplayName) != 0 {
 		image.DisplayName = updatedImage.DisplayName
