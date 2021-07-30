@@ -39,6 +39,8 @@ var (
 		"server/_views/login_complete.html",
 		"server/_views/upload_image.html",
 		"server/_views/upload_image_complete.html",
+		"server/_views/privacy.html",
+		"server/_views/tos.html",
 	}
 )
 

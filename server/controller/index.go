@@ -19,6 +19,14 @@ func (i Index) indexAction(r *web.Ctx) web.Result {
 	return r.Static("_client/dist/index.html")
 }
 
+func (i Index) privacyAction(r *web.Ctx) web.Result {
+	return r.View().View("privacy", nil)
+}
+
+func (i Index) tosAction(r *web.Ctx) web.Result {
+	return r.View().View("tos", nil)
+}
+
 func (i Index) faviconAction(r *web.Ctx) web.Result {
 	return r.Static("_client/dist/images/favicon.ico")
 }
@@ -53,6 +61,9 @@ func (i Index) Register(app *web.App) {
 	app.GET("/", i.indexAction)
 	app.GET("/index.html", i.indexAction)
 	app.GET("/favicon.ico", i.faviconAction)
+
+	app.GET("/privacy", i.privacyAction)
+	app.GET("/tos", i.tosAction)
 
 	app.ServeStaticCached("/static", "_client/dist")
 	app.SetStaticRewriteRule("/static", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
