@@ -46,22 +46,21 @@ type Giffy struct {
 	Environment string `json:"env" yaml:"env" env:"SERVICE_ENV"`
 
 	// If this user authenticates it is automatically made a super-admin.
-	AdminUserEmail string `json:"adminUserEmail" yaml:"adminUserEmail" env:"ADMIN_USER"`
-	EncryptionKey  string `json:"encryptionKey" yaml:"encryptionKey"`
+	AdminUserEmail string `json:"adminUserEmail" yaml:"adminUserEmail" env:"ADMIN_USER_EMAIL"`
+	EncryptionKey  string `json:"encryptionKey" yaml:"encryptionKey" env:"ENCRYPTION_KEY"`
 
-	CloudFrontDNS string `json:"cloudfrontDNS" yaml:"cloudfrontDNS"`
-	S3Bucket      string `json:"s3Bucket" yaml:"s3Bucket"`
+	CloudFrontDNS string `json:"cloudfrontDNS" yaml:"cloudfrontDNS" env:"CLOUDFRONT_DNS"`
+	S3Bucket      string `json:"s3Bucket" yaml:"s3Bucket" env:"S3_BUCKET"`
 
-	SlackClientID          string `json:"slackClientID" yaml:"slackClientID"`
-	SlackClientSecret      string `json:"slackClientSecret" yaml:"slackClientSecret"`
-	SlackVerificationToken string `json:"slackVerificationToken" yaml:"slackVerificationToken"`
+	SlackClientID          string `json:"slackClientID" yaml:"slackClientID" env:"SLACK_CLIENT_ID"`
+	SlackClientSecret      string `json:"slackClientSecret" yaml:"slackClientSecret" env:"SLACK_CLIENT_SECRET"`
+	SlackVerificationToken string `json:"slackVerificationToken" yaml:"slackVerificationToken" env:"SLACK_VERIFICATION_TOKEN"`
 
-	Logger     logger.Config           `json:"logger" yaml:"logger"`
-	GoogleAuth oauth.Config            `json:"googleAuth" yaml:"googleAuth"`
-	Web        web.Config              `json:"web" yaml:"web"`
-	Upgrader   web.HTTPSUpgraderConfig `json:"upgrader" yaml:"upgrader"`
-	DB         db.Config               `json:"db" yaml:"db"`
-	Aws        Aws                     `json:"aws" yaml:"aws"`
+	Aws        Aws           `json:"aws" yaml:"aws"`
+	DB         db.Config     `json:"db" yaml:"db"`
+	GoogleAuth oauth.Config  `json:"googleAuth" yaml:"googleAuth"`
+	Logger     logger.Config `json:"logger" yaml:"logger"`
+	Web        web.Config    `json:"web" yaml:"web"`
 }
 
 // GetEnvironment returns a property or a default.
