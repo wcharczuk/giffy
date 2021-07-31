@@ -3,6 +3,7 @@ package external
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/blend/go-sdk/r2"
 	"github.com/wcharczuk/giffy/server/config"
@@ -31,9 +32,16 @@ type SlackProfile struct {
 	TeamID string `json:"team_id"`
 }
 
+var defaultScopes = []string{
+	"commands",
+	"chat:write.public",
+	"chat:write.customize",
+	"chat:write",
+}
+
 // SlackAuthURL is the url to start the OAuth 2.0 process with slack.
 func SlackAuthURL(cfg *config.Giffy) string {
-	return fmt.Sprintf("https://slack.com/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s", cfg.SlackClientID, "identity.basic,commands,chat:write:user,chat:write:bot", SlackAuthReturnURL(cfg))
+	return fmt.Sprintf("https://slack.com/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s", cfg.SlackClientID, strings.Join(defaultScopes, ","), SlackAuthReturnURL(cfg))
 }
 
 //SlackAuthReturnURL formats an oauth return uri.
