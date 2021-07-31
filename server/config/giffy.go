@@ -61,6 +61,7 @@ type Giffy struct {
 func (g *Giffy) Resolve(ctx context.Context) error {
 	return configutil.Resolve(ctx,
 		(&g.Meta).Resolve,
+		(&g.Aws).Resolve,
 		(&g.DB).Resolve,
 		(&g.GoogleAuth).Resolve,
 		(&g.Logger).Resolve,
