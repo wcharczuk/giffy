@@ -6,8 +6,12 @@ import (
 	"crypto/md5"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
 
+	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/r2"
 	"github.com/blend/go-sdk/web"
 	"github.com/blend/go-sdk/webutil"
 
@@ -40,22 +44,38 @@ func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
 }
 
 func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
-	files, err := webutil.PostedFiles(
-		r.Request,
-		webutil.OptPostedFilesParseMultipartForm(true),
-		webutil.OptPostedFilesParseForm(false),
-	)
-	if err != nil {
-		return r.Views.BadRequest(fmt.Errorf("problem reading posted file: %+v", err))
+	sessionUser := GetUser(r.Session)
+	if !sessionUser.IsModerator {
+		return r.Views.NotAuthorized()
 	}
-	if len(files) == 0 {
-		return r.Views.BadRequest(fmt.Errorf("no files posted"))
+
+	var fileContents []byte
+	var fileName string
+	var fileErr error
+
+	if imageURL, _ := r.QueryValue("image_url"); imageURL != "" {
+		fileName, fileContents, fileErr = ic.FetchImageFromURL(imageURL)
+		if fileErr != nil {
+			return r.Views.BadRequest(fileErr)
+		}
+	} else {
+		files, err := webutil.PostedFiles(
+			r.Request,
+			webutil.OptPostedFilesParseMultipartForm(true),
+			webutil.OptPostedFilesParseForm(false),
+		)
+		if err != nil {
+			return r.Views.BadRequest(fmt.Errorf("problem reading posted file: %+v", err))
+		}
+		if len(files) == 0 {
+			return r.Views.BadRequest(fmt.Errorf("no files posted"))
+		}
+		if len(files) > 1 {
+			return r.Views.BadRequest(fmt.Errorf("too many files posted"))
+		}
+		fileName = files[0].FileName
+		fileContents = files[0].Contents
 	}
-	if len(files) > 1 {
-		return r.Views.BadRequest(fmt.Errorf("too many files posted"))
-	}
-	fileName := files[0].FileName
-	fileContents := files[0].Contents
 
 	md5sum := model.ConvertMD5(md5.Sum(fileContents))
 	existing, err := ic.Model.GetImageByMD5(r.Context(), md5sum)
@@ -66,19 +86,46 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	if !existing.IsZero() {
 		return r.Views.View("upload_image_complete", existing)
 	}
-	/*
-		image, err := CreateImageFromFile(r.Context(), ic.Model, sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files)
-		if err != nil {
-			return r.Views.InternalError(err)
-		}
-		if image == nil {
-			return r.Views.InternalError(exception.New("image returned from `createImageFromFile` was unset"))
-		}
 
-		logger.MaybeTrigger(r.Context(), ic.Log, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
-		return r.Views.View("upload_image_complete", image)
-	*/
-	return web.Text.OK()
+	image, err := CreateImageFromFile(r.Context(), ic.Model, sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files)
+	if err != nil {
+		return r.Views.InternalError(err)
+	}
+	if image == nil {
+		return r.Views.InternalError(exception.New("image returned from `createImageFromFile` was unset"))
+	}
+
+	logger.MaybeTrigger(r.Context(), ic.Log, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+	return r.Views.View("upload_image_complete", image)
+}
+
+func (ic UploadImage) FetchImageFromURL(imageURL string) (fileName string, fileContents []byte, err error) {
+	refURL, parseErr := url.Parse(imageURL)
+	if parseErr != nil {
+		err = fmt.Errorf("`image_url` was malformed")
+		return
+	}
+
+	contents, res, reqErr := r2.New(refURL.String(),
+		r2.OptLog(ic.Log),
+		r2.OptHeaderValue("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"),
+		r2.OptHeaderValue("Cache-Control", "no-cache"),
+	).Bytes()
+	if reqErr != nil {
+		err = fmt.Errorf("error fetching remote image: %+v", reqErr)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		err = fmt.Errorf("non 200 returned from `image_url`")
+		return
+	}
+	if len(contents) == 0 {
+		err = fmt.Errorf("empty response returned from `image_url`")
+		return
+	}
+	fileName = path.Base(refURL.Path)
+	fileContents = contents
+	return
 }
 
 // CreateImageFromFile creates and uploads a new image.
