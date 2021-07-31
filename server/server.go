@@ -47,6 +47,7 @@ func New(cfg *config.Giffy) (*web.App, error) {
 		logger.OptConfig(cfg.Logger),
 	)
 	log.Enable(core.FlagSearch, core.FlagModeration)
+	log.Disable(db.QueryStartFlag)
 
 	conn, err := db.New(
 		db.OptConfig(cfg.DB),
