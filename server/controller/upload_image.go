@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -52,35 +51,30 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 
 	var fileContents []byte
 	var fileName string
-
-	imageURL := web.StringValue(r.Param("image_url"))
-	if imageURL != "" {
+	if imageURL := web.StringValue(r.Param("image_url")); imageURL != "" {
 		refURL, err := url.Parse(imageURL)
 		if err != nil {
 			return r.Views.BadRequest(fmt.Errorf("`image_url` was malformed"))
 		}
-
-		res, err := r2.New(refURL.String(),
+		contents, res, err := r2.New(refURL.String(),
 			r2.OptLog(ic.Log),
 			r2.OptHeaderValue("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"),
-			r2.OptHeaderValue("Cache-Control", "no-cache")).Do()
+			r2.OptHeaderValue("Cache-Control", "no-cache"),
+		).Bytes()
 		if err != nil {
 			return r.Views.InternalError(err)
 		}
-
 		if res.StatusCode != http.StatusOK {
 			return r.Views.BadRequest(fmt.Errorf("non 200 returned from `image_url` host"))
 		}
-		defer res.Body.Close()
-		bytes, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return r.Views.InternalError(err)
-		}
-
 		fileName = path.Base(refURL.Path)
-		fileContents = bytes
+		fileContents = contents
 	} else {
-		files, err := webutil.PostedFiles(r.Request)
+		files, err := webutil.PostedFiles(
+			r.Request,
+			webutil.OptPostedFilesParseMultipartForm(true),
+			webutil.OptPostedFilesParseForm(false),
+		)
 		if err != nil {
 			return r.Views.BadRequest(fmt.Errorf("problem reading posted file: %v", err))
 		}
@@ -109,7 +103,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 		return r.Views.InternalError(err)
 	}
 	if image == nil {
-		return r.Views.InternalError(exception.New("Nil image returned from `createImageFromFile`."))
+		return r.Views.InternalError(exception.New("image returned from `createImageFromFile` was unset"))
 	}
 
 	logger.MaybeTrigger(r.Context(), ic.Log, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))

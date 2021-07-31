@@ -49,6 +49,7 @@ func Mock(app *App, req *http.Request, options ...r2.Option) *MockResult {
 	}
 
 	result.Server = httptest.NewServer(app)
+	result.Request.Closer = result.Close
 
 	parsedServerURL := webutil.MustParseURL(result.Server.URL)
 	result.Request.Request.URL.Scheme = parsedServerURL.Scheme

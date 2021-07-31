@@ -53,7 +53,7 @@ github.com/aws/aws-sdk-go/service/sso
 github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
-# github.com/blend/go-sdk v1.20210730.3
+# github.com/blend/go-sdk v1.20210731.3
 ## explicit
 github.com/blend/go-sdk/ansi
 github.com/blend/go-sdk/assert

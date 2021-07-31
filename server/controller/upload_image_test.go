@@ -3,7 +3,6 @@ package controller
 import (
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -35,10 +34,7 @@ func TestUploadImageByPostedFile(t *testing.T) {
 	auth, session := MockAuth(assert, &m, MockAdminLogin)
 	defer MockLogout(assert, &m, auth, session)
 
-	f, err := os.Open("server/controller/testdata/image.gif")
-	assert.Nil(err)
-
-	contents, err := ioutil.ReadAll(f)
+	contents, err := ioutil.ReadFile("server/controller/testdata/image.gif")
 	assert.Nil(err)
 
 	app := web.MustNew(
@@ -57,26 +53,17 @@ func TestUploadImageByPostedFile(t *testing.T) {
 		"server/_views/upload_image_complete.html",
 		"server/_views/header.html",
 	)
-	err = app.Views.Initialize()
-	assert.Nil(err)
 
-	res, err := web.MockMethod(app, http.MethodPost, "/images/upload",
+	resContents, res, err := web.MockMethod(app, http.MethodPost, "/images/upload",
 		r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID),
 		r2.OptPostedFiles(webutil.PostedFile{
 			Key:      "image",
 			FileName: "image.gif",
 			Contents: contents,
 		}),
-	).Do()
+	).Bytes()
 	assert.Nil(err)
-	defer res.Body.Close()
-
-	resContents, err := ioutil.ReadAll(res.Body)
-	assert.Nil(err)
-
 	assert.Equal(http.StatusOK, res.StatusCode, string(resContents))
-	assert.NotNil(res.Body)
-
 	assert.True(strings.Contains(string(resContents), "SUCCESS"))
 
 	imagesByUser, err := m.GetImagesForUserID(todo, parseInt64(session.UserID))
