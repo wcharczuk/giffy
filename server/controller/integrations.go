@@ -236,13 +236,13 @@ func (i Integrations) getContentRatingForTeamID(ctx context.Context, teamID stri
 
 func (i Integrations) arguments(rc *web.Ctx) slackArguments {
 	return slackArguments{
-		TeamID:      web.StringValue(rc.QueryValue("team_id")),
-		ChannelID:   web.StringValue(rc.QueryValue("channel_id")),
-		UserID:      web.StringValue(rc.QueryValue("user_id")),
-		TeamName:    web.StringValue(rc.QueryValue("team_domain")),
-		ChannelName: web.StringValue(rc.QueryValue("channel_name")),
-		UserName:    web.StringValue(rc.QueryValue("user_name")),
-		Query:       web.StringValue(rc.QueryValue("text")),
+		TeamID:      web.StringValue(rc.Param("team_id")),
+		ChannelID:   web.StringValue(rc.Param("channel_id")),
+		UserID:      web.StringValue(rc.Param("user_id")),
+		TeamName:    web.StringValue(rc.Param("team_domain")),
+		ChannelName: web.StringValue(rc.Param("channel_name")),
+		UserName:    web.StringValue(rc.Param("user_name")),
+		Query:       web.StringValue(rc.Param("text")),
 	}
 }
 
