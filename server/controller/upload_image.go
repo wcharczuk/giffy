@@ -6,12 +6,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"net/http"
-	"net/url"
-	"path"
 
-	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/logger"
-	"github.com/blend/go-sdk/r2"
 	"github.com/blend/go-sdk/web"
 	"github.com/blend/go-sdk/webutil"
 
@@ -44,49 +40,22 @@ func (ic UploadImage) uploadImageAction(r *web.Ctx) web.Result {
 }
 
 func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session)
-	if !sessionUser.IsModerator {
-		return r.Views.NotAuthorized()
+	files, err := webutil.PostedFiles(
+		r.Request,
+		webutil.OptPostedFilesParseMultipartForm(true),
+		webutil.OptPostedFilesParseForm(false),
+	)
+	if err != nil {
+		return r.Views.BadRequest(fmt.Errorf("problem reading posted file: %+v", err))
 	}
-
-	var fileContents []byte
-	var fileName string
-	if imageURL := web.StringValue(r.Param("image_url")); imageURL != "" {
-		refURL, err := url.Parse(imageURL)
-		if err != nil {
-			return r.Views.BadRequest(fmt.Errorf("`image_url` was malformed"))
-		}
-		contents, res, err := r2.New(refURL.String(),
-			r2.OptLog(ic.Log),
-			r2.OptHeaderValue("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"),
-			r2.OptHeaderValue("Cache-Control", "no-cache"),
-		).Bytes()
-		if err != nil {
-			return r.Views.InternalError(err)
-		}
-		if res.StatusCode != http.StatusOK {
-			return r.Views.BadRequest(fmt.Errorf("non 200 returned from `image_url` host"))
-		}
-		fileName = path.Base(refURL.Path)
-		fileContents = contents
-	} else {
-		files, err := webutil.PostedFiles(
-			r.Request,
-			webutil.OptPostedFilesParseMultipartForm(true),
-			webutil.OptPostedFilesParseForm(false),
-		)
-		if err != nil {
-			return r.Views.BadRequest(fmt.Errorf("problem reading posted file: %v", err))
-		}
-		if len(files) == 0 {
-			return r.Views.BadRequest(fmt.Errorf("no files posted"))
-		}
-		if len(files) > 1 {
-			return r.Views.BadRequest(fmt.Errorf("too many files posted"))
-		}
-		fileName = files[0].FileName
-		fileContents = files[0].Contents
+	if len(files) == 0 {
+		return r.Views.BadRequest(fmt.Errorf("no files posted"))
 	}
+	if len(files) > 1 {
+		return r.Views.BadRequest(fmt.Errorf("too many files posted"))
+	}
+	fileName := files[0].FileName
+	fileContents := files[0].Contents
 
 	md5sum := model.ConvertMD5(md5.Sum(fileContents))
 	existing, err := ic.Model.GetImageByMD5(r.Context(), md5sum)
@@ -97,17 +66,19 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	if !existing.IsZero() {
 		return r.Views.View("upload_image_complete", existing)
 	}
+	/*
+		image, err := CreateImageFromFile(r.Context(), ic.Model, sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files)
+		if err != nil {
+			return r.Views.InternalError(err)
+		}
+		if image == nil {
+			return r.Views.InternalError(exception.New("image returned from `createImageFromFile` was unset"))
+		}
 
-	image, err := CreateImageFromFile(r.Context(), ic.Model, sessionUser.ID, !sessionUser.IsAdmin, fileContents, fileName, ic.Files)
-	if err != nil {
-		return r.Views.InternalError(err)
-	}
-	if image == nil {
-		return r.Views.InternalError(exception.New("image returned from `createImageFromFile` was unset"))
-	}
-
-	logger.MaybeTrigger(r.Context(), ic.Log, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
-	return r.Views.View("upload_image_complete", image)
+		logger.MaybeTrigger(r.Context(), ic.Log, model.NewModeration(sessionUser.ID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+		return r.Views.View("upload_image_complete", image)
+	*/
+	return web.Text.OK()
 }
 
 // CreateImageFromFile creates and uploads a new image.
