@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"strings"
 
+	// heroku runtime metrics
+	_ "github.com/heroku/x/hmetrics/onload"
+
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/web"
 	"github.com/wcharczuk/giffy/server/config"

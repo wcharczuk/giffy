@@ -92,6 +92,14 @@ github.com/golang/freetype/raster
 github.com/golang/freetype/truetype
 # github.com/golang/protobuf v1.4.3
 github.com/golang/protobuf/proto
+# github.com/golangci/golangci-lint v1.18.0
+## explicit
+# github.com/gomodule/redigo v2.0.0+incompatible
+## explicit
+# github.com/heroku/x v0.0.31
+## explicit
+github.com/heroku/x/hmetrics
+github.com/heroku/x/hmetrics/onload
 # github.com/jackc/chunkreader/v2 v2.0.1
 github.com/jackc/chunkreader/v2
 # github.com/jackc/pgconn v1.8.0
@@ -114,6 +122,8 @@ github.com/jackc/pgx/v4/internal/sanitize
 github.com/jackc/pgx/v4/stdlib
 # github.com/jmespath/go-jmespath v0.4.0
 github.com/jmespath/go-jmespath
+# github.com/stvp/roll v0.0.0-20170522205222-3627a5cbeaea
+## explicit
 # github.com/wcharczuk/go-chart v2.0.1+incompatible
 ## explicit
 github.com/wcharczuk/go-chart
