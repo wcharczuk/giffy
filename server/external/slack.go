@@ -2,6 +2,7 @@ package external
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/blend/go-sdk/r2"
 	"github.com/wcharczuk/giffy/server/config"
@@ -37,7 +38,15 @@ func SlackAuthURL(cfg *config.Giffy) string {
 
 //SlackAuthReturnURL formats an oauth return uri.
 func SlackAuthReturnURL(cfg *config.Giffy) string {
-	return fmt.Sprintf("http://%s/oauth/slack", cfg.SlackAuthReturnURL)
+	if cfg.SlackAuthReturnURL != "" {
+		return cfg.SlackAuthReturnURL
+	}
+	if cfg.Web.BaseURL != "" {
+		baseParsed, _ := url.Parse(cfg.Web.BaseURL)
+		baseParsed.Path = "/oauth/slack"
+		return baseParsed.String()
+	}
+	return "https://www.gifffy.com/oauth/slack"
 }
 
 // FetchSlackProfile gets the slack user details for an access token.
