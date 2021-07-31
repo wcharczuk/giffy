@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+	"io"
 	"time"
 
 	logger "github.com/blend/go-sdk/logger"
@@ -40,7 +42,8 @@ func NewSearchHistoryDetailed(source, sourceTeamID, sourceTeamName, sourceChanne
 }
 
 var (
-	_ logger.Event = (*SearchHistory)(nil)
+	_ logger.Event        = (*SearchHistory)(nil)
+	_ logger.TextWritable = (*SearchHistory)(nil)
 )
 
 // SearchHistory is a record of searches and the primary result.
@@ -75,7 +78,17 @@ func (sh SearchHistory) GetFlag() string {
 	return core.FlagSearch
 }
 
-// Timestamp implements logger.Event.
-func (sh SearchHistory) Timestamp() time.Time {
-	return sh.TimestampUTC
+// WriteText implements logger.TextWritable.
+func (sh SearchHistory) WriteText(tf logger.TextFormatter, output io.Writer) {
+	fmt.Fprintf(output, "User: %s", sh.SourceUserName)
+	fmt.Fprintf(output, "Search Query: %s", sh.SearchQuery)
+	if sh.DidFindMatch {
+		if sh.ImageID != nil {
+			fmt.Fprintf(output, "ImageID: %d", *sh.ImageID)
+		} else if sh.TagID != nil {
+			fmt.Fprintf(output, "TagID: %d", *sh.TagID)
+		}
+	} else {
+		fmt.Fprintf(output, "Not Found")
+	}
 }

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+	"io"
 	"time"
 
 	logger "github.com/blend/go-sdk/logger"
@@ -54,7 +56,8 @@ func NewModeration(userID int64, verb, object string, nouns ...string) *Moderati
 }
 
 var (
-	_ logger.Event = (*Moderation)(nil)
+	_ logger.Event        = (*Moderation)(nil)
+	_ logger.TextWritable = (*Moderation)(nil)
 )
 
 // Moderation is the moderation log.
@@ -89,7 +92,25 @@ func (m Moderation) GetFlag() string {
 	return core.FlagModeration
 }
 
-// Timestamp implements logger.event.
-func (m Moderation) Timestamp() time.Time {
-	return m.TimestampUTC
+// WriteText implements logger.TextWritable.
+func (m Moderation) WriteText(tf logger.TextFormatter, output io.Writer) {
+	if m.Moderator != nil {
+		fmt.Fprintf(output, "Moderator: %s", m.Moderator.Username)
+	}
+	if m.Verb != "" {
+		fmt.Fprint(output, " Verb: ")
+		fmt.Fprint(output, m.Verb)
+	}
+	if m.Object != "" {
+		fmt.Fprint(output, " Object: ")
+		fmt.Fprint(output, m.Object)
+	}
+	if m.Noun != "" {
+		fmt.Fprint(output, " Noun: ")
+		fmt.Fprint(output, m.Noun)
+	}
+	if m.SecondaryNoun != "" {
+		fmt.Fprint(output, " Secondary Noun: ")
+		fmt.Fprint(output, m.SecondaryNoun)
+	}
 }

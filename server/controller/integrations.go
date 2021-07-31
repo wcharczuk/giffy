@@ -62,7 +62,6 @@ func (i Integrations) slack(rc *web.Ctx) web.Result {
 		res.AsUser = true
 		res.ResponseType = "in_channel"
 		res.AuthorName = args.UserName
-		res.ResponseType = "in_channel"
 		res.Attachments = []interface{}{
 			slackImageAttachment{Title: args.Query, ImageURL: result.S3ReadURL},
 		}
