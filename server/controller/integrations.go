@@ -58,7 +58,7 @@ func (i Integrations) slack(rc *web.Ctx) web.Result {
 
 	res := slackMessage{}
 	if strings.HasPrefix(args.Query, "img:") {
-		res.DeleteOriginal = true
+		res.ReplaceOriginal = true
 		res.AsUser = true
 		res.ResponseType = "in_channel"
 		res.AuthorName = args.UserName
