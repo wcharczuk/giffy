@@ -61,6 +61,8 @@ func New(cfg *config.Giffy) (*web.App, error) {
 	}
 
 	log.Infof("using database: %s", conn.Config.CreateLoggingDSN())
+	log.Infof("using aws access key: %s", cfg.Aws.AccessKeyID)
+	log.Infof("using aws region: %s", cfg.Aws.RegionOrDefault())
 	log.Infof("using admin user email: %s", cfg.AdminUserEmail)
 	log.Infof("using cloudfront dns: %s", cfg.CloudFrontDNS)
 	log.Infof("using s3 bucket: %s", cfg.S3Bucket)
