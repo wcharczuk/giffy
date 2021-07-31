@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	slackContenttypeJSON           = "application/json; charset=utf-8"
+	slackContentTypeJSON           = "application/json; charset=utf-8"
 	slackContentTypeTextPlain      = "text/plain; charset=utf-8"
 	slackErrorInvalidQuery         = "Please type at least (3) characters."
 	slackErrorBadPayload           = "There was an error processing a payload from slack. Saddness."
@@ -58,7 +58,7 @@ func (i Integrations) slack(rc *web.Ctx) web.Result {
 
 	res := slackMessage{}
 	if strings.HasPrefix(args.Query, "img:") {
-		res.ReplaceOriginal = true
+		res.DeleteOriginal = true
 		res.AsUser = true
 		res.ResponseType = "in_channel"
 		res.AuthorName = args.UserName
@@ -236,13 +236,13 @@ func (i Integrations) getContentRatingForTeamID(ctx context.Context, teamID stri
 
 func (i Integrations) arguments(rc *web.Ctx) slackArguments {
 	return slackArguments{
-		TeamID:      web.StringValue(rc.Param("team_id")),
-		ChannelID:   web.StringValue(rc.Param("channel_id")),
-		UserID:      web.StringValue(rc.Param("user_id")),
-		TeamName:    web.StringValue(rc.Param("team_domain")),
-		ChannelName: web.StringValue(rc.Param("channel_name")),
-		UserName:    web.StringValue(rc.Param("user_name")),
-		Query:       web.StringValue(rc.Param("text")),
+		TeamID:      web.StringValue(rc.QueryValue("team_id")),
+		ChannelID:   web.StringValue(rc.QueryValue("channel_id")),
+		UserID:      web.StringValue(rc.QueryValue("user_id")),
+		TeamName:    web.StringValue(rc.QueryValue("team_domain")),
+		ChannelName: web.StringValue(rc.QueryValue("channel_name")),
+		UserName:    web.StringValue(rc.QueryValue("user_name")),
+		Query:       web.StringValue(rc.QueryValue("text")),
 	}
 }
 
@@ -292,7 +292,7 @@ func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {
 		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
-	return web.RawWithContentType(slackContenttypeJSON, responseBytes)
+	return web.RawWithContentType(slackContentTypeJSON, responseBytes)
 }
 
 func (i Integrations) buttonActions(query, imageUUID string) slackActionAttachment {
