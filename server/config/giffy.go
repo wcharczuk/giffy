@@ -71,7 +71,7 @@ func (g *Giffy) Resolve(ctx context.Context) error {
 		configutil.SetString(&g.EncryptionKey, configutil.Env("ENCRYPTION_KEY"), configutil.String(g.EncryptionKey)),
 
 		configutil.SetString(&g.CloudFrontDNS, configutil.Env("CLOUDFRONT_DNS"), configutil.String(g.CloudFrontDNS)),
-		configutil.SetString(&g.S3Bucket, configutil.String(g.S3Bucket), configutil.StringFunc(g.ResolveS3Bucket)),
+		configutil.SetString(&g.S3Bucket, configutil.Env("S3_BUCKET"), configutil.String(g.S3Bucket), configutil.StringFunc(g.ResolveS3Bucket)),
 
 		configutil.SetString(&g.SlackClientID, configutil.Env("SLACK_CLIENT_ID"), configutil.String(g.SlackClientID)),
 		configutil.SetString(&g.SlackClientSecret, configutil.Env("SLACK_CLIENT_SECRET"), configutil.String(g.SlackClientSecret)),
