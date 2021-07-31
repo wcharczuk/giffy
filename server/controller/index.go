@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	exception "github.com/blend/go-sdk/ex"
+	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/web"
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/model"
@@ -11,28 +12,29 @@ import (
 
 // Index is the root controller.
 type Index struct {
+	Log    logger.Log
 	Config *config.Giffy
 	Model  *model.Manager
 }
 
 func (i Index) indexAction(r *web.Ctx) web.Result {
-	return r.Static("_client/dist/index.html")
+	return web.Static("_client/dist/index.html")
 }
 
 func (i Index) privacyAction(r *web.Ctx) web.Result {
-	return r.View().View("privacy", nil)
+	return r.Views.View("privacy", nil)
 }
 
 func (i Index) tosAction(r *web.Ctx) web.Result {
-	return r.View().View("tos", nil)
+	return r.Views.View("tos", nil)
 }
 
 func (i Index) faviconAction(r *web.Ctx) web.Result {
-	return r.Static("_client/dist/images/favicon.ico")
+	return web.Static("_client/dist/images/favicon.ico")
 }
 
 func (i Index) methodNotAllowedHandler(r *web.Ctx) web.Result {
-	return r.View().BadRequest(fmt.Errorf("method Not Allowed"))
+	return r.Views.BadRequest(fmt.Errorf("method Not Allowed"))
 }
 
 func (i Index) notFoundHandler(r *web.Ctx) web.Result {
@@ -40,23 +42,23 @@ func (i Index) notFoundHandler(r *web.Ctx) web.Result {
 }
 
 func (i Index) panicHandler(r *web.Ctx, err interface{}) web.Result {
-	return r.View().InternalError(exception.New(err))
+	return r.Views.InternalError(exception.New(err))
 }
 
 func (i Index) statusAction(r *web.Ctx) web.Result {
 	_, err := i.Model.Invoke(r.Context()).Query("select 'ok!'").Any()
 	if err != nil {
-		r.Logger().Error(err)
-		return r.JSON().Result(map[string]interface{}{"status": false})
+		logger.MaybeError(i.Log, err)
+		return web.JSON.Result(map[string]interface{}{"status": false})
 	}
-	return r.JSON().Result(map[string]interface{}{"status": true})
+	return web.JSON.Result(map[string]interface{}{"status": true})
 }
 
 // Register registers the controller
 func (i Index) Register(app *web.App) {
-	app.WithMethodNotAllowedHandler(i.methodNotAllowedHandler)
-	app.WithNotFoundHandler(i.notFoundHandler)
-	app.WithPanicAction(i.panicHandler)
+	app.MethodNotAllowedHandler = app.RenderAction(i.methodNotAllowedHandler)
+	app.NotFoundHandler = app.RenderAction(i.notFoundHandler)
+	app.PanicAction = i.panicHandler
 
 	app.GET("/", i.indexAction)
 	app.GET("/index.html", i.indexAction)
@@ -65,7 +67,7 @@ func (i Index) Register(app *web.App) {
 	app.GET("/privacy", i.privacyAction)
 	app.GET("/tos", i.tosAction)
 
-	app.ServeStaticCached("/static", "_client/dist")
+	app.ServeStaticCached("/static", []string{"_client/dist"})
 	app.SetStaticRewriteRule("/static", `^(.*)\.([0-9]+)\.(css|js)$`, func(path string, parts ...string) string {
 		if len(parts) < 4 {
 			return path

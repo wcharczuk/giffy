@@ -5,29 +5,39 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strconv"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/testutil"
 	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
 	"github.com/blend/go-sdk/webutil"
 
+	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/core"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestMain(m *testing.M) {
-	// we do this because a lot of static results depend on relative paths.
-	if err := core.Setwd("../../"); err != nil {
-		logger.FatalExit(err)
-	}
-	if err := core.InitTest(); err != nil {
-		logger.FatalExit(err)
-	}
-	os.Exit(m.Run())
+	cfg := config.MustNewFromEnv()
+	testutil.New(m,
+		testutil.OptLog(logger.All()),
+		testutil.OptWithDefaultDB(),
+		testutil.OptBefore(
+			func(ctx context.Context) error {
+				// we do this because a lot of static results depend on relative paths.
+				return core.Setwd("../..")
+			},
+			func(ctx context.Context) error {
+				return model.Schema(cfg).Apply(ctx, testutil.DefaultDB())
+			},
+			func(ctx context.Context) error {
+				return model.Migrations(cfg).Apply(ctx, testutil.DefaultDB())
+			},
+		),
+	).Run()
 }
 
 func MockAuth(a *assert.Assertions, mgr *model.Manager, mockUserProvider func(*model.Manager) (*web.AuthManager, *web.Session, error)) (*web.AuthManager, *web.Session) {
@@ -40,7 +50,7 @@ func MockAuth(a *assert.Assertions, mgr *model.Manager, mockUserProvider func(*m
 
 func MockLogout(a *assert.Assertions, mgr *model.Manager, am *web.AuthManager, session *web.Session) {
 	ctx := web.NewCtx(nil, &http.Request{})
-	ctx.WithSession(session)
+	ctx.Session = session
 	a.Nil(am.Logout(ctx))
 }
 
@@ -101,12 +111,12 @@ func CreateTestBannedUser(mgr *model.Manager) (*model.User, error) {
 
 func AuthTestUser(user *model.User, mgr *model.Manager) (*web.AuthManager, *web.Session, error) {
 	cache := web.NewLocalSessionCache()
-	auth := web.NewLocalAuthManagerFromCache(cache)
+	auth, _ := web.NewLocalAuthManagerFromCache(cache)
 	session, err := auth.Login(strconv.FormatInt(user.ID, 10), web.NewCtx(webutil.NewMockResponse(ioutil.Discard), &http.Request{Host: "localhost"}))
 	if err != nil {
 		return nil, nil, err
 	}
 	SetUser(session, user)
 	cachedSession := cache.Get(session.SessionID)
-	return auth, cachedSession, nil
+	return &auth, cachedSession, nil
 }

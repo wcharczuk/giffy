@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,9 +12,14 @@ import (
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/db/dbutil"
 	"github.com/blend/go-sdk/ex"
-
+	"github.com/blend/go-sdk/testutil"
 	"github.com/blend/go-sdk/uuid"
 )
+
+// NewTestManager returns a new manager specifically for testing.
+func NewTestManager(tx *sql.Tx) Manager {
+	return Manager{BaseManager: dbutil.NewBaseManager(testutil.DefaultDB(), db.OptTx(tx))}
+}
 
 // Manager is the common entrypoint for model functions.
 type Manager struct {
@@ -23,7 +29,7 @@ type Manager struct {
 // GetContentRatingByName gets a content rating by name.
 func (m Manager) GetContentRatingByName(ctx context.Context, name string) (*ContentRating, error) {
 	var rating ContentRating
-	err := m.Invoke(ctx).Query(
+	_, err := m.Invoke(ctx).Query(
 		`SELECT * from content_rating where name = $1`, name,
 	).Out(&rating)
 	return &rating, err
@@ -95,7 +101,7 @@ func (m Manager) GetImageByID(ctx context.Context, id int64) (*Image, error) {
 // GetImageByUUID returns an image by uuid.
 func (m Manager) GetImageByUUID(ctx context.Context, uuid string) (*Image, error) {
 	var image imageSignature
-	err := m.Invoke(ctx).Query(`select id from image where uuid = $1`, uuid).Out(&image)
+	_, err := m.Invoke(ctx).Query(`select id from image where uuid = $1`, uuid).Out(&image)
 	if err != nil {
 		return nil, err
 	}
@@ -115,26 +121,31 @@ func (m Manager) GetImageByUUID(ctx context.Context, uuid string) (*Image, error
 func (m Manager) GetImageByMD5(ctx context.Context, md5sum []byte) (*Image, error) {
 	image := Image{}
 	imageColumns := db.Columns(Image{}).ColumnNames()
-	err := m.Invoke(ctx).Query(fmt.Sprintf(`select %s from image where md5 = $1`, strings.Join(imageColumns, ",")), md5sum).Out(&image)
+	_, err := m.Invoke(ctx).Query(fmt.Sprintf(`select %s from image where md5 = $1`, strings.Join(imageColumns, ",")), md5sum).Out(&image)
 	return &image, err
 }
 
 // UpdateImageDisplayName sets just the display name for an image.
 func (m Manager) UpdateImageDisplayName(ctx context.Context, imageID int64, displayName string) error {
-	return m.Invoke(ctx).Exec("update image set display_name = $2 where id = $1", imageID, displayName)
+	_, err := m.Invoke(ctx).Exec("update image set display_name = $2 where id = $1", imageID, displayName)
+	return err
 }
 
 // DeleteImageByID deletes an image fully.
 func (m Manager) DeleteImageByID(ctx context.Context, imageID int64) error {
-	err := m.Invoke(ctx).Exec(`delete from vote_summary where image_id = $1`, imageID)
+	_, err := m.Invoke(ctx).Exec(`delete from vote_summary where image_id = $1`, imageID)
 	if err != nil {
 		return err
 	}
-	err = m.Invoke(ctx).Exec(`delete from vote where image_id = $1`, imageID)
+	_, err = m.Invoke(ctx).Exec(`delete from vote where image_id = $1`, imageID)
 	if err != nil {
 		return err
 	}
-	return m.Invoke(ctx).Exec(`delete from image where id = $1`, imageID)
+	_, err = m.Invoke(ctx).Exec(`delete from image where id = $1`, imageID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m Manager) searchImagesInternal(ctx context.Context, query string, excludeUUIDs []string, contentRatingFilter int) ([]imageSignature, error) {
@@ -421,19 +432,21 @@ func (m Manager) GetImagesByID(ctx context.Context, ids []int64) ([]Image, error
 // SetVoteSummaryVoteCounts updates the votes for a tag to an image.
 func (m Manager) SetVoteSummaryVoteCounts(ctx context.Context, imageID, tagID int64, votesFor, votesAgainst int) error {
 	votesTotal := votesFor - votesAgainst
-	return m.Invoke(ctx).Exec(`update vote_summary vs set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, votesFor, votesAgainst, votesTotal, imageID, tagID)
+	_, err := m.Invoke(ctx).Exec(`update vote_summary vs set votes_for = $1, votes_against = $2, votes_total = $3 where image_id = $4 and tag_id = $5`, votesFor, votesAgainst, votesTotal, imageID, tagID)
+	return err
 }
 
 // SetVoteSummaryTagID re-assigns a vote summary's tag.
 func (m Manager) SetVoteSummaryTagID(ctx context.Context, imageID, oldTagID, newTagID int64) error {
-	return m.Invoke(ctx).Exec(`update vote_summary set tag_id = $1 where image_id = $2 and tag_id = $3`, newTagID, imageID, oldTagID)
+	_, err := m.Invoke(ctx).Exec(`update vote_summary set tag_id = $1 where image_id = $2 and tag_id = $3`, newTagID, imageID, oldTagID)
+	return err
 }
 
 // CreateOrUpdateVote votes for a tag for an image in the db.
 func (m Manager) CreateOrUpdateVote(ctx context.Context, userID, imageID, tagID int64, isUpvote bool) (bool, error) {
-	existing, existingErr := m.GetVoteSummary(ctx, imageID, tagID)
-	if existingErr != nil {
-		return false, existingErr
+	existing, err := m.GetVoteSummary(ctx, imageID, tagID)
+	if err != nil {
+		return false, err
 	}
 
 	if existing.IsZero() {
@@ -462,13 +475,13 @@ func (m Manager) CreateOrUpdateVote(ctx context.Context, userID, imageID, tagID 
 		existing.LastVoteUTC = time.Now().UTC()
 		existing.VotesTotal = existing.VotesFor - existing.VotesAgainst
 
-		updateErr := m.Invoke(ctx).Update(existing)
-		if updateErr != nil {
-			return false, updateErr
+		_, err := m.Invoke(ctx).Update(existing)
+		if err != nil {
+			return false, err
 		}
 	}
 
-	err := m.DeleteVote(ctx, userID, imageID, tagID)
+	err = m.DeleteVote(ctx, userID, imageID, tagID)
 	if err != nil {
 		return false, err
 	}
@@ -511,7 +524,7 @@ func (m Manager) GetVoteSummariesForTag(ctx context.Context, tagID int64) ([]Vot
 func (m Manager) GetVoteSummary(ctx context.Context, imageID, tagID int64) (*VoteSummary, error) {
 	var imv VoteSummary
 	query := `select * from vote_summary where image_id = $1 and tag_id = $2`
-	err := m.Invoke(ctx).Query(query, imageID, tagID).Out(&imv)
+	_, err := m.Invoke(ctx).Query(query, imageID, tagID).Out(&imv)
 	return &imv, err
 }
 
@@ -589,18 +602,20 @@ where
 	vote_summary.image_id = $1
 	and vote_summary.tag_id = $2
 `
-	return m.Invoke(ctx).Exec(query, imageID, tagID)
+	_, err := m.Invoke(ctx).Exec(query, imageID, tagID)
+	return err
 }
 
 // DeleteVoteSummary deletes an association between an image and a tag.
 func (m Manager) DeleteVoteSummary(ctx context.Context, imageID, tagID int64) error {
-	return m.Invoke(ctx).Exec(`delete from vote_summary where image_id = $1 and tag_id = $2`, imageID, tagID)
+	_, err := m.Invoke(ctx).Exec(`delete from vote_summary where image_id = $1 and tag_id = $2`, imageID, tagID)
+	return err
 }
 
 // GetAllTags returns all the tags in the db.
 func (m Manager) GetAllTags(ctx context.Context) ([]Tag, error) {
 	all := []Tag{}
-	err := m.Invoke(ctx).GetAll(&all)
+	err := m.Invoke(ctx).All(&all)
 	return all, err
 }
 
@@ -614,21 +629,21 @@ func (m Manager) GetRandomTags(ctx context.Context, count int) ([]Tag, error) {
 // GetTagByID returns a tag for a id.
 func (m Manager) GetTagByID(ctx context.Context, id int64) (*Tag, error) {
 	tag := Tag{}
-	err := m.Invoke(ctx).Query(`select * from tag where id = $1`, id).Out(&tag)
+	_, err := m.Invoke(ctx).Query(`select * from tag where id = $1`, id).Out(&tag)
 	return &tag, err
 }
 
 // GetTagByUUID returns a tag for a uuid.
 func (m Manager) GetTagByUUID(ctx context.Context, uuid string) (*Tag, error) {
 	tag := Tag{}
-	err := m.Invoke(ctx).Query(`select * from tag where uuid = $1`, uuid).Out(&tag)
+	_, err := m.Invoke(ctx).Query(`select * from tag where uuid = $1`, uuid).Out(&tag)
 	return &tag, err
 }
 
 // GetTagByValue returns a tag for a uuid.
 func (m Manager) GetTagByValue(ctx context.Context, tagValue string) (*Tag, error) {
 	tag := Tag{}
-	err := m.Invoke(ctx).Query(`select * from tag where tag_value ilike $1`, tagValue).Out(&tag)
+	_, err := m.Invoke(ctx).Query(`select * from tag where tag_value ilike $1`, tagValue).Out(&tag)
 	return &tag, err
 }
 
@@ -648,21 +663,23 @@ func (m Manager) SearchTagsRandom(ctx context.Context, query string, count int) 
 
 // SetTagValue sets a tag value
 func (m Manager) SetTagValue(ctx context.Context, tagID int64, tagValue string) error {
-	return m.Invoke(ctx).Exec(`update tag set tag_value = $1 where id = $2`, tagValue, tagID)
+	_, err := m.Invoke(ctx).Exec(`update tag set tag_value = $1 where id = $2`, tagValue, tagID)
+	return err
 }
 
 // DeleteTagByID deletes a tag.
 func (m Manager) DeleteTagByID(ctx context.Context, tagID int64) error {
-	return m.Invoke(ctx).Exec(`delete from tag where id = $1`, tagID)
+	_, err := m.Invoke(ctx).Exec(`delete from tag where id = $1`, tagID)
+	return err
 }
 
 // DeleteTagAndVotesByID deletes an tag fully.
 func (m Manager) DeleteTagAndVotesByID(ctx context.Context, tagID int64) error {
-	err := m.Invoke(ctx).Exec(`delete from vote_summary where tag_id = $1`, tagID)
+	_, err := m.Invoke(ctx).Exec(`delete from vote_summary where tag_id = $1`, tagID)
 	if err != nil {
 		return err
 	}
-	err = m.Invoke(ctx).Exec(`delete from vote where tag_id = $1`, tagID)
+	_, err = m.Invoke(ctx).Exec(`delete from vote where tag_id = $1`, tagID)
 	if err != nil {
 		return err
 	}
@@ -729,11 +746,15 @@ func (m Manager) MergeTags(ctx context.Context, fromTagID, toTagID int64) error 
 
 // DeleteOrphanedTags deletes tags that have no vote_summary link to an image.
 func (m Manager) DeleteOrphanedTags(ctx context.Context) error {
-	err := m.Invoke(ctx).Exec(`delete from vote where not exists (select 1 from vote_summary vs where vs.tag_id = vote.tag_id);`)
+	_, err := m.Invoke(ctx).Exec(`delete from vote where not exists (select 1 from vote_summary vs where vs.tag_id = vote.tag_id);`)
 	if err != nil {
 		return err
 	}
-	return m.Invoke(ctx).Exec(`delete from tag where not exists (select 1 from vote_summary vs where vs.tag_id = tag.id);`)
+	_, err = m.Invoke(ctx).Exec(`delete from tag where not exists (select 1 from vote_summary vs where vs.tag_id = tag.id);`)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetModerationForUserID gets all the moderation entries for a user.
@@ -837,10 +858,9 @@ func (m Manager) moderationConsumer(moderationLog *[]Moderation) db.RowsConsumer
 }
 
 // GetAllUsers returns all the users.
-func (m Manager) GetAllUsers(ctx context.Context) ([]User, error) {
-	var all []User
-	err := m.Invoke(ctx).GetAll(&all)
-	return all, err
+func (m Manager) GetAllUsers(ctx context.Context) (all []User, err error) {
+	err = m.Invoke(ctx).All(&all)
+	return
 }
 
 // GetUsersByCountAndOffset returns users by count and offset.
@@ -853,14 +873,14 @@ func (m Manager) GetUsersByCountAndOffset(ctx context.Context, count, offset int
 // GetUserByID returns a user by id.
 func (m Manager) GetUserByID(ctx context.Context, id int64) (*User, error) {
 	var user User
-	err := m.Invoke(ctx).Get(&user, id)
+	_, err := m.Invoke(ctx).Get(&user, id)
 	return &user, err
 }
 
 // GetUserByUUID returns a user for a uuid.
 func (m Manager) GetUserByUUID(ctx context.Context, uuid string) (*User, error) {
 	var user User
-	err := m.Invoke(ctx).Query(`select * from users where uuid = $1`, uuid).Out(&user)
+	_, err := m.Invoke(ctx).Query(`select * from users where uuid = $1`, uuid).Out(&user)
 	return &user, err
 }
 
@@ -876,7 +896,7 @@ func (m Manager) SearchUsers(ctx context.Context, query string) ([]User, error) 
 // GetUserByUsername returns a user for a uuid.
 func (m Manager) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var user User
-	err := m.Invoke(ctx).Query(`select * from users where username = $1`, username).Out(&user)
+	_, err := m.Invoke(ctx).Query(`select * from users where username = $1`, username).Out(&user)
 	return &user, err
 }
 
@@ -960,7 +980,7 @@ func (m Manager) GetAllSlackTeams(ctx context.Context) ([]SlackTeam, error) {
 // GetSlackTeamByTeamID gets a slack team by the team id.
 func (m Manager) GetSlackTeamByTeamID(ctx context.Context, teamID string) (*SlackTeam, error) {
 	var team SlackTeam
-	err := m.Invoke(ctx).Get(&team, teamID)
+	_, err := m.Invoke(ctx).Get(&team, teamID)
 	return &team, err
 }
 
@@ -973,46 +993,45 @@ func (m Manager) GetUserAuthByToken(ctx context.Context, token string, key []byt
 	authTokenHash := crypto.HMAC512(key, []byte(token))
 
 	var auth UserAuth
-	err := m.Invoke(ctx).Query("SELECT * FROM user_auth where auth_token_hash = $1", authTokenHash).Out(&auth)
+	_, err := m.Invoke(ctx).Query("SELECT * FROM user_auth where auth_token_hash = $1", authTokenHash).Out(&auth)
 	return &auth, err
 }
 
 // GetUserAuthByProvider returns an auth entry for the given auth token.
 func (m Manager) GetUserAuthByProvider(ctx context.Context, userID int64, provider string) (*UserAuth, error) {
 	var auth UserAuth
-	err := m.Invoke(ctx).Query("SELECT * FROM user_auth where user_id = $1 and provider = $2", userID, provider).Out(&auth)
+	_, err := m.Invoke(ctx).Query("SELECT * FROM user_auth where user_id = $1 and provider = $2", userID, provider).Out(&auth)
 	return &auth, err
 }
 
 // DeleteUserAuthForProvider deletes auth entries for a provider for a user.
 func (m Manager) DeleteUserAuthForProvider(ctx context.Context, userID int64, provider string) error {
-	return m.Invoke(ctx).Exec("DELETE FROM user_auth where user_id = $1 and provider = $2", userID, provider)
+	_, err := m.Invoke(ctx).Exec("DELETE FROM user_auth where user_id = $1 and provider = $2", userID, provider)
+	return err
 }
 
 // DeleteUserSession removes a session from the db.
 func (m Manager) DeleteUserSession(ctx context.Context, userID int64, sessionID string) error {
-	return m.Invoke(ctx).Exec("DELETE FROM user_session where user_id = $1 and session_id = $2", userID, sessionID)
+	_, err := m.Invoke(ctx).Exec("DELETE FROM user_session where user_id = $1 and session_id = $2", userID, sessionID)
+	return err
 }
 
 // GetVotesForUser gets all the vote log entries for a user.
-func (m Manager) GetVotesForUser(ctx context.Context, userID int64) ([]Vote, error) {
-	votes := []Vote{}
-	err := m.Invoke(ctx).Query(m.getVotesQuery("where v.user_id = $1"), userID).OutMany(&votes)
-	return votes, err
+func (m Manager) GetVotesForUser(ctx context.Context, userID int64) (votes []Vote, err error) {
+	err = m.Invoke(ctx).Query(m.getVotesQuery("where v.user_id = $1"), userID).OutMany(&votes)
+	return
 }
 
 // GetVotesForImage gets all the votes log entries for an image.
-func (m Manager) GetVotesForImage(ctx context.Context, imageID int64) ([]Vote, error) {
-	votes := []Vote{}
-	err := m.Invoke(ctx).Query(m.getVotesQuery("where v.image_id = $1"), imageID).OutMany(&votes)
-	return votes, err
+func (m Manager) GetVotesForImage(ctx context.Context, imageID int64) (votes []Vote, err error) {
+	err = m.Invoke(ctx).Query(m.getVotesQuery("where v.image_id = $1"), imageID).OutMany(&votes)
+	return
 }
 
 // GetVotesForTag gets all the votes log entries for an image.
-func (m Manager) GetVotesForTag(ctx context.Context, tagID int64) ([]Vote, error) {
-	votes := []Vote{}
-	err := m.Invoke(ctx).Query(m.getVotesQuery("where v.tag_id = $1"), tagID).OutMany(&votes)
-	return votes, err
+func (m Manager) GetVotesForTag(ctx context.Context, tagID int64) (votes []Vote, err error) {
+	err = m.Invoke(ctx).Query(m.getVotesQuery("where v.tag_id = $1"), tagID).OutMany(&votes)
+	return
 }
 
 // GetVotesForUserForImage gets the votes for an image by a user.
@@ -1032,18 +1051,20 @@ func (m Manager) GetVotesForUserForTag(ctx context.Context, userID, tagID int64)
 // GetVote gets a user's vote for an image and a tag.
 func (m Manager) GetVote(ctx context.Context, userID, imageID, tagID int64) (*Vote, error) {
 	voteLog := Vote{}
-	err := m.Invoke(ctx).Query(m.getVotesQuery("where v.user_id = $1 and v.image_id = $2 and v.tag_id = $3"), userID, imageID, tagID).Out(&voteLog)
+	_, err := m.Invoke(ctx).Query(m.getVotesQuery("where v.user_id = $1 and v.image_id = $2 and v.tag_id = $3"), userID, imageID, tagID).Out(&voteLog)
 	return &voteLog, err
 }
 
 // SetVoteTagID sets the tag_id for a vote object.
 func (m Manager) SetVoteTagID(ctx context.Context, userID, imageID, oldTagID, newTagID int64) error {
-	return m.Invoke(ctx).Exec(`update vote set tag_id = $1 where user_id = $2 and image_id = $3 and tag_id = $4`, newTagID, userID, imageID, oldTagID)
+	_, err := m.Invoke(ctx).Exec(`update vote set tag_id = $1 where user_id = $2 and image_id = $3 and tag_id = $4`, newTagID, userID, imageID, oldTagID)
+	return err
 }
 
 // DeleteVote deletes a vote.
 func (m Manager) DeleteVote(ctx context.Context, userID, imageID, tagID int64) error {
-	return m.Invoke(ctx).Exec(`DELETE from vote where user_id = $1 and image_id = $2 and tag_id = $3`, userID, imageID, tagID)
+	_, err := m.Invoke(ctx).Exec(`DELETE from vote where user_id = $1 and image_id = $2 and tag_id = $3`, userID, imageID, tagID)
+	return err
 }
 
 func (m Manager) getVotesQuery(whereClause string) string {
@@ -1109,7 +1130,7 @@ func (m Manager) GetImageStats(ctx context.Context, imageID int64) (*ImageStats,
 		i.id = $1
 	`
 
-	err := m.Invoke(ctx).Query(query, imageID).Out(&results)
+	_, err := m.Invoke(ctx).Query(query, imageID).Out(&results)
 	if err != nil {
 		return nil, err
 	}
@@ -1131,23 +1152,23 @@ func (m Manager) GetSiteStats(ctx context.Context) (*SiteStats, error) {
 	var karmaTotal int
 	var orphanedTagCount int
 
-	err := m.Invoke(ctx).Query(userCountQuery).Scan(&userCount)
+	_, err := m.Invoke(ctx).Query(userCountQuery).Scan(&userCount)
 	if err != nil {
 		return nil, err
 	}
-	err = m.Invoke(ctx).Query(imageCountQuery).Scan(&imageCount)
+	_, err = m.Invoke(ctx).Query(imageCountQuery).Scan(&imageCount)
 	if err != nil {
 		return nil, err
 	}
-	err = m.Invoke(ctx).Query(tagCountQuery).Scan(&tagCount)
+	_, err = m.Invoke(ctx).Query(tagCountQuery).Scan(&tagCount)
 	if err != nil {
 		return nil, err
 	}
-	err = m.Invoke(ctx).Query(karmaTotalQuery).Scan(&karmaTotal)
+	_, err = m.Invoke(ctx).Query(karmaTotalQuery).Scan(&karmaTotal)
 	if err != nil {
 		return nil, err
 	}
-	err = m.Invoke(ctx).Query(orphanedTagCountQuery).Scan(&orphanedTagCount)
+	_, err = m.Invoke(ctx).Query(orphanedTagCountQuery).Scan(&orphanedTagCount)
 	if err != nil {
 		return nil, err
 	}

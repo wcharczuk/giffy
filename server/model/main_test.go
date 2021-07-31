@@ -4,16 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/testutil"
 
 	"github.com/wcharczuk/giffy/server/config"
 )
-
-func defaultDB() *db.Connection {
-	return testutil.DefaultDB()
-}
 
 func todo() context.Context {
 	return context.TODO()

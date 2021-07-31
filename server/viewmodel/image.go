@@ -9,15 +9,15 @@ import (
 
 // NewImage creates a new viewmodel image.
 func NewImage(img model.Image, cfg *config.Giffy) Image {
-	if cfg.IsProduction() && len(cfg.GetCloudFrontDNS()) > 0 {
+	if cfg.Meta.IsProdlike() && len(cfg.CloudFrontDNS) > 0 {
 		return Image{
 			Image:     img,
-			S3ReadURL: fmt.Sprintf("https://%s/%s", cfg.GetCloudFrontDNS(), img.S3Key),
+			S3ReadURL: fmt.Sprintf("https://%s/%s", cfg.CloudFrontDNS, img.S3Key),
 		}
 	}
 	return Image{
 		Image:     img,
-		S3ReadURL: fmt.Sprintf("https://s3-%s.amazonaws.com/%s/%s", cfg.Aws.GetRegion(), img.S3Bucket, img.S3Key),
+		S3ReadURL: fmt.Sprintf("https://s3-%s.amazonaws.com/%s/%s", cfg.Aws.RegionOrDefault(), img.S3Bucket, img.S3Key),
 	}
 }
 

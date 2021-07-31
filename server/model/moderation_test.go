@@ -1,19 +1,20 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 )
 
 func TestModerationCreate(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -26,18 +27,18 @@ func TestModerationCreate(t *testing.T) {
 	assert.Nil(err)
 
 	var verify Moderation
-	err = m.Invoke(todo).Get(&verify, mod.UUID)
+	_, err = m.Invoke(todo).Get(&verify, mod.UUID)
 	assert.Nil(err)
 	assert.False(verify.IsZero())
 }
 
 func TestGetModerationsForUser(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -63,11 +64,11 @@ func TestGetModerationsForUser(t *testing.T) {
 
 func TestGetModerationLogByCountAndOffset(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)

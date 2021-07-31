@@ -1,20 +1,21 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 	"github.com/blend/go-sdk/uuid"
 )
 
 func TestGetVotesForUser(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -33,11 +34,11 @@ func TestGetVotesForUser(t *testing.T) {
 
 func TestGetVotesForImage(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -56,11 +57,11 @@ func TestGetVotesForImage(t *testing.T) {
 
 func TestGetVotesForTag(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -79,11 +80,11 @@ func TestGetVotesForTag(t *testing.T) {
 
 func TestGetVotesForUserForImage(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -102,11 +103,11 @@ func TestGetVotesForUserForImage(t *testing.T) {
 
 func TestGetVotesForUserForTag(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -125,11 +126,11 @@ func TestGetVotesForUserForTag(t *testing.T) {
 
 func TestGetVote(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)

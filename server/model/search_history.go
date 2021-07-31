@@ -39,6 +39,10 @@ func NewSearchHistoryDetailed(source, sourceTeamID, sourceTeamName, sourceChanne
 	}
 }
 
+var (
+	_ logger.Event = (*SearchHistory)(nil)
+)
+
 // SearchHistory is a record of searches and the primary result.
 type SearchHistory struct {
 	Source string `json:"source" db:"source"`
@@ -67,7 +71,7 @@ func (sh SearchHistory) TableName() string {
 }
 
 // Flag implements logger.Event.
-func (sh SearchHistory) Flag() logger.Flag {
+func (sh SearchHistory) GetFlag() string {
 	return core.FlagSearch
 }
 

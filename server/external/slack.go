@@ -37,7 +37,7 @@ func SlackAuthURL(cfg *config.Giffy) string {
 
 //SlackAuthReturnURL formats an oauth return uri.
 func SlackAuthReturnURL(cfg *config.Giffy) string {
-	return fmt.Sprintf("http://%s/oauth/slack", cfg.Web.GetBaseURL())
+	return fmt.Sprintf("http://%s/oauth/slack", cfg.SlackAuthReturnURL)
 }
 
 // FetchSlackProfile gets the slack user details for an access token.

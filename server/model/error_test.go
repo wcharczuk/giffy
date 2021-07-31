@@ -1,25 +1,26 @@
 package model
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"testing"
 
-	assert "github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
-	exception exception "github.com/blend/go-sdk/ex"
+	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/ex"
+	"github.com/blend/go-sdk/testutil"
 )
 
 func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	err = m.Invoke(todo).Create(NewError(
-		exception.New("This is only a test"),
+		ex.New("This is only a test"),
 		&http.Request{
 			Method: "GET",
 			Proto:  "http",
@@ -33,7 +34,7 @@ func TestGetAllErrorsWithLimitAndOffset(t *testing.T) {
 	assert.Nil(err)
 
 	err = m.Invoke(todo).Create(NewError(
-		exception.New("This is only a test"),
+		ex.New("This is only a test"),
 		&http.Request{
 			Method: "GET",
 			Proto:  "http",

@@ -1,19 +1,27 @@
 package jobs
 
 import (
-	"os"
+	"context"
 	"testing"
 
 	logger "github.com/blend/go-sdk/logger"
-	"github.com/wcharczuk/giffy/server/core"
+	"github.com/blend/go-sdk/testutil"
+	"github.com/wcharczuk/giffy/server/config"
+	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestMain(m *testing.M) {
-	if err := core.Setwd("../../"); err != nil {
-		logger.All().SyncFatalExit(err)
-	}
-	if err := core.InitTest(); err != nil {
-		logger.All().SyncFatalExit(err)
-	}
-	os.Exit(m.Run())
+	cfg := config.MustNewFromEnv()
+	testutil.New(m,
+		testutil.OptLog(logger.All()),
+		testutil.OptWithDefaultDB(),
+		testutil.OptBefore(
+			func(ctx context.Context) error {
+				return model.Schema(cfg).Apply(ctx, testutil.DefaultDB())
+			},
+			func(ctx context.Context) error {
+				return model.Migrations(cfg).Apply(ctx, testutil.DefaultDB())
+			},
+		),
+	).Run()
 }

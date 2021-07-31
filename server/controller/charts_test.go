@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
 
@@ -16,10 +16,10 @@ import (
 func TestChartsSeaches(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -44,9 +44,9 @@ func TestChartsSeaches(t *testing.T) {
 		}
 	}
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(Chart{Model: &m})
-	contents, meta, err := app.Mock().WithPathf("/chart/searches").BytesWithMeta()
+	contents, meta, err := web.MockGet(app, "/chart/searches").Bytes()
 	assert.Nil(err)
 	assert.NotZero(meta.ContentLength)
 	assert.Equal(http.StatusOK, meta.StatusCode)

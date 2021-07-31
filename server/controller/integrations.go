@@ -30,6 +30,7 @@ const (
 
 // Integrations controller is responsible for integration responses.
 type Integrations struct {
+	Log    logger.Log
 	Config *config.Giffy
 	Model  *model.Manager
 }
@@ -45,7 +46,7 @@ func (i Integrations) slack(rc *web.Ctx) web.Result {
 	args := i.arguments(rc)
 
 	if len(args.Query) < 3 {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidQuery))
 	}
 
 	result, errRes := i.getResult(args, rc)
@@ -81,18 +82,18 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	var payload slackActionPayload
 	body, err := rc.PostBodyAsString()
 	if err != nil {
-		logger.MaybeError(rc.Logger(), err)
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
+		logger.MaybeError(i.Log, err)
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 	bodyUnescaped, err := url.QueryUnescape(strings.TrimPrefix(body, "payload="))
 	if err != nil {
-		logger.MaybeError(rc.Logger(), err)
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
+		logger.MaybeError(i.Log, err)
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 	err = fromJSON([]byte(bodyUnescaped), &payload)
 	if err != nil {
-		logger.MaybeError(rc.Logger(), err)
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
+		logger.MaybeError(i.Log, err)
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorBadPayload))
 	}
 
 	switch payload.Action() {
@@ -103,11 +104,11 @@ func (i Integrations) slackAction(rc *web.Ctx) web.Result {
 	case slackActionCancel:
 		return i.renderResult(slackMessage{DeleteOriginal: true}, rc)
 	}
-	return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidAction))
+	return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInvalidAction))
 }
 
 func (i Integrations) slackErrorNoResults() string {
-	return fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/add_image", i.Config.Web.GetBaseURL())
+	return fmt.Sprintf("Giffy couldn't find what you were looking for; maybe add it here? %s/add_image", i.Config.Web.BaseURL)
 }
 
 func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.Result {
@@ -117,15 +118,14 @@ func (i Integrations) slackShuffle(payload slackActionPayload, rc *web.Ctx) web.
 		return errRes
 	}
 
-	logger.MaybeInfof(rc.Logger(), "%#v", payload)
-	logger.MaybeInfof(rc.Logger(), "search query: %s, excludes: %s", query, uuid)
+	logger.MaybeInfof(i.Log, "search query: %s, excludes: %s", query, uuid)
 	result, err := i.Model.SearchImagesBestResult(rc.Context(), query, []string{uuid}, contentRatingFilter)
 	if err != nil {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	if result == nil || result.IsZero() {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
 	}
 
 	output := viewmodel.NewImage(*result, i.Config)
@@ -153,18 +153,21 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 	var tagID *int64
 
 	defer func() {
-		rc.Logger().Trigger(model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.Team.Name, payload.Channel.ID, payload.Channel.Name, payload.User.ID, payload.User.Name, payload.OriginalMessage.Text, true, resultID, tagID))
+		logger.MaybeTrigger(rc.Context(),
+			i.Log,
+			model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.Team.Name, payload.Channel.ID, payload.Channel.Name, payload.User.ID, payload.User.Name, payload.OriginalMessage.Text, true, resultID, tagID),
+		)
 	}()
 
 	_, uuid := i.extractCallbackState(payload.CallbackID)
 
 	img, err := i.Model.GetImageByUUID(rc.Context(), uuid)
 	if err != nil {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	if img == nil || img.IsZero() {
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
 	}
 
 	result := viewmodel.NewImage(*img, i.Config)
@@ -197,10 +200,10 @@ func (i Integrations) slackEvent(rc *web.Ctx) web.Result {
 
 	switch e.Type {
 	case "url_verification":
-		return rc.RawWithContentType("application/json", []byte(toJSON(slackEventChallegeRepsonse{Challenge: e.Challenge})))
+		return web.RawWithContentType("application/json", []byte(toJSON(slackEventChallegeRepsonse{Challenge: e.Challenge})))
 	}
 
-	return rc.NoContent()
+	return web.NoContent
 }
 
 // --------------------------------------------------------------------------------
@@ -211,11 +214,11 @@ func (i Integrations) contentRatingFilter(teamID string, rc *web.Ctx) (int, web.
 	contentRatingFilter := model.ContentRatingNR
 	teamSettings, err := i.Model.GetSlackTeamByTeamID(rc.Context(), teamID)
 	if err != nil {
-		logger.MaybeFatal(rc.Logger(), err)
-		return contentRatingFilter, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+		logger.MaybeFatal(i.Log, err)
+		return contentRatingFilter, web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	} else if !teamSettings.IsZero() {
 		if !teamSettings.IsEnabled {
-			return contentRatingFilter, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
+			return contentRatingFilter, web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorTeamDisabled))
 		}
 
 		contentRatingFilter = teamSettings.ContentRatingFilter
@@ -243,7 +246,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 	var err error
 
 	defer func() {
-		logger.MaybeTrigger(rc.Logger(), model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
+		logger.MaybeTrigger(rc.Context(), i.Log, model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
 	}()
 
 	contentRatingFilter, errRes := i.contentRatingFilter(args.TeamID, rc)
@@ -259,12 +262,12 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 	}
 
 	if err != nil {
-		logger.MaybeFatal(rc.Logger(), err)
-		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+		logger.MaybeFatal(i.Log, err)
+		return nil, web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
 	if result == nil || result.IsZero() {
-		return nil, rc.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
+		return nil, web.RawWithContentType(slackContentTypeTextPlain, []byte(i.slackErrorNoResults()))
 	}
 
 	foundResult = true
@@ -276,11 +279,11 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 func (i Integrations) renderResult(res slackMessage, rc *web.Ctx) web.Result {
 	responseBytes, err := json.Marshal(res)
 	if err != nil {
-		logger.MaybeFatal(rc.Logger(), err)
-		return rc.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
+		logger.MaybeFatal(i.Log, err)
+		return web.RawWithContentType(slackContentTypeTextPlain, []byte(slackErrorInternal))
 	}
 
-	return rc.RawWithContentType(slackContenttypeJSON, responseBytes)
+	return web.RawWithContentType(slackContenttypeJSON, responseBytes)
 }
 
 func (i Integrations) buttonActions(query, imageUUID string) slackActionAttachment {

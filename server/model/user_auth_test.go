@@ -1,20 +1,21 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/crypto"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 )
 
 func TestGetUserAuthByToken(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	key, err := crypto.CreateKey(32)
 	assert.Nil(err)
@@ -35,11 +36,11 @@ func TestGetUserAuthByToken(t *testing.T) {
 
 func TestDeleteUserAuthForProvider(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	key, err := crypto.CreateKey(32)
 	assert.Nil(err)

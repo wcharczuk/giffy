@@ -7,9 +7,11 @@ import (
 
 	"github.com/blend/go-sdk/cron"
 	exception "github.com/blend/go-sdk/ex"
+	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/oauth"
 	"github.com/blend/go-sdk/reflectutil"
 	"github.com/blend/go-sdk/web"
+	"github.com/blend/go-sdk/webutil"
 
 	"github.com/wcharczuk/giffy/server/config"
 	"github.com/wcharczuk/giffy/server/external"
@@ -20,6 +22,7 @@ import (
 
 // APIs is the controller for api endpoints.
 type APIs struct {
+	Log    logger.Log
 	Config *config.Giffy
 	Model  *model.Manager
 	OAuth  *oauth.Manager
@@ -119,7 +122,7 @@ func (api APIs) Register(app *web.App) {
 
 // GET "/api/users"
 func (api APIs) getUsersAction(r *web.Ctx) web.Result {
-	user := GetUser(r.Session())
+	user := GetUser(r.Session)
 	if user != nil && !user.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -133,7 +136,7 @@ func (api APIs) getUsersAction(r *web.Ctx) web.Result {
 
 // GET "/api/users.search"
 func (api APIs) searchUsersAction(r *web.Ctx) web.Result {
-	user := GetUser(r.Session())
+	user := GetUser(r.Session)
 	if user != nil && !user.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -148,7 +151,7 @@ func (api APIs) searchUsersAction(r *web.Ctx) web.Result {
 
 // GET "/api/users/pages/:count/:offset"
 func (api APIs) getUsersByCountAndOffsetAction(r *web.Ctx) web.Result {
-	user := GetUser(r.Session())
+	user := GetUser(r.Session)
 	if user != nil && !user.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -190,7 +193,7 @@ func (api APIs) getUserAction(r *web.Ctx) web.Result {
 
 // PUT "/api/user/:user_id"
 func (api APIs) updateUserAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 	sessionUser := GetUser(session)
 	if !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
@@ -245,9 +248,9 @@ func (api APIs) updateUserAction(r *web.Ctx) web.Result {
 		moderationEntry = model.NewModeration(parseInt64(session.UserID), model.ModerationVerbUnban, model.ModerationObjectUser, postedUser.UUID)
 	}
 
-	r.Logger().Trigger(moderationEntry)
+	logger.MaybeTrigger(r.Context(), api.Log, moderationEntry)
 
-	err = api.Model.Invoke(r.Context()).Update(&postedUser)
+	_, err = api.Model.Invoke(r.Context()).Update(&postedUser)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -303,7 +306,7 @@ func (api APIs) getModerationForUserAction(r *web.Ctx) web.Result {
 
 // GET "/api/user.votes.image/:image_id"
 func (api APIs) getVotesForUserForImageAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	imageUUID, err := r.RouteParam("image_id")
 	if err != nil {
@@ -325,7 +328,7 @@ func (api APIs) getVotesForUserForImageAction(r *web.Ctx) web.Result {
 
 // GET "/api/user.votes.tag/:tag_id"
 func (api APIs) getVotesForUserForTagAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	tagUUID, err := r.RouteParam("tag_id")
 	if err != nil {
@@ -347,7 +350,7 @@ func (api APIs) getVotesForUserForTagAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/user.vote/:image_id/:tag_id"
 func (api APIs) deleteUserVoteAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	imageUUID, err := r.RouteParam("image_id")
 	if err != nil {
@@ -422,11 +425,10 @@ func (api APIs) getImagesAction(r *web.Ctx) web.Result {
 
 // POST "/api/images"
 func (api APIs) createImageAction(r *web.Ctx) web.Result {
-	files, filesErr := r.PostedFiles()
-	if filesErr != nil {
-		return API(r).BadRequest(fmt.Errorf("problem reading posted file: %v", filesErr))
+	files, err := webutil.PostedFiles(r.Request)
+	if err != nil {
+		return API(r).BadRequest(fmt.Errorf("problem reading posted file: %v", err))
 	}
-
 	if len(files) == 0 {
 		return API(r).BadRequest(fmt.Errorf("no files posted"))
 	}
@@ -442,7 +444,7 @@ func (api APIs) createImageAction(r *web.Ctx) web.Result {
 		return API(r).Result(existing)
 	}
 
-	session := r.Session()
+	session := r.Session
 	sessionUser := GetUser(session)
 	userID := parseInt64(session.UserID)
 	image, err := CreateImageFromFile(r.Context(), api.Model, userID, !sessionUser.IsAdmin, postedFile.Contents, postedFile.FileName, api.Files)
@@ -450,7 +452,7 @@ func (api APIs) createImageAction(r *web.Ctx) web.Result {
 		return API(r).InternalError(err)
 	}
 
-	r.Logger().Trigger(model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
+	logger.MaybeTrigger(r.Context(), api.Log, model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectImage, image.UUID))
 	return API(r).Result(image)
 }
 
@@ -472,7 +474,7 @@ func (api APIs) getRandomImagesAction(r *web.Ctx) web.Result {
 func (api APIs) searchImagesAction(r *web.Ctx) web.Result {
 	contentRating := model.ContentRatingFilterDefault
 
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && sessionUser.IsModerator {
 		contentRating = model.ContentRatingFilterAll
 	}
@@ -488,7 +490,7 @@ func (api APIs) searchImagesAction(r *web.Ctx) web.Result {
 // GET "/api/images.search/random/:count?query=<query>"
 func (api APIs) searchImagesRandomAction(r *web.Ctx) web.Result {
 	contentRating := model.ContentRatingFilterDefault
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && sessionUser.IsModerator {
 		contentRating = model.ContentRatingFilterAll
 	}
@@ -525,7 +527,7 @@ func (api APIs) getImageAction(r *web.Ctx) web.Result {
 
 // PUT "/api/image/:image_id"
 func (api APIs) updateImageAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 
 	imageUUID, err := r.RouteParam("image_id")
 	if err != nil {
@@ -563,8 +565,8 @@ func (api APIs) updateImageAction(r *web.Ctx) web.Result {
 	}
 
 	if didUpdate {
-		r.Logger().Trigger(model.NewModeration(sessionUser.ID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
-		err = api.Model.Invoke(r.Context()).Update(image)
+		logger.MaybeTrigger(r.Context(), api.Log, model.NewModeration(sessionUser.ID, model.ModerationVerbUpdate, model.ModerationObjectImage, image.UUID))
+		_, err = api.Model.Invoke(r.Context()).Update(image)
 		if err != nil {
 			return API(r).InternalError(err)
 		}
@@ -575,7 +577,7 @@ func (api APIs) updateImageAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/image/:image_id"
 func (api APIs) deleteImageAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	currentUser, err := api.Model.GetUserByID(r.Context(), parseInt64(session.UserID))
 	if err != nil {
@@ -609,7 +611,11 @@ func (api APIs) deleteImageAction(r *web.Ctx) web.Result {
 		return API(r).InternalError(err)
 	}
 
-	r.Logger().Trigger(model.NewModeration(parseInt64(session.UserID), model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID))
+	logger.MaybeTrigger(
+		r.Context(),
+		api.Log,
+		model.NewModeration(parseInt64(session.UserID), model.ModerationVerbDelete, model.ModerationObjectImage, image.UUID),
+	)
 	return API(r).OK()
 }
 
@@ -690,7 +696,7 @@ func (api APIs) createTagsAction(r *web.Ctx) web.Result {
 		tagValues = append(tagValues, tagValue)
 	}
 
-	session := r.Session()
+	session := r.Session
 
 	tags := []*model.Tag{}
 	for _, tagValue := range tagValues {
@@ -711,7 +717,7 @@ func (api APIs) createTagsAction(r *web.Ctx) web.Result {
 		if err != nil {
 			return API(r).InternalError(err)
 		}
-		r.Logger().Trigger(model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID))
+		logger.MaybeTrigger(r.Context(), api.Log, model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectTag, tag.UUID))
 		tags = append(tags, tag)
 	}
 
@@ -777,7 +783,7 @@ func (api APIs) getTagAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/tag/:tag_id"
 func (api APIs) deleteTagAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 	userID := parseInt64(session.UserID)
 
 	currentUser, err := api.Model.GetUserByID(r.Context(), userID)
@@ -806,7 +812,7 @@ func (api APIs) deleteTagAction(r *web.Ctx) web.Result {
 		return API(r).InternalError(err)
 	}
 
-	r.Logger().Trigger(model.NewModeration(userID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID))
+	logger.MaybeTrigger(r.Context(), api.Log, model.NewModeration(userID, model.ModerationVerbDelete, model.ModerationObjectTag, tag.UUID))
 	return API(r).OK()
 }
 
@@ -853,7 +859,7 @@ func (api APIs) getLinksForTagAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/link/:image_id/:tag_id"
 func (api APIs) deleteLinkAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 	userID := parseInt64(session.UserID)
 
 	currentUser, err := api.Model.GetUserByID(r.Context(), userID)
@@ -894,14 +900,13 @@ func (api APIs) deleteLinkAction(r *web.Ctx) web.Result {
 		return API(r).InternalError(err)
 	}
 
-	r.Logger().Trigger(model.NewModeration(userID, model.ModerationVerbDelete, model.ModerationObjectLink, imageUUID, tagUUID))
-
+	logger.MaybeTrigger(r.Context(), api.Log, model.NewModeration(userID, model.ModerationVerbDelete, model.ModerationObjectLink, imageUUID, tagUUID))
 	return API(r).OK()
 }
 
 // GET "/api/teams"
 func (api APIs) getTeamsAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -916,7 +921,7 @@ func (api APIs) getTeamsAction(r *web.Ctx) web.Result {
 
 // GET "/api/team/:team_id"
 func (api APIs) getTeamAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -927,7 +932,7 @@ func (api APIs) getTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = api.Model.Invoke(r.Context()).Get(&team, teamID)
+	_, err = api.Model.Invoke(r.Context()).Get(&team, teamID)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -941,7 +946,7 @@ func (api APIs) getTeamAction(r *web.Ctx) web.Result {
 
 // POST "/api/team"
 func (api APIs) createTeamAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -962,7 +967,7 @@ func (api APIs) createTeamAction(r *web.Ctx) web.Result {
 
 // PUT "/api/team/:team_id"
 func (api APIs) updateTeamAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -973,7 +978,7 @@ func (api APIs) updateTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = api.Model.Invoke(r.Context()).Get(&team, teamID)
+	_, err = api.Model.Invoke(r.Context()).Get(&team, teamID)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -990,7 +995,7 @@ func (api APIs) updateTeamAction(r *web.Ctx) web.Result {
 
 	updatedTeam.TeamID = teamID
 
-	err = api.Model.Invoke(r.Context()).Update(&updatedTeam)
+	_, err = api.Model.Invoke(r.Context()).Update(&updatedTeam)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -1000,7 +1005,7 @@ func (api APIs) updateTeamAction(r *web.Ctx) web.Result {
 
 // PATCH "/api/team/:team_id"
 func (api APIs) patchTeamAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -1011,7 +1016,7 @@ func (api APIs) patchTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = api.Model.Invoke(r.Context()).Get(&team, teamID)
+	_, err = api.Model.Invoke(r.Context()).Get(&team, teamID)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -1031,7 +1036,7 @@ func (api APIs) patchTeamAction(r *web.Ctx) web.Result {
 		return API(r).BadRequest(err)
 	}
 
-	err = api.Model.Invoke(r.Context()).Update(&team)
+	_, err = api.Model.Invoke(r.Context()).Update(&team)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -1041,7 +1046,7 @@ func (api APIs) patchTeamAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/team/:team_id"
 func (api APIs) deleteTeamAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -1052,7 +1057,7 @@ func (api APIs) deleteTeamAction(r *web.Ctx) web.Result {
 	}
 
 	var team model.SlackTeam
-	err = api.Model.Invoke(r.Context()).Get(&team, teamID)
+	_, err = api.Model.Invoke(r.Context()).Get(&team, teamID)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -1061,7 +1066,7 @@ func (api APIs) deleteTeamAction(r *web.Ctx) web.Result {
 		return API(r).NotFound()
 	}
 
-	err = api.Model.Invoke(r.Context()).Delete(&team)
+	_, err = api.Model.Invoke(r.Context()).Delete(&team)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -1070,12 +1075,12 @@ func (api APIs) deleteTeamAction(r *web.Ctx) web.Result {
 
 // POST "/api/vote.up/:image_id/:tag_id"
 func (api APIs) upvoteAction(r *web.Ctx) web.Result {
-	return api.voteAction(true, r.Session(), r)
+	return api.voteAction(true, r.Session, r)
 }
 
 // POST "/api/vote.down/:image_id/:tag_id"
 func (api APIs) downvoteAction(r *web.Ctx) web.Result {
-	return api.voteAction(false, r.Session(), r)
+	return api.voteAction(false, r.Session, r)
 }
 
 func (api APIs) voteAction(isUpvote bool, session *web.Session, r *web.Ctx) web.Result {
@@ -1121,7 +1126,11 @@ func (api APIs) voteAction(isUpvote bool, session *web.Session, r *web.Ctx) web.
 	}
 
 	if didCreate {
-		r.Logger().Trigger(model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID))
+		logger.MaybeTrigger(
+			r.Context(),
+			api.Log,
+			model.NewModeration(userID, model.ModerationVerbCreate, model.ModerationObjectLink, imageUUID, tagUUID),
+		)
 	}
 
 	return API(r).OK()
@@ -1158,7 +1167,7 @@ func (api APIs) getModerationLogByCountAndOffsetAction(r *web.Ctx) web.Result {
 
 // GET "/api/search.history/recent"
 func (api APIs) getRecentSearchHistoryAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -1173,7 +1182,7 @@ func (api APIs) getRecentSearchHistoryAction(r *web.Ctx) web.Result {
 
 // GET "/api/search.history/pages/:count/:offset"
 func (api APIs) getSearchHistoryByCountAndOffsetAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -1225,9 +1234,9 @@ func (api APIs) getImageStatsAction(r *web.Ctx) web.Result {
 
 // GET "/api/session.user"
 func (api APIs) getCurrentUserAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
-	url, err := api.OAuth.OAuthURL(r.Request())
+	url, err := api.OAuth.OAuthURL(r.Request)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -1246,7 +1255,7 @@ func (api APIs) getCurrentUserAction(r *web.Ctx) web.Result {
 
 // GET "/api/session/:key"
 func (api APIs) getSessionKeyAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	key, err := r.RouteParam("key")
 	if err != nil {
@@ -1262,7 +1271,7 @@ func (api APIs) getSessionKeyAction(r *web.Ctx) web.Result {
 // POST "/api/session/:key"
 // PUT "/api/session/:key"
 func (api APIs) setSessionKeyAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	key, err := r.RouteParam("key")
 	if err != nil {
@@ -1277,7 +1286,7 @@ func (api APIs) setSessionKeyAction(r *web.Ctx) web.Result {
 
 // DELETE "/api/session/:key"
 func (api APIs) deleteSessionKeyAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	key, err := r.RouteParam("key")
 	if err != nil {
@@ -1292,17 +1301,17 @@ func (api APIs) deleteSessionKeyAction(r *web.Ctx) web.Result {
 
 // GET "/api/jobs"
 func (api APIs) getJobsStatusAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
-	status := cron.Default().Status()
+	status := cron.Default().State()
 	return API(r).Result(status)
 }
 
 // POST "/api/job/:job_id"
 func (api APIs) runJobAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -1311,7 +1320,7 @@ func (api APIs) runJobAction(r *web.Ctx) web.Result {
 		return API(r).BadRequest(err)
 	}
 
-	err = cron.Default().RunJob(jobID)
+	_, _, err = cron.Default().RunJob(jobID)
 	if err != nil {
 		return API(r).InternalError(err)
 	}
@@ -1319,7 +1328,7 @@ func (api APIs) runJobAction(r *web.Ctx) web.Result {
 }
 
 func (api APIs) getErrorsAction(r *web.Ctx) web.Result {
-	sessionUser := GetUser(r.Session())
+	sessionUser := GetUser(r.Session)
 	if sessionUser != nil && !sessionUser.IsAdmin {
 		return API(r).NotAuthorized()
 	}
@@ -1344,13 +1353,13 @@ func (api APIs) getErrorsAction(r *web.Ctx) web.Result {
 
 // POST "/api/logout"
 func (api APIs) logoutAction(r *web.Ctx) web.Result {
-	session := r.Session()
+	session := r.Session
 
 	if session == nil {
 		return API(r).OK()
 	}
 
-	err := r.Auth().Logout(r)
+	err := r.Auth.Logout(r)
 	if err != nil {
 		return API(r).InternalError(err)
 	}

@@ -82,38 +82,38 @@ func New(cfg *config.Giffy) (*web.App, error) {
 
 	log.Listen(logger.Fatal, "error-writer", logger.NewErrorEventListener(func(_ context.Context, ev logger.ErrorEvent) {
 		if req, isReq := ev.State.(*http.Request); isReq {
-			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), req))
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err, req))
 		} else {
-			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), nil))
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err, nil))
 		}
 	}))
-	log.Listen(logger.Error, "error-writer", logger.NewErrorEventListener(func(ev *logger.ErrorEvent) {
-		if req, isReq := ev.State().(*http.Request); isReq {
-			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), req))
+	log.Listen(logger.Error, "error-writer", logger.NewErrorEventListener(func(_ context.Context, ev logger.ErrorEvent) {
+		if req, isReq := ev.State.(*http.Request); isReq {
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err, req))
 		} else {
-			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err(), nil))
+			mgr.Invoke(context.Background()).Create(model.NewError(ev.Err, nil))
 		}
 	}))
-	log.Listen(core.FlagSearch, "event-writer", func(e logger.Event) {
+	log.Listen(core.FlagSearch, "event-writer", func(_ context.Context, e logger.Event) {
 		if typed, ok := e.(db.DatabaseMapped); ok {
 			logger.MaybeError(log, mgr.Invoke(context.Background()).Create(typed))
 		}
 	})
-	log.Listen(core.FlagModeration, "event-writer", func(e logger.Event) {
+	log.Listen(core.FlagModeration, "event-writer", func(_ context.Context, e logger.Event) {
 		if typed, ok := e.(db.DatabaseMapped); ok {
 			logger.MaybeError(log, mgr.Invoke(context.Background()).Create(typed))
 		}
 	})
 
-	app.Views().AddPaths(ViewPaths...)
+	app.Views.AddPaths(ViewPaths...)
 
-	fm := filemanager.New(cfg.S3Bucket, &cfg.Aws)
+	fm := filemanager.New(cfg.S3Bucket, cfg.Aws)
 
-	app.Register(controller.Index{Model: mgr, Config: cfg})
-	app.Register(controller.APIs{Model: mgr, Config: cfg, Files: fm, OAuth: oauthMgr})
-	app.Register(controller.Integrations{Model: mgr, Config: cfg})
-	app.Register(controller.Auth{Model: mgr, Config: cfg, OAuth: oauthMgr})
-	app.Register(controller.UploadImage{Model: mgr, Config: cfg, Files: fm})
+	app.Register(controller.Index{Log: log, Model: mgr, Config: cfg})
+	app.Register(controller.APIs{Log: log, Model: mgr, Config: cfg, Files: fm, OAuth: oauthMgr})
+	app.Register(controller.Integrations{Log: log, Model: mgr, Config: cfg})
+	app.Register(controller.Auth{Log: log, Model: mgr, Config: cfg, OAuth: oauthMgr})
+	app.Register(controller.UploadImage{Log: log, Model: mgr, Config: cfg, Files: fm})
 	app.Register(controller.Chart{Model: mgr, Config: cfg})
 
 	if model.Migrations(cfg).Apply(context.Background(), conn); err != nil {
@@ -123,7 +123,7 @@ func New(cfg *config.Giffy) (*web.App, error) {
 	cron.Default().LoadJobs(jobs.DeleteOrphanedTags{})
 	cron.Default().LoadJobs(jobs.CleanTagValues{Model: mgr})
 	cron.Default().LoadJobs(jobs.FixContentRating{})
-	cron.Default().Start()
+	cron.Default().StartAsync()
 
 	return app, nil
 }

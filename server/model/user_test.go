@@ -1,19 +1,20 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 )
 
 func TestGetUsersByCountAndOffset(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	_, err = m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -25,11 +26,11 @@ func TestGetUsersByCountAndOffset(t *testing.T) {
 
 func TestGetAllUsers(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	_, err = m.CreateTestUser(todo)
 	assert.Nil(err)

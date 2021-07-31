@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/uuid"
-	"github.com/wcharczuk/giffy/server/config"
+	"github.com/wcharczuk/giffy/server/awsutil"
 )
 
 // Location is an s3 location.
@@ -28,10 +28,10 @@ type FileType struct {
 }
 
 // New returns a new filemanager.
-func New(s3Bucket string, cfg *config.Aws) *FileManager {
+func New(s3Bucket string, cfg awsutil.Config) *FileManager {
 	awsConfig := &aws.Config{
-		Region:      aws.String(cfg.GetRegion()),
-		Credentials: credentials.NewStaticCredentials(cfg.GetAccessKeyID(), cfg.GetSecretAccessKey(), cfg.GetSecurityToken()),
+		Region:      aws.String(cfg.RegionOrDefault()),
+		Credentials: credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, cfg.Token),
 	}
 	awsSession := session.New(awsConfig)
 	return &FileManager{
@@ -46,7 +46,7 @@ func New(s3Bucket string, cfg *config.Aws) *FileManager {
 // FileManager is a helper for s3 related operations.
 type FileManager struct {
 	s3Bucket       string
-	config         *config.Aws
+	config         awsutil.Config
 	session        *session.Session
 	s3Client       *s3.S3
 	uploader       *s3manager.Uploader

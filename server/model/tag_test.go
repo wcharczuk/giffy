@@ -1,19 +1,20 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 )
 
 func TestGetAllTags(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -28,11 +29,11 @@ func TestGetAllTags(t *testing.T) {
 
 func TestGetTagByID(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -47,11 +48,11 @@ func TestGetTagByID(t *testing.T) {
 
 func TestGetTagByUUID(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -66,11 +67,11 @@ func TestGetTagByUUID(t *testing.T) {
 
 func TestGetTagByValue(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -86,11 +87,11 @@ func TestGetTagByValue(t *testing.T) {
 
 func TestMergeTags(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u1, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -123,11 +124,11 @@ func TestMergeTags(t *testing.T) {
 
 func TestMergeTagsWithExisting(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u1, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -158,11 +159,11 @@ func TestMergeTagsWithExisting(t *testing.T) {
 
 func TestDeleteTagAndVotesByID(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -183,11 +184,11 @@ func TestDeleteTagAndVotesByID(t *testing.T) {
 
 func TestSetTagValue(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)

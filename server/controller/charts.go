@@ -81,12 +81,12 @@ func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 		},
 	}
 
-	rc.Response().Header().Set("Content-Type", "image/svg+xml")
-	err = graph.Render(chart.SVG, rc.Response())
+	rc.Response.Header().Set("Content-Type", "image/svg+xml")
+	err = graph.Render(chart.SVG, rc.Response)
 	if err != nil {
 		return API(rc).InternalError(err)
 	}
-	rc.Response().WriteHeader(http.StatusOK)
+	rc.Response.WriteHeader(http.StatusOK)
 	return nil
 }
 

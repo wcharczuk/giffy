@@ -5,16 +5,16 @@ import (
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 	"github.com/wcharczuk/giffy/server/model"
 )
 
 func TestCleanTagValues(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	ctx := context.TODO()
 

@@ -45,13 +45,13 @@ func (fis FixContentRating) Execute(ctx context.Context) error {
 	var image model.Image
 	for _, id := range imageIDs {
 
-		err = fis.Model.Invoke(ctx).Get(&image, id)
+		_, err = fis.Model.Invoke(ctx).Get(&image, id)
 		if err != nil {
 			return err
 		}
 
 		image.ContentRating = model.ContentRatingG
-		err = fis.Model.Invoke(ctx).Update(&image)
+		_, err = fis.Model.Invoke(ctx).Update(&image)
 		if err != nil {
 			return err
 		}

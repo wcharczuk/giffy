@@ -11,37 +11,26 @@ import (
 const (
 	// ModerationVerbCreate = "create"
 	ModerationVerbCreate = "create"
-
 	// ModerationVerbUpdate = "update"
 	ModerationVerbUpdate = "update"
-
 	// ModerationVerbDelete = "delete"
 	ModerationVerbDelete = "delete"
-
 	// ModerationVerbConsolidate = "consolidate"
 	ModerationVerbConsolidate = "consolidate"
-
 	// ModerationVerbPromoteAsModerator = "promote_moderator"
 	ModerationVerbPromoteAsModerator = "promote_moderator"
-
 	// ModerationVerbDemoteAsModerator = "demote_moderator"
 	ModerationVerbDemoteAsModerator = "demote_moderator"
-
 	// ModerationVerbBan = "ban"
 	ModerationVerbBan = "ban"
-
 	// ModerationVerbUnban = "unban"
 	ModerationVerbUnban = "unban"
-
 	// ModerationObjectImage = "image"
 	ModerationObjectImage = "image"
-
 	// ModerationObjectTag = "tag"
 	ModerationObjectTag = "tag"
-
 	// ModerationObjectLink = "link"
 	ModerationObjectLink = "link"
-
 	// ModerationObjectUser = "user"
 	ModerationObjectUser = "user"
 )
@@ -63,6 +52,10 @@ func NewModeration(userID int64, verb, object string, nouns ...string) *Moderati
 	}
 	return m
 }
+
+var (
+	_ logger.Event = (*Moderation)(nil)
+)
 
 // Moderation is the moderation log.
 type Moderation struct {
@@ -92,7 +85,7 @@ func (m Moderation) IsZero() bool {
 }
 
 // Flag implements logger.event.
-func (m Moderation) Flag() logger.Flag {
+func (m Moderation) GetFlag() string {
 	return core.FlagModeration
 }
 

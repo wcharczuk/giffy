@@ -1,19 +1,20 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/testutil"
 )
 
 func TestDeleteUserSession(t *testing.T) {
 	assert := assert.New(t)
-	todo := testCtx()
-	tx, err := db.Default().Begin()
+	todo := context.TODO()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := Manager{DB: db.Default(), Tx: tx}
+	m := NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -25,7 +26,7 @@ func TestDeleteUserSession(t *testing.T) {
 	assert.Nil(err)
 
 	var verify UserSession
-	err = m.Invoke(todo).Get(&verify, us.SessionID)
+	_, err = m.Invoke(todo).Get(&verify, us.SessionID)
 	assert.Nil(err)
 	assert.True(verify.IsZero())
 }

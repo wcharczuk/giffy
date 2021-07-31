@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 
+	"github.com/blend/go-sdk/ex"
 	exception "github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/web"
@@ -10,7 +11,7 @@ import (
 
 // API returns the api result provider.
 func API(ctx *web.Ctx) *APIResultProvider {
-	if typed, isTyped := ctx.DefaultResultProvider().(*APIResultProvider); isTyped {
+	if typed, isTyped := ctx.DefaultProvider.(*APIResultProvider); isTyped {
 		return typed
 	}
 	return NewAPIResultProvider(ctx)
@@ -19,7 +20,7 @@ func API(ctx *web.Ctx) *APIResultProvider {
 // APIProviderAsDefault sets the context.CurrrentProvider() equal to context.API().
 func APIProviderAsDefault(action web.Action) web.Action {
 	return func(ctx *web.Ctx) web.Result {
-		ctx.WithDefaultResultProvider(NewAPIResultProvider(ctx))
+		ctx.DefaultProvider = NewAPIResultProvider(ctx)
 		return action(ctx)
 	}
 }
@@ -39,23 +40,28 @@ type APIResponse struct {
 
 // NewAPIResultProvider Creates a new JSONResults object.
 func NewAPIResultProvider(r *web.Ctx) *APIResultProvider {
-	return &APIResultProvider{log: r.Logger(), requestContext: r}
+	return &APIResultProvider{log: r.App.Log, requestContext: r}
 }
+
+var (
+	_ web.ResultProvider = (*APIResultProvider)(nil)
+)
 
 // APIResultProvider are context results for api methods.
 type APIResultProvider struct {
-	log            logger.FullLogger
+	log            logger.Log
 	requestContext *web.Ctx
 }
 
 // Status returns a service response.
-func (ar *APIResultProvider) Status(statusCode int, data ...interface{}) web.Result {
+func (ar *APIResultProvider) Status(statusCode int, data interface{}) web.Result {
 	return &web.JSONResult{
 		StatusCode: statusCode,
 		Response: &APIResponse{
 			Meta: &APIResponseMeta{
 				StatusCode: statusCode,
 			},
+			Response: data,
 		},
 	}
 }
@@ -96,7 +102,7 @@ func (ar *APIResultProvider) InternalError(err error) web.Result {
 			Response: &APIResponse{
 				Meta: &APIResponseMeta{
 					StatusCode: http.StatusInternalServerError,
-					Message:    exPtr.Message(),
+					Message:    ex.ErrMessage(exPtr),
 					Exception:  exPtr,
 				},
 			},

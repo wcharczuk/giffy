@@ -266,7 +266,7 @@ func Schema(cfg *config.Giffy) *migration.Suite {
 							'a68aac8196e444d4a3e570192a20f369', '%s', current_timestamp, 'Will', 'Charczuk', '%s', true, true, true
 						where not exists (select 1 from users where uuid = 'a68aac8196e444d4a3e570192a20f369');
 						`,
-						cfg.GetAdminUserEmail(), cfg.GetAdminUserEmail()),
+						cfg.AdminUserEmail, cfg.AdminUserEmail),
 				),
 			),
 

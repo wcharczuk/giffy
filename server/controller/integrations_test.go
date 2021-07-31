@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/blend/go-sdk/assert"
-	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/logger"
+	"github.com/blend/go-sdk/r2"
+	"github.com/blend/go-sdk/testutil"
 	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
 
@@ -16,10 +18,10 @@ import (
 func TestSlack(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	u, err := m.CreateTestUser(todo)
 	assert.Nil(err)
@@ -30,22 +32,20 @@ func TestSlack(t *testing.T) {
 	_, err = m.CreateTestTagForImageWithVote(todo, u.ID, i.ID, "__test")
 	assert.Nil(err)
 
-	app := web.New()
-
-	var res slackMessage
-
-	app.WithLogger(logger.None())
+	app := web.MustNew()
+	app.Log = logger.None()
 	app.Register(Integrations{Model: &m, Config: config.MustNewFromEnv()})
 
-	err = app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
-		WithQueryString("team_id", uuid.V4().String()).
-		WithQueryString("channel_id", uuid.V4().String()).
-		WithQueryString("user_id", uuid.V4().String()).
-		WithQueryString("team_doman", "test_domain").
-		WithQueryString("channel_name", "test_channel").
-		WithQueryString("user_name", "test_user").
-		WithQueryString("text", "__test").
-		JSON(&res)
+	var res slackMessage
+	_, err = web.MockMethod(app, http.MethodPost, "/integrations/slack",
+		r2.OptQueryValue("team_id", uuid.V4().String()),
+		r2.OptQueryValue("channel_id", uuid.V4().String()),
+		r2.OptQueryValue("user_id", uuid.V4().String()),
+		r2.OptQueryValue("team_doman", "test_domain"),
+		r2.OptQueryValue("channel_name", "test_channel"),
+		r2.OptQueryValue("user_name", "test_user"),
+		r2.OptQueryValue("text", "__test"),
+	).JSON(&res)
 
 	assert.Nil(err)
 	assert.NotNil(res)
@@ -54,23 +54,25 @@ func TestSlack(t *testing.T) {
 
 func TestSlackErrorsWithShortQuery(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(Integrations{Model: &m, Config: config.MustNewFromEnv()})
-	res, err := app.Mock().WithVerb("POST").WithPathf("/integrations/slack").
-		WithQueryString("team_id", uuid.V4().String()).
-		WithQueryString("channel_id", uuid.V4().String()).
-		WithQueryString("user_id", uuid.V4().String()).
-		WithQueryString("team_doman", "test_domain").
-		WithQueryString("channel_name", "test_channel").
-		WithQueryString("user_name", "test_user").
-		WithQueryString("text", "do").Bytes()
+
+	contents, _, err := web.MockMethod(app, http.MethodPost, "/integrations/slack",
+		r2.OptQueryValue("team_id", uuid.V4().String()),
+		r2.OptQueryValue("channel_id", uuid.V4().String()),
+		r2.OptQueryValue("user_id", uuid.V4().String()),
+		r2.OptQueryValue("team_doman", "test_domain"),
+		r2.OptQueryValue("channel_name", "test_channel"),
+		r2.OptQueryValue("user_name", "test_user"),
+		r2.OptQueryValue("text", "do"),
+	).Bytes()
 
 	assert.Nil(err)
-	assert.NotNil(res)
-	assert.Equal(slackErrorInvalidQuery, string(res))
+	assert.NotEmpty(contents)
+	assert.Equal(slackErrorInvalidQuery, string(contents))
 }

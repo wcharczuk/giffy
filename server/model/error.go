@@ -4,19 +4,19 @@ import (
 	"net/http"
 	"time"
 
-	exception exception "github.com/blend/go-sdk/ex"
+	"github.com/blend/go-sdk/ex"
 	"github.com/blend/go-sdk/uuid"
 )
 
 // NewError creates a new error.
 func NewError(err error, req *http.Request) *Error {
 	var merr Error
-	if typed, ok := err.(*exception.Ex); ok {
+	if typed, ok := err.(*ex.Ex); ok {
 		merr = Error{
 			UUID:       uuid.V4().String(),
 			CreatedUTC: time.Now().UTC(),
-			Message:    typed.Message(),
-			StackTrace: typed.Stack().String(),
+			Message:    typed.Message,
+			StackTrace: typed.StackTrace.String(),
 		}
 	} else {
 		merr = Error{

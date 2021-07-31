@@ -2,14 +2,16 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/crypto"
-	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/oauth"
+	"github.com/blend/go-sdk/r2"
+	"github.com/blend/go-sdk/testutil"
 	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
 
@@ -63,64 +65,64 @@ func testCtx() context.Context {
 
 func TestAPIUsers(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	auth, session := MockAuth(assert, &m, MockAdminLogin)
 	defer MockLogout(assert, &m, auth, session)
 
-	app := web.New()
-	app.WithAuth(auth)
+	app := web.MustNew()
+	app.Auth = *auth
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
-	err = app.Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
+	_, err = web.MockGet(app, "/api/users", r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID)).JSON(&res)
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
 }
 
 func TestAPIUsersNonAdmin(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	auth, session := MockAuth(assert, &m, MockModeratorLogin)
 	defer MockLogout(assert, &m, auth, session)
 
-	app := web.New()
-	app.WithAuth(auth)
+	app := web.MustNew()
+	app.Auth = *auth
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
-	err = app.Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/users").JSON(&res)
+	_, err = web.MockGet(app, "/api/users", r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID)).JSON(&res)
 	assert.Nil(err)
 	assert.Empty(res.Response)
 }
 
 func TestAPIUserSearch(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	auth, session := MockAuth(assert, &m, MockAdminLogin)
 	defer MockLogout(assert, &m, auth, session)
 
-	app := web.New()
-	app.WithAuth(auth)
+	app := web.MustNew()
+	app.Auth = *auth
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
-	err = app.Mock().
-		WithCookieValue(auth.CookieName(), session.SessionID).
-		WithPathf("/api/users.search").
-		WithQueryString("query", "will").
-		JSON(&res)
+
+	_, err = web.MockGet(app, "/api/users.search",
+		r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID),
+		r2.OptQueryValue("query", "will"),
+	).JSON(&res)
 
 	assert.Nil(err)
 	assert.NotEmpty(res.Response)
@@ -128,24 +130,23 @@ func TestAPIUserSearch(t *testing.T) {
 
 func TestAPIUserSearchNonAdmin(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	auth, session := MockAuth(assert, &m, MockModeratorLogin)
 	defer MockLogout(assert, &m, auth, session)
 
-	app := web.New()
-	app.WithAuth(auth)
+	app := web.MustNew()
+	app.Auth = *auth
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUsersResponse
-	err = app.Mock().
-		WithCookieValue(auth.CookieName(), session.SessionID).
-		WithPathf("/api/users.search").
-		WithQueryString("query", "will").
-		JSON(&res)
+	_, err = web.MockGet(app, "/api/users.search",
+		r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID),
+		r2.OptQueryValue("query", "will"),
+	).JSON(&res)
 
 	assert.Nil(err)
 	assert.Empty(res.Response)
@@ -153,16 +154,16 @@ func TestAPIUserSearchNonAdmin(t *testing.T) {
 
 func TestAPIUser(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testUserResponse
-	err = app.Mock().WithPathf("/api/user/%s", TestUserUUID).JSON(&res)
+	_, err = web.MockGet(app, fmt.Sprintf("/api/user/%s", TestUserUUID)).JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotNil(res.Response)
@@ -172,10 +173,10 @@ func TestAPIUser(t *testing.T) {
 func TestAPIImages(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	u, err := CreateTestModeratorUser(&m)
 	assert.Nil(err)
@@ -183,11 +184,11 @@ func TestAPIImages(t *testing.T) {
 	_, err = m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testImagesResponse
-	err = app.Mock().WithPathf("/api/images").JSON(&res)
+	_, err = web.MockGet(app, "/api/images").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
@@ -196,10 +197,10 @@ func TestAPIImages(t *testing.T) {
 func TestAPIImagesRandom(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	u, err := CreateTestModeratorUser(&m)
 	assert.Nil(err)
@@ -207,11 +208,11 @@ func TestAPIImagesRandom(t *testing.T) {
 	_, err = m.CreateTestImage(todo, u.ID)
 	assert.Nil(err)
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testImagesResponse
-	err = app.Mock().WithPathf("/api/images/random/10").JSON(&res)
+	_, err = web.MockGet(app, "/api/images/random/10").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res)
 	assert.NotEmpty(res.Response)
@@ -219,36 +220,38 @@ func TestAPIImagesRandom(t *testing.T) {
 
 func TestAPISiteStats(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testSiteStatsResponse
-	err = app.Mock().WithPathf("/api/stats").JSON(&res)
+	_, err = web.MockGet(app, "/api/stats").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response, "stats response is nil")
 }
 
 func TestAPISessionUser(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	auth, session := MockAuth(assert, &m, MockAdminLogin)
 	defer MockLogout(assert, &m, auth, session)
 
-	app := web.New()
-	app.WithAuth(auth)
-	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv(), OAuth: oauth.New().WithSecret(crypto.MustCreateKey(32))})
+	app := web.MustNew()
+	app.Auth = *auth
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv(), OAuth: oauth.MustNew(oauth.OptSecret(crypto.MustCreateKey(32)))})
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithCookieValue(auth.CookieName(), session.SessionID).WithPathf("/api/session.user").JSON(&res)
+	_, err = web.MockGet(app, "/api/session.user",
+		r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID),
+	).JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.True(res.Response.IsLoggedIn)
@@ -257,16 +260,16 @@ func TestAPISessionUser(t *testing.T) {
 
 func TestAPISessionUserLoggedOut(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
-	app := web.New()
-	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv(), OAuth: oauth.New().WithSecret(crypto.MustCreateKey(32))})
+	app := web.MustNew()
+	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv(), OAuth: oauth.MustNew(oauth.OptSecret(crypto.MustCreateKey(32)))})
 
 	var res testCurrentUserResponse
-	err = app.Mock().WithPathf("/api/session.user").JSON(&res)
+	_, err = web.MockGet(app, "/api/session.user").JSON(&res)
 	assert.Nil(err)
 	assert.NotNil(res.Response)
 	assert.False(res.Response.IsLoggedIn)
@@ -275,16 +278,16 @@ func TestAPISessionUserLoggedOut(t *testing.T) {
 
 func TestAPIGetTeamsNoAuth(t *testing.T) {
 	assert := assert.New(t)
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamsResponse
-	err = app.Mock().WithPathf("/api/teams").JSON(&res)
+	_, err = web.MockGet(app, "/api/teams").JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusForbidden, res.Meta.StatusCode)
 }
@@ -292,10 +295,10 @@ func TestAPIGetTeamsNoAuth(t *testing.T) {
 func TestAPIGetTeams(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	auth, session, err := MockAdminLogin(&m)
 	assert.Nil(err)
@@ -325,13 +328,15 @@ func TestAPIGetTeams(t *testing.T) {
 	err = m.Invoke(todo).Create(team2)
 	assert.Nil(err)
 
-	app := web.New()
-	app.WithAuth(auth)
+	app := web.MustNew()
+	app.Auth = *auth
 
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamsResponse
-	err = app.Mock().WithPathf("/api/teams").WithCookieValue(auth.CookieName(), session.SessionID).JSON(&res)
+	_, err = web.MockGet(app, "/api/teams",
+		r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID),
+	).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotEmpty(res.Response)
@@ -341,10 +346,10 @@ func TestAPIGetTeams(t *testing.T) {
 func TestAPIGetTeamNotAuthed(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	team1 := &model.SlackTeam{
 		CreatedUTC:          time.Now().UTC(),
@@ -358,11 +363,11 @@ func TestAPIGetTeamNotAuthed(t *testing.T) {
 	err = m.Invoke(todo).Create(team1)
 	assert.Nil(err)
 
-	app := web.New()
+	app := web.MustNew()
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamResponse
-	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).JSON(&res)
+	_, err = web.MockGet(app, fmt.Sprintf("/api/team/%s", team1.TeamID)).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusForbidden, res.Meta.StatusCode)
 }
@@ -370,10 +375,10 @@ func TestAPIGetTeamNotAuthed(t *testing.T) {
 func TestAPIGetTeam(t *testing.T) {
 	assert := assert.New(t)
 	todo := testCtx()
-	tx, err := db.Default().Begin()
+	tx, err := testutil.DefaultDB().Begin()
 	assert.Nil(err)
 	defer tx.Rollback()
-	m := model.Manager{DB: db.Default(), Tx: tx}
+	m := model.NewTestManager(tx)
 
 	auth, session, err := MockAdminLogin(&m)
 	assert.Nil(err)
@@ -390,12 +395,14 @@ func TestAPIGetTeam(t *testing.T) {
 	err = m.Invoke(todo).Create(team1)
 	assert.Nil(err)
 
-	app := web.New()
-	app.WithAuth(auth)
+	app := web.MustNew()
+	app.Auth = *auth
 	app.Register(APIs{Model: &m, Config: config.MustNewFromEnv()})
 
 	var res testTeamResponse
-	err = app.Mock().WithPathf("/api/team/%s", team1.TeamID).WithCookieValue(auth.CookieName(), session.SessionID).JSON(&res)
+	_, err = web.MockGet(app, fmt.Sprintf("/api/team/%s", team1.TeamID),
+		r2.OptCookieValue(auth.CookieDefaults.Name, session.SessionID),
+	).JSON(&res)
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, res.Meta.StatusCode)
 	assert.NotNil(res.Response)
