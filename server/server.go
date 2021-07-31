@@ -121,6 +121,7 @@ func New(cfg *config.Giffy) (*web.App, error) {
 		return nil, err
 	}
 
+	cron.Default().Log = log.WithPath("jobs")
 	cron.Default().LoadJobs(jobs.DeleteOrphanedTags{})
 	cron.Default().LoadJobs(jobs.CleanTagValues{Model: mgr})
 	cron.Default().LoadJobs(jobs.FixContentRating{})
