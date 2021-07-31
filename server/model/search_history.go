@@ -81,14 +81,14 @@ func (sh SearchHistory) GetFlag() string {
 // WriteText implements logger.TextWritable.
 func (sh SearchHistory) WriteText(tf logger.TextFormatter, output io.Writer) {
 	fmt.Fprintf(output, "User: %s", sh.SourceUserName)
-	fmt.Fprintf(output, "Search Query: %s", sh.SearchQuery)
+	fmt.Fprintf(output, " Search Query: %s", sh.SearchQuery)
 	if sh.DidFindMatch {
 		if sh.ImageID != nil {
-			fmt.Fprintf(output, "ImageID: %d", *sh.ImageID)
+			fmt.Fprintf(output, " ImageID: %d", *sh.ImageID)
 		} else if sh.TagID != nil {
-			fmt.Fprintf(output, "TagID: %d", *sh.TagID)
+			fmt.Fprintf(output, " TagID: %d", *sh.TagID)
 		}
 	} else {
-		fmt.Fprintf(output, "Not Found")
+		fmt.Fprintf(output, " Not Found")
 	}
 }
