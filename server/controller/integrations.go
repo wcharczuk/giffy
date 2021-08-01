@@ -164,7 +164,7 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 	var resultID *int64
 	var tagID *int64
 
-	if payload.Team.ID != "" {
+	if payload.Team.Name != "" {
 		defer func() {
 			logger.MaybeTrigger(rc.Context(),
 				i.Log,
@@ -258,7 +258,7 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 	var foundResult bool
 	var err error
 
-	if args.TeamID != "" {
+	if args.TeamName != "" {
 		defer func() {
 			logger.MaybeTrigger(rc.Context(), i.Log, model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
 		}()
