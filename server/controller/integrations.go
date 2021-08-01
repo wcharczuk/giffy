@@ -164,12 +164,14 @@ func (i Integrations) slackPost(payload slackActionPayload, rc *web.Ctx) web.Res
 	var resultID *int64
 	var tagID *int64
 
-	defer func() {
-		logger.MaybeTrigger(rc.Context(),
-			i.Log,
-			model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.Team.Name, payload.Channel.ID, payload.Channel.Name, payload.User.ID, payload.User.Name, payload.OriginalMessage.Text, true, resultID, tagID),
-		)
-	}()
+	if payload.Team.ID != "" {
+		defer func() {
+			logger.MaybeTrigger(rc.Context(),
+				i.Log,
+				model.NewSearchHistoryDetailed("slack", payload.Team.ID, payload.Team.Name, payload.Channel.ID, payload.Channel.Name, payload.User.ID, payload.User.Name, payload.OriginalMessage.Text, true, resultID, tagID),
+			)
+		}()
+	}
 
 	_, uuid := i.parseCallbackID(payload.CallbackID)
 	if uuid == "" {
@@ -256,9 +258,11 @@ func (i Integrations) getResult(args slackArguments, rc *web.Ctx) (*viewmodel.Im
 	var foundResult bool
 	var err error
 
-	defer func() {
-		logger.MaybeTrigger(rc.Context(), i.Log, model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
-	}()
+	if args.TeamID != "" {
+		defer func() {
+			logger.MaybeTrigger(rc.Context(), i.Log, model.NewSearchHistoryDetailed("slack", args.TeamID, args.TeamName, args.ChannelID, args.ChannelName, args.UserID, args.UserName, args.Query, foundResult, resultID, tagID))
+		}()
+	}
 
 	contentRatingFilter, err := i.getContentRatingForTeamID(rc.Context(), args.TeamID)
 	if err != nil {
