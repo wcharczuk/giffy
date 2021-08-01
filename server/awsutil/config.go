@@ -14,7 +14,7 @@ var (
 
 const (
 	// EnvVarAWSRegion is an environment variable.
-	EnvVarAWSRegion = "AWS_REGION"
+	EnvVarAWSRegion = "AWS_REGION_NAME"
 	// DefaultRegion a default.
 	DefaultRegion = "us-east-1"
 )

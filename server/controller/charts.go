@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"net/http"
 	"time"
 
@@ -81,12 +82,14 @@ func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 		},
 	}
 
-	rc.Response.Header().Set("Content-Type", "image/svg+xml")
-	err = graph.Render(chart.SVG, rc.Response)
+	buf := new(bytes.Buffer)
+	err = graph.Render(chart.SVG, buf)
 	if err != nil {
 		return API(rc).InternalError(err)
 	}
+	rc.Response.Header().Set("Content-Type", "image/svg+xml")
 	rc.Response.WriteHeader(http.StatusOK)
+	_, _ = buf.WriteTo(rc.Response)
 	return nil
 }
 
