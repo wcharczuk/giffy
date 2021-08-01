@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/web"
+	"github.com/blend/go-sdk/webutil"
 	"github.com/wcharczuk/go-chart"
 
 	"github.com/wcharczuk/giffy/server/config"
@@ -14,6 +16,7 @@ import (
 
 // Chart is a controller for common chart endpoints.
 type Chart struct {
+	Log    logger.Log
 	Config *config.Giffy
 	Model  *model.Manager
 }
@@ -85,9 +88,10 @@ func (c Chart) getSearchChartAction(rc *web.Ctx) web.Result {
 	buf := new(bytes.Buffer)
 	err = graph.Render(chart.SVG, buf)
 	if err != nil {
-		return API(rc).InternalError(err)
+		logger.MaybeFatal(c.Log, err)
+		return nil
 	}
-	rc.Response.Header().Set("Content-Type", "image/svg+xml")
+	rc.Response.Header().Set(webutil.HeaderContentType, chart.ContentTypeSVG)
 	rc.Response.WriteHeader(http.StatusOK)
 	_, _ = buf.WriteTo(rc.Response)
 	return nil

@@ -17,7 +17,7 @@ func NewImage(img model.Image, cfg *config.Giffy) Image {
 	}
 	return Image{
 		Image:     img,
-		S3ReadURL: fmt.Sprintf("https://s3-%s.amazonaws.com/%s/%s", cfg.Aws.RegionOrDefault(), img.S3Bucket, img.S3Key),
+		S3ReadURL: fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", img.S3Bucket, cfg.Aws.RegionOrDefault(), img.S3Key),
 	}
 }
 

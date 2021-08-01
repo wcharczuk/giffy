@@ -7,8 +7,6 @@ export NAMESPACE
 CURRENT_REF := $(shell git log --pretty=format:'%h' -n 1)
 export CURRENT_REF
 
-export PORT=9090
-
 all: migrate test
 
 new-install: db

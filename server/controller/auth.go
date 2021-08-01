@@ -187,6 +187,7 @@ func (ac Auth) mapGoogleUser(profile *oauth.Profile) *model.User {
 func (ac Auth) oauthGoogleAction(r *web.Ctx) web.Result {
 	res, err := ac.OAuth.Finish(r.Request)
 	if err != nil {
+		logger.MaybeWarning(ac.Log, err)
 		return r.Views.NotAuthorized()
 	}
 	prototypeUser := ac.mapGoogleUser(&res.Profile)

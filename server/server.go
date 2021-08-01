@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/blend/go-sdk/cron"
@@ -43,6 +44,11 @@ var (
 
 // New returns a new server instance.
 func New(cfg *config.Giffy) (*web.App, error) {
+
+	if cfg.EncryptionKey == "" {
+		return nil, fmt.Errorf("encryption key is unset, cannot continue")
+	}
+
 	log := logger.MustNew(
 		logger.OptConfig(cfg.Logger),
 	)
@@ -60,9 +66,14 @@ func New(cfg *config.Giffy) (*web.App, error) {
 		return nil, err
 	}
 
+	log.Infof("using service env: %s", cfg.ServiceEnvOrDefault())
 	log.Infof("using database: %s", conn.Config.CreateLoggingDSN())
 	log.Infof("using admin user email: %s", cfg.AdminUserEmail)
-	log.Infof("using aws access key: %s", cfg.Aws.AccessKeyID)
+	if cfg.Aws.AccessKeyID != "" {
+		log.Infof("using aws access key: %s", cfg.Aws.AccessKeyID)
+	} else {
+		log.Warningf("aws access key unset, uploads will fail")
+	}
 	log.Infof("using aws region: %s", cfg.Aws.RegionOrDefault())
 	log.Infof("using aws s3 bucket: %s", cfg.S3Bucket)
 	log.Infof("using aws cloudfront dns: %s", cfg.CloudFrontDNS)
@@ -117,7 +128,7 @@ func New(cfg *config.Giffy) (*web.App, error) {
 	app.Register(controller.Integrations{Log: log, Model: mgr, Config: cfg})
 	app.Register(controller.Auth{Log: log, Model: mgr, Config: cfg, OAuth: oauthMgr})
 	app.Register(controller.UploadImage{Log: log, Model: mgr, Config: cfg, Files: fm})
-	app.Register(controller.Chart{Model: mgr, Config: cfg})
+	app.Register(controller.Chart{Log: log, Model: mgr, Config: cfg})
 
 	if model.Migrations(cfg).Apply(context.Background(), conn); err != nil {
 		return nil, err
