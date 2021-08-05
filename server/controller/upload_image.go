@@ -53,7 +53,7 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	var fileName string
 	var fileErr error
 
-	if imageURL, _ := r.QueryValue("image_url"); imageURL != "" {
+	if imageURL, _ := r.Param("image_url"); imageURL != "" {
 		fileName, fileContents, fileErr = ic.FetchImageFromURL(imageURL)
 		if fileErr != nil {
 			return r.Views.BadRequest(fileErr)
