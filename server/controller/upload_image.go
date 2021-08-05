@@ -53,28 +53,30 @@ func (ic UploadImage) uploadImageCompleteAction(r *web.Ctx) web.Result {
 	var fileName string
 	var fileErr error
 
-	if imageURL, _ := r.Param("image_url"); imageURL != "" {
-		fileName, fileContents, fileErr = ic.FetchImageFromURL(imageURL)
-		if fileErr != nil {
-			return r.Views.BadRequest(fileErr)
-		}
-	} else {
-		files, err := webutil.PostedFiles(
-			r.Request,
-			webutil.OptPostedFilesParseMultipartForm(true),
-			webutil.OptPostedFilesParseForm(false),
-		)
-		if err != nil {
-			return r.Views.BadRequest(fmt.Errorf("problem reading posted file: %+v", err))
-		}
-		if len(files) == 0 {
-			return r.Views.BadRequest(fmt.Errorf("no files posted"))
-		}
+	files, err := webutil.PostedFiles(
+		r.Request,
+		webutil.OptPostedFilesParseMultipartForm(true),
+		webutil.OptPostedFilesParseForm(false),
+	)
+
+	if err != nil {
+		return r.Views.BadRequest(fmt.Errorf("problem reading posted file: %+v", err))
+	}
+
+	if len(files) > 0 {
 		if len(files) > 1 {
 			return r.Views.BadRequest(fmt.Errorf("too many files posted"))
 		}
 		fileName = files[0].FileName
 		fileContents = files[0].Contents
+	} else if imageURL, _ := r.Param("image_url"); imageURL != "" {
+		fileName, fileContents, fileErr = ic.FetchImageFromURL(imageURL)
+		if fileErr != nil {
+			return r.Views.BadRequest(fileErr)
+		}
+	}
+	if len(fileContents) == 0 {
+		return r.Views.BadRequest(fmt.Errorf("no files posted"))
 	}
 
 	md5sum := model.ConvertMD5(md5.Sum(fileContents))
